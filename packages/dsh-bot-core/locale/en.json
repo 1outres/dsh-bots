@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Bots",
+    "description": "Adds a Bots section above Workspaces in the sidebar. Each bot has a name, an avatar, its own virtual machine (where its working directory lives) and a Main session; the bot's other sessions are listed under it. Also provides the shared bot service other bot plugins use. On a bot's session the chat screen shows the bot's face and name, Chat only, and a menu bar of bot actions; the bot's files open in a viewer there instead of the right sidebar."
+  }
+}

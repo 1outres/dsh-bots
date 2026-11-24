@@ -1,0 +1,10 @@
+// Design rule 29: shared shapes are readonly.
+// Every property of an interface or object type under src/shared/ is
+// `readonly`: these values cross the Host/browser boundary and are stored.
+or { TsPropertySignatureTypeMember(), TsIndexSignatureTypeMember() } as $member where {
+  not $member <: r"(?s)readonly\b.*",
+  register_diagnostic(
+    span = $member,
+    message = "Design rule 29: mark this shared property readonly; shapes under src/shared/ cross the Host/browser boundary and are stored, so nothing may mutate them in place."
+  )
+}

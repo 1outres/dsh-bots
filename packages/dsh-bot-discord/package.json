@@ -1,0 +1,62 @@
+{
+  "name": "@1outres/dsh-bot-discord",
+  "version": "0.3.0",
+  "description": "Connects each bot of DeepSeek Harness to its own Discord bot: direct messages from allowed users reach the bot's Main session, and its replies come back.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/1outres/dsh-bots.git",
+    "directory": "packages/dsh-bot-discord"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "src",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg"
+  ],
+  "scripts": {
+    "prepublishOnly": "node ../../scripts/build.mjs"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "bot",
+    "discord",
+    "deepseek-harness"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "dsh": "0.2.2-rc.5",
+    "node": ">=22"
+  },
+  "peerDependencies": {
+    "@1outres/dsh-bot-core": "workspace:^0.3.0",
+    "@deepseek-ai/cordis": "~4.1.0"
+  },
+  "devDependencies": {
+    "@1outres/dsh-bot-core": "workspace:*",
+    "@deepseek-ai/cordis": "~4.1.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": [
+        "./cordis.patch.yml"
+      ]
+    }
+  },
+  "dependencies": {
+    "discord.js": "^14.28.1",
+    "zod": "4.4.3"
+  }
+}

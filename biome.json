@@ -1,0 +1,710 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": ["**", "!pnpm-lock.yaml", "!test/fixtures/lint"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "style": {
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "patterns": [
+              {
+                "group": [
+                  "@1outres/*/src",
+                  "@1outres/*/src/**",
+                  "@1outres/*/lib",
+                  "@1outres/*/lib/**",
+                  "**/dsh-bot-*/src/**",
+                  "**/dsh-bot-*/lib/**"
+                ],
+                "message": "Design rule 15: do not import another package's src/ or lib/; import its public entry (e.g. @1outres/dsh-bot-core), because internal paths change without notice."
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "semicolons": "asNeeded",
+      "trailingCommas": "all"
+    }
+  },
+  "plugins": [
+    {
+      "path": "./.biome/plugins/01-session-create.grit",
+      "includes": [
+        "packages/*/src/**",
+        "!packages/dsh-bot-core/src/host/preset/session.ts",
+        "!packages/dsh-bot-core/src/index.ts"
+      ]
+    },
+    {
+      "path": "./.biome/plugins/02-preset-register.grit",
+      "includes": [
+        "packages/*/src/**",
+        "!packages/dsh-bot-core/src/host/preset/realize.ts",
+        "!packages/dsh-bot-core/src/index.ts"
+      ]
+    },
+    {
+      "path": "./.biome/plugins/03-tools-restrict.grit",
+      "includes": [
+        "packages/*/src/**",
+        "!packages/dsh-bot-core/src/host/preset/isolation.ts",
+        "!packages/dsh-bot-core/src/index.ts"
+      ]
+    },
+    {
+      "path": "./.biome/plugins/36-interaction-waterfalls.grit",
+      "includes": ["packages/*/src/**", "!packages/dsh-bot-core/src/index.ts"]
+    },
+    {
+      "path": "./.biome/plugins/37-prompt-assemble.grit",
+      "includes": ["packages/*/src/**", "!packages/dsh-bot-core/src/plugins/prompt.ts"]
+    },
+    {
+      "path": "./.biome/plugins/50-pre-step.grit",
+      "includes": [
+        "packages/*/src/**",
+        "!packages/dsh-bot-core/src/plugins/notes.ts",
+        "!packages/dsh-bot-core/src/plugins/skills.ts"
+      ]
+    },
+    {
+      "path": "./.biome/plugins/38-permission-writes.grit",
+      "includes": ["packages/*/src/**", "!packages/dsh-bot-core/src/index.ts"]
+    },
+    {
+      "path": "./.biome/plugins/34-tools-register.grit",
+      "includes": [
+        "packages/*/src/**",
+        "!packages/dsh-bot-core/src/plugins/channel.ts",
+        "!packages/dsh-bot-core/src/plugins/connectors.ts",
+        "!packages/dsh-bot-core/src/plugins/schedule.ts",
+        "!packages/dsh-bot-core/src/plugins/sessions.ts",
+        "!packages/dsh-bot-core/src/plugins/notes.ts",
+        "!packages/dsh-bot-core/src/plugins/skills.ts",
+        "!packages/dsh-bot-core/src/plugins/conversations.ts"
+      ]
+    },
+    {
+      "path": "./.biome/plugins/55-session-query.grit",
+      "includes": ["packages/*/src/**", "!packages/dsh-bot-core/src/index.ts"]
+    },
+    {
+      "path": "./.biome/plugins/39-connector-execute.grit",
+      "includes": ["packages/*/src/**", "!packages/dsh-bot-core/src/host/connectors/execution.ts"]
+    },
+    {
+      "path": "./.biome/plugins/40-connector-ledger-writes.grit",
+      "includes": ["packages/*/src/**", "!packages/dsh-bot-core/src/host/connectors/ledger.ts"]
+    },
+    {
+      "path": "./.biome/plugins/41-notice-outbox-writes.grit",
+      "includes": ["packages/*/src/**", "!packages/dsh-bot-core/src/host/notices/outbox.ts"]
+    },
+    {
+      "path": "./.biome/plugins/54-skill-store-writes.grit",
+      "includes": ["packages/*/src/**", "!packages/dsh-bot-core/src/host/skills/store.ts"]
+    },
+    {
+      "path": "./.biome/plugins/52-main-store-writes.grit",
+      "includes": ["packages/*/src/**", "!packages/dsh-bot-core/src/host/mains/store.ts"]
+    },
+    {
+      "path": "./.biome/plugins/42-schedule-store-writes.grit",
+      "includes": ["packages/*/src/**", "!packages/dsh-bot-core/src/host/schedule/store.ts"]
+    },
+    {
+      "path": "./.biome/plugins/44-web-settings-writes.grit",
+      "includes": ["packages/*/src/**", "!packages/dsh-bot-core/src/host/web/store.ts"]
+    },
+    {
+      "path": "./.biome/plugins/45-web-providers.grit",
+      "includes": ["packages/*/src/**", "!packages/dsh-bot-core/src/plugins/web.ts"]
+    },
+    {
+      "path": "./.biome/plugins/43-connector-lifecycle.grit",
+      "includes": [
+        "packages/*/src/**",
+        "!packages/dsh-bot-core/src/host/connectors/readiness.ts",
+        "!packages/dsh-bot-core/src/host/connectors/attachments.ts"
+      ]
+    },
+    {
+      "path": "./.biome/plugins/48-connection-writes.grit",
+      "includes": [
+        "packages/dsh-bot-core/src/**",
+        "!packages/dsh-bot-core/src/host/connections/store.ts"
+      ]
+    },
+    {
+      "path": "./.biome/plugins/49-event-writes.grit",
+      "includes": [
+        "packages/dsh-bot-core/src/**",
+        "!packages/dsh-bot-core/src/host/events/store.ts"
+      ]
+    },
+    {
+      "path": "./.biome/plugins/51-model-writes.grit",
+      "includes": [
+        "packages/dsh-bot-core/src/**",
+        "!packages/dsh-bot-core/src/host/models/store.ts"
+      ]
+    },
+    {
+      "path": "./.biome/plugins/53-managed-session-writes.grit",
+      "includes": [
+        "packages/dsh-bot-core/src/**",
+        "!packages/dsh-bot-core/src/host/managed/store.ts"
+      ]
+    },
+    {
+      "path": "./.biome/plugins/56-workspace-grant-writes.grit",
+      "includes": [
+        "packages/dsh-bot-core/src/**",
+        "!packages/dsh-bot-core/src/host/managed/grants-store.ts"
+      ]
+    },
+    {
+      "path": "./.biome/plugins/46-connector-decisions.grit",
+      "includes": ["packages/*/src/**", "!packages/dsh-bot-core/src/host/connectors/approvals.ts"]
+    },
+    {
+      "path": "./.biome/plugins/04-agent-created.grit",
+      "includes": [
+        "packages/*/src/**",
+        "!packages/dsh-bot-core/src/host/preset/isolation.ts",
+        "!packages/dsh-bot-core/src/index.ts"
+      ]
+    },
+    {
+      "path": "./.biome/plugins/05-bot-preset-id.grit",
+      "includes": ["packages/*/src/**", "!packages/dsh-bot-core/src/shared/preset.ts"]
+    },
+    {
+      "path": "./.biome/plugins/06-bot-table-writes.grit",
+      "includes": ["packages/*/src/**", "!packages/dsh-bot-core/src/host/registry.ts"]
+    },
+    {
+      "path": "./.biome/plugins/07-workspace-registry.grit",
+      "includes": [
+        "packages/*/src/**",
+        "!packages/dsh-bot-core/src/index.ts",
+        "!packages/dsh-bot-core/src/host/cleanup.ts"
+      ]
+    },
+    {
+      "path": "./.biome/plugins/08-service-lookup.grit",
+      "includes": [
+        "packages/*/src/**",
+        "!packages/dsh-bot-core/src/contract.ts",
+        "!packages/dsh-bot-core/src/client/store.ts",
+        "!packages/dsh-bot-core/src/plugins/files.ts",
+        "!packages/dsh-bot-core/src/plugins/web.ts",
+        "!packages/dsh-bot-core/src/plugins/compaction.ts",
+        "!packages/dsh-bot-vm/src/index.ts",
+        "!packages/dsh-bot-discord/src/index.ts",
+        "!packages/dsh-bot-connector-google/src/index.ts",
+        "!packages/dsh-bot-web/src/index.ts",
+        "!packages/dsh-bot-connector-desktop/src/index.ts",
+        "!packages/dsh-bot-connector-browser/src/index.ts"
+      ]
+    },
+    {
+      "path": "./.biome/plugins/13-context-parameter.grit",
+      "includes": ["packages/dsh-bot-core/src/host/**", "!packages/dsh-bot-core/src/host/remote.ts"]
+    },
+    {
+      "path": "./.biome/plugins/17-channel-host-services.grit",
+      "includes": ["packages/dsh-bot-*/src/**", "!packages/dsh-bot-core/**"]
+    },
+    {
+      "path": "./.biome/plugins/20-service-private-members.grit",
+      "includes": ["packages/*/src/**"]
+    },
+    {
+      "path": "./.biome/plugins/21-remote-remove-method.grit",
+      "includes": ["packages/*/src/**"]
+    },
+    {
+      "path": "./.biome/plugins/22-cordis-augmentation.grit",
+      "includes": ["**/*.ts", "**/*.tsx"]
+    },
+    {
+      "path": "./.biome/plugins/23-restrict-allow.grit",
+      "includes": ["packages/*/src/**"]
+    },
+    {
+      "path": "./.biome/plugins/24-double-cast.grit",
+      "includes": ["packages/*/src/**", "!packages/*/src/index.ts"]
+    },
+    {
+      "path": "./.biome/plugins/25-preset-casts.grit",
+      "includes": ["packages/*/src/**"]
+    },
+    {
+      "path": "./.biome/plugins/26-host-clock.grit",
+      "includes": ["packages/*/src/host/**"]
+    },
+    {
+      "path": "./.biome/plugins/29-shared-readonly.grit",
+      "includes": ["packages/*/src/shared/**"]
+    },
+    {
+      "path": "./.biome/plugins/31-document-body.grit",
+      "includes": [
+        "packages/*/src/client/**",
+        "!packages/dsh-bot-core/src/client/hide-picker-workspaces.ts"
+      ]
+    },
+    {
+      "path": "./.biome/plugins/32-style-colors.grit",
+      "includes": ["packages/*/src/client/styles*.ts", "packages/*/src/client/ui/styles*.ts"]
+    },
+    {
+      "path": "./.biome/plugins/47-locale-format.grit",
+      "includes": ["packages/*/src/client/**", "!packages/dsh-bot-core/src/client/locale-format.ts"]
+    }
+  ],
+  "overrides": [
+    {
+      "includes": [".biome/plugins/**"],
+      "formatter": {
+        "enabled": false
+      }
+    },
+    {
+      "includes": ["packages/dsh-bot-*/**", "!packages/dsh-bot-core/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@1outres/*/src",
+                      "@1outres/*/src/**",
+                      "@1outres/*/lib",
+                      "@1outres/*/lib/**",
+                      "**/dsh-bot-*/src/**",
+                      "**/dsh-bot-*/lib/**"
+                    ],
+                    "message": "Design rule 15: do not import another package's src/ or lib/; import its public entry (e.g. @1outres/dsh-bot-core), because internal paths change without notice."
+                  },
+                  {
+                    "group": [
+                      "@deepseek-ai/dsh-api-session-controller",
+                      "@deepseek-ai/dsh-api-session-controller/**",
+                      "@deepseek-ai/dsh-agent-preset-registry",
+                      "@deepseek-ai/dsh-agent-preset-registry/**",
+                      "@deepseek-ai/dsh-tools",
+                      "@deepseek-ai/dsh-tools/**",
+                      "@deepseek-ai/dsh-credentials",
+                      "@deepseek-ai/dsh-credentials/**"
+                    ],
+                    "message": "Design rule 16: channel plugins must not import DSH session, preset, tool or credential services; use the bot service (botOf(ctx)), which keeps bot sessions under their preset and isolation and a channel's secrets in its settings."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "packages/dsh-bot-discord/src/**",
+        "!packages/dsh-bot-discord/src/host/discordjs/**"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@1outres/*/src",
+                      "@1outres/*/src/**",
+                      "@1outres/*/lib",
+                      "@1outres/*/lib/**",
+                      "**/dsh-bot-*/src/**",
+                      "**/dsh-bot-*/lib/**"
+                    ],
+                    "message": "Design rule 15: do not import another package's src/ or lib/; import its public entry (e.g. @1outres/dsh-bot-core), because internal paths change without notice."
+                  },
+                  {
+                    "group": [
+                      "@deepseek-ai/dsh-api-session-controller",
+                      "@deepseek-ai/dsh-api-session-controller/**",
+                      "@deepseek-ai/dsh-agent-preset-registry",
+                      "@deepseek-ai/dsh-agent-preset-registry/**",
+                      "@deepseek-ai/dsh-tools",
+                      "@deepseek-ai/dsh-tools/**",
+                      "@deepseek-ai/dsh-credentials",
+                      "@deepseek-ai/dsh-credentials/**"
+                    ],
+                    "message": "Design rule 16: channel plugins must not import DSH session, preset, tool or credential services; use the bot service (botOf(ctx)), which keeps bot sessions under their preset and isolation and a channel's secrets in its settings."
+                  },
+                  {
+                    "group": [
+                      "node:fs",
+                      "node:fs/**",
+                      "fs",
+                      "fs/**",
+                      "node:child_process",
+                      "child_process"
+                    ],
+                    "message": "Design rule 35: a channel plugin must not touch the Host's file system or processes; attachments reach the bot through deliver() (bot-core saves them in the bot's environment) and files leave as the 'file' outputs bot-core sends for what the Main session presents, because a bot's files live only in its environment."
+                  },
+                  {
+                    "group": [
+                      "discord.js",
+                      "discord.js/**",
+                      "@discordjs/*",
+                      "@discordjs/*/**",
+                      "discord-api-types",
+                      "discord-api-types/**"
+                    ],
+                    "message": "Design rule 33: only the discord.js adapter (src/host/discordjs/) may import discord.js and its packages; the channel's logic uses the plain contract in src/host/discord.ts, so it stays testable and the library stays replaceable."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["packages/dsh-bot-discord/src/host/discordjs/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@1outres/*/src",
+                      "@1outres/*/src/**",
+                      "@1outres/*/lib",
+                      "@1outres/*/lib/**",
+                      "**/dsh-bot-*/src/**",
+                      "**/dsh-bot-*/lib/**"
+                    ],
+                    "message": "Design rule 15: do not import another package's src/ or lib/; import its public entry (e.g. @1outres/dsh-bot-core), because internal paths change without notice."
+                  },
+                  {
+                    "group": [
+                      "@deepseek-ai/dsh-api-session-controller",
+                      "@deepseek-ai/dsh-api-session-controller/**",
+                      "@deepseek-ai/dsh-agent-preset-registry",
+                      "@deepseek-ai/dsh-agent-preset-registry/**",
+                      "@deepseek-ai/dsh-tools",
+                      "@deepseek-ai/dsh-tools/**",
+                      "@deepseek-ai/dsh-credentials",
+                      "@deepseek-ai/dsh-credentials/**"
+                    ],
+                    "message": "Design rule 16: channel plugins must not import DSH session, preset, tool or credential services; use the bot service (botOf(ctx)), which keeps bot sessions under their preset and isolation and a channel's secrets in its settings."
+                  },
+                  {
+                    "group": [
+                      "node:fs",
+                      "node:fs/**",
+                      "fs",
+                      "fs/**",
+                      "node:child_process",
+                      "child_process"
+                    ],
+                    "message": "Design rule 35: a channel plugin must not touch the Host's file system or processes; attachments reach the bot through deliver() (bot-core saves them in the bot's environment) and files leave as the 'file' outputs bot-core sends for what the Main session presents, because a bot's files live only in its environment."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["packages/dsh-bot-core/src/**", "!packages/dsh-bot-core/src/index.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["node:fs", "node:fs/**", "fs", "fs/**", "node:os", "os"],
+                    "message": "Design rule 14: only src/index.ts may import node:fs and node:os; inject the file system or home directory as a dependency, so modules stay testable."
+                  },
+                  {
+                    "group": ["node:crypto", "crypto"],
+                    "message": "Design rule 14: only src/index.ts and host/preset/compose.ts may import node:crypto; take ids from an injected newId(), so modules stay deterministic."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["packages/dsh-bot-core/src/host/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "client",
+                      "client/**",
+                      "./client",
+                      "./client/**",
+                      "../client",
+                      "../client/**",
+                      "../../client",
+                      "../../client/**",
+                      "../../../client",
+                      "../../../client/**"
+                    ],
+                    "message": "Design rule 11: host/ must not import client/; share types and functions through shared/, because browser code does not run on the Host."
+                  },
+                  {
+                    "group": ["node:fs", "node:fs/**", "fs", "fs/**", "node:os", "os"],
+                    "message": "Design rule 14: only src/index.ts may import node:fs and node:os; inject the file system or home directory as a dependency, so modules stay testable."
+                  },
+                  {
+                    "group": ["node:crypto", "crypto"],
+                    "message": "Design rule 14: only src/index.ts and host/preset/compose.ts may import node:crypto; take ids from an injected newId(), so modules stay deterministic."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["packages/dsh-bot-core/src/host/preset/compose.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "client",
+                      "client/**",
+                      "./client",
+                      "./client/**",
+                      "../client",
+                      "../client/**",
+                      "../../client",
+                      "../../client/**",
+                      "../../../client",
+                      "../../../client/**"
+                    ],
+                    "message": "Design rule 11: host/ must not import client/; share types and functions through shared/, because browser code does not run on the Host."
+                  },
+                  {
+                    "group": ["@deepseek-ai/*", "@deepseek-ai/*/**"],
+                    "message": "Design rule 12: the pure preset modules (compose, catalog, default-template) must not import @deepseek-ai packages; mirror the needed types here and let realize.ts talk to DSH."
+                  },
+                  {
+                    "group": ["node:fs", "node:fs/**", "fs", "fs/**", "node:os", "os"],
+                    "message": "Design rule 14: only src/index.ts may import node:fs and node:os; inject the file system or home directory as a dependency, so modules stay testable."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "packages/dsh-bot-core/src/host/preset/catalog.ts",
+        "packages/dsh-bot-core/src/host/preset/default-template.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "client",
+                      "client/**",
+                      "./client",
+                      "./client/**",
+                      "../client",
+                      "../client/**",
+                      "../../client",
+                      "../../client/**",
+                      "../../../client",
+                      "../../../client/**"
+                    ],
+                    "message": "Design rule 11: host/ must not import client/; share types and functions through shared/, because browser code does not run on the Host."
+                  },
+                  {
+                    "group": ["@deepseek-ai/*", "@deepseek-ai/*/**"],
+                    "message": "Design rule 12: the pure preset modules (compose, catalog, default-template) must not import @deepseek-ai packages; mirror the needed types here and let realize.ts talk to DSH."
+                  },
+                  {
+                    "group": ["node:fs", "node:fs/**", "fs", "fs/**", "node:os", "os"],
+                    "message": "Design rule 14: only src/index.ts may import node:fs and node:os; inject the file system or home directory as a dependency, so modules stay testable."
+                  },
+                  {
+                    "group": ["node:crypto", "crypto"],
+                    "message": "Design rule 14: only src/index.ts and host/preset/compose.ts may import node:crypto; take ids from an injected newId(), so modules stay deterministic."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["packages/dsh-bot-core/src/shared/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "host",
+                      "host/**",
+                      "./host",
+                      "./host/**",
+                      "../host",
+                      "../host/**",
+                      "../../host",
+                      "../../host/**",
+                      "../../../host",
+                      "../../../host/**"
+                    ],
+                    "message": "Design rule 9: shared/ must not import host/; move the code to shared/ or into the Host module, because shared/ is pure and also runs in the browser."
+                  },
+                  {
+                    "group": [
+                      "client",
+                      "client/**",
+                      "./client",
+                      "./client/**",
+                      "../client",
+                      "../client/**",
+                      "../../client",
+                      "../../client/**",
+                      "../../../client",
+                      "../../../client/**"
+                    ],
+                    "message": "Design rule 9: shared/ must not import client/; move the code to shared/, because shared/ is the pure layer both halves import."
+                  },
+                  {
+                    "group": ["node:*", "node:*/**"],
+                    "message": "Design rule 9: shared/ must not import Node built-ins; keep shared/ pure, because the browser half imports it too."
+                  },
+                  {
+                    "group": ["@deepseek-ai/*", "@deepseek-ai/*/**"],
+                    "message": "Design rule 9: shared/ must not import @deepseek-ai packages; keep shared/ as plain types and functions, so it stays browser-safe and free of DSH versions."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["packages/dsh-bot-core/src/client/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "host",
+                      "host/**",
+                      "./host",
+                      "./host/**",
+                      "../host",
+                      "../host/**",
+                      "../../host",
+                      "../../host/**",
+                      "../../../host",
+                      "../../../host/**"
+                    ],
+                    "message": "Design rule 10: client/ must not import host/; share types and functions through shared/, because Host code does not run in the browser."
+                  },
+                  {
+                    "group": ["node:*", "node:*/**"],
+                    "message": "Design rule 10: client/ must not import Node built-ins; the browser half has no Node runtime, so use browser APIs or move the work to the Host."
+                  },
+                  {
+                    "group": ["@deepseek-ai/dsh-client-ui-*", "@deepseek-ai/dsh-client-ui-*/**"],
+                    "message": "Design rule 30: client/ must not import @deepseek-ai/dsh-client-ui-* packages; reach them through the injected Cordis services, because they are not bundled with this plugin."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["packages/*/src/host/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedGlobals": {
+              "level": "error",
+              "options": {
+                "deniedGlobals": {
+                  "setTimeout": "Design rule 26: do not call setTimeout in a Host module; take a later()/scheduler dependency wired in src/index.ts, so the module stays deterministic under test.",
+                  "setInterval": "Design rule 26: do not call setInterval in a Host module; take a later()/scheduler dependency wired in src/index.ts, so the module stays deterministic under test."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

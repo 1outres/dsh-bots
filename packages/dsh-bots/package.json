@@ -1,0 +1,52 @@
+{
+  "name": "@1outres/dsh-bots",
+  "version": "0.3.0",
+  "description": "Installs every bot plugin of the dsh-bots collection into DeepSeek Harness at once.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/1outres/dsh-bots.git",
+    "directory": "packages/dsh-bots"
+  },
+  "type": "module",
+  "exports": {
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-bundle",
+    "bot",
+    "deepseek-harness"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "dsh": "0.2.2-rc.5",
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@1outres/dsh-bot-connector-browser": "workspace:*",
+    "@1outres/dsh-bot-connector-desktop": "workspace:*",
+    "@1outres/dsh-bot-connector-google": "workspace:*",
+    "@1outres/dsh-bot-core": "workspace:*",
+    "@1outres/dsh-bot-discord": "workspace:*",
+    "@1outres/dsh-bot-vm": "workspace:*",
+    "@1outres/dsh-bot-web": "workspace:*"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": [
+        "./cordis.patch.yml"
+      ]
+    }
+  }
+}

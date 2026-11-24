@@ -1,0 +1,12 @@
+// Design rule 8: services are looked up by name in one place.
+// `ctx.get(...)` (a receiver named `ctx` or ending in `.ctx`) may appear only
+// in contract.ts (botOf) and in client/store.ts, which reads the mounted
+// `remote.bots` proxy that has no typed accessor.
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or { `$receiver.get`, `$receiver?.get` },
+  $receiver <: or { `ctx`, `$_.ctx`, `$_?.ctx` },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 8: do not look services up with ctx.get(); use the typed accessor botOf(ctx) from contract.ts, which names the service once and fails with a clear message."
+  )
+}

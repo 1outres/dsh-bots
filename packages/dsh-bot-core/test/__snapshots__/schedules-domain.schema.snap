@@ -1,0 +1,98 @@
+{
+  "name": "dsh_bot_schedules",
+  "version": 1,
+  "tables": {
+    "jobs": {
+      "botId": {
+        "required": true,
+        "type": "string"
+      },
+      "name": {
+        "required": true,
+        "type": "string"
+      },
+      "mode": {
+        "required": true,
+        "type": "\"main\" | \"separate\""
+      },
+      "schedule": {
+        "required": true,
+        "type": "{ kind: \"at\"; at: number } | { kind: \"every\"; everySeconds: number } | { kind: \"cron\"; expression: string }"
+      },
+      "timezone": {
+        "required": true,
+        "type": "string"
+      },
+      "instruction": {
+        "required": true,
+        "type": "string"
+      },
+      "check": {
+        "required": false,
+        "type": "{ command: string; timeoutSeconds: number }"
+      },
+      "enabled": {
+        "required": true,
+        "type": "boolean"
+      },
+      "createdBy": {
+        "required": true,
+        "type": "{ sessionId: string }"
+      },
+      "createdAt": {
+        "required": true,
+        "type": "number"
+      },
+      "updatedAt": {
+        "required": true,
+        "type": "number"
+      },
+      "nextRunAt": {
+        "required": false,
+        "type": "number"
+      },
+      "failureStreak": {
+        "required": true,
+        "type": "number"
+      }
+    },
+    "runs": {
+      "botId": {
+        "required": true,
+        "type": "string"
+      },
+      "jobId": {
+        "required": true,
+        "type": "string"
+      },
+      "trigger": {
+        "required": true,
+        "type": "\"schedule\" | \"manual\""
+      },
+      "scheduledAt": {
+        "required": true,
+        "type": "number"
+      },
+      "startedAt": {
+        "required": true,
+        "type": "number"
+      },
+      "state": {
+        "required": true,
+        "type": "\"running\" | \"skipped\" | \"quiet\" | \"ran\" | \"reported\" | \"nothing\" | \"failed\""
+      },
+      "endedAt": {
+        "required": false,
+        "type": "number"
+      },
+      "sessionId": {
+        "required": false,
+        "type": "string"
+      },
+      "failure": {
+        "required": false,
+        "type": "{ stage: \"check\" | \"run\"; message: string; exitCode?: number; stderr?: string }"
+      }
+    }
+  }
+}

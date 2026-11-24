@@ -1,0 +1,12 @@
+// Design rule 41: bot notices are written in one place.
+// `notices.put(...)` / `notices.delete(...)` (a receiver named `notices` or
+// ending in `.notices`) may appear only in host/notices/outbox.ts: a notice is
+// stored before delivery and removed only once its message is recorded.
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or { `$receiver.put`, `$receiver.delete`, `$receiver?.put`, `$receiver?.delete` },
+  $receiver <: or { `notices`, `$_.notices`, `$_?.notices` },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 41: do not write the notices table here; go through the outbox (host/notices/outbox.ts), which keeps a notice until its message is recorded in the Main session."
+  )
+}

@@ -1,0 +1,37 @@
+import { ACTIONS_CSS } from "./styles-actions"
+import { APPROVALS_CSS } from "./styles-approvals"
+import { CHANNELS_CSS } from "./styles-channels"
+import { CONNECTIONS_CSS } from "./styles-connections"
+import { CONNECTOR_PANELS_CSS } from "./styles-connector-panels"
+import { CONNECTORS_CSS } from "./styles-connectors"
+import { DIALOG_CSS } from "./styles-dialog"
+import { FILES_CSS } from "./styles-files"
+import { INTERACTIONS_CSS } from "./styles-interactions"
+import { LIFECYCLE_CSS } from "./styles-lifecycle"
+import { NOTES_CSS } from "./styles-notes"
+import { ROWS_CSS } from "./styles-rows"
+import { SETTINGS_CSS } from "./styles-settings"
+import { SHELL_CSS } from "./styles-shell"
+import { SKILLS_CSS } from "./styles-skills"
+import { WEB_CSS } from "./styles-web"
+import { UI_CSS } from "./ui/styles"
+
+/** Every stylesheet of the browser half, injected once. */
+export const BOTS_CSS =
+  UI_CSS +
+  ROWS_CSS +
+  DIALOG_CSS +
+  ACTIONS_CSS +
+  SHELL_CSS +
+  FILES_CSS +
+  NOTES_CSS +
+  CONNECTOR_PANELS_CSS +
+  CHANNELS_CSS +
+  CONNECTORS_CSS +
+  CONNECTIONS_CSS +
+  INTERACTIONS_CSS +
+  APPROVALS_CSS +
+  SETTINGS_CSS +
+  WEB_CSS +
+  SKILLS_CSS +
+  LIFECYCLE_CSS

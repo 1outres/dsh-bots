@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none" role="img" aria-labelledby="title">
+  <title id="title">Gmail and calendar for bots</title>
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="#1A73E8"/>
+  <rect x="13" y="19" width="38" height="27" rx="4" fill="#FFFFFF"/>
+  <path d="M15 22l17 12 17-12" stroke="#1A73E8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="38" y="36" width="16" height="16" rx="3" fill="#FFFFFF" stroke="#1A73E8" stroke-width="2"/>
+  <path d="M42 34v4M50 34v4M38 41h16" stroke="#1A73E8" stroke-width="2" stroke-linecap="round"/>
+</svg>

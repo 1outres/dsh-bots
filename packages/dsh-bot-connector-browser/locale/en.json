@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Bot browser connector",
+    "description": "Lets each bot drive the Google Chrome on its VM's desktop with Playwright MCP inside the VM — page snapshots, forms, screenshots — while a person watches the same Chrome in the Desktop panel. Needs the desktop connector; off until enabled per bot."
+  }
+}

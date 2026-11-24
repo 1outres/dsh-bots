@@ -1,0 +1,8 @@
+{
+  "name": "dsh-browser-mcp",
+  "private": true,
+  "description": "Playwright MCP as the browser connector installs it in the bot's VM (/opt/dsh-browser/mcp).",
+  "dependencies": {
+    "@playwright/mcp": "0.0.86"
+  }
+}

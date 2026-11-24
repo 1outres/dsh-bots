@@ -1,0 +1,14 @@
+[Unit]
+Description=Bot desktop input method (fcitx5 + mozc, for people typing Japanese on the screen)
+Requires=dsh-desktop-session.service
+After=dsh-desktop-session.service
+
+[Service]
+Environment=DISPLAY=:1
+Environment=XAUTHORITY=%t/dsh-desktop/Xauthority
+ExecStart=/usr/bin/fcitx5 --replace
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target

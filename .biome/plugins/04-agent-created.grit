@@ -1,0 +1,15 @@
+// Design rule 4: `agent/created` is handled in one place.
+// Subscribing with `.on("agent/created", ...)` is allowed only in
+// host/preset/isolation.ts and src/index.ts (which forwards the event to it):
+// a throw from that listener rolls the Agent's creation back, so a second
+// listener could abort Agents for unrelated reasons.
+JsCallExpression(callee = $callee, arguments = $arguments) as $call where {
+  $callee <: or { `$_.on`, `$_?.on`, `on` },
+  $arguments <: contains JsStringLiteralExpression() as $event where {
+    $event <: r"[\"']agent/created[\"']"
+  },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 4: do not listen to \"agent/created\" here; tool isolation (host/preset/isolation.ts) owns that event, because a throw from its listener rolls the Agent back."
+  )
+}

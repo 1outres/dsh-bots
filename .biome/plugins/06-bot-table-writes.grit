@@ -1,0 +1,12 @@
+// Design rule 6: bot records are written in one place.
+// `table.put(...)` / `table.delete(...)` (a receiver named `table` or ending in
+// `.table`) may appear only in host/registry.ts. Matching on the receiver name
+// keeps Map/Set `.delete` calls out of scope.
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or { `$receiver.put`, `$receiver.delete`, `$receiver?.put`, `$receiver?.delete` },
+  $receiver <: or { `table`, `$_.table`, `$_?.table` },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 6: do not write the bots table here; go through the bot registry (host/registry.ts), which serializes writes and notifies its subscribers."
+  )
+}

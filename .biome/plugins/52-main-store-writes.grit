@@ -1,0 +1,16 @@
+// Design rule 52: the Main sessions' settings and activity are written in one place.
+// `mainSettings` / `mainOverrides` / `mainActivity` `.put(...)` / `.delete(...)`
+// may appear only in host/mains/store.ts, which serializes writes and tells
+// the Main controller and the Remote.
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or { `$receiver.put`, `$receiver.delete`, `$receiver?.put`, `$receiver?.delete` },
+  $receiver <: or {
+    `mainSettings`, `$_.mainSettings`, `$_?.mainSettings`,
+    `mainOverrides`, `$_.mainOverrides`, `$_?.mainOverrides`,
+    `mainActivity`, `$_.mainActivity`, `$_?.mainActivity`
+  },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 52: do not write the Main sessions' tables here; go through the Main store (host/mains/store.ts), which serializes writes and tells its subscribers."
+  )
+}

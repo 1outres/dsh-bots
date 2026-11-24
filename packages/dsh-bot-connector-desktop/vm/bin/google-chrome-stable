@@ -1,0 +1,7 @@
+#!/bin/sh
+# Replaces the package's /usr/bin/google-chrome-stable (dpkg-divert): every launch — the menu, xdg-open,
+# x-www-browser, exo, desktop_launch, a terminal — opens in the desktop's resident Chrome.
+set -eu
+export DISPLAY=:1 XAUTHORITY="$XDG_RUNTIME_DIR/dsh-desktop/Xauthority"
+systemctl --user start dsh-desktop-chrome.service
+exec /usr/local/lib/dsh-desktop/chrome-run "$@"

@@ -1,0 +1,7 @@
+{
+  "name": "dsh-bot-web-probe",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "description": "Verification only: probes a second @deepseek-ai/dsh-web inside an isolated preset group (docs/specs/bot-web.md). Never published or bundled."
+}

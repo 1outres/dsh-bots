@@ -1,0 +1,102 @@
+# UI design: dsh-bots client
+
+The client UI of bot-core and the plugins that add to it (connector panels, settings sections) follows one design. Colours, fonts and the theme come from DSH (`--dsw-*` tokens, design rule 32); this document fixes layout, components and wording.
+
+Audits that motivated it: `/tmp/dsh-ui-redesign/audit/{global,bot,chat}.md` (a verification record in the author's environment, not part of the repository).
+
+## Principles
+
+1. **Space explains, text does not.** No explanatory paragraphs, hints under fields, warning boxes or kickers. Meaning comes from grouping (a group title and the rows under it), spacing (two steps: 4px inside a block, 12–24px between blocks) and position (the control of a row is at its right end). Text that stays: names and labels, short state words, errors, and the body of a confirmation before a step with consequences.
+2. **One way to do each thing.** One status pill, one switch, one set of buttons, one row. A section never invents its own card, badge or button.
+3. **Immediate save.** Every setting is saved when it is changed: a switch, a segmented control or a select when it is picked; a text field when it is committed (Enter or blur) and valid; a secret through its row's inline editor (Set / Replace → field with ✓ and ×; Remove). There are no Save / Revert buttons and no section-level dirty state; the frame's discard confirmation is used only by an inline editor that is open with typed text.
+4. **DSH's measures.** Where DSH has the same thing (settings modal, nav, rows, switches, row buttons, panels, conversation header), the bot UI uses the same size, radius and type. Read them from the running DSH (`cordis_inspect_query` Theme / Slots, the DSH client sources); do not copy colour literals.
+5. **Nothing in the conversation column.** Bot-core adds nothing above or inside the transcript that shrinks it. Things that wait for the person live in the right menu bar (a count badge on the entry) and its panels.
+
+## Components (`packages/dsh-bot-core/src/client/ui/`)
+
+Each is a small React component with its CSS in `client/ui/styles.ts`; every section and screen composes these instead of its own markup.
+
+| Component    | What it is                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Group`      | An optional title (13px / 500 / tertiary, 24px above, 8px below) over a frame: hairline `border-l4`, radius 12, no fill. Children are `Row`s separated by hairlines.                                                                                                                                                                                                                                           |
+| `Row`        | `min-height: 52px`, padding `10px 16px`. Left: optional leading (icon or avatar), the label (14px primary) and an optional one-line `meta` (12px tertiary: a value, a count, never a sentence). Right: `trailing` (status pill, controls), aligned to the end. A `block` variant puts a full-width control (textarea, list) under the label. An `href`/`onOpen` row ends in a chevron and opens a detail page. |
+| `Switch`     | A real switch (`button role="switch"`), DSH's size; disabled is grey.                                                                                                                                                                                                                                                                                                                                          |
+| `Segmented`  | Allow / Ask / Disallow and other short exclusive choices; the selected segment is filled and readable in light and dark.                                                                                                                                                                                                                                                                                       |
+| `Select`     | A native `select` styled like DSH's; a searchable variant for time zones and models. A choice's `group` lists it under a heading (`optgroup`, a heading in the search list).                                                                                                                                                                                                                                   |
+| `TextField`  | Single-line input that commits on Enter/blur; shows an error state (red border + the error text as `meta`) when invalid; counter only when focused near its limit.                                                                                                                                                                                                                                             |
+| `SecretRow`  | A row for a secret: `● Set` / `○ Not set` pill, buttons Set / Replace / Remove; the inline editor (password + ✓ + ×) replaces the trailing area while open.                                                                                                                                                                                                                                                    |
+| `StatusPill` | 6px dot + one short word; tones `success`, `warning`, `danger`, `idle`, `busy` (animated dot). Replaces `.dshb-channel-status`, `.dshb-connector-state`, `.dshb-action-badge`, the OAuth state lines and the Web lookup statuses.                                                                                                                                                                              |
+| `Button`     | Variants `primary` and `secondary` (36px, dialog footers), `row` (28px / 12px / radius 8, inside rows), `icon` (28px ghost), `danger` (filled red for the confirming button of a destructive dialog; red text on a row). `.dshb-link` underlined text buttons are not used.                                                                                                                                    |
+| `EmptyState` | Centered icon + one short title + at most one button.                                                                                                                                                                                                                                                                                                                                                          |
+| `Tag`        | 12px neutral chip for facts such as "DEV" or "Custom".                                                                                                                                                                                                                                                                                                                                                         |
+
+Headings: modal title `h2` (16px / 500), page or detail title `h3` (16px / 500), group title `h4` (the 13px style above). Never `h5`.
+
+## Settings modal (`settings-frame/`)
+
+Both the dsh-bots settings and a bot's settings use `SettingsFrame`, which becomes a large popover:
+
+- A mask over the whole app (DSH's modal mask: the app stays visible behind it; a click on the mask closes like ×). The panel is centered: `width: min(960px, 100vw - 48px)`, `height: min(820px, 100dvh - 48px)`, radius 28 (DSH's panel radius token), DSH's panel elevation, layer-0 fill.
+- Header: one line, 56px — the subject (bot: 24px avatar + name; dsh-bots: "dsh-bots") and ×. No kicker, no mark tile, no divider.
+- Nav: DSH's settings nav measures (width ~180px, items 40px, radius 12, 14px / 400, selected filled), icons kept. No divider; 24px gap to the page. A nav dot appears only for something that needs action (`warning` / `danger`); `success` is never shown.
+- Page: fills the rest (no 640px cap), scrolls on its own, padding 8px 32px 32px. The page does not repeat the nav label as a heading; a detail page has a back row ("‹ Connectors") and its own title.
+- Pages can push one detail level (`FrameControls` gains a page stack: open detail, back). Escape closes the detail first, then the modal.
+- ≤ 640px: the panel is a full-screen sheet (radius 0); the nav becomes the first page (a list of rows) and a section is pushed over it. Opening the modal or any bot-core dialog on a narrow screen first closes DSH's sidebar drawer.
+- Opening dsh-bots settings from a bot's settings pushes it onto a modal stack; closing it returns to the bot's settings where it was.
+- The discard and step confirmations keep their dialogs; their body is one line, the confirming button of a destructive step is `danger` filled.
+
+## Bot settings
+
+Sections: **General**, **Main session**, **Models**, **Channels**, **VM**, **Connectors**, **Skills**. Danger zone is not a section: "Delete bot…" is the last row of General (red text row button) and opens the type-the-name confirmation dialog.
+
+- **General:** a group with the avatar row (large preview at the left, the name `TextField`, emoji / colour swatches on one 28px grid, the image picker as the last swatch) and a row "Time zone" with the searchable `Select`.
+- **Models:** a group without a title with the rows "Main" and "Utility" (the model `SearchSelect`, grouped by provider with "DSH default (<model>)" first, then an effort `Select` when the model offers efforts; the provider as `meta`; Main shows an `idle` pill "Pending" while the Main does not run it yet), then group "Delegates": one row per model (effort `Select`, `…` row menu with Move up / Move down / Remove) and an "Add model" row whose draft row adds with ✓. A stored route the catalog does not list keeps its id and gets a `warning` pill "Unavailable". Refusals are the row's `danger` meta. (`docs/specs/bot-models.md` §9.)
+- **Channels:** one group per channel. Its title row is the channel name, a `StatusPill` and the enable `Switch` at the right. Its fields are rows rendered from the channel's fields: secret → `SecretRow`, text → `TextField` (an enumerated text such as the notice language becomes a `Select` when the field declares choices), list → `block` row with a textarea committing on blur. A missing required field shows the error state on its row; the fields' descriptions are not rendered (one "Setup guide ↗" link per channel when the channel provides one).
+- **VM:** a status row (pill: Running with these / Applying… with the step / Failed with the reason), then one group with a row per value — CPUs (vCPU), Memory (GiB, steps of 0.5), Disk (GiB) — each a compact field with its unit and, as meta, the Host's range, "can only grow" for the disk and what the enabled connectors need; a refused value shows why in red instead. "Undo changes" and "Save and restart" at the end; saving asks "Restart the VM?" (danger) first. Unsaved values hold the screen's guard.
+- **Connectors:** a list page and a detail page per connector.
+  - List: group "Accounts" first when any provider exists (one row per provider: name, pill, account count, chevron → its accounts detail; while loading the rows keep their height). Then group "On" and group "Off": one row per connector — name, pill, a `Switch`, chevron; no tags. A switch the Host would refuse is disabled and the row's meta says why (e.g. "Needs 4 GiB of memory or more. Raise it on the VM page."). Turning a connector on never asks first: it does not restart the VM.
+  - Detail: back row, title row with pill and `Switch`; group "Settings" with the connector's fields as rows (immediate save); group "Events" when it has events (one `Select`); group "Tools (n)" with a sticky toolbar (filter by name first, "Reset to defaults (k)"), one 40px row per tool: name without the connector prefix, `Segmented` permission, a "changed" mark and reset icon when it differs from the default; the description is the row's tooltip / `aria-describedby`. Per-account permissions are a group "Per account" below that lists only the exceptions (tool name, the account as `meta`, a reset icon and the `Segmented`) and ends in an "Add exception" row: pick the account and the tool, then the permission, which saves it.
+  - Accounts detail (Google): rows of accounts (avatar letter, email, pill, assigned bots as `meta`, `…` row menu with rename / sign in again / disconnect), a dashed "+ Add account" row, the grant checkboxes inside the add flow. When the OAuth client is not set up, one row "OAuth client" with a pill and a row button "Open dsh-bots settings" (pushes the dsh-bots modal).
+
+## dsh-bots settings
+
+Sections: **Web lookup**, **Accounts**.
+
+- **Web lookup:** group with the backend name as title and a `SecretRow` "API key" with a row button "Test" (its result replaces the pill for a while: Valid / Rejected / …); group "Capabilities" with rows "Search" and "Fetch" with `Switch`es (disabled without a key).
+- **Accounts:** per provider a group titled with the provider (and a `DEV` tag for a development provider): rows "Redirect URI" (value in a code chip, row button Copy), "Client ID" (`TextField`), "Client secret" (`SecretRow`), and a "Setup guide ↗" link row; then group "Accounts" with the same account rows as the bot side (without the assignment) when the client is set up.
+- DSH's own settings page for bot-core becomes one row "dsh-bots settings" with a row button "Open".
+
+## Bot session (chat)
+
+- **Header:** DSH's conversation header measures: one row, 24px avatar, the bot name (DSH's title size / 500), the session name after it, settings button at the right, hairline below. The files panel header and the menu bar's first button share its height and centre line.
+- **Notices** (connection, bot error, lockdown, ShellNotice): an overlay banner under the header, floating over the transcript (it does not push it); one style, tone by colour only; dismissible ones have an icon ×.
+- **Menu bar:** entries Files, Notes, Actions, then the enabled connectors' panels (a disabled connector has no entry). Each connector uses its own icon. A count badge (the sidebar's waiting pill) on Actions when actions wait; the attention dot for connector requests.
+- **Actions panel** (replaces `ApprovalsTray` in the conversation): a right panel in the files panel frame. Top: pending actions as cards (pill row, title, preview fields and body, one tertiary meta line "connector · tool · relative time", expiry as a relative time in the pill row, Reject / Approve). Below: group "History" as compact rows (pill, title, relative time; a row opens the action's details in place: result, decider when it came from a channel, arguments). Connector requests from `ConnectorRequests` are listed at the top of this panel as rows with the request's text and an "Open {panel}" row button. Nothing about actions appears in the conversation column.
+- **Notes panel:** the bot's notes, read only (`docs/specs/bot-notes.md` §12), in the files panel frame. A `Segmented` List / Calendar; List has a search field and a type `Select` on one line, then group "Pinned" (the characters used as the group's aside) and group "Notes" (newest first), or one group of results titled with their count while a search or a type is set; a row is the title, the summary (and matching lines) as meta and a type `Tag`. Calendar is the month with ‹ › and Today, a day with a daily note a button with a dot, today ringed. A note shows its type (and Pinned) tags, aliases and summary, its body as Markdown with note links by title (a missing one struck through in red, not a button), then groups "Links" and "Backlinks". Back in the panel header; unreadable notes are an `EmptyState` with the reason only.
+- **Panels** (Files, Notes, Actions, connector panels): when the conversation column would get narrower than 640px, the panel overlays the conversation from the right instead of pushing it. ≤ 640px: full-screen sheet; the menu bar folds into a header menu button.
+- **Interaction composer** (questions, approvals, plan reviews): keeps the composer seat but uses the composer's own width formula and DSH's QuestionComposer look (no border, radius-xl, input-major fill, panel elevation, eyebrow 11px → title 16px / 500, max-height `min(60vh, 520px)`) and gains a minimise button.
+- **Composer:** DSH's model seat (`conversation.input.model`) and permission seat (`conversation.input.permission`) are empty on a bot session; a bot's models are its settings and its permission is fixed.
+
+## Dialogs and sidebar
+
+- Create bot: title, avatar preview + name field (counter inside the field), swatches on one grid, a "Model" row (the same model and effort pickers, DSH default first), Cancel / Create. No hint, no "Enter a name first".
+- Sidebar: the Bots heading's dsh-bots settings button uses a distinct icon (not the bot gear). "Show archived sessions" is hidden when the bot has none. Pending bot row actions use `Button` `row`.
+- Toasts follow DSH's toast look.
+
+## Wording
+
+Keys whose text is explanation are deleted from `i18n.ts` / `i18n-connections.ts` (en and ja) and from the plugins that render through bot-core (Discord field descriptions stay in the channel contract for channels that need them but are not shown). Kept: labels, state words, errors (`*.unavailable`, `*.failed`, `*.refused.*`, validation issues), confirmation bodies (one line). The audits' tables list the candidates.
+
+## Newer surfaces (from main after 73f0fa7)
+
+These follow the same rules:
+
+- **New bot dialog**: a "Time zone" row (the searchable `Select`, the browser's zone first chosen) in its own group under the model. **Creation options** (`creation-options.ts`, "Turn on the desktop and browser"): one row with a `Switch`; an option the Host cannot give is off and disabled, its meta saying so. Under the options, a read-only "VM" row with the spec the bot gets (`4 vCPU · 6 GiB · 20 GiB`, meta "Change it later on the bot's VM page."); a capacity that cannot be read, or that cannot give what is needed, is an error under the group and disables Create.
+- **Connector preparation stages** (`connector-preparing.tsx`, in the connector panel and the connector's settings): a compact stage list (StatusPill `busy` for the running stage, elapsed time as `meta`); the connector's preparation hint is shown only as the panel's `EmptyState` title, not as a paragraph.
+- **Channel Owners field and the empty-owners note**: Owners is a `block` list row; an empty Owners is shown as the row's `warning` state (pill on the channel title row and the row's error style), not as a note.
+
+## Out of scope (follow-ups)
+
+- OAuth callback page styling and closing itself (Host).
+- Showing an answered question as a reply view instead of a user bubble (carrier).
+- Adding accounts from the dsh-bots settings without a bot (needs a Host flow).

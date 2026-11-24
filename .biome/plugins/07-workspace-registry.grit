@@ -1,0 +1,16 @@
+// Design rule 7: workspace registrations change in few places.
+// `workspaceRegistry.create/delete/archiveSession(...)` may appear only in
+// src/index.ts and host/cleanup.ts. Bots own no Workspace: bot sessions are
+// archived by cleanupBotSessions, and a legacy (version 1) bot's Workspace is
+// retired from src/index.ts.
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or {
+    `$receiver.create`, `$receiver.delete`, `$receiver.archiveSession`,
+    `$receiver?.create`, `$receiver?.delete`, `$receiver?.archiveSession`
+  },
+  $receiver <: or { `workspaceRegistry`, `$_.workspaceRegistry`, `$_?.workspaceRegistry` },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 7: do not create, delete or archive through workspaceRegistry here; inject the call from src/index.ts or use cleanupBotSessions() (host/cleanup.ts), so bot sessions keep one lifecycle."
+  )
+}

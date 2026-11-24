@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Web lookup for bots",
+    "description": "Lets every bot search the web and read pages through Exa, with an Exa API key set for the bots in the dsh-bots settings (Web lookup)."
+  }
+}

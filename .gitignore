@@ -1,0 +1,16 @@
+node_modules/
+lib/
+coverage/
+*.log
+core.*
+.DS_Store
+.secrets/
+.local/
+.claude/
+.worktrees/
+.env
+.env.*
+!.env.example
+
+.docker/
+.pnpm-store/

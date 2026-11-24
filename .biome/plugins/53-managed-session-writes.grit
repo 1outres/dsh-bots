@@ -1,0 +1,11 @@
+// Design rule 53: the managed sessions are written in one place.
+// `managedSessions.put/delete` (a receiver with that name or ending in it)
+// may appear only in host/managed/store.ts.
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or { `$receiver.put`, `$receiver.delete`, `$receiver?.put`, `$receiver?.delete` },
+  $receiver <: or { `managedSessions`, `$_.managedSessions`, `$_?.managedSessions` },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 53: do not write the managed sessions table here; go through the managed sessions store (host/managed/store.ts)."
+  )
+}

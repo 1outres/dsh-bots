@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "ボットの Web 検索・フェッチ",
+    "description": "すべてのボットが Exa で Web を検索し、ページを読めるようにします。ボット用の Exa の API キーは dsh-bots の設定（Web 検索・フェッチ）で入れます。"
+  }
+}

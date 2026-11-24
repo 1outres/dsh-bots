@@ -1,0 +1,64 @@
+{
+  "name": "@1outres/dsh-bot-connector-browser",
+  "version": "0.3.0",
+  "description": "Gives each bot of DeepSeek Harness the Google Chrome on its VM's desktop as a browser it drives with Playwright MCP inside the VM (page snapshots, forms, screenshots), as a bot-core connector; a person sees the same Chrome in the Desktop panel.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/1outres/dsh-bots.git",
+    "directory": "packages/dsh-bot-connector-browser"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "src",
+    "vm",
+    "scripts",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg"
+  ],
+  "scripts": {
+    "prepublishOnly": "node ../../scripts/build.mjs",
+    "generate": "node scripts/generate-tools.mjs"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "bot",
+    "connector",
+    "browser",
+    "playwright",
+    "deepseek-harness"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "dsh": "0.2.2-rc.5",
+    "node": ">=22"
+  },
+  "peerDependencies": {
+    "@1outres/dsh-bot-core": "workspace:^0.3.0",
+    "@deepseek-ai/cordis": "~4.1.0"
+  },
+  "devDependencies": {
+    "@1outres/dsh-bot-core": "workspace:*",
+    "@deepseek-ai/cordis": "~4.1.0",
+    "@playwright/mcp": "0.0.86"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": [
+        "./cordis.patch.yml"
+      ]
+    }
+  }
+}

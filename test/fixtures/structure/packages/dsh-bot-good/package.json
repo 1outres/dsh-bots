@@ -1,0 +1,7 @@
+{
+  "name": "@1outres/dsh-bot-good",
+  "version": "0.1.0",
+  "dependencies": {
+    "@1outres/dsh-bot-core": "workspace:*"
+  }
+}

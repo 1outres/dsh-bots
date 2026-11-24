@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Connector probe (verification only)",
+    "description": "Dummy bot connectors (Probe, Probe mail) for testing connector settings and approvals. They send nothing anywhere: Probe mail only records the message it was asked to send. Remove this bundle when the test is over."
+  }
+}

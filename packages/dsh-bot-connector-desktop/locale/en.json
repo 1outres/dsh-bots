@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Bot desktop connector",
+    "description": "Gives each bot a desktop in its VM — LibreOffice, Google Chrome and a terminal on XFCE — that it reads through the accessibility tree and operates with keyboard and mouse. Off until enabled per bot."
+  }
+}

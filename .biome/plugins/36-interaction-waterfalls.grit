@@ -1,0 +1,16 @@
+// Design rule 36: DSH's question and approval waterfalls are joined in one place.
+// Listening to "user-questions/request" or "approval/request" is allowed only
+// in packages/dsh-bot-core/src/index.ts, which wires bot-core's answerers
+// (host/interactions/answerers.ts): they claim bot sessions' requests and pass
+// every other Agent's on with next(). Another listener could answer, swallow
+// or reorder requests of Agents that are not bots'.
+JsCallExpression(callee = $callee, arguments = $arguments) as $call where {
+  $callee <: or { `$_.on`, `$_?.on`, `on` },
+  $arguments <: contains JsStringLiteralExpression() as $event where {
+    $event <: r"[\"'](?:user-questions|approval)/request[\"']"
+  },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 36: do not listen to DSH's question or approval waterfall here; bot-core's answerers (host/interactions/answerers.ts, wired in src/index.ts) own them, because they must claim only bot sessions' requests and pass every other Agent's on."
+  )
+}

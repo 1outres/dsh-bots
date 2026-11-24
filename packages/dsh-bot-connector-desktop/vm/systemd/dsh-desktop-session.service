@@ -1,0 +1,25 @@
+[Unit]
+Description=Bot desktop session (XFCE on Xvnc :1)
+Requires=dsh-desktop-xvnc.service
+After=dsh-desktop-xvnc.service
+
+[Service]
+Environment=DISPLAY=:1
+Environment=XAUTHORITY=%t/dsh-desktop/Xauthority
+Environment=XDG_SESSION_TYPE=x11
+Environment=XDG_CURRENT_DESKTOP=XFCE
+Environment=GTK_MODULES=gail:atk-bridge
+Environment=NO_AT_BRIDGE=0
+Environment=QT_ACCESSIBILITY=1
+Environment=SAL_USE_VCLPLUGIN=gtk3
+Environment=GTK_IM_MODULE=fcitx
+Environment=QT_IM_MODULE=fcitx
+Environment=XMODIFIERS=@im=fcitx
+ExecStartPre=/usr/bin/systemctl --user import-environment DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP GTK_MODULES NO_AT_BRIDGE QT_ACCESSIBILITY SAL_USE_VCLPLUGIN GTK_IM_MODULE QT_IM_MODULE XMODIFIERS
+ExecStartPre=/usr/bin/dbus-update-activation-environment --systemd DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP GTK_MODULES NO_AT_BRIDGE QT_ACCESSIBILITY SAL_USE_VCLPLUGIN GTK_IM_MODULE QT_IM_MODULE XMODIFIERS
+ExecStart=/usr/bin/xfce4-session
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target

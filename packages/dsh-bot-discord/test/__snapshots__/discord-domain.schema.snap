@@ -1,0 +1,78 @@
+{
+  "name": "dsh_bot_discord",
+  "version": 1,
+  "tables": {
+    "cards": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "botId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "userId": {
+          "type": "string",
+          "pattern": "^[0-9]{17,20}$"
+        },
+        "channelId": {
+          "type": "string",
+          "pattern": "^[0-9]{17,20}$"
+        },
+        "messageId": {
+          "type": "string",
+          "pattern": "^[0-9]{17,20}$"
+        }
+      },
+      "required": [
+        "botId",
+        "actionId",
+        "userId",
+        "channelId",
+        "messageId"
+      ],
+      "additionalProperties": false
+    },
+    "digests": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "botId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "userId": {
+          "type": "string",
+          "pattern": "^[0-9]{17,20}$"
+        },
+        "channelId": {
+          "type": "string",
+          "pattern": "^[0-9]{17,20}$"
+        },
+        "messageId": {
+          "type": "string",
+          "pattern": "^[0-9]{17,20}$"
+        },
+        "pin": {
+          "type": "string",
+          "enum": [
+            "due",
+            "pinned",
+            "abandoned"
+          ]
+        }
+      },
+      "required": [
+        "botId",
+        "userId",
+        "channelId",
+        "messageId",
+        "pin"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

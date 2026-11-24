@@ -1,0 +1,32 @@
+{
+  "name": "dsh_bot_notices",
+  "version": 5,
+  "tables": {
+    "notices": {
+      "botId": {
+        "required": true,
+        "type": "string"
+      },
+      "topic": {
+        "required": true,
+        "type": "\"connector\" | \"schedule\" | \"event\" | \"file\" | \"session\""
+      },
+      "messageId": {
+        "required": true,
+        "type": "string"
+      },
+      "text": {
+        "required": true,
+        "type": "string"
+      },
+      "summary": {
+        "required": true,
+        "type": "string"
+      },
+      "createdAt": {
+        "required": true,
+        "type": "number"
+      }
+    }
+  }
+}

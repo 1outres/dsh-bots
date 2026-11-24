@@ -1,0 +1,20 @@
+#!/bin/sh
+# Starts Xvnc on :1 for the bot user: a fresh X cookie each start, RFB on a 0600 Unix socket only,
+# and tells systemd it is ready once the display accepts clients.
+set -eu
+dir=$XDG_RUNTIME_DIR/dsh-desktop
+auth=$dir/Xauthority
+umask 077
+: > "$auth"
+xauth -q -f "$auth" add :1 . "$(mcookie)"
+fifo=$(mktemp -u)
+mkfifo "$fifo"
+exec 3<>"$fifo"
+rm -f "$fifo"
+/usr/bin/Xvnc :1 -auth "$auth" -geometry "$DSH_DESKTOP_GEOMETRY" -depth 24 \
+  -rfbunixpath "$dir/vnc.sock" -rfbunixmode 0600 -rfbport -1 -nolisten tcp \
+  -SecurityTypes None -AlwaysShared -AcceptSetDesktopSize=0 -FrameRate 24 -s 0 -dpms -displayfd 3 &
+pid=$!
+read -r _ <&3
+systemd-notify --ready --pid=$$
+wait "$pid"

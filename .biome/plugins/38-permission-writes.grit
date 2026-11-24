@@ -1,0 +1,31 @@
+// Design rule 38: a session's permission is written in one place.
+// DSH's write paths for a session's sandbox mode, approval policy and
+// permission preset (setSandboxMode, setApprovalPolicy, permissionPresets.set,
+// or appending their events) are called only from
+// packages/dsh-bot-core/src/index.ts, which wires them into
+// host/permission.ts: bot sessions run under BOT_PERMISSION, and another
+// writer could leave a bot session confined, asking, or recorded as custom.
+or {
+  JsCallExpression(callee = $callee) as $call where {
+    or {
+      $callee <: or { `setSandboxMode`, `setApprovalPolicy` },
+      $callee <: or { `$receiver.set`, `$receiver?.set` } where {
+        $receiver <: or { `permissionPresets`, `$_.permissionPresets`, `$_?.permissionPresets` }
+      }
+    },
+    register_diagnostic(
+      span = $call,
+      message = "Design rule 38: do not write a session's permission here; bot-core's host/permission.ts (wired in src/index.ts) sets BOT_PERMISSION on bot sessions, because another writer could leave one confined, asking for approval, or recorded as custom."
+    )
+  },
+  JsCallExpression(callee = $callee, arguments = $arguments) as $call where {
+    $callee <: or { `$_.append`, `$_?.append` },
+    $arguments <: contains JsStringLiteralExpression() as $event where {
+      $event <: r"[\"'](?:sandbox/mode|approval/policy|permission/preset)[\"']"
+    },
+    register_diagnostic(
+      span = $call,
+      message = "Design rule 38: do not write a session's permission here; bot-core's host/permission.ts (wired in src/index.ts) sets BOT_PERMISSION on bot sessions, because another writer could leave one confined, asking for approval, or recorded as custom."
+    )
+  }
+}

@@ -1,0 +1,11 @@
+// Design rule 32: stylesheets use theme tokens, not color literals.
+// In src/client/styles*.ts, #rgb/#rrggbb/#rrggbbaa, rgb(), rgba(), hsl() and
+// hsla() are refused; use var(--dsw-alias-*) so light and dark themes apply.
+// Avatar palettes live in client/avatar-data.ts, outside these files.
+or { JsStringLiteralExpression(), JsTemplateChunkElement() } as $text where {
+  $text <: r"(?is).*(?:#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?)\().*",
+  register_diagnostic(
+    span = $text,
+    message = "Design rule 32: do not write color literals in stylesheets; use a var(--dsw-alias-*) theme token, so the bots UI follows the DSH light and dark themes."
+  )
+}

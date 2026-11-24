@@ -1,0 +1,90 @@
+{
+  "name": "dsh_bots",
+  "version": 2,
+  "tables": {
+    "bots": {
+      "name": {
+        "required": true,
+        "type": "string"
+      },
+      "avatar": {
+        "required": true,
+        "type": "{ kind: \"emoji\"; emoji: string; color: string } | { kind: \"initial\"; text: string; color: string } | { kind: \"image\"; dataUrl: string }"
+      },
+      "path": {
+        "required": false,
+        "type": "string"
+      },
+      "workspaceId": {
+        "required": false,
+        "type": "string"
+      },
+      "mainSessionId": {
+        "required": false,
+        "type": "string"
+      },
+      "template": {
+        "required": false,
+        "type": "string"
+      },
+      "overlay": {
+        "required": false,
+        "type": "(string | number | boolean | null | json[] | { [key: string]: json })[]"
+      },
+      "mainOnBotPreset": {
+        "required": false,
+        "type": "true"
+      },
+      "mainPreset": {
+        "required": false,
+        "type": "string"
+      },
+      "creationFailure": {
+        "required": false,
+        "type": "{ phase: \"queued\" | \"creating\" | \"booting\" | \"connecting\" | \"preset\" | \"starting-main\"; message: string; at: number }"
+      },
+      "timezone": {
+        "required": false,
+        "type": "string"
+      },
+      "language": {
+        "required": false,
+        "type": "string"
+      },
+      "workspaceFiles": {
+        "required": false,
+        "type": "1"
+      },
+      "initialNotes": {
+        "required": false,
+        "type": "1"
+      },
+      "createdAt": {
+        "required": true,
+        "type": "number"
+      },
+      "updatedAt": {
+        "required": true,
+        "type": "number"
+      }
+    },
+    "sessions": {
+      "botId": {
+        "required": true,
+        "type": "string"
+      },
+      "createdAt": {
+        "required": true,
+        "type": "number"
+      },
+      "startedBy": {
+        "required": false,
+        "type": "\"main\""
+      },
+      "retiredMain": {
+        "required": false,
+        "type": "{ endedAt: number; reason: \"daily\" | \"long-idle\" | \"compactions\" | \"owner\" }"
+      }
+    }
+  }
+}

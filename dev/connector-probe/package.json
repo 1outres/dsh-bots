@@ -1,0 +1,35 @@
+{
+  "name": "dsh-bot-connector-probe",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Verification only: dummy bot connectors and a file trigger that answers their actions. Never published or bundled.",
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "connectors.js",
+    "journal.js",
+    "trigger.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md"
+  ],
+  "engines": {
+    "dsh": "0.2.2-rc.5",
+    "node": ">=22"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": [
+        "./cordis.patch.yml"
+      ]
+    }
+  }
+}

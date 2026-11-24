@@ -1,0 +1,13 @@
+// Design rule 13: Host modules do not take a Cordis Context.
+// Under src/host/, only remote.ts (a Remote service entry) may declare a
+// parameter typed `Context`. Every other Host module receives the narrow
+// functions it needs from src/index.ts, which keeps it testable without Cordis.
+or { JsFormalParameter(), TsPropertyParameter() } as $parameter where {
+  $parameter <: contains TsReferenceType() as $type where {
+    $type <: r"(?:[A-Za-z_$][\w$]*\.)?Context"
+  },
+  register_diagnostic(
+    span = $parameter,
+    message = "Design rule 13: do not take a Cordis Context in a Host module; accept the functions it needs and let src/index.ts wire them, so the module stays pure and testable."
+  )
+}

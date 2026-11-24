@@ -1,0 +1,11 @@
+// Design rule 21: a TypertRemoteService has no `remove` method.
+// The browser mounts the Remote under a namespace service that already owns
+// `remove`, so a Remote method of that name is shadowed.
+`class $name extends $base { $body }` where {
+  $base <: or { `TypertRemoteService`, `$_.TypertRemoteService` },
+  $body <: contains JsMethodClassMember(name = $method) as $member where { $method <: `remove` },
+  register_diagnostic(
+    span = $member,
+    message = "Design rule 21: do not name a TypertRemoteService method remove; pick a specific name such as removeBot, because the browser namespace service already owns remove."
+  )
+}

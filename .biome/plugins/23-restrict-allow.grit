@@ -1,0 +1,14 @@
+// Design rule 23: tool masks are deny lists.
+// An `allow` list on `restrict(...)` also hides the tools a bot preset
+// contributes from an ancestor scope, so isolation always passes `deny`.
+JsCallExpression(callee = $callee, arguments = $arguments) as $call where {
+  $callee <: or { `$_.restrict`, `$_?.restrict`, `restrict` },
+  $arguments <: contains or {
+    JsPropertyObjectMember(name = $key) where { $key <: r"[\"']?allow[\"']?" },
+    JsShorthandPropertyObjectMember() as $shorthand where { $shorthand <: r"allow" }
+  },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 23: do not pass allow: to tools.restrict(); pass a deny list, because an allow list also hides the tools the Agent's own preset contributes."
+  )
+}

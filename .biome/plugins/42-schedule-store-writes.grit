@@ -1,0 +1,12 @@
+// Design rule 42: bot schedules are written in one place.
+// `jobs.put(...)` / `jobs.delete(...)` / `runs.put(...)` / `runs.delete(...)`
+// (a receiver named `jobs` or `runs`, or ending in `.jobs` / `.runs`) may
+// appear only in host/schedule/store.ts, which keeps a job's runs with it.
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or { `$receiver.put`, `$receiver.delete`, `$receiver?.put`, `$receiver?.delete` },
+  $receiver <: or { `jobs`, `$_.jobs`, `$_?.jobs`, `runs`, `$_.runs`, `$_?.runs` },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 42: do not write the schedule tables here; go through the schedule store (host/schedule/store.ts), which keeps a job's runs with it."
+  )
+}

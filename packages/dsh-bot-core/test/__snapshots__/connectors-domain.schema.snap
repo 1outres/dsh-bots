@@ -1,0 +1,108 @@
+{
+  "name": "dsh_bot_connectors",
+  "version": 3,
+  "tables": {
+    "actions": {
+      "id": {
+        "required": true,
+        "type": "string"
+      },
+      "botId": {
+        "required": true,
+        "type": "string"
+      },
+      "connectorId": {
+        "required": true,
+        "type": "string"
+      },
+      "tool": {
+        "required": true,
+        "type": "string"
+      },
+      "args": {
+        "required": true,
+        "type": "string | number | boolean | null | json[] | { [key: string]: json }"
+      },
+      "preview": {
+        "required": true,
+        "type": "{ title: string; fields: { label: string; value: string }[]; body?: string }"
+      },
+      "snapshot": {
+        "required": false,
+        "type": "string | number | boolean | null | json[] | { [key: string]: json }"
+      },
+      "connectionId": {
+        "required": false,
+        "type": "string"
+      },
+      "sessionId": {
+        "required": true,
+        "type": "string"
+      },
+      "createdAt": {
+        "required": true,
+        "type": "number"
+      },
+      "expiresAt": {
+        "required": true,
+        "type": "number"
+      },
+      "status": {
+        "required": true,
+        "type": "{ state: \"pending\" } | { state: \"approved\"; decision: { decision: \"approve\" | \"reject\"; origin: { kind: \"web\" } | { kind: \"channel\"; channelId: string; channelName: string; person: string }; at: number } } | { state: \"executing\"; decision: { decision: \"approve\" | \"reject\"; origin: { kind: \"web\" } | { kind: \"channel\"; channelId: string; channelName: string; person: string }; at: number }; startedAt: number } | { state: \"succeeded\"; decision: { decision: \"approve\" | \"reject\"; origin: { kind: \"web\" } | { kind: \"channel\"; channelId: string; channelName: string; person: string }; at: number }; startedAt: number; finishedAt: number; result: string | number | boolean | null | json[] | { [key: string]: json }; text?: string } | { state: \"failed\"; decision: { decision: \"approve\" | \"reject\"; origin: { kind: \"web\" } | { kind: \"channel\"; channelId: string; channelName: string; person: string }; at: number }; startedAt?: number; finishedAt: number; reason: string } | { state: \"interrupted\"; decision: { decision: \"approve\" | \"reject\"; origin: { kind: \"web\" } | { kind: \"channel\"; channelId: string; channelName: string; person: string }; at: number }; startedAt: number; finishedAt: number } | { state: \"rejected\"; decision: { decision: \"approve\" | \"reject\"; origin: { kind: \"web\" } | { kind: \"channel\"; channelId: string; channelName: string; person: string }; at: number } } | { state: \"expired\"; finishedAt: number } | { state: \"cancelled\"; finishedAt: number }"
+      }
+    },
+    "permissions": {
+      "botId": {
+        "required": true,
+        "type": "string"
+      },
+      "connectorId": {
+        "required": true,
+        "type": "string"
+      },
+      "tool": {
+        "required": true,
+        "type": "string"
+      },
+      "connectionId": {
+        "required": false,
+        "type": "string"
+      },
+      "permission": {
+        "required": true,
+        "type": "\"allow\" | \"ask\" | \"disallow\""
+      },
+      "updatedAt": {
+        "required": true,
+        "type": "number"
+      }
+    },
+    "settings": {
+      "botId": {
+        "required": true,
+        "type": "string"
+      },
+      "connectorId": {
+        "required": true,
+        "type": "string"
+      },
+      "enabled": {
+        "required": true,
+        "type": "boolean"
+      },
+      "values": {
+        "required": true,
+        "type": "{ [key: string]: string | number | boolean }"
+      },
+      "events": {
+        "required": false,
+        "type": "\"off\" | \"notify\" | \"queue\""
+      },
+      "updatedAt": {
+        "required": true,
+        "type": "number"
+      }
+    }
+  }
+}

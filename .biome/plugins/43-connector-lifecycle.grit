@@ -1,0 +1,23 @@
+// Design rule 43: a connector's lifecycle hooks run in one place each.
+// `preparation.prepare(...)` / `preparation.unprepare(...)` (a receiver named
+// `preparation` or ending in `.preparation`) may appear only in
+// host/connectors/readiness.ts, which runs one bot's preparations one at a
+// time and keeps its readiness; `attachment.open(...)` only in
+// host/connectors/attachments.ts, which keeps one resident resource per bot
+// and connector and disposes it.
+JsCallExpression(callee = $callee) as $call where {
+  or {
+    and {
+      $callee <: or { `$receiver.prepare`, `$receiver.unprepare`, `$receiver?.prepare`, `$receiver?.unprepare` },
+      $receiver <: or { `preparation`, `$_.preparation`, `$_?.preparation` }
+    },
+    and {
+      $callee <: or { `$receiver.open`, `$receiver?.open` },
+      $receiver <: or { `attachment`, `$_.attachment`, `$_?.attachment` }
+    }
+  },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 43: do not run a connector's preparation or open its resident resource here; go through host/connectors/readiness.ts (preparations, one bot at a time) or host/connectors/attachments.ts (one resource per bot and connector)."
+  )
+}

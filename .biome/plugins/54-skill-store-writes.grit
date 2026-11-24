@@ -1,0 +1,18 @@
+// Design rule 54: the skills' history, usage, settings, marks and curation times are written in one place.
+// `skillHistory` / `skillUsage` / `skillSettings` / `skillMarks` / `skillCuration` `.put(...)` / `.delete(...)`
+// may appear only in host/skills/store.ts, which serializes writes, keeps each
+// skill's latest versions only and tells the Web UI.
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or { `$receiver.put`, `$receiver.delete`, `$receiver?.put`, `$receiver?.delete` },
+  $receiver <: or {
+    `skillHistory`, `$_.skillHistory`, `$_?.skillHistory`,
+    `skillUsage`, `$_.skillUsage`, `$_?.skillUsage`,
+    `skillSettings`, `$_.skillSettings`, `$_?.skillSettings`,
+    `skillMarks`, `$_.skillMarks`, `$_?.skillMarks`,
+    `skillCuration`, `$_.skillCuration`, `$_?.skillCuration`
+  },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 54: do not write the skills' tables here; go through the skill store (host/skills/store.ts), which serializes writes, keeps each skill's latest versions and tells its subscribers."
+  )
+}

@@ -1,0 +1,80 @@
+{
+  "name": "dsh_bot_connections",
+  "version": 1,
+  "tables": {
+    "connections": {
+      "id": {
+        "required": true,
+        "type": "string"
+      },
+      "provider": {
+        "required": true,
+        "type": "string"
+      },
+      "services": {
+        "required": true,
+        "type": "string[]"
+      },
+      "label": {
+        "required": true,
+        "type": "string"
+      },
+      "account": {
+        "required": true,
+        "type": "{ subject: string; email?: string; displayName?: string }"
+      },
+      "grantedScopes": {
+        "required": true,
+        "type": "string[]"
+      },
+      "status": {
+        "required": true,
+        "type": "\"active\" | \"needs-reauth\" | \"revoked\" | \"error\""
+      },
+      "statusReason": {
+        "required": false,
+        "type": "string"
+      },
+      "issuer": {
+        "required": true,
+        "type": "string"
+      },
+      "createdAt": {
+        "required": true,
+        "type": "number"
+      },
+      "authorizedAt": {
+        "required": true,
+        "type": "number"
+      }
+    },
+    "grants": {
+      "botId": {
+        "required": true,
+        "type": "string"
+      },
+      "connectionId": {
+        "required": true,
+        "type": "string"
+      },
+      "assignedAt": {
+        "required": true,
+        "type": "number"
+      }
+    },
+    "clients": {
+      "provider": {
+        "required": true,
+        "type": "string"
+      },
+      "clientId": {
+        "required": true,
+        "type": "string"
+      },
+      "updatedAt": {
+        "required": true,
+        "type": "number"
+      }
+    }
+  }
+}

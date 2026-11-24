@@ -1,0 +1,12 @@
+// Design rule 2: Agent presets are registered in one place.
+// `agentPresets.register(...)` may appear only in host/preset/realize.ts and in
+// src/index.ts (the composition root that injects it into the realizer).
+// The realizer owns the per-bot preset lifecycle (digests, unregistering).
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or { `$receiver.register`, `$receiver?.register` },
+  $receiver <: or { `agentPresets`, `$_.agentPresets`, `$_?.agentPresets` },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 2: do not call agentPresets.register() here; let the preset realizer (host/preset/realize.ts) register bot presets, because it alone tracks their revisions and unregisters them."
+  )
+}

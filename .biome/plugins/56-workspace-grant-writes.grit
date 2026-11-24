@@ -1,0 +1,11 @@
+// Design rule 56: the Workspace grants are written in one place.
+// `workspaceGrants.put/delete` (a receiver with that name or ending in it)
+// may appear only in host/managed/grants-store.ts.
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or { `$receiver.put`, `$receiver.delete`, `$receiver?.put`, `$receiver?.delete` },
+  $receiver <: or { `workspaceGrants`, `$_.workspaceGrants`, `$_?.workspaceGrants` },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 56: do not write the Workspace grants table here; go through the grants store (host/managed/grants-store.ts)."
+  )
+}

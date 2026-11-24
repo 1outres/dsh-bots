@@ -1,0 +1,11 @@
+// Design rule 20: no #private members on Cordis services.
+// Cordis (and the Typert Gateway) call service methods with a proxy as `this`,
+// where reading a #private member throws. Use a module-level Symbol key.
+`class $name extends $base { $body }` where {
+  $base <: or { `Service`, `TypertRemoteService`, `$_.Service`, `$_.TypertRemoteService` },
+  $body <: contains JsPrivateClassMemberName() as $private,
+  register_diagnostic(
+    span = $private,
+    message = "Design rule 20: do not use #private members in a Service or TypertRemoteService; store state under a module-level Symbol key, because Cordis calls methods with a proxy as this and #private access throws there."
+  )
+}

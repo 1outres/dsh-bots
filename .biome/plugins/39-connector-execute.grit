@@ -1,0 +1,14 @@
+// Design rule 39: a connector tool runs in one place.
+// `tool.execute(...)` / `tool.recheck(...)` / `tool.snapshot(...)` (a receiver named `tool` or
+// ending in `.tool`) may appear only in host/connectors/execution.ts, which
+// the broker calls for an `allow` call or after an approved action moved to
+// executing: another caller could run an `ask` tool without a decision, or an
+// approved action twice.
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or { `$receiver.execute`, `$receiver.recheck`, `$receiver.snapshot`, `$receiver?.execute`, `$receiver?.recheck`, `$receiver?.snapshot` },
+  $receiver <: or { `tool`, `$_.tool`, `$_?.tool` },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 39: do not run a connector tool here; go through host/connectors/execution.ts (called by the broker), so an ask tool runs only after its approval and an approved action runs once."
+  )
+}

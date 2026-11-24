@@ -1,0 +1,20 @@
+{
+  "name": "dsh_bot_models",
+  "version": 1,
+  "tables": {
+    "models": {
+      "roles": {
+        "required": true,
+        "type": "{ main?: { kind: \"profile-default\" } | { kind: \"fixed\"; provider: string; model: string; reasoningEffort?: string }; utility?: { kind: \"profile-default\" } | { kind: \"fixed\"; provider: string; model: string; reasoningEffort?: string }; delegates?: ({ kind: \"profile-default\" } | { kind: \"fixed\"; provider: string; model: string; reasoningEffort?: string })[] }"
+      },
+      "mainPending": {
+        "required": false,
+        "type": "true"
+      },
+      "updatedAt": {
+        "required": true,
+        "type": "number"
+      }
+    }
+  }
+}

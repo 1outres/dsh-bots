@@ -1,0 +1,20 @@
+{
+  "name": "dsh_bot_web",
+  "version": 1,
+  "tables": {
+    "settings": {
+      "backend": {
+        "required": true,
+        "type": "string"
+      },
+      "search": {
+        "required": true,
+        "type": "boolean"
+      },
+      "fetch": {
+        "required": true,
+        "type": "boolean"
+      }
+    }
+  }
+}

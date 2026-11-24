@@ -1,0 +1,10 @@
+// Design rule 22: do not augment "@deepseek-ai/cordis".
+// Augmenting cordis' Context breaks its declaration merging under this
+// repository's TypeScript; services are read through typed accessors instead.
+TsExternalModuleDeclaration(source = $source) as $declaration where {
+  $source <: r"[\"']@deepseek-ai/cordis[\"']",
+  register_diagnostic(
+    span = $declaration,
+    message = "Design rule 22: do not write declare module \"@deepseek-ai/cordis\"; read services through a typed accessor such as botOf(ctx), because augmenting Context breaks cordis' declaration merging here."
+  )
+}

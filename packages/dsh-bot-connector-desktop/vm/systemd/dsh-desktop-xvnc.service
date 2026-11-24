@@ -1,0 +1,12 @@
+[Unit]
+Description=Bot desktop X server (Xvnc on :1, RFB on a Unix socket only)
+
+[Service]
+Type=notify
+NotifyAccess=all
+RuntimeDirectory=dsh-desktop
+RuntimeDirectoryMode=0700
+EnvironmentFile=/etc/dsh-desktop/display.env
+ExecStart=/usr/local/lib/dsh-desktop/xvnc-start
+Restart=always
+RestartSec=2

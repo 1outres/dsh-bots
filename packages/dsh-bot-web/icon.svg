@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none" role="img" aria-labelledby="title">
+  <title id="title">Web lookup for bots</title>
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="#D97706"/>
+  <circle cx="32" cy="32" r="17" stroke="#FFFFFF" stroke-width="3.5"/>
+  <path d="M15 32h34M32 15c5 5 7.5 11 7.5 17S37 44 32 49c-5-5-7.5-11-7.5-17S27 20 32 15Z" stroke="#FFFFFF" stroke-width="3" stroke-linejoin="round"/>
+</svg>

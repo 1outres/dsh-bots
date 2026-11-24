@@ -1,0 +1,58 @@
+{
+  "name": "dsh_bot_managed_sessions",
+  "version": 2,
+  "tables": {
+    "sessions": {
+      "botId": {
+        "required": true,
+        "type": "string"
+      },
+      "target": {
+        "required": true,
+        "type": "{ kind: \"bot\" } | { kind: \"workspace\"; workspaceId: string }"
+      },
+      "answerer": {
+        "required": true,
+        "type": "\"main\" | \"owner\""
+      },
+      "origin": {
+        "required": true,
+        "type": "\"main\" | \"owner\""
+      },
+      "label": {
+        "required": false,
+        "type": "string"
+      },
+      "since": {
+        "required": true,
+        "type": "number"
+      }
+    },
+    "workspaces": {
+      "botId": {
+        "required": true,
+        "type": "string"
+      },
+      "workspaceId": {
+        "required": true,
+        "type": "string"
+      },
+      "agentPreset": {
+        "required": true,
+        "type": "string"
+      },
+      "permission": {
+        "required": true,
+        "type": "{ sandbox: \"read-only\" | \"workspace-write\" | \"danger-full-access\"; approval: \"ask\" | \"never\" }"
+      },
+      "model": {
+        "required": true,
+        "type": "{ kind: \"profile-default\" } | { kind: \"fixed\"; provider: string; model: string; reasoningEffort?: string }"
+      },
+      "since": {
+        "required": true,
+        "type": "number"
+      }
+    }
+  }
+}

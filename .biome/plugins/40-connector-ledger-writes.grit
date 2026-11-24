@@ -1,0 +1,13 @@
+// Design rule 40: connector actions are written in one place.
+// `actions.put(...)` / `actions.delete(...)` (a receiver named `actions` or
+// ending in `.actions`) may appear only in host/connectors/ledger.ts, which
+// applies every transition through the state machine (host/connectors/action.ts)
+// before it stores it.
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or { `$receiver.put`, `$receiver.delete`, `$receiver?.put`, `$receiver?.delete` },
+  $receiver <: or { `actions`, `$_.actions`, `$_?.actions` },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 40: do not write the connector actions table here; go through the ledger (host/connectors/ledger.ts), which checks every transition against the state machine before storing it."
+  )
+}

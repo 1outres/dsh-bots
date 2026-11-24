@@ -1,0 +1,133 @@
+import type { BotModelChoice } from "../../shared/models"
+import {
+  type BotWorkspaceGrant,
+  type BotWorkspaceOptions,
+  type BotWorkspaceSettings,
+  type BotWorkspaceSettingsChange,
+  type BotWorkspacesSnapshot,
+  type DshWorkspace,
+  samePermission,
+} from "../../shared/workspaces"
+import type { GrantStore } from "./grants-store"
+
+export interface WorkspaceGrantsDeps {
+  readonly store: GrantStore
+  /** Whether the bot is stored. */
+  exists(botId: string): boolean
+  /** DSH's Workspaces now, in its order. */
+  workspaces(): readonly DshWorkspace[]
+  /** What a grant can choose from now. */
+  options(): Promise<BotWorkspaceOptions>
+  /** Why DSH cannot run the model now, or undefined when it can. */
+  modelProblem(choice: BotModelChoice): Promise<string | undefined>
+  /** The grant went away: the management of the bot's sessions in the Workspace ends. */
+  ended(grant: BotWorkspaceGrant, by: "revoked" | "workspace-removed"): Promise<void>
+  now(): number
+}
+
+/** The Workspaces owners grant bots (docs/specs/bot-managed-sessions.md §10.1). */
+export interface WorkspaceGrants {
+  snapshot(): BotWorkspacesSnapshot
+  get(botId: string, workspaceId: string): BotWorkspaceGrant | undefined
+  /** The bot's grants with their Workspaces, oldest first. */
+  granted(
+    botId: string,
+  ): readonly { readonly grant: BotWorkspaceGrant; readonly workspace: DshWorkspace }[]
+  grant(
+    botId: string,
+    workspaceId: string,
+    settings: BotWorkspaceSettings,
+  ): Promise<BotWorkspaceGrant>
+  configure(
+    botId: string,
+    workspaceId: string,
+    change: BotWorkspaceSettingsChange,
+  ): Promise<BotWorkspaceGrant>
+  revoke(botId: string, workspaceId: string): Promise<void>
+  /** Drop the grants of Workspaces DSH no longer has (one removed, or removed while bot-core was not running). */
+  reconcile(): Promise<void>
+  /** Drop the grants of bots that no longer exist (no notice: the bot is gone). */
+  purge(exists: (botId: string) => boolean): Promise<void>
+  subscribe(listener: () => void): () => void
+}
+
+export function createWorkspaceGrants(deps: WorkspaceGrantsDeps): WorkspaceGrants {
+  const { store } = deps
+
+  const workspaceOf = (workspaceId: string) =>
+    deps.workspaces().find((workspace) => workspace.workspaceId === workspaceId)
+
+  const requireGrant = (botId: string, workspaceId: string) => {
+    const grant = store.get(botId, workspaceId)
+    if (grant === undefined)
+      throw new Error(`Workspace "${workspaceId}" is not granted to this bot`)
+    return grant
+  }
+
+  const check = async (change: BotWorkspaceSettingsChange) => {
+    const options =
+      change.agentPreset === undefined && change.permission === undefined
+        ? undefined
+        : await deps.options()
+    if (
+      change.agentPreset !== undefined &&
+      !options?.agentPresets.some((preset) => preset.id === change.agentPreset)
+    ) {
+      throw new Error(
+        `agentPreset: "${change.agentPreset}" is not an Agent preset a Workspace session can run`,
+      )
+    }
+    const { permission } = change
+    if (
+      permission !== undefined &&
+      !options?.permissions.some((option) => samePermission(option.permission, permission))
+    ) {
+      throw new Error(
+        `permission: sandbox "${permission.sandbox}" with approval "${permission.approval}" is not a permission mode of this DSH`,
+      )
+    }
+    if (change.model !== undefined) {
+      const problem = await deps.modelProblem(change.model)
+      if (problem !== undefined) throw new Error(`model: ${problem}`)
+    }
+  }
+
+  const drop = async (keep: (grant: BotWorkspaceGrant) => boolean, notify: boolean) => {
+    for (const grant of await store.purge(keep)) {
+      if (notify) await deps.ended(grant, "workspace-removed")
+    }
+  }
+
+  return {
+    snapshot: () => ({ grants: store.list(), workspaces: deps.workspaces() }),
+    get: (botId, workspaceId) => store.get(botId, workspaceId),
+    granted: (botId) =>
+      store.list(botId).flatMap((grant) => {
+        const workspace = workspaceOf(grant.workspaceId)
+        return workspace === undefined ? [] : [{ grant, workspace }]
+      }),
+    async grant(botId, workspaceId, settings) {
+      if (!deps.exists(botId)) throw new Error(`bot "${botId}" does not exist`)
+      if (workspaceOf(workspaceId) === undefined) {
+        throw new Error(`Workspace "${workspaceId}" does not exist`)
+      }
+      if (store.get(botId, workspaceId) !== undefined) {
+        throw new Error(`Workspace "${workspaceId}" is already granted to this bot`)
+      }
+      await check(settings)
+      return store.put({ botId, workspaceId, ...settings, since: deps.now() })
+    },
+    async configure(botId, workspaceId, change) {
+      requireGrant(botId, workspaceId)
+      await check(change)
+      return store.put({ ...requireGrant(botId, workspaceId), ...change })
+    },
+    async revoke(botId, workspaceId) {
+      const grant = requireGrant(botId, workspaceId)
+      if (await store.delete(botId, workspaceId)) await deps.ended(grant, "revoked")
+    },
+    reconcile: () => drop((grant) => workspaceOf(grant.workspaceId) !== undefined, true),
+    purge: (exists) => drop((grant) => exists(grant.botId), false),
+    subscribe: (listener) => store.subscribe(listener),
+  }
+}

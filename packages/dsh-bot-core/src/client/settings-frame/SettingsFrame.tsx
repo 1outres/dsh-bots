@@ -1,0 +1,381 @@
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
+import { useObservable, useOptionalObservable } from "../hooks"
+import { IconChevronLeft, IconChevronRight, IconClose } from "../icons"
+import { barKey } from "../shell/ShellMenuBar"
+import type { Translate } from "../types"
+import { BackRow } from "../ui/BackRow"
+import { Button } from "../ui/Button"
+import { focusHome, useLayer } from "../ui/layers"
+import type { DataMarks } from "../ui/marks"
+import { PendingEditsContext } from "../ui/pending-edits"
+import { useCompactLayout } from "../ui/viewport"
+import { DiscardConfirm, StepConfirm } from "./confirmations"
+import type { FrameControls, FrameTarget } from "./flow"
+import type { FrameSection, FrameSectionProps, SettingsBadge } from "./sections"
+
+/** Who or what the screen is about, on its one header line. */
+export interface FrameHeading {
+  /** Drawn before the title (a bot's 24px avatar), `null` for none. */
+  readonly leading: ReactNode
+  readonly title: string
+}
+
+/** What the screen's body shows: the open section, or a message while no section is registered. */
+export type FrameView<Props extends FrameSectionProps, Subject> =
+  | { readonly kind: "section"; readonly section: FrameSection<Props, Subject> }
+  | { readonly kind: "empty"; readonly message: ReactNode }
+
+export interface SettingsFrameProps<Props extends FrameSectionProps, Subject> {
+  readonly t: Translate
+  readonly controls: FrameControls
+  readonly target: FrameTarget
+  readonly heading: FrameHeading
+  readonly sections: readonly FrameSection<Props, Subject>[]
+  readonly view: FrameView<Props, Subject>
+  readonly subject: Subject
+  /** Another settings screen is open over this one: it stays as it is, out of reach. */
+  readonly covered: boolean
+  /** Draws the open section's component with the props its screen adds to `base`. */
+  renderSection(section: FrameSection<Props, Subject>, base: FrameSectionProps): ReactNode
+  /** Selectors of the elements focus returns to on closing when the opener is gone, in order of preference. */
+  returnFocusTo(): readonly string[]
+  /** Data attributes that name the screen's dialog. */
+  readonly marks: DataMarks
+}
+
+/** The nav shows only the statuses that call for the user. */
+const callsForUser = (badge: SettingsBadge | null | undefined): badge is SettingsBadge =>
+  badge !== null && badge !== undefined && (badge.tone === "warning" || badge.tone === "danger")
+
+/**
+ * A settings screen as a large popover over the app, in the frame-wide
+ * `shell.overlay` layer: a one-line header, the sections' nav and the open
+ * section's page (a sheet with the nav as its first page on a compact
+ * window). Escape leaves a detail page, then the section (compact), then the
+ * screen; × and the mask close it. Mount it once per opened screen (`key` it
+ * by the screen).
+ */
+export function SettingsFrame<Props extends FrameSectionProps, Subject>(
+  props: SettingsFrameProps<Props, Subject>,
+) {
+  const { t, controls, target, heading, sections, view, subject, covered } = props
+  const section = view.kind === "section" ? view.section : null
+  const guard = useObservable(controls.guard)
+  const asking = useObservable(controls.asking)
+  const compact = useCompactLayout()
+  const [opener] = useState(() =>
+    typeof document === "undefined" ? null : (document.activeElement as HTMLElement | null),
+  )
+  const [returnTo] = useState(() => props.returnFocusTo)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const id = useId()
+  const titleId = `${id}-title`
+  const panelId = `${id}-panel`
+  const tabId = (item: FrameSection<Props, Subject>) => `${id}-tab-${item.id}`
+  const listed = compact && (target.nav || section === null)
+
+  const leaveOneLevel = () => {
+    if (target.detail !== null) controls.back()
+    else if (compact && !listed) controls.showNav()
+    else controls.close()
+  }
+  useLayer(dialogRef, {
+    active: true,
+    trap: true,
+    onEscape: leaveOneLevel,
+    restore: () =>
+      [opener, ...returnTo().map((selector) => document.querySelector<HTMLElement>(selector))].find(
+        (element) => element?.isConnected === true,
+      ) ?? null,
+  })
+
+  const shownList = useRef(listed)
+  useEffect(() => {
+    if (shownList.current === listed) return
+    shownList.current = listed
+    if (dialogRef.current !== null) focusHome(dialogRef.current)
+  }, [listed])
+
+  const page = useMemo(
+    () => ({ detail: target.detail, open: controls.openDetail, back: controls.back }),
+    [target.detail, controls],
+  )
+  const close = useCallback(() => controls.dismiss(), [controls])
+  const inert = covered ? { inert: "" } : {}
+
+  return (
+    <div
+      className="dshb-settings-root"
+      data-layout={compact ? "compact" : "wide"}
+      data-covered={covered ? "" : undefined}
+      {...inert}
+    >
+      <div className="dshb-settings-mask" aria-hidden="true" onClick={() => controls.close()} />
+      <div
+        ref={dialogRef}
+        className="dshb-settings"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        {...props.marks}
+      >
+        <header className="dshb-settings-header">
+          {compact && !listed && section !== null ? (
+            <>
+              <Button
+                variant="icon"
+                label={t("settings.back")}
+                onClick={() => (target.detail === null ? controls.showNav() : controls.back())}
+                marks={{ "data-dshb-settings-nav-back": "" }}
+              >
+                <IconChevronLeft />
+              </Button>
+              <h2 id={titleId} className="dshb-settings-title">
+                {section.label(t)}
+              </h2>
+            </>
+          ) : (
+            <>
+              {heading.leading}
+              <h2 id={titleId} className="dshb-settings-title" title={heading.title}>
+                {heading.title}
+              </h2>
+            </>
+          )}
+          <Button
+            variant="icon"
+            label={t("settings.close")}
+            onClick={() => controls.close()}
+            marks={{ "data-dshb-settings-close": "" }}
+          >
+            <IconClose size={14} />
+          </Button>
+        </header>
+        {section === null ? (
+          <div className="dshb-settings-page" data-dshb-settings-empty="">
+            {view.kind === "empty" && view.message}
+          </div>
+        ) : (
+          <>
+            {listed ? (
+              <CompactNav
+                t={t}
+                subject={subject}
+                sections={sections}
+                current={section.id}
+                onSelect={(item) => controls.select(item.id)}
+              />
+            ) : (
+              !compact && (
+                <SectionNav
+                  t={t}
+                  subject={subject}
+                  sections={sections}
+                  current={section.id}
+                  tabId={tabId}
+                  panelId={panelId}
+                  onSelect={(item) => controls.select(item.id)}
+                />
+              )
+            )}
+            {!listed && (
+              <section
+                className="dshb-settings-page"
+                role={compact ? undefined : "tabpanel"}
+                id={panelId}
+                aria-labelledby={compact ? titleId : tabId(section)}
+                data-dshb-settings-section={section.id}
+                data-dshb-settings-detail={target.detail ?? undefined}
+              >
+                <FramePageView
+                  key={section.id}
+                  detail={target.detail}
+                  back={compact ? null : { label: section.label(t), onBack: () => controls.back() }}
+                >
+                  <PendingEditsContext.Provider value={controls.edits}>
+                    {props.renderSection(section, { t, page, close, confirm: controls.confirm })}
+                  </PendingEditsContext.Provider>
+                </FramePageView>
+              </section>
+            )}
+          </>
+        )}
+      </div>
+      {guard.leaving !== null ? (
+        <DiscardConfirm
+          t={t}
+          leaving={guard.leaving}
+          section={section?.label(t) ?? heading.title}
+          onKeep={() => controls.keepEditing()}
+          onDiscard={() => controls.discard()}
+        />
+      ) : (
+        asking !== null && (
+          <StepConfirm
+            t={t}
+            request={asking}
+            onAnswer={(confirmed) => controls.answer(confirmed)}
+          />
+        )
+      )}
+    </div>
+  )
+}
+
+interface PageViewProps {
+  readonly detail: string | null
+  /** The back row over a detail page; `null` where the header's back button leaves the detail (compact). */
+  readonly back: { readonly label: string; onBack(): void } | null
+  readonly children: ReactNode
+}
+
+/** A section's page: scrolled to its top and focused at its start whenever a detail opens or closes. */
+function FramePageView({ detail, back, children }: PageViewProps) {
+  const ref = useRef<HTMLDivElement>(null)
+  const shown = useRef(detail)
+  useEffect(() => {
+    if (shown.current === detail) return
+    shown.current = detail
+    const element = ref.current
+    if (element === null) return
+    element.closest(".dshb-settings-page")?.scrollTo({ top: 0 })
+    const backRow = element.querySelector<HTMLElement>("[data-dshb-page-back]")
+    if (backRow !== null) backRow.focus()
+    else focusHome(element)
+  }, [detail])
+  return (
+    <div className="dshb-settings-content" ref={ref}>
+      {detail !== null && back !== null && <BackRow label={back.label} onBack={back.onBack} />}
+      {children}
+    </div>
+  )
+}
+
+interface NavProps<Props extends FrameSectionProps, Subject> {
+  readonly t: Translate
+  readonly subject: Subject
+  readonly sections: readonly FrameSection<Props, Subject>[]
+  readonly current: string
+  onSelect(section: FrameSection<Props, Subject>): void
+}
+
+/** The sections as a vertical tab list: ↑/↓/Home/End move focus, Enter or Space opens a section. */
+function SectionNav<Props extends FrameSectionProps, Subject>(
+  props: NavProps<Props, Subject> & {
+    tabId(section: FrameSection<Props, Subject>): string
+    readonly panelId: string
+  },
+) {
+  const { t, subject, sections, current, tabId, panelId, onSelect } = props
+  const selected = Math.max(
+    sections.findIndex((item) => item.id === current),
+    0,
+  )
+  const [focused, setFocused] = useState(selected)
+  const listRef = useRef<HTMLDivElement>(null)
+  useEffect(() => setFocused(selected), [selected])
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const next = barKey(event.key, focused, sections.length)
+    if (next === undefined) return
+    event.preventDefault()
+    setFocused(next)
+    listRef.current?.querySelectorAll<HTMLElement>('[role="tab"]')[next]?.focus()
+  }
+
+  return (
+    <nav className="dshb-settings-nav" aria-label={t("settings.sections")}>
+      <div
+        ref={listRef}
+        role="tablist"
+        aria-orientation="vertical"
+        aria-label={t("settings.sections")}
+        onKeyDown={onKeyDown}
+      >
+        {sections.map((item, index) => (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            id={tabId(item)}
+            className="dshb-settings-tab"
+            aria-selected={item.id === current}
+            aria-controls={item.id === current ? panelId : undefined}
+            tabIndex={index === focused ? 0 : -1}
+            data-dshb-settings-tab={item.id}
+            data-dshb-autofocus={item.id === current ? "" : undefined}
+            onFocus={() => setFocused(index)}
+            onClick={() => onSelect(item)}
+          >
+            <NavEntry t={t} subject={subject} section={item} />
+          </button>
+        ))}
+      </div>
+    </nav>
+  )
+}
+
+/** On a compact screen, the first page: one row per section. */
+function CompactNav<Props extends FrameSectionProps, Subject>(props: NavProps<Props, Subject>) {
+  const { t, subject, sections, current, onSelect } = props
+  return (
+    <nav className="dshb-settings-page dshb-settings-list" aria-label={t("settings.sections")}>
+      <div className="dshb-ui-group-frame">
+        {sections.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className="dshb-ui-row dshb-settings-list-row"
+            data-kind="open"
+            data-dshb-settings-tab={item.id}
+            data-dshb-autofocus={item.id === current ? "" : undefined}
+            onClick={() => onSelect(item)}
+          >
+            <NavEntry t={t} subject={subject} section={item} />
+            <span className="dshb-ui-row-chevron" aria-hidden="true">
+              <IconChevronRight />
+            </span>
+          </button>
+        ))}
+      </div>
+    </nav>
+  )
+}
+
+function NavEntry<Props extends FrameSectionProps, Subject>(props: {
+  readonly t: Translate
+  readonly subject: Subject
+  readonly section: FrameSection<Props, Subject>
+}) {
+  const { t, subject, section } = props
+  const badge = useOptionalObservable(useMemo(() => section.badge?.(subject), [section, subject]))
+  const Icon = section.icon
+  return (
+    <>
+      <span className="dshb-settings-tab-icon">
+        <Icon size={16} />
+      </span>
+      <span className="dshb-settings-tab-label">{section.label(t)}</span>
+      {callsForUser(badge) && (
+        <span
+          className="dshb-settings-badge"
+          data-tone={badge.tone}
+          title={badge.label(t)}
+          data-dshb-settings-badge={badge.tone}
+        >
+          <span className="dshb-sr">{badge.label(t)}</span>
+        </span>
+      )}
+    </>
+  )
+}

@@ -1,0 +1,7 @@
+{
+  "name": "dsh-fake-google",
+  "private": true,
+  "type": "module",
+  "main": "server.js",
+  "description": "Verification only: a fake Google (OAuth, userinfo, Gmail and Calendar) for the Google connector's tests and verification DSHs. Never published or bundled."
+}

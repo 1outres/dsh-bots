@@ -1,0 +1,17 @@
+[Unit]
+Description=Bot desktop agent (AT-SPI, input and screenshots over a Unix socket)
+Requires=dsh-desktop-session.service
+After=dsh-desktop-session.service
+
+[Service]
+Type=notify
+Environment=DISPLAY=:1
+Environment=XAUTHORITY=%t/dsh-desktop/Xauthority
+RuntimeDirectory=dsh-desktop-agent
+RuntimeDirectoryMode=0700
+ExecStart=/usr/bin/python3 -E -s /usr/local/lib/dsh-desktop/agent/run.py --socket %t/dsh-desktop-agent/agent.sock
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target

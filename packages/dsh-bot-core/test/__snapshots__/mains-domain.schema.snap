@@ -1,0 +1,80 @@
+{
+  "name": "dsh_bot_mains",
+  "version": 2,
+  "tables": {
+    "settings": {
+      "quietMinutes": {
+        "required": true,
+        "type": "number"
+      },
+      "idleCompaction": {
+        "required": true,
+        "type": "{ enabled: boolean; minUsagePercent: number }"
+      },
+      "daily": {
+        "required": true,
+        "type": "{ enabled: boolean; time: string }"
+      },
+      "longIdle": {
+        "required": true,
+        "type": "{ enabled: boolean; minutes: number }"
+      },
+      "compactions": {
+        "required": true,
+        "type": "{ enabled: boolean; count: number }"
+      },
+      "memoryFlush": {
+        "required": false,
+        "type": "{ enabled: boolean }"
+      }
+    },
+    "overrides": {
+      "quietMinutes": {
+        "required": false,
+        "type": "number"
+      },
+      "idleCompaction": {
+        "required": false,
+        "type": "{ enabled?: boolean; minUsagePercent?: number }"
+      },
+      "daily": {
+        "required": false,
+        "type": "{ enabled?: boolean; time?: string }"
+      },
+      "longIdle": {
+        "required": false,
+        "type": "{ enabled?: boolean; minutes?: number }"
+      },
+      "compactions": {
+        "required": false,
+        "type": "{ enabled?: boolean; count?: number }"
+      },
+      "memoryFlush": {
+        "required": false,
+        "type": "{ enabled?: boolean }"
+      }
+    },
+    "activity": {
+      "sessionId": {
+        "required": true,
+        "type": "string"
+      },
+      "firstTurnAt": {
+        "required": false,
+        "type": "number"
+      },
+      "lastTurnAt": {
+        "required": false,
+        "type": "number"
+      },
+      "compactions": {
+        "required": true,
+        "type": "number"
+      },
+      "idleCompactedFor": {
+        "required": false,
+        "type": "number"
+      }
+    }
+  }
+}

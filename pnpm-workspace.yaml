@@ -1,0 +1,26 @@
+packages:
+  - packages/*
+
+minimumReleaseAgeExclude:
+  - "@biomejs/biome@2.6.5"
+  - "@biomejs/cli-linux-arm64-musl@2.6.5"
+  - "@biomejs/cli-linux-arm64@2.6.5"
+  - "@biomejs/cli-linux-x64-musl@2.6.5"
+  - "@biomejs/cli-linux-x64@2.6.5"
+  - "@biomejs/cli-darwin-arm64@2.6.5"
+  - "@biomejs/cli-darwin-x64@2.6.5"
+  - "@biomejs/cli-win32-arm64@2.6.5"
+  - "@biomejs/cli-win32-x64@2.6.5"
+
+onlyBuiltDependencies:
+  - esbuild
+
+allowBuilds:
+  esbuild: true
+  # Peers of @deepseek-ai/dsh-ssh, installed only for type checking: their
+  # native builds are never needed in this repository.
+  "@deepseek-ai/dsh-subprocess-local": false
+  koffi: false
+  node-pty: false
+  # Peer of @deepseek-ai/dsh-util-ripgrep, installed only for type checking.
+  "@vscode/ripgrep": false

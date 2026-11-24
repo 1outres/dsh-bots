@@ -1,0 +1,20 @@
+// Design rule 55: DSH's session history is read in one place.
+// The name sessionQuery (DSH's dsh-session-query service, which checks no
+// caller and serves every session of the Host) may appear only in
+// packages/dsh-bot-core/src/index.ts, which hands host/conversations/ a
+// reader of one session's log; host/conversations/ decides from bot-core's
+// records which of a bot's sessions its Agent may read. Anywhere else, a
+// read could reach another bot's or a Workspace's sessions.
+or {
+  JsReferenceIdentifier(),
+  JsIdentifierBinding(),
+  JsName(),
+  JsLiteralMemberName(),
+  JsStringLiteralExpression()
+} as $name where {
+  $name <: r"[\"']?sessionQuery[\"']?",
+  register_diagnostic(
+    span = $name,
+    message = "Design rule 55: do not use DSH's sessionQuery here; it checks no caller, so only bot-core's src/index.ts wires it, and host/conversations/ decides from bot-core's records which sessions a bot may read."
+  )
+}

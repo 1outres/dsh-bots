@@ -1,0 +1,60 @@
+{
+  "name": "dsh-bots",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.9.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/build.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "test": "vitest run",
+    "new-plugin": "node scripts/new-plugin.mjs"
+  },
+  "//": [
+    "@deepseek-ai/dsh-working-directory is a root devDependency only for packages/dsh-bot-core/test/working-directory.test.ts, which runs bot-core's working-directory/access listener against DSH's real service. bot-core itself never imports it (the Host provides workingDirectory), so it is not a dependency of any published package.",
+    "@deepseek-ai/dsh-scope is a root devDependency only for packages/dsh-bot-core/test/prompt-scope.test.ts, which mounts bot-core's prompt row under a real preset scope to prove its system-prompt/assemble listener reaches the bot's Agents only.",
+    "The @deepseek-ai/dsh-api-*, dsh-client-* and dsh-util-workspace-path root devDependencies are the DSH packages whose sources packages/dsh-bot-core/src/client/upstream.ts lists, pinned at UPSTREAM_DSH_VERSION: packages/dsh-bot-core/test/shell-upstream.test.ts reads them from here. No published package depends on them."
+  ],
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.5",
+    "@deepseek-ai/cordis": "~4.1.0",
+    "@deepseek-ai/cordis-plugin-loader": "1.1.0",
+    "@deepseek-ai/dsh-api-terminal-controller": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-connection": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-resources": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-chat": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-conversation": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-deliverables": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-model-selection": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-open-in-app": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-permission-presets": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-plan": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-reference": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-renderer": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-session": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-sidebar-browser": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-sidebar-documentpreview": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-sidebar-files": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-sidebar-right": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-sidebar-terminal": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-skill": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-subagent": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-workspace": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-scope": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-util-workspace-path": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-working-directory": "0.2.2-rc.5",
+    "@types/node": "^24.19.2",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "esbuild": "^0.28.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}

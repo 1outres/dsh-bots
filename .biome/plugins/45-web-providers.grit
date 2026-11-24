@@ -1,0 +1,17 @@
+// Design rule 45: a bot's web seam has one provider, bot-core's bridge.
+// `registerSearchProvider(...)` / `registerFetchProvider(...)` may appear only
+// in bot-core's web row (src/plugins/web.ts), which runs inside every bot's
+// group: a provider registered anywhere else is the Host's, or bypasses
+// bot-core's web settings and secrets.
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or {
+    `$_.registerSearchProvider`,
+    `$_?.registerSearchProvider`,
+    `$_.registerFetchProvider`,
+    `$_?.registerFetchProvider`
+  },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 45: do not register web providers here; a bot's web lookup goes through bot-core's bridge row (src/plugins/web.ts) and a web backend registered with registerWebBackend."
+  )
+}

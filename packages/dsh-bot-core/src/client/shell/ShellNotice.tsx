@@ -1,0 +1,150 @@
+import { useObservable } from "../hooks"
+import { IconClose } from "../icons"
+import type { Observable } from "../observable"
+import type { BotsState, RegistrationStatus } from "../session-classification"
+import type { Translate } from "../types"
+import type { Viewer } from "../viewer"
+import type { NoticeDismissal } from "./notice-dismissal"
+import { connectionNotice, shellNotice } from "./shell-view"
+
+/** `neutral` says how things are, `warning` and `danger` that something failed. */
+export type BannerTone = "neutral" | "warning" | "danger"
+
+/**
+ * One line floating under the header, over the transcript (it never moves
+ * it); a dismissible one ends in ×, which hands focus to `afterDismiss`.
+ */
+export function Banner(props: {
+  readonly t: Translate
+  readonly tone: BannerTone
+  readonly role: "alert" | "status"
+  /** The banner's data attribute, which names what it says. */
+  readonly marker: `data-dshb-shell-${string}`
+  readonly text: string
+  readonly dismiss?: { onDismiss(): void; afterDismiss(): void }
+}) {
+  const { t, dismiss } = props
+  const label = t("error.dismiss")
+  return (
+    <div
+      className="dshb-shell-banner"
+      data-tone={props.tone}
+      role={props.role}
+      {...{ [props.marker]: "" }}
+    >
+      <span className="dshb-shell-banner-text">{props.text}</span>
+      {dismiss !== undefined && (
+        <button
+          type="button"
+          className="dshb-shell-banner-close"
+          aria-label={label}
+          title={label}
+          onClick={() => {
+            dismiss.onDismiss()
+            dismiss.afterDismiss()
+          }}
+        >
+          <IconClose size={14} />
+        </button>
+      )}
+    </div>
+  )
+}
+
+export interface ShellNoticeProps {
+  readonly t: Translate
+  readonly sessionId: string
+  readonly viewer: Viewer
+  readonly rightbarRegistration: Observable<RegistrationStatus>
+  readonly lockdownNotice: NoticeDismissal
+  readonly afterDismiss: () => void
+}
+
+/** The session's notice: a refused lockdown, or what the session's viewer could not open. */
+export function ShellNotice(props: ShellNoticeProps) {
+  const { t, sessionId, viewer, afterDismiss } = props
+  const view = shellNotice(
+    useObservable(props.rightbarRegistration),
+    useObservable(props.lockdownNotice),
+    useObservable(viewer).notices[sessionId],
+  )
+  if (view === undefined) return null
+  switch (view.kind) {
+    case "lockdown":
+      return (
+        <Banner
+          t={t}
+          tone="warning"
+          role="alert"
+          marker="data-dshb-shell-lockdown-failed"
+          text={t("notice.lockdownFailed")}
+          dismiss={{ onDismiss: props.lockdownNotice.dismiss, afterDismiss }}
+        />
+      )
+    case "viewer":
+      return (
+        // Keyed by serial: a repeated notice is a new live region, announced again.
+        <Banner
+          key={view.notice.serial}
+          t={t}
+          tone="neutral"
+          role="status"
+          marker="data-dshb-shell-notice"
+          text={t(view.notice.key, view.notice.params)}
+          dismiss={{ onDismiss: () => viewer.dismiss(sessionId), afterDismiss }}
+        />
+      )
+  }
+}
+
+/** A failure of the bot's own, as on its row. */
+export function BotErrorStatus(props: {
+  readonly t: Translate
+  readonly error: string
+  readonly onDismiss: () => void
+  readonly afterDismiss: () => void
+}) {
+  const { t } = props
+  return (
+    <Banner
+      t={t}
+      tone="danger"
+      role="alert"
+      marker="data-dshb-shell-status"
+      text={t("error.generic", { message: props.error })}
+      dismiss={{ onDismiss: props.onDismiss, afterDismiss: props.afterDismiss }}
+    />
+  )
+}
+
+/** The word on the bots list: reconnecting, or unavailable. */
+export function ConnectionStatus(props: {
+  readonly t: Translate
+  readonly bots: Observable<BotsState>
+}) {
+  const { t } = props
+  switch (connectionNotice(useObservable(props.bots))) {
+    case undefined:
+      return null
+    case "reconnecting":
+      return (
+        <Banner
+          t={t}
+          tone="neutral"
+          role="status"
+          marker="data-dshb-shell-reconnecting"
+          text={t("bots.reconnecting")}
+        />
+      )
+    case "unavailable":
+      return (
+        <Banner
+          t={t}
+          tone="danger"
+          role="alert"
+          marker="data-dshb-shell-unavailable"
+          text={t("shell.unavailable")}
+        />
+      )
+  }
+}

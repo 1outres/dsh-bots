@@ -1,0 +1,7 @@
+{
+  "name": "@1outres/dsh-bot-peer",
+  "version": "0.1.0",
+  "peerDependencies": {
+    "@1outres/dsh-bot-core": "workspace:*"
+  }
+}

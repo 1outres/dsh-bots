@@ -1,0 +1,12 @@
+// Design rule 3: tool masks are installed in one place.
+// `tools.restrict(...)` may appear only in host/preset/isolation.ts and in
+// src/index.ts (the composition root that injects it into createIsolation).
+// Isolation keeps the masks consistent across tools/change and fails closed.
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or { `$receiver.restrict`, `$receiver?.restrict` },
+  $receiver <: or { `tools`, `$_.tools`, `$_?.tools` },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 3: do not call tools.restrict() here; tool masks belong to the isolation module (host/preset/isolation.ts), which re-derives them on every tools/change and fails closed."
+  )
+}

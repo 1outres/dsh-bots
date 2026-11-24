@@ -1,0 +1,72 @@
+{
+  "name": "dsh_bot_skills",
+  "version": 2,
+  "tables": {
+    "history": {
+      "botId": {
+        "required": true,
+        "type": "string"
+      },
+      "name": {
+        "required": true,
+        "type": "string"
+      },
+      "versions": {
+        "required": true,
+        "type": "({ id: string; at: number; operation: \"create\" | \"patch\" | \"write_file\" | \"remove_file\" | \"archive\" | \"restore\" | \"observed\"; reason?: string; origin: { kind: \"conversation\"; sessionId: string } | { kind: \"review\"; sessionId: string } | { kind: \"owner\" } | { kind: \"files\" } | { kind: \"curator\" }; archived: boolean; absorbedInto?: string; files: { path: string; text: string }[] })[]"
+      }
+    },
+    "usage": {
+      "botId": {
+        "required": true,
+        "type": "string"
+      },
+      "name": {
+        "required": true,
+        "type": "string"
+      },
+      "uses": {
+        "required": true,
+        "type": "number"
+      },
+      "lastUsedAt": {
+        "required": true,
+        "type": "number"
+      }
+    },
+    "settings": {
+      "skillReview": {
+        "required": true,
+        "type": "boolean"
+      },
+      "skillCurator": {
+        "required": false,
+        "type": "boolean"
+      }
+    },
+    "marks": {
+      "botId": {
+        "required": true,
+        "type": "string"
+      },
+      "name": {
+        "required": true,
+        "type": "string"
+      },
+      "keep": {
+        "required": true,
+        "type": "true"
+      }
+    },
+    "curation": {
+      "sweptAt": {
+        "required": false,
+        "type": "number"
+      },
+      "curatedAt": {
+        "required": false,
+        "type": "number"
+      }
+    }
+  }
+}

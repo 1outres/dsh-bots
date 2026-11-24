@@ -1,0 +1,11 @@
+// Design rule 25: preset data is parsed, not cast.
+// `as OverlayOp`, `as BotOverlay` and `as BotTemplate` would let unchecked
+// data reach composition; parse with parseOverlay() or validate with the
+// template catalog instead. Test files are excluded in biome.json.
+`$value as $type` as $cast where {
+  $type <: r"(?:readonly\s+)?(?:OverlayOp|BotOverlay|BotTemplate)(?:\[\])?",
+  register_diagnostic(
+    span = $cast,
+    message = "Design rule 25: do not cast to OverlayOp, BotOverlay or BotTemplate; parse overlays with parseOverlay() and register templates through the catalog, which validate them."
+  )
+}

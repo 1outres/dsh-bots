@@ -1,0 +1,12 @@
+// Design rule 44: the bots' web lookup settings are written in one place.
+// `webSettings.put(...)` / `webSettings.delete(...)` (a receiver named
+// `webSettings` or ending in `.webSettings`) may appear only in
+// host/web/store.ts, which stores the defaults once and serializes changes.
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or { `$receiver.put`, `$receiver.delete`, `$receiver?.put`, `$receiver?.delete` },
+  $receiver <: or { `webSettings`, `$_.webSettings`, `$_?.webSettings` },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 44: do not write the web lookup settings table here; go through the web settings store (host/web/store.ts), which stores the defaults once and serializes every change."
+  )
+}

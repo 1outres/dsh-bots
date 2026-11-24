@@ -1,0 +1,9 @@
+// Design rule 26 (with noRestrictedGlobals for setTimeout/setInterval):
+// Host modules under src/host/ do not read the clock or randomness directly.
+// src/index.ts injects `now`, `newId` and `later`, so modules stay deterministic in tests.
+or { `Date.now`, `Math.random` } as $source where {
+  register_diagnostic(
+    span = $source,
+    message = "Design rule 26: do not use Date.now or Math.random in a Host module; take now()/newId() as a dependency wired in src/index.ts, so the module stays deterministic under test."
+  )
+}

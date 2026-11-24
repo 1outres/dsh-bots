@@ -1,0 +1,104 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: package.json
+          package-manager-cache: false
+      - name: Check the tag, infra/release.env and every package name one version
+        run: node scripts/release/check-versions.mjs "$GITHUB_REF_NAME"
+      - name: Check the tagged commit is on main
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME ($GITHUB_SHA) is not on main. Merge the release to main and tag a commit of main."
+            exit 1
+          fi
+      - name: Check the base image release that infra/release.env names
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: infra/vm/check-image-release.sh
+
+  check:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: [verify, check]
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: package.json
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Check what the tarballs name for workspace dependencies
+        run: node scripts/release/check-packed.mjs
+      - name: Publish to npm (versions already on npm are skipped)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: >-
+          pnpm -r --filter './packages/*' publish
+          --access public --provenance --no-git-checks
+          --publish-wait-timeout 600000 --report-summary
+      - name: Summarize
+        if: always()
+        run: |
+          if [ -f pnpm-publish-summary.json ]; then
+            {
+              echo "### Published to npm"
+              node -e 'for (const p of require("./pnpm-publish-summary.json").publishedPackages) console.log("- " + p.name + "@" + p.version)'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          . infra/release.env
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "The release $GITHUB_REF_NAME exists already."
+            exit 0
+          fi
+          gh release create "$GITHUB_REF_NAME" --verify-tag --latest --title "dsh-bots $DSH_BOTS_VERSION" --generate-notes \
+            --notes "Installs @1outres/dsh-bots@$DSH_BOTS_VERSION from npm for DSH $DSH_VERSION, with the base image $IMAGE_TAG."

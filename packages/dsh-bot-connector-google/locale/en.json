@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Gmail and calendar for bots",
+    "description": "Lets each bot read and act in the Google accounts you assign it: Gmail and Google Calendar tools, sending and changes others see only after you approve, and new mail and calendar changes as events. Connect accounts in the bot's Connectors settings."
+  }
+}

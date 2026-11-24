@@ -1,0 +1,16 @@
+// Design rule 47: the browser half formats instants, relative times and counts in one place.
+// client/locale-format.ts (`localeFormat(t)`) takes the language from bot-core's dictionary
+// (`format.locale`), so dates, times and plurals follow the DSH language of the messages
+// around them instead of the browser's default locale.
+or {
+  `$_.toLocaleString`, `$_?.toLocaleString`,
+  `$_.toLocaleDateString`, `$_?.toLocaleDateString`,
+  `$_.toLocaleTimeString`, `$_?.toLocaleTimeString`,
+  `Intl.DateTimeFormat`, `Intl.RelativeTimeFormat`, `Intl.PluralRules`,
+  `Intl.NumberFormat`, `Intl.DurationFormat`
+} as $format where {
+  register_diagnostic(
+    span = $format,
+    message = "Design rule 47: do not format dates, times or counts here; use localeFormat(t) from client/locale-format.ts, so they follow the DSH language of the messages instead of the browser's default locale."
+  )
+}

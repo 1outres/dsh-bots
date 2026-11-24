@@ -1,0 +1,19 @@
+// Design rule 1: sessions are created in one place.
+// `sessionController.create(...)` and `agents.create(...)` may appear only in
+// host/preset/session.ts (createBotSessions) and in src/index.ts, the
+// composition root that injects the Agent creation into createBotSessions.
+// Every other session start must go through `Bot.createSession`, so a bot
+// session always runs under the bot's preset, in its environment's
+// workspace, and is recorded as the bot's.
+// Allowed files are excluded through this plugin's `includes` in biome.json.
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or { `$receiver.create`, `$receiver?.create` },
+  $receiver <: or {
+    `sessionController`, `$_.sessionController`, `$_?.sessionController`,
+    `agents`, `$_.agents`, `$_?.agents`
+  },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 1: do not call sessionController.create() or agents.create() here; start bot sessions with Bot.createSession() (host/preset/session.ts), which checks the bot's preset first so every bot session runs under it in its environment's workspace."
+  )
+}

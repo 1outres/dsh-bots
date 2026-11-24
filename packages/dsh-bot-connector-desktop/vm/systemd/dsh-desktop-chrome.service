@@ -1,0 +1,19 @@
+[Unit]
+Description=Bot desktop browser (Google Chrome on :1, one profile, DevTools on 127.0.0.1:9222)
+Requires=dsh-desktop-session.service
+After=dsh-desktop-session.service
+
+[Service]
+Environment=DISPLAY=:1
+Environment=XAUTHORITY=%t/dsh-desktop/Xauthority
+Environment=GTK_MODULES=gail:atk-bridge
+Environment=NO_AT_BRIDGE=0
+Environment=GTK_IM_MODULE=fcitx
+Environment=XMODIFIERS=@im=fcitx
+ExecStart=/usr/local/lib/dsh-desktop/chrome-run
+ExecStartPost=/usr/local/lib/dsh-desktop/chrome-ready
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target

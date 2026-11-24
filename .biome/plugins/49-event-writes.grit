@@ -1,0 +1,12 @@
+// Design rule 49: connector events are written in one place.
+// `events.put/delete` and `cursors.put/delete` (a receiver with that name or
+// ending in it) may appear only in host/events/store.ts: an event is stored
+// before the cursor that follows it moves.
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or { `$receiver.put`, `$receiver.delete`, `$receiver?.put`, `$receiver?.delete` },
+  $receiver <: or { `events`, `$_.events`, `$_?.events`, `cursors`, `$_.cursors`, `$_?.cursors` },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 49: do not write the events tables here; go through the event store (host/events/store.ts), which stores events before their cursor moves."
+  )
+}
