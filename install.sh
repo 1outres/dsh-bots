@@ -250,11 +250,29 @@ profile_json() { # profile_json <expression on p, the profile package.json>
     "$PROFILE_DIR/package.json" "$1"
 }
 
+tools_fix() { # tools_fix <node|pnpm>...: how to get the missing tools on this OS
+  local tool packages=() names=()
+  for tool in "$@"; do
+    case $tool in
+      node) packages+=(nixpkgs#nodejs_22) names+=("Node.js 22 or newer") ;;
+      pnpm) packages+=(nixpkgs#pnpm) names+=("pnpm (npm install -g pnpm)") ;;
+    esac
+  done
+  if [[ $OS_FAMILY == nixos ]]; then
+    printf 'Add %s to environment.systemPackages, or run this again inside nix shell %s.' "${packages[*]#nixpkgs#}" "${packages[*]}"
+  else
+    local list=${names[0]} name
+    for name in "${names[@]:1}"; do list+=" and $name"; done
+    printf 'Install %s, then run this again.' "$list"
+  fi
+}
+
 # shellcheck disable=SC2153 # DSH_VERSION comes from infra/release.env (lib.sh)
 step_dsh() {
   command -v dsh >/dev/null || stop "DSH is not installed (no dsh on PATH)." "Install DeepSeek Harness $DSH_VERSION (npm install -g @deepseek-ai/dsh@$DSH_VERSION), then run this again."
-  command -v node >/dev/null || stop "Node.js is not on PATH." "Install Node.js 22 or newer (DSH runs on it)."
-  command -v pnpm >/dev/null || stop "pnpm is not on PATH; dsh plugin installs plugins with it." "Install pnpm (npm install -g pnpm), then run this again."
+  local missing=() tool
+  for tool in node pnpm; do command -v "$tool" >/dev/null || missing+=("$tool"); done
+  ((${#missing[@]} == 0)) || stop "${missing[*]} not on PATH: the installer reads DSH's profile with node, and dsh plugin installs with pnpm." "$(tools_fix "${missing[@]}")"
   local version
   version=$(dsh --version 2>/dev/null | tail -n1)
   [[ $version == "$DSH_VERSION" ]] ||
