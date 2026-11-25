@@ -1,6 +1,6 @@
 {
   "name": "@1outres/dsh-bot-web",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Searches the web and fetches pages for every bot of DeepSeek Harness through Exa, with the bots' own Exa API key, kept apart from the Host's web settings.",
   "repository": {
     "type": "git",
@@ -43,7 +43,7 @@
     "node": ">=22"
   },
   "peerDependencies": {
-    "@1outres/dsh-bot-core": "workspace:^0.3.0",
+    "@1outres/dsh-bot-core": "workspace:^0.3.1",
     "@deepseek-ai/cordis": "~4.1.0",
     "@deepseek-ai/dsh-web": "0.2.2-rc.5"
   },

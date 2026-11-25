@@ -1,6 +1,6 @@
 {
   "name": "@1outres/dsh-bot-connector-google",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Gives the bots of DeepSeek Harness their owner's Gmail and Google Calendar: tools that read and act as the Google accounts assigned to each bot, sending and other outside actions only after the owner approves, and new emails and calendar changes as events.",
   "repository": {
     "type": "git",
@@ -43,7 +43,7 @@
     "node": ">=22"
   },
   "peerDependencies": {
-    "@1outres/dsh-bot-core": "workspace:^0.3.0",
+    "@1outres/dsh-bot-core": "workspace:^0.3.1",
     "@deepseek-ai/cordis": "~4.1.0"
   },
   "devDependencies": {
