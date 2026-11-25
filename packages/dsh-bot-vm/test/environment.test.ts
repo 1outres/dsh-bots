@@ -9,6 +9,7 @@ import {
 import type { IncusClient, IncusInstance, InstanceSpec, StateAction } from "../src/host/incus"
 import { reconfigure } from "../src/host/reconfigure"
 import { sizeBytesOf } from "../src/host/spec"
+import { incusWith } from "./support/incus"
 
 const DAY = 24 * 3_600_000
 
@@ -91,7 +92,7 @@ function fakeIncus() {
     project: { "limits.memory": "56GiB" } as Record<string, string>,
     poolBytes: 80 * 1024 ** 3,
   }
-  const client: IncusClient = {
+  const client: IncusClient = incusWith({
     async instance(name) {
       const found = instances.get(name)
       return found === undefined ? undefined : expanded(found)
@@ -141,7 +142,7 @@ function fakeIncus() {
     profile: async (name) =>
       name === "dsh-bot" ? { name, devices: { root: PROFILE_ROOT } } : undefined,
     poolSpace: async () => host.poolBytes,
-  }
+  })
   /** An instance some other tool or installation created under a bot's name. */
   const foreign = (name: string, config: Record<string, string> = {}) =>
     instances.set(name, { name, status: "Running", config, devices: {} })

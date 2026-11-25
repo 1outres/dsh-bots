@@ -26,9 +26,7 @@ import {
 } from "./host/environment"
 import { createIncusClient } from "./host/incus"
 import { decideOwner, OWNER_FILE } from "./host/owner"
-import { unixSocketTransport } from "./node/unix-socket"
-
-export { unixSocketTransport }
+import { createIncusTransport } from "./node/incus-transport"
 
 export const name = "bot-vm"
 /**
@@ -362,7 +360,7 @@ export function apply(ctx: Context, config: Config): void {
   const settings = settingsOf(config, config.owner === "" ? ownerOf(stateDir) : config.owner)
   const environment = createVmEnvironment(settings, {
     incus: createIncusClient({
-      transport: unixSocketTransport(config.incusSocket),
+      transport: createIncusTransport({ kind: "local", socket: config.incusSocket }),
       project: config.incusProject,
       operationTimeoutMs: config.operationTimeoutMs,
       requestTimeoutMs: config.incusTimeoutMs,

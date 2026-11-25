@@ -5,14 +5,14 @@
 import { spawn } from "node:child_process"
 import { createIncusClient } from "../host/incus"
 import { parseProxyArgs, socatArgs, vsockCidOf } from "../host/vsock"
-import { unixSocketTransport } from "../node/unix-socket"
+import { createIncusTransport } from "../node/incus-transport"
 
 const REQUEST_TIMEOUT_MS = 15_000
 
 async function main(): Promise<number> {
   const args = parseProxyArgs(process.argv.slice(2))
   const incus = createIncusClient({
-    transport: unixSocketTransport(args.socket),
+    transport: createIncusTransport({ kind: "local", socket: args.socket }),
     project: args.project,
     operationTimeoutMs: REQUEST_TIMEOUT_MS,
     requestTimeoutMs: REQUEST_TIMEOUT_MS,

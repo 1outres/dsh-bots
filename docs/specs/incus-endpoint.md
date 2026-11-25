@@ -62,7 +62,7 @@ Incus の正規の方法（`incus remote add <token>` と同じ。[Incus: Authen
 4. 登録された証明書は `restricted: true`, `projects: [dsh-bots]`（確認済み）。`GET /1.0` の `auth` が `trusted` になる。
 5. 保存: URL、サーバ証明書の sha256、クライアント証明書は dsh-bot-vm の状態（§5.1 の EndpointStore）、秘密鍵は DSH の credential store（§6.2）。
 
-外す・作り直す: 画面の「VM ホストとの接続をやめる」は自分の証明書を `DELETE /1.0/certificates/<自分の fingerprint>` で消してから手元の記録を消す（制限付き証明書が自分を消せるかは未検証。消せなければ管理者に `incus config trust remove` を案内する）。
+外す・作り直す: 制限付き証明書は自分の証明書を消せない（`DELETE /1.0/certificates/<自分の fingerprint>` が 403 "Certificate is restricted"、2026-11-25 に確認済み）。画面の「VM ホストとの接続をやめる」は手元の記録を消し、管理者に `incus config trust remove <fingerprint の先頭 12 桁>` を案内する。
 
 ## 5. コントラクト
 
@@ -307,7 +307,7 @@ ProxyCommand が独立したプロセス（§5.2 の B）なら Incus の秘密�
 - **未検証**: 実機の確認用 DSH での bot-core の一通り（ファイルビューワー、添付、present、ノート、スキル）。今の dsh-bot-vm は exec と volume を持たないので、実装の段階 3 の後に確かめる。コードでは §5.6 のとおり共有フォルダに頼っていない。
 - **未検証**: 別のマシンからの remote。spike の HTTPS は同じホストの loopback。NAT・遅い回線での数値、token の `addresses` が `:8443`（全アドレス）のとき何を並べるか。
 - **未検証**: WSL・NixOS・Arch の DSH ホスト（プラグインだけで動くはずだが試していない）。
-- **未検証**: 制限付き証明書が自分の証明書を消せるか。証明書の期限（作った証明書は 10 年）と更新の手順。
+- 制限付き証明書は自分の証明書を消せない（確認済み、§4）。**未検証**: 証明書の期限（作った証明書は 10 年）と更新の手順。
 - **未検証**: Debian 12 / Ubuntu 24.04（Zabbly 6.0.x）・Fedora の Incus で §6.1 の表が同じか。新しい版の Incus には `restricted.storage-pools.access` がある（文書で確認）。
 - incusd の再起動で最大 5 分止まる（§8.2）。
 - プロファイルで project が壊れる（§3.4）: プラグインはプロファイルを使わず、`check` で「project に許されないデバイスを持つプロファイルがある」を見つけたら止まって名前を示す。
@@ -340,5 +340,3 @@ ProxyCommand が独立したプロセス（§5.2 の B）なら Incus の秘密�
 ## 付録: spike で作ったもの（すべて片付け済み）
 
 - Incus: project `dsh-spike`（中に VM `spk-a`、custom volume `ws-a`、イメージ `dsh-bot-base` の別名、プロファイル `dsh-bot`）、ストレージプール `dshspike`（btrfs 40 GiB の loop）、default project のブリッジ `dshspk0` と ACL `dsh-spike-egress`、trust の証明書 `dsh-spike-client`。サーバの `core.https_address` を一時的に `127.0.0.1:8443`（元は未設定）。
-- ファイル: `/tmp/dsh-spike/`、`/var/tmp/dsh-spike/`（イメージの export）。
-- incusd を 2 回再起動した（11:10 と 11:25 頃。本番の VM は動いたまま、vsock の SSH は切れなかった）。
