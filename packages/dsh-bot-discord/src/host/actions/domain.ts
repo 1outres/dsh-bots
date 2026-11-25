@@ -36,20 +36,3 @@ export const cardKey = (botId: string, actionId: string, userId: string) =>
   `${botId}:${actionId}:${userId}`
 
 export const digestKey = (botId: string, userId: string) => `${botId}:${userId}`
-
-/**
- * Where the connector approval messages of every bot sit in its approvers'
- * DMs, so a new connection edits them instead of posting them again.
- * Disposable: a record that no longer parses is set aside and its message
- * posted anew.
- */
-export const DISCORD_DOMAIN = {
-  name: "dsh_bot_discord",
-  version: 1,
-  compatibleVersions: [],
-  invalidRecords: "backup-and-skip",
-  tables: {
-    cards: { valueSchema: cardRecordSchema },
-    digests: { valueSchema: digestRecordSchema },
-  },
-} as const

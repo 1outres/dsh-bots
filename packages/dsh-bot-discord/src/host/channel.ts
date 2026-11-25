@@ -1,10 +1,12 @@
 import type { BotChannel, BotChannelCapabilities } from "@1outres/dsh-bot-core"
-import { type ApprovalTables, openApprovalRecords } from "./actions/records"
+import { type ApprovalTables, openApprovalRecords, type RecordTable } from "./actions/records"
 import { createDiscordBridge } from "./bridge"
 import { createDiscordConnection } from "./connection"
 import type { OpenDiscordClient } from "./discord"
 import type { FetchUrl } from "./download"
 import { DISCORD_FIELDS } from "./fields"
+import type { IncidentNoticeRecord } from "./incidents/domain"
+import { openIncidentNotices } from "./incidents/records"
 import type { Scheduler } from "./ports"
 
 export interface DiscordChannelDeps {
@@ -13,6 +15,8 @@ export interface DiscordChannelDeps {
   fetch: FetchUrl
   /** The tables of DISCORD_DOMAIN: where every bot's approval messages sit. */
   approvals: ApprovalTables
+  /** The `incidents` table of DISCORD_DOMAIN: which credential incidents every bot's owners were shown. */
+  incidents: RecordTable<IncidentNoticeRecord>
   warn(message: string): void
 }
 
@@ -24,6 +28,7 @@ export const DISCORD_CAPABILITIES = {
   interactions: ["question", "approval", "plan-review"],
   commands: ["stop", "status", "new"],
   connectorActions: true,
+  credentialIncidents: true,
 } as const satisfies BotChannelCapabilities
 
 /** The `discord` channel: one Discord bot (its own token) per DSH bot, in direct messages. */
@@ -74,6 +79,7 @@ export function createDiscordChannel(deps: DiscordChannelDeps): BotChannel<typeo
         scheduler: deps.scheduler,
         fetch: deps.fetch,
         records: openApprovalRecords(deps.approvals, link.bot.id),
+        incidents: openIncidentNotices(deps.incidents, link.bot.id),
         warn: deps.warn,
       })
     },

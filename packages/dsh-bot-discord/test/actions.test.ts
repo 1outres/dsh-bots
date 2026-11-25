@@ -17,6 +17,7 @@ import type {
   DiscordComponentPress,
   DiscordMessageEdit,
 } from "../src/host/discord"
+import { openIncidentNotices } from "../src/host/incidents/records"
 import { createSerialQueue } from "../src/host/queue"
 import {
   ALLOWED,
@@ -24,6 +25,7 @@ import {
   fakeLink,
   manualClock,
   memoryApprovalTables,
+  memoryTable,
   OTHER,
   settle,
 } from "./support"
@@ -405,6 +407,7 @@ describe("Discord bridge: connector actions", () => {
       scheduler: clock.scheduler,
       fetch: async () => ({ ok: false, status: 404, body: (async function* () {})() }),
       records: openApprovalRecords(memoryApprovalTables(), "b1"),
+      incidents: openIncidentNotices(memoryTable(), "b1"),
       warn: () => {},
     })
     events?.ready({ id: "self", tag: "bot" })

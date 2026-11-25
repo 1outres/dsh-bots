@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { z } from "zod"
-import { DISCORD_DOMAIN } from "../src/host/actions/domain"
+import { DISCORD_DOMAIN } from "../src/host/domain"
 
 /**
  * Records already stored must keep parsing: a changed snapshot needs either a

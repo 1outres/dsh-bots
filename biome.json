@@ -229,6 +229,14 @@
       ]
     },
     {
+      "path": "./.biome/plugins/72-discord-record-writes.grit",
+      "includes": [
+        "packages/dsh-bot-discord/src/**",
+        "!packages/dsh-bot-discord/src/host/actions/records.ts",
+        "!packages/dsh-bot-discord/src/host/incidents/records.ts"
+      ]
+    },
+    {
       "path": "./.biome/plugins/49-event-writes.grit",
       "includes": [
         "packages/dsh-bot-core/src/**",

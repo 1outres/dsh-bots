@@ -30,8 +30,8 @@ export const DISCORD_FIELDS = [
     key: "approvers",
     label: { en: "Owners", ja: "オーナー" },
     description: {
-      en: "Discord user IDs of the bot's owners: the people who can give the bot instructions and approve its connector actions (usually just you). The bot treats only their messages as its owner's; to talk with it they also need to be Allowed users. Connector actions that ask first (sending an email…) are posted to their DMs with Approve and Reject, and only they can decide them in Discord (the Web UI can always decide them too).",
-      ja: "ボットのオーナー（ボットに指示を出し、コネクターの操作を承認できる人。ふつうはあなただけ）の Discord のユーザー ID。ボットはこの人たちの発言だけをオーナーのものとして扱います。ボットと会話するには「会話できるユーザー」にも入れてください。確認が必要なコネクターの操作（メールの送信など）はこの人たちの DM に許可・拒否のボタン付きで届き、Discord で判断できるのはこの人たちだけです（Web UI ではいつでも判断できます）。",
+      en: "Discord user IDs of the bot's owners: the people who can give the bot instructions and approve its connector actions (usually just you). The bot treats only their messages as its owner's; to talk with it they also need to be Allowed users. Connector actions that ask first (sending an email…) are posted to their DMs with Approve and Reject, and only they can decide them in Discord (the Web UI can always decide them too). Credential incidents (a secret of one of the bot's logins found where the bot reads or writes) are reported to their DMs too.",
+      ja: "ボットのオーナー（ボットに指示を出し、コネクターの操作を承認できる人。ふつうはあなただけ）の Discord のユーザー ID。ボットはこの人たちの発言だけをオーナーのものとして扱います。ボットと会話するには「会話できるユーザー」にも入れてください。確認が必要なコネクターの操作（メールの送信など）はこの人たちの DM に許可・拒否のボタン付きで届き、Discord で判断できるのはこの人たちだけです（Web UI ではいつでも判断できます）。ログイン情報の漏洩（ボットのログイン情報の秘密が、ボットが読み書きする場所に現れたこと）もこの人たちの DM に報告します。",
     },
     minItems: 0,
     maxItems: 10,
@@ -42,8 +42,8 @@ export const DISCORD_FIELDS = [
     key: "language",
     label: { en: "Notice language", ja: "通知の言語" },
     description: {
-      en: "Language of the bot's own texts in DMs (a failed or stopped reply, an undelivered message, question, approval, plan review and connector action cards): en or ja. Empty is English. Command answers and private refusals follow each user's Discord language.",
-      ja: "DM でのボット自身の文言（応答の失敗・停止、届けられなかったメッセージ、質問・承認・プラン確認・コネクターの操作のカード）の言語: en か ja。空欄は英語。コマンドの返答と本人だけに見える拒否は各ユーザーの Discord の言語に従います。",
+      en: "Language of the bot's own texts in DMs (a failed or stopped reply, an undelivered message, question, approval, plan review, connector action and credential incident cards): en or ja. Empty is English. Command answers and private refusals follow each user's Discord language.",
+      ja: "DM でのボット自身の文言（応答の失敗・停止、届けられなかったメッセージ、質問・承認・プラン確認・コネクターの操作・ログイン情報の漏洩のカード）の言語: en か ja。空欄は英語。コマンドの返答と本人だけに見える拒否は各ユーザーの Discord の言語に従います。",
     },
     required: false,
     maxLength: 2,

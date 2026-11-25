@@ -9,6 +9,7 @@ import type {
   DiscordCommandResponse,
 } from "../src/host/discord"
 import type { FetchUrl } from "../src/host/download"
+import { openIncidentNotices } from "../src/host/incidents/records"
 import { PULSE_DELAY_MS, TYPING_INTERVAL_MS } from "../src/host/typing"
 import {
   ALLOWED,
@@ -18,6 +19,7 @@ import {
   fakeLink,
   manualClock,
   memoryApprovalTables,
+  memoryTable,
   OTHER,
   settle,
 } from "./support"
@@ -67,6 +69,7 @@ function setup(
         })(),
       })),
     records: openApprovalRecords(tables, "b1"),
+    incidents: openIncidentNotices(memoryTable(), "b1"),
     warn: () => {},
   })
   const ready = () => events?.ready({ id: "self", tag: "bot" })

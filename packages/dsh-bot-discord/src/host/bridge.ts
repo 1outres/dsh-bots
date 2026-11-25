@@ -24,6 +24,8 @@ import type { FetchUrl } from "./download"
 import type { DiscordSettings } from "./fields"
 import { formatForDiscord } from "./format"
 import { hasContent, inboundMessageOf, isAllowedDirectMessage } from "./inbound"
+import { createIncidentPresenter } from "./incidents/presenter"
+import type { IncidentNotices } from "./incidents/records"
 import { createInteractionPresenter } from "./interactions/presenter"
 import type { Scheduler } from "./ports"
 import { createSerialQueue } from "./queue"
@@ -57,6 +59,8 @@ export interface DiscordBridgeDeps {
   fetch: FetchUrl
   /** Where this bot's connector action cards and pending lists sit, across connections. */
   records: ApprovalRecords
+  /** Which of this bot's credential incidents each owner was shown, across connections. */
+  incidents: IncidentNotices
   warn(message: string): void
 }
 
@@ -69,8 +73,8 @@ const CLOSING = "the Discord connection is closing"
  * get {@link ACCEPTED_REACTION}, or {@link FAILED_REACTION} and a reply saying
  * why. bot-core's outputs come back to every allowed user's DM: replies
  * (formatted for Discord, split to its limit), files, notices of failed or
- * stopped turns, and "typing" while a turn runs; connector actions go to
- * the approvers' DMs instead. The bot's commands are
+ * stopped turns, and "typing" while a turn runs; connector actions and
+ * credential incidents go to the owners' (approvers') DMs instead. The bot's commands are
  * offered as DM slash commands. After a new Gateway session starts (the
  * previous one could not be resumed) the DMs are read for messages missed
  * meanwhile.
@@ -135,6 +139,17 @@ export function createDiscordBridge(deps: DiscordBridgeDeps): BotChannelConnecti
     outbound,
     closed,
     warn: deps.warn,
+  })
+
+  const incidents = createIncidentPresenter({
+    bot: link.bot,
+    actions: connection,
+    notices: deps.incidents,
+    owners: approvers,
+    recipients: () => directory.recipientsOf(approvers),
+    locale: notices,
+    outbound,
+    closed,
   })
 
   const typing = createTypingKeeper({
@@ -224,6 +239,8 @@ export function createDiscordBridge(deps: DiscordBridgeDeps): BotChannelConnecti
         return interactions.closed(output.closure)
       case "connector-action":
         return actions.received(output.action)
+      case "credential-incident":
+        return incidents.received(output.incident)
     }
   }
 

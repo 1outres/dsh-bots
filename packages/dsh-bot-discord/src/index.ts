@@ -5,10 +5,13 @@
  */
 import type { Bot } from "@1outres/dsh-bot-core"
 import type { Context } from "@deepseek-ai/cordis"
-import { type CardRecord, DISCORD_DOMAIN, type DigestRecord } from "./host/actions/domain"
+import type { CardRecord, DigestRecord } from "./host/actions/domain"
 import { purgeApprovalRecords, type RecordTable } from "./host/actions/records"
 import { createDiscordChannel } from "./host/channel"
 import { discordJsClients } from "./host/discordjs/client"
+import { DISCORD_DOMAIN } from "./host/domain"
+import type { IncidentNoticeRecord } from "./host/incidents/domain"
+import { purgeIncidentNotices } from "./host/incidents/records"
 import type { Scheduler } from "./host/ports"
 
 export const name = "bot-discord"
@@ -23,6 +26,7 @@ export const inject = ["bot", "storageDomain"]
 interface DiscordDomain {
   table(name: "cards"): RecordTable<CardRecord>
   table(name: "digests"): RecordTable<DigestRecord>
+  table(name: "incidents"): RecordTable<IncidentNoticeRecord>
   close(): Promise<void>
 }
 
@@ -42,8 +46,11 @@ export async function apply(ctx: Context): Promise<void> {
   const domain = await serviceOf<StorageDomains>(ctx, STORAGE).open(DISCORD_DOMAIN)
   ctx.effect(() => () => void domain.close(), "bot-discord: storage domain")
   const approvals = { cards: domain.table("cards"), digests: domain.table("digests") }
+  const incidents = domain.table("incidents")
   const bots = botOf(ctx)
-  await purgeApprovalRecords(approvals, (botId) => bots.botIds().includes(botId))
+  const listed = (botId: string) => bots.botIds().includes(botId)
+  await purgeApprovalRecords(approvals, listed)
+  await purgeIncidentNotices(incidents, listed)
 
   const timers = new Set<ReturnType<typeof setTimeout>>()
   ctx.effect(
@@ -72,6 +79,7 @@ export async function apply(ctx: Context): Promise<void> {
     scheduler,
     fetch: (url, init) => fetch(url, init),
     approvals,
+    incidents,
     warn,
   })
   ctx.effect(() => botOf(ctx).registerChannel(channel), "bot-discord: channel")
