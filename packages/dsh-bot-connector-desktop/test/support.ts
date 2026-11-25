@@ -7,34 +7,62 @@ import type {
   BotEnvironmentCommandResult,
   ConnectorJson,
 } from "@1outres/dsh-bot-core"
+import { VAULT_KIT } from "@1outres/dsh-bot-core"
 import type { DesktopAgent } from "../src/host/agent/client"
-import type { AgentMethod, AgentParams } from "../src/host/agent/protocol"
+import type {
+  AgentMethod,
+  AgentParams,
+  SecretAgentMethod,
+  SecretAgentParams,
+} from "../src/host/agent/protocol"
 import { RESULTS } from "../src/host/agent/protocol"
 import { DesktopControl } from "../src/host/control"
 import { FrameMemory } from "../src/host/frame"
 import type { DesktopSession } from "../src/host/session"
 import { desktopTools } from "../src/host/tools"
 
+export { VAULT_KIT }
+
 export interface AgentCall {
-  readonly method: AgentMethod
+  readonly method: AgentMethod | SecretAgentMethod
   readonly params: unknown
 }
 
 type Answer = (params: never) => unknown
 
-/** An agent answering from a table; each answer goes through the real response checks. */
-export function fakeAgent(answers: Partial<Record<AgentMethod, Answer | Error>>) {
+/**
+ * An agent answering from a table; each answer goes through the real response
+ * checks. A secret handed with a call is read into `secrets` (as the agent
+ * would receive it) and wiped.
+ */
+export function fakeAgent(
+  answers: Partial<Record<AgentMethod | SecretAgentMethod, Answer | Error>>,
+) {
   const calls: AgentCall[] = []
+  const secrets: Uint8Array[] = []
+  const answer = (method: AgentMethod | SecretAgentMethod, params: unknown) => {
+    calls.push({ method, params })
+    const found = answers[method]
+    if (found === undefined) throw new Error(`unexpected agent call ${method}`)
+    if (found instanceof Error) throw found
+    return RESULTS[method]((found as (p: unknown) => unknown)(params), method) as never
+  }
   const agent: DesktopAgent = {
     async call<M extends AgentMethod>(method: M, params: AgentParams[M]) {
-      calls.push({ method, params })
-      const answer = answers[method]
-      if (answer === undefined) throw new Error(`unexpected agent call ${method}`)
-      if (answer instanceof Error) throw answer
-      return RESULTS[method]((answer as (p: unknown) => unknown)(params), method) as never
+      return answer(method, params)
+    },
+    async callSecret<M extends SecretAgentMethod>(
+      method: M,
+      params: SecretAgentParams[M],
+      secret: Parameters<DesktopAgent["callSecret"]>[2],
+    ) {
+      await secret.use((bytes) => {
+        secrets.push(bytes.slice())
+      })
+      return answer(method, params)
     },
   }
-  return { agent, calls }
+  return { agent, calls, secrets }
 }
 
 export function session(agent: DesktopAgent): DesktopSession {

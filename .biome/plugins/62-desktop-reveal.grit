@@ -1,0 +1,11 @@
+// Design rule 62: the desktop connector reveals a login's value in one place.
+// In packages/dsh-bot-connector-desktop/src, `.reveal()` and `.passkey()` (the
+// bot's logins, `run.vault`) are called only by host/tools/credentials.ts,
+// which checks the field in the agent first and hands the value straight to it.
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or { `$_.reveal`, `$_?.reveal`, `$_.passkey`, `$_?.passkey` },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 62: only host/tools/credentials.ts of the desktop connector reveals a login (run.vault.reveal / passkey); type logins with desktop_type_credential."
+  )
+}

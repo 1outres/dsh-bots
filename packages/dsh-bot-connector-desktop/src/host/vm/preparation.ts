@@ -5,7 +5,7 @@
  */
 import type { BotConnectorContext, BotConnectorPreparation } from "@1outres/dsh-bot-core"
 import { connectAgent } from "../agent/connect"
-import type { RpcDeps } from "../agent/rpc"
+import type { RpcClientDeps } from "../agent/rpc"
 import { type Resolution, resolutionOf } from "../settings"
 import { readVmUser, run } from "./commands"
 import {
@@ -28,7 +28,7 @@ import {
 } from "./layout"
 import { DESKTOP_PACKAGES } from "./packages"
 
-export interface DesktopPreparationDeps extends RpcDeps {
+export interface DesktopPreparationDeps extends RpcClientDeps {
   readonly sources: readonly VmSourceFile[]
 }
 

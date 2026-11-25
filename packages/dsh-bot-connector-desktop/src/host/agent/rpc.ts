@@ -2,13 +2,22 @@
  * Newline-delimited JSON-RPC 2.0 over a byte stream (`socat` to the agent's
  * Unix socket in the bot's VM). Replies are matched by id; a line longer
  * than the limit, or a stream that ends, fails every open call.
+ *
+ * A request that carries a secret (docs/specs/bot-vaults.md §6) has it in its
+ * own `secret` member, base64: the line is assembled as bytes around the
+ * value, never as a JS string, and wiped once written.
  */
-import type { BotEnvironmentProcess } from "@1outres/dsh-bot-core"
+import type { BotEnvironmentProcess, SecretBytes, VaultKit } from "@1outres/dsh-bot-core"
 import { type Check, integer, json, matching, nullable, object, text } from "./check"
 
 export interface RpcDeps {
   /** A signal that aborts after `ms`. */
   deadline(ms: number): AbortSignal
+}
+
+export interface RpcClientDeps extends RpcDeps {
+  /** Byte encodings for a request that carries a secret (`Bot.vaultKit()`). */
+  readonly vaultKit: VaultKit
 }
 
 export interface RpcCall {
@@ -18,6 +27,13 @@ export interface RpcCall {
 
 export interface RpcClient {
   call(method: string, params: object, options: RpcCall): Promise<unknown>
+  /** A call whose request also carries the secret; the secret is wiped in every case. */
+  callSecret(
+    method: string,
+    params: object,
+    secret: SecretBytes,
+    options: RpcCall,
+  ): Promise<unknown>
   /** Settles once the stream ended; every later call fails. */
   readonly closed: Promise<void>
 }
@@ -41,6 +57,8 @@ export class AgentUnavailableError extends Error {
 }
 
 const NEWLINE = 0x0a
+const SECRET_OPEN = new TextEncoder().encode(',"secret":"')
+const SECRET_CLOSE = new TextEncoder().encode('"}\n')
 const reply: Check<{
   readonly id: number
   readonly result?: unknown
@@ -60,7 +78,7 @@ interface Pending {
 
 export function createRpcClient(
   process: Pick<BotEnvironmentProcess, "stdin" | "stdout">,
-  deps: RpcDeps,
+  deps: RpcClientDeps,
   limits: { readonly maxLineBytes: number },
 ): RpcClient {
   const pending = new Map<number, Pending>()
@@ -123,39 +141,70 @@ export function createRpcClient(
     failAll(error instanceof Error ? error : new AgentUnavailableError(String(error)))
   })
 
+  const open = (method: string, options: RpcCall) => {
+    if (failure !== undefined) throw failure
+    const id = nextId++
+    const deadline = deps.deadline(options.timeoutMs)
+    const signal =
+      options.signal === undefined ? deadline : AbortSignal.any([deadline, options.signal])
+    const answer = new Promise<unknown>((resolve, reject) => {
+      pending.set(id, { resolve, reject })
+      signal.addEventListener(
+        "abort",
+        () => {
+          if (!pending.delete(id)) return
+          reject(
+            deadline.aborted
+              ? new AgentUnavailableError(`${method} took longer than ${options.timeoutMs} ms`)
+              : signal.reason instanceof Error
+                ? signal.reason
+                : new Error("cancelled"),
+          )
+        },
+        { once: true },
+      )
+    })
+    return { id, answer }
+  }
+
+  const send = async (id: number, write: () => Promise<void>) => {
+    try {
+      await write()
+    } catch (error) {
+      pending.delete(id)
+      throw new AgentUnavailableError(error instanceof Error ? error.message : String(error))
+    }
+  }
+
   return {
     closed,
     async call(method, params, options) {
-      if (failure !== undefined) throw failure
-      const id = nextId++
-      const deadline = deps.deadline(options.timeoutMs)
-      const signal =
-        options.signal === undefined ? deadline : AbortSignal.any([deadline, options.signal])
-      const answer = new Promise<unknown>((resolve, reject) => {
-        pending.set(id, { resolve, reject })
-        signal.addEventListener(
-          "abort",
-          () => {
-            if (!pending.delete(id)) return
-            reject(
-              deadline.aborted
-                ? new AgentUnavailableError(`${method} took longer than ${options.timeoutMs} ms`)
-                : signal.reason instanceof Error
-                  ? signal.reason
-                  : new Error("cancelled"),
-            )
-          },
-          { once: true },
-        )
-      })
+      const { id, answer } = open(method, options)
       const line = encoder.encode(`${JSON.stringify({ jsonrpc: "2.0", id, method, params })}\n`)
-      try {
-        await process.stdin.write(line)
-      } catch (error) {
-        pending.delete(id)
-        throw new AgentUnavailableError(error instanceof Error ? error.message : String(error))
-      }
+      await send(id, () => process.stdin.write(line))
       return answer
+    },
+    async callSecret(method, params, secret, options) {
+      const kit = deps.vaultKit
+      try {
+        const { id, answer } = open(method, options)
+        const request = encoder.encode(JSON.stringify({ jsonrpc: "2.0", id, method, params }))
+        const head = kit.concat([request.subarray(0, request.byteLength - 1), SECRET_OPEN])
+        await send(id, () =>
+          secret.use(async (bytes) => {
+            const encoded = kit.base64(bytes)
+            const line = kit.concat([head, encoded, SECRET_CLOSE])
+            try {
+              await process.stdin.write(line)
+            } finally {
+              kit.wipe(encoded, line)
+            }
+          }),
+        )
+        return answer
+      } finally {
+        secret.wipe()
+      }
     },
   }
 }

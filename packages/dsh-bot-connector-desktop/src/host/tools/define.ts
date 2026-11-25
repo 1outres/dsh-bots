@@ -35,6 +35,8 @@ export interface DesktopToolSpec<S extends Parameters> {
   readonly kind: ToolKind | ((args: ArgsOf<S>) => ToolKind)
   /** Not serialized on the display: it only waits (the handoff), so other calls go on meanwhile. */
   readonly concurrent?: true
+  /** It types the bot's logins: its runs get `run.vault`. */
+  readonly vault?: true
   readonly maxResultChars?: number
   preview(args: ArgsOf<S>): ConnectorPreview
   run(args: ArgsOf<S>, run: DesktopRun): Promise<BotConnectorResult>
@@ -110,6 +112,7 @@ export function desktopTool<const S extends Parameters>(
     permission: "allow",
     ...(spec.concurrent === true ? {} : { exclusive: EXCLUSIVE_DISPLAY }),
     ...(spec.maxResultChars === undefined ? {} : { maxResultChars: spec.maxResultChars }),
+    ...(spec.vault === undefined ? {} : { vault: spec.vault }),
     preview: (args) => spec.preview(args),
     async execute(args, run) {
       const kind = typeof spec.kind === "function" ? spec.kind(args) : spec.kind

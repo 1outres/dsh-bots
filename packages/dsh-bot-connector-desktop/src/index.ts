@@ -56,6 +56,7 @@ export async function apply(ctx: Context): Promise<void> {
     sources,
     control,
     deadline: (ms) => AbortSignal.timeout(ms),
+    vaultKit: bot.vaultKit(),
     now: () => Date.now(),
   })
   ctx.effect(() => bot.registerConnector(connector), "desktop: connector")

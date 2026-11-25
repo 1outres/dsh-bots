@@ -5,7 +5,7 @@
  */
 import type { BotConnector } from "@1outres/dsh-bot-core"
 import { DESKTOP_CONNECTOR_ID } from "../shared/connector"
-import type { RpcDeps } from "./agent/rpc"
+import type { RpcClientDeps } from "./agent/rpc"
 import type { DesktopControl } from "./control"
 import { screenStream } from "./screen/stream"
 import { type DesktopSession, desktopAttachment } from "./session"
@@ -18,7 +18,7 @@ export { DESKTOP_CONNECTOR_ID }
 /** The least memory the desktop runs in: Chrome and LibreOffice side by side need 1–1.2 GiB beyond the desktop itself. */
 export const DESKTOP_MIN_MEMORY_MIB = 4096
 
-export interface DesktopConnectorDeps extends RpcDeps {
+export interface DesktopConnectorDeps extends RpcClientDeps {
   /** The package's vm/ directory. */
   readonly sources: readonly VmSourceFile[]
   readonly control: DesktopControl
@@ -38,13 +38,21 @@ export function createDesktopConnector(deps: DesktopConnectorDeps): BotConnector
     creationOption: "workstation",
     settings: DESKTOP_SETTINGS,
     preparation: {
-      ...createDesktopPreparation({ sources: deps.sources, deadline: deps.deadline }),
+      ...createDesktopPreparation({
+        sources: deps.sources,
+        deadline: deps.deadline,
+        vaultKit: deps.vaultKit,
+      }),
       hint: {
         en: "The first preparation can take several minutes in some VMs.",
         ja: "VM によっては、初めての準備に数分かかることがあります。",
       },
     },
-    attachment: desktopAttachment({ control: deps.control, deadline: deps.deadline }),
+    attachment: desktopAttachment({
+      control: deps.control,
+      deadline: deps.deadline,
+      vaultKit: deps.vaultKit,
+    }),
     tools: desktopTools({ control: deps.control, deadline: deps.deadline, now: deps.now }),
     panel: {
       title: { en: "Desktop", ja: "デスクトップ" },

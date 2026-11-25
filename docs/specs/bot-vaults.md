@@ -210,7 +210,7 @@ type CredentialTarget =
 
 ## 9. デスクトップ（`@1outres/dsh-bot-connector-desktop`）
 
-- `desktop_type_credential { credential, field: "username" | "password" | "otp", element?: string, submit?: boolean }`（Allow、exclusive `display`、credentials）: 許可の `desktop` が true のときだけ。フォーカスが Chrome（ブラウザ）なら断る（origin の照合を迂回させない。ブラウザは `browser_fill_credential` を使う）。agent の新しいメソッド `type_secret`: フォーカス（または element）の AT-SPI の役割を確かめ（password は `password text`、他は編集できるテキスト）、アプリ名を返す → `reveal(… { kind: "desktop", application })` → 値を agent に stdin 相当（JSON-RPC の行の中の base64 をバイト列で組み立て）で渡し、agent は `xdotool type --file -` に stdin で渡す（argv に入れない、**クリップボードは使わない**。キーで打てない文字があれば失敗）。agent はこのメソッドの引数を記録・エラーに入れない。
+- `desktop_type_credential { credential, field: "username" | "password" | "otp", element?: string, submit?: boolean }`（Allow、exclusive `display`、`vault: true`）: 許可の `desktop` が true のときだけ（bot-core が検査）。フォーカスが Chrome（ブラウザ）なら断る（origin の照合を迂回させない。ブラウザは `browser_fill_credential` を使う）。agent のメソッドは 2 段: `secret_target { field, element? }` がフォーカス（または element にフォーカスを移して）の AT-SPI の役割を確かめ（password は `password text`、他は編集できるテキスト）、アプリ名と一度きりのトークンを返す → `reveal(… { kind: "desktop", application })` → `type_secret { token, submit }` に値を要求の `secret` メンバー（base64 をバイト列で組み立てた JSON-RPC の行）で渡し、送ったら 0 埋め。agent は同じ欄がまだフォーカスを持つことを確かめ直し、`xdotool type --file -` に stdin で渡す（argv に入れない、**クリップボードは使わない**）。キーで打てない文字（印字可能な ASCII 以外）があれば何も打たずに失敗する。agent はこのメソッドの引数を記録・エラー・応答に入れない。詳細は末尾「実装で確定したこと（`feat/vault-desktop`）」。
 
 ## 10. 1Password（`@1outres/dsh-bot-vault-1password`、row `bot-vault-1password`）
 
@@ -288,3 +288,16 @@ provider を 1 つ登録するだけ: setup（サーバー URL、client_id / cli
 - 常駐リソースの値は `{ mcp, passkeys }`（Playwright MCP と、パスキーの補助を 1 つ持つ枠）。
 - 設計ルール: 64（コネクターの `SecretBytes.use` の中で `exec` / `spawn` / `writeFile` / `console` / `process.env` を使わない）、65（ブラウザ コネクターで vault の `reveal` / `passkey` を呼ぶのは `src/host/vault/tools.ts` だけ）、66（補助のテスト: 期待した origin の印の要素だけに打ち、値を出力しない）、67（Chrome の policy のテスト）。
 - デスクトップ パッケージで触ったのは `vm/config/chrome-policy.json`、`src/host/vm/files.ts` の配置 1 行、`src/host/vm/layout.ts` の `CHROME_POLICY`、`test/base-image.test.ts`。policy の変更で Chrome は再起動しない（Chrome は managed policy のディレクトリを見ていて、書き換えると 20 秒以内に再起動なしで反映することを確かめた）。
+
+## 実装で確定したこと（`feat/vault-desktop`）
+
+- ツールは `desktop_type_credential`（`vault: true`、Allow、exclusive `display`、人が操作している間は `USER_IN_CONTROL` で断る）。結果は「<label> の <field> を <アプリ> (<役割> "<名前>") に入力した」と、入力後のアクティブウィンドウとフォーカス（役割と名前）だけ。
+- agent のメソッドは 2 つに分けた: `secret_target { field, element? }`（element があればそれにフォーカスを移してから。編集できるテキスト＝`EditableText` と `editable`、password は `password text` だけ、アクティブウィンドウのアプリであること、ブラウザでないことを確かめ、アプリ名と一度きりのトークン（120 秒）を返す）と `type_secret { token, submit }`（値を受け取って打つ）。ブラウザの判定は AT-SPI のアプリ名と `/proc/<pid>/exe` の名前（Chrome / Chromium / Firefox など）。ツールは `describe` → `secret_target` → `reveal(… { kind: "desktop", application })` → `type_secret` の順で、bot-core が断ったら何も打たない。
+- 値は JSON-RPC の要求の `params` ではなく要求自身の `secret` メンバー（base64）に入れる。行は `bot.vaultKit()` で `<要求の JSON の最後の } を除いたもの>,"secret":"<base64>"}\n` をバイト列で組み立て、書いたら行と base64 を 0 埋めする（`src/host/agent/rpc.ts` の `callSecret`。送れなかったときも `SecretBytes` を 0 埋め）。agent は `secret` を `type_secret` 以外では受け付けない。
+- agent は打つ前に、同じ要素がまだフォーカスを持ち、そのアプリのウィンドウがアクティブで、条件（役割・ブラウザでない）を満たすことを確かめ直す。**打てるのは印字可能な ASCII（0x20〜0x7E）だけ**（「キーで打てない文字」の定義。満たさなければ何も打たずに `untypeable`）: キーマップに無い文字は xdotool が空きキーを都度割り当て直して打つが、動作確認の VM（US 配列、fcitx5 あり）で Ü が ü になる・連続する非 ASCII（パス）の 1 文字が落ちる、が黙って起きたため。制御文字（改行で送信してしまうなど）も断る。欄の文字を `deleteText` で消してから `xdotool type --clearmodifiers --file -` の stdin に渡し、打った後にフォーカスを確かめ（移っていたら「値の一部が別の場所に入ったかもしれない」として失敗）、欄の文字数が値の長さと同じかを確かめる（違えば欄を空にして `typed_incompletely`）。`submit` は Return。
+- GTK4 のアプリ（Debian 13 の zenity など）のパスワード欄は AT-SPI の役割が `text` で `password text` にならないため、password は断られる（ユーザ名・OTP は入る）。GTK3（yad など）と LibreOffice の gtk3 VCL は `password text`。
+- `uses` の `filled` は bot-core が値を渡した時点で記録されるので、その後に agent が断った（`untypeable`、フォーカスの移動など）場合も `filled` のまま残る（bot-core の 5 章の記録の意味）。
+- agent の `type_secret` の失敗は agent 自身の定型のメッセージだけを返し、ほかの例外は `type_secret failed` にしてトレースバックも出さない（例外の文字列に値が入りうるため）。xdotool の stderr も捨てる。
+- 設計ルール 62（デスクトップのパッケージで `.reveal()` / `.passkey()` を呼べるのは `host/tools/credentials.ts` だけ、grit）と 63（agent の `type_secret` が値を応答・エラー・ログ・引数・クリップボードに出さない、`test/agent/test_secret_input.py` を vitest から `python3` で実行）。
+- 0 埋めは Host まで。agent（Python）の中では値は `bytes`（不変）で、0 埋めできない（0 章のとおり VM はボットのもの）。
+- 動作確認（DSH_HOME=/tmp/dsh-vault-desktop）: 実モデルが yad（GTK3）のログインダイアログにユーザ名とパスワード（`"`・`\` を含む ASCII）を入力し、ダイアログの出力の sha256 が値と一致した。Chrome のアドレスバーでは `browser_refused`、デスクトップを許可していないログインは bot-core が断った。値と base64 は DSH_HOME（セッション・ストレージ・ログ）、VM の journal、クリップボードのどこにも出なかった。

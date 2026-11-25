@@ -159,6 +159,7 @@ describe("the spec's connectors fit the contract", () => {
       sources: await readVmSources(),
       control: new DesktopControl(() => 0),
       deadline: (ms) => AbortSignal.timeout(ms),
+      vaultKit: VAULT_KIT,
       now: () => 0,
     })
     const browser = createBrowserConnector({

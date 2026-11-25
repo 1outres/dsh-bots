@@ -45,9 +45,20 @@ All `allow`, every session of the bot; all but `desktop_request_handoff` are `ex
 | `desktop_click` / `move` / `drag` / `mouse_down` / `mouse_up` / `scroll` | Mouse at the latest screenshot's coordinates or an element's centre                               |
 | `desktop_cursor_position`, `desktop_clipboard_get` / `_set`              |                                                                                                   |
 | `desktop_screenshot`                                                     | The screen, the active window, an element, or a zoomed region; the last resort                    |
+| `desktop_type_credential`                                                | Type a login's username, password or one-time code into the focused field (below)                 |
 | `desktop_request_handoff`                                                | Ask the person to take over (log in, a password, a code) and wait until they hand it back         |
 
 Coordinates refer to the latest screenshot's image as the model received it; before one, after a reconnection or a screen size change, pointer calls fail with `SCREENSHOT_REQUIRED`. Where accessibility cannot do something (Chrome's fields have no editable text, XFCE panel menus do not open with press, Calc cells must not be selected), the error says what to do instead; there is no silent substitute.
+
+## Logins
+
+`desktop_type_credential { credential, field: username | password | otp, element?, submit? }` (`vault: true`) types a field of a login the owner gave the bot (docs/specs/bot-vaults.md §9) without the model seeing it; bot-core allows it only for logins whose **desktop** switch is on.
+
+1. The agent's `secret_target` focuses `element` (or takes the focused element) and checks it: an editable text (`EditableText`, editable), a `password text` for a password, its window active, and not a web browser (by the application's AT-SPI name and `/proc/<pid>/exe`; Chrome is filled by `browser_fill_credential`, which checks the site). It answers the application's name and a one-time token (120 s).
+2. `run.vault.reveal(credential, field, { kind: "desktop", application })`.
+3. `type_secret { token, submit }`: the value travels in the request's own `secret` member, base64, the JSON line assembled as bytes with `bot.vaultKit()` and wiped once written (`src/host/agent/rpc.ts`). The agent checks that the same field still has the focus in the active window and that the value is printable ASCII (other characters go through keys xdotool remaps on the fly, which applications drop or lower-case silently), clears the field, and gives the bytes to `xdotool type --file -` on its standard input (never an argument, never the clipboard); after typing it checks the focus again and that the field holds as many characters as the value (else it clears the field), then presses Return for `submit`. Failures of this method answer only the agent's own messages, never an exception's text or a log line.
+
+The result says what was typed where, never the value. Design rules 62 and 63 keep this so.
 
 ## Who operates the desktop
 

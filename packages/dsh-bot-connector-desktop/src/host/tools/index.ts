@@ -1,6 +1,7 @@
 import type { BotConnectorToolDefinition } from "@1outres/dsh-bot-core"
 import type { DesktopSession } from "../session"
 import { clipboardTools } from "./clipboard"
+import { credentialTools } from "./credentials"
 import type { DesktopToolDeps } from "./define"
 import { elementTools } from "./elements"
 import { type HandoffDeps, handoffTools } from "./handoff"
@@ -22,6 +23,7 @@ export function desktopTools(
     ...keyboardTools(deps),
     ...pointerTools(deps),
     ...clipboardTools(deps),
+    ...credentialTools(deps),
     ...screenTools(deps),
     ...handoffTools(deps),
   ]

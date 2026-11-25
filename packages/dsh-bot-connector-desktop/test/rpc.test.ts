@@ -1,9 +1,12 @@
+import { SecretBytes } from "@1outres/dsh-bot-core"
 import { describe, expect, it } from "vitest"
 import { AgentCallError, AgentUnavailableError, createRpcClient } from "../src/host/agent/rpc"
+import { VAULT_KIT } from "./support"
 
 /** A byte stream the test writes the agent's side of. */
 function stream() {
   const written: string[] = []
+  const lines: Uint8Array[] = []
   const queue: Uint8Array[] = []
   let wake: (() => void) | undefined
   let ended = false
@@ -31,12 +34,14 @@ function stream() {
       stdin: {
         async write(data: Uint8Array) {
           written.push(new TextDecoder().decode(data))
+          lines.push(data)
         },
         async end() {},
       },
       stdout,
     },
     written,
+    lines,
     push,
     end() {
       ended = true
@@ -45,7 +50,8 @@ function stream() {
   }
 }
 
-const deps = { deadline: (ms: number) => AbortSignal.timeout(ms) }
+const deps = { deadline: (ms: number) => AbortSignal.timeout(ms), vaultKit: VAULT_KIT }
+const secretOf = (text: string) => SecretBytes.from(new TextEncoder().encode(text))
 
 describe("the agent's JSON-RPC client", () => {
   it("matches replies to calls by id, across chunk boundaries", async () => {
@@ -108,5 +114,41 @@ describe("the agent's JSON-RPC client", () => {
       '{"jsonrpc":"2.0","id":1,"result":{}}\n{"jsonrpc":"2.0","id":2,"result":{"late":false}}\n',
     )
     expect(await late).toEqual({ late: false })
+  })
+
+  it("sends a secret as base64 in the request's own member, then wipes the line and the secret", async () => {
+    const io = stream()
+    const rpc = createRpcClient(io.process, deps, { maxLineBytes: 1024 })
+    const secret = secretOf('p"ä\\ss')
+    const call = rpc.callSecret("type_secret", { token: "t", submit: true }, secret, {
+      timeoutMs: 1_000,
+    })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const request = JSON.parse(io.written[0] ?? "")
+    expect(request).toEqual({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "type_secret",
+      params: { token: "t", submit: true },
+      secret: Buffer.from('p"ä\\ss').toString("base64"),
+    })
+    expect(io.written[0]?.endsWith("}\n")).toBe(true)
+    expect(io.lines[0]?.every((byte) => byte === 0)).toBe(true)
+    expect(secret.spent).toBe(true)
+    io.push('{"jsonrpc":"2.0","id":1,"result":{"ok":true}}\n')
+    expect(await call).toEqual({ ok: true })
+  })
+
+  it("wipes the secret when the call cannot be sent", async () => {
+    const io = stream()
+    const rpc = createRpcClient(io.process, deps, { maxLineBytes: 1024 })
+    io.end()
+    await rpc.closed
+    const secret = secretOf("hunter22")
+    await expect(
+      rpc.callSecret("type_secret", {}, secret, { timeoutMs: 1_000 }),
+    ).rejects.toBeInstanceOf(AgentUnavailableError)
+    expect(secret.spent).toBe(true)
+    expect(io.written).toEqual([])
   })
 })

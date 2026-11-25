@@ -2,6 +2,7 @@
  * The desktop agent's JSON-RPC methods (vm/agent/dsh_desktop_agent/server.py):
  * what each takes and the checked shape of what it answers.
  */
+import type { VaultRevealKind } from "@1outres/dsh-bot-core"
 import {
   boolean,
   type Check,
@@ -37,6 +38,13 @@ export const MODIFIERS = ["ctrl", "shift", "alt", "super"] as const
 export const SCROLL_DIRECTIONS = ["up", "down", "left", "right"] as const
 export const PASTE_COMBOS = ["ctrl+v", "ctrl+shift+v"] as const
 export const KEY_COMBO = /^[A-Za-z0-9_]+(\+[A-Za-z0-9_]+)*$/
+/** The fields of a login the agent types (docs/specs/bot-vaults.md §9). */
+export const TYPED_FIELDS = [
+  "username",
+  "password",
+  "otp",
+] as const satisfies readonly VaultRevealKind[]
+export type TypedField = (typeof TYPED_FIELDS)[number]
 
 const NAME = 2_000
 const LONG_TEXT = 20_000
@@ -123,10 +131,19 @@ export const RESULTS = {
     },
     { visible: text(32), active: text(32) },
   ),
+  secret_target: object({
+    token: matching(/^[0-9a-f]{32}$/, 32),
+    application: text(NAME),
+    role: text(200),
+    name: text(NAME),
+  }),
+  type_secret: object({ application: text(NAME), ...where }),
 } satisfies Record<string, Check<unknown>>
 
-export type AgentMethod = keyof typeof RESULTS
-export type AgentResult<M extends AgentMethod> = Checked<(typeof RESULTS)[M]>
+/** Methods whose request carries a secret beside its params (`RpcClient.callSecret`). */
+export type SecretAgentMethod = keyof SecretAgentParams
+export type AgentMethod = Exclude<keyof typeof RESULTS, SecretAgentMethod>
+export type AgentResult<M extends keyof typeof RESULTS> = Checked<(typeof RESULTS)[M]>
 export type AgentWindow = Checked<typeof window>
 export type AgentFocus = Checked<typeof focus>
 
@@ -229,10 +246,17 @@ export interface AgentParams {
     readonly format: "png" | "jpeg"
   }
   sheet_read: { readonly range?: string; readonly max_cells: number }
+  /** Check the focused field (or focus the element) for a login's field; answers a token for type_secret. */
+  secret_target: { readonly field: TypedField; readonly element?: string }
+}
+
+export interface SecretAgentParams {
+  /** Type the secret into the field secret_target chose, if it still has the focus. */
+  type_secret: { readonly token: string; readonly submit: boolean }
 }
 
 /** How long each method may take before the call fails. */
-export const METHOD_TIMEOUT_MS: Record<AgentMethod, number> = {
+export const METHOD_TIMEOUT_MS: Record<keyof typeof RESULTS, number> = {
   status: 15_000,
   launch: 45_000,
   tree: 30_000,
@@ -246,4 +270,6 @@ export const METHOD_TIMEOUT_MS: Record<AgentMethod, number> = {
   clipboard_set: 15_000,
   screenshot: 30_000,
   sheet_read: 60_000,
+  secret_target: 15_000,
+  type_secret: 75_000,
 }

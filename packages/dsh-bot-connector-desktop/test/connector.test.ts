@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { createDesktopConnector } from "../src/host/connector"
 import { DesktopControl } from "../src/host/control"
 import { readVmSources } from "../src/index"
+import { VAULT_KIT } from "./support"
 
 /** docs/specs/bot-connectors.md, 9: the desktop's tools (bot-core's connectors-fit test registers the connector in its catalog). */
 const SPEC_TOOLS = [
@@ -27,6 +28,8 @@ const SPEC_TOOLS = [
   "text",
   "sheet",
   "request_handoff",
+  // docs/specs/bot-vaults.md, 9
+  "type_credential",
 ]
 
 async function connector() {
@@ -34,6 +37,7 @@ async function connector() {
     sources: await readVmSources(),
     control: new DesktopControl(() => 0),
     deadline: (ms) => AbortSignal.timeout(ms),
+    vaultKit: VAULT_KIT,
     now: () => 0,
   })
 }
@@ -42,6 +46,9 @@ describe("the desktop connector", () => {
   it("has the spec's tools, every one allowed and serialized on the display but the handoff", async () => {
     const { tools } = await connector()
     expect(tools.map((tool) => tool.name).sort()).toEqual([...SPEC_TOOLS].sort())
+    expect(tools.filter((tool) => tool.vault === true).map((tool) => tool.name)).toEqual([
+      "type_credential",
+    ])
     expect(tools.every((tool) => tool.permission === "allow")).toBe(true)
     expect(tools.filter((tool) => tool.exclusive !== "display").map((tool) => tool.name)).toEqual([
       "request_handoff",

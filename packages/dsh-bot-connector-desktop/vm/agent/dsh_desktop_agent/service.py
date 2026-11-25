@@ -3,15 +3,17 @@ import json
 import time
 from typing import Any, Optional
 
+import pyatspi
+
 from . import actions
 from . import atspi_access as ax
-from . import inputs, launcher, params, render, screen, sheet, walker
+from . import inputs, launcher, params, render, screen, secret_input, sheet, walker
 from .errors import RpcError, invalid_params, unsupported
 from .limits import (ACT_MAX_MS, ACT_MIN_MS, DEFAULT_TREE, FIND_LIMIT, FIND_VISIT_BUDGET, INPUT_SETTLE_MS,
-                     SEQUENCE_MAX_STEPS, TEXT_LIMIT, TreeLimits)
+                     SECRET_FOCUS_MS, SEQUENCE_MAX_STEPS, TEXT_LIMIT, TreeLimits)
 from .loop import pump
 from .model import Node, Rect
-from .observer import Observer
+from .observer import Observer, x_active_window
 from .snapshots import SnapshotStore
 
 FORMATS = ("text", "json")
@@ -24,6 +26,7 @@ class DesktopService:
         self.display = display
         self.snapshots = SnapshotStore()
         self.observer = Observer(self._screen())
+        self.secret_targets = secret_input.SecretTargets()
 
     def _screen(self) -> Rect:
         w, h = inputs.display_size()
@@ -269,6 +272,55 @@ class DesktopService:
         limit = params.integer(p, "limit", 4000, 1, TEXT_LIMIT)
         return {"length": len(full), "offset": start, "text": full[start:start + limit]}
 
+    def secret_target(self, p: dict) -> dict:
+        field = params.choice(p, "field", secret_input.FIELDS)
+        element = params.text(p, "element", None, max_len=24)
+        acc = self._focus_for_secret(element, field)
+        target = secret_input.new_target(acc, field)
+        secret_input.require_focus(target, _active_pid())
+        self.secret_targets.put(target)
+        return {"token": target.token, "application": target.application, **ax.describe(acc)}
+
+    def _focus_for_secret(self, element: Optional[str], field: str):
+        if element is None:
+            acc = self.observer.focused()
+            if acc is None:
+                raise RpcError("no_focus", "nothing has the keyboard focus: give the field's element, "
+                                           "or focus it first (desktop_act focus)")
+            return acc
+        acc = self.snapshots.resolve(element)
+        secret_input.check_field(acc, field)
+        actions.focus(acc)
+        deadline = time.monotonic() + SECRET_FOCUS_MS / 1000
+        while not acc.getState().contains(pyatspi.STATE_FOCUSED):
+            if time.monotonic() >= deadline:
+                raise RpcError("focus_missed", f"the field did not take the keyboard focus within {SECRET_FOCUS_MS} ms")
+            pump(50)
+        return acc
+
+    def type_secret(self, p: dict, value: bytes) -> dict:
+        target = self.secret_targets.take(params.text(p, "token", max_len=64))
+        submit = params.flag(p, "submit")
+        if not secret_input.typeable(value):
+            raise RpcError("untypeable", "the value has characters that are not keys of the desktop's keyboard "
+                                         "(only printable ASCII is typed: no letters like ü or パ, no control "
+                                         "characters), or is empty or too long; nothing was typed. A person can "
+                                         "type it (desktop_request_handoff)")
+        secret_input.require_focus(target, _active_pid())
+        secret_input.clear(target.acc)
+        secret_input.type_value(value)
+        pump(INPUT_SETTLE_MS)
+        try:
+            secret_input.require_focus(target, _active_pid())
+        except RpcError as e:
+            raise RpcError(e.code, f"the focus moved while typing, so part of the value may have gone elsewhere "
+                                   f"({e.message})")
+        secret_input.check_typed(target.acc, value)
+        if submit:
+            inputs.key(["Return"])
+            pump(INPUT_SETTLE_MS)
+        return {"application": target.application, **self._where()}
+
     def sheet_read(self, p: dict) -> dict:
         found = self.observer.active_window()
         if found is None:
@@ -279,6 +331,11 @@ class DesktopService:
                          params.integer(p, "max_cells", 480, 1, sheet.MAX_CELLS), self.observer.active_descendant)
         out["window"] = {"id": snapshot.add(window), **info.label()}
         return out
+
+
+def _active_pid() -> Optional[int]:
+    active = x_active_window()
+    return active[0] if active is not None else None
 
 
 def _ms(started: float) -> int:

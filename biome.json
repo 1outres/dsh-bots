@@ -184,6 +184,13 @@
       ]
     },
     {
+      "path": "./.biome/plugins/62-desktop-reveal.grit",
+      "includes": [
+        "packages/dsh-bot-connector-desktop/src/**",
+        "!packages/dsh-bot-connector-desktop/src/host/tools/credentials.ts"
+      ]
+    },
+    {
       "path": "./.biome/plugins/64-secret-channels.grit",
       "includes": ["packages/dsh-bot-connector-*/src/**"]
     },

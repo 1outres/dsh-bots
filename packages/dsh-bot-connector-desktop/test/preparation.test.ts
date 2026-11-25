@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import { DESKTOP_PACKAGES } from "../src/host/vm/packages"
 import { createDesktopPreparation, displaySize, missingPackages } from "../src/host/vm/preparation"
 import { readVmSources } from "../src/index"
-import { recordingEnvironment } from "./support"
+import { recordingEnvironment, VAULT_KIT } from "./support"
 
 const ACCOUNT = "1001\nbot\n/home/bot\n"
 const sourceText = async (path: string) =>
@@ -81,6 +81,7 @@ describe("preparing the desktop", () => {
     const preparation = createDesktopPreparation({
       sources: await readVmSources(),
       deadline: (ms) => AbortSignal.timeout(ms),
+      vaultKit: VAULT_KIT,
     })
     const steps: string[] = []
     const run = preparation.prepare(context(machine.environment, resolution), (step) =>
@@ -182,6 +183,7 @@ describe("preparing the desktop", () => {
     const preparation = createDesktopPreparation({
       sources: [],
       deadline: (ms) => AbortSignal.timeout(ms),
+      vaultKit: VAULT_KIT,
     })
     await preparation.unprepare?.(context(machine.environment))
     expect(machine.commands.map(line)).toContain(

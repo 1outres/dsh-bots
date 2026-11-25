@@ -5,7 +5,7 @@
 import type { BotConnectorAttachmentSource } from "@1outres/dsh-bot-core"
 import type { DesktopAgent } from "./agent/client"
 import { connectAgent } from "./agent/connect"
-import type { RpcDeps } from "./agent/rpc"
+import type { RpcClientDeps } from "./agent/rpc"
 import type { DesktopControl } from "./control"
 import { FrameMemory } from "./frame"
 import { readVmUser } from "./vm/commands"
@@ -15,7 +15,7 @@ export interface DesktopSession {
   readonly frames: FrameMemory
 }
 
-export interface DesktopAttachmentDeps extends RpcDeps {
+export interface DesktopAttachmentDeps extends RpcClientDeps {
   readonly control: DesktopControl
 }
 

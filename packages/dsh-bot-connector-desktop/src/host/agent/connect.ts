@@ -5,7 +5,7 @@
 import type { BotConnectorEnvironment } from "@1outres/dsh-bot-core"
 import { agentSocket, type VmUser } from "../vm/layout"
 import { createDesktopAgent, type DesktopAgent } from "./client"
-import { createRpcClient, type RpcDeps } from "./rpc"
+import { createRpcClient, type RpcClientDeps } from "./rpc"
 
 /** The longest line the agent may send (a screenshot in base64). */
 export const MAX_AGENT_LINE_BYTES = 32 << 20
@@ -21,7 +21,7 @@ export async function connectAgent(
   environment: BotConnectorEnvironment,
   user: VmUser,
   signal: AbortSignal,
-  deps: RpcDeps,
+  deps: RpcClientDeps,
 ): Promise<AgentConnection> {
   const process = await environment.spawn({
     argv: ["socat", "-b65536", "-", `UNIX-CONNECT:${agentSocket(user)}`],

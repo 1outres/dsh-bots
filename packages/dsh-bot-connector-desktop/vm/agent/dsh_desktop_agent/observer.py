@@ -59,12 +59,16 @@ class Observer:
             return None
         return child
 
-    def focus_summary(self) -> Optional[dict]:
+    def focused(self):
         """The last focus event, unless that element lost focus since (LibreOffice skips some events)."""
         if self.focus is None or not self.focus.getState().contains(pyatspi.STATE_FOCUSED):
             active = self.active_window()
             self.focus = _find_focused(active[1]) if active else None
-        return ax.describe(self.focus) if self.focus is not None else None
+        return self.focus
+
+    def focus_summary(self) -> Optional[dict]:
+        focused = self.focused()
+        return ax.describe(focused) if focused is not None else None
 
     def windows(self) -> list[tuple[WindowInfo, object]]:
         active = x_active_window()
