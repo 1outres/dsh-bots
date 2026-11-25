@@ -1,6 +1,6 @@
 import type { BotCreationOffer } from "../../shared/bots"
-import type { BotModelCatalog } from "../../shared/models"
 import { CreateBotDialog, type CreateBotFace } from "../CreateBotDialog"
+import type { CreationSources } from "../creation/use-creation-form"
 import { SLOT } from "../dsh/slots"
 import type { GlobalSettingsTarget } from "../global-settings/flow"
 import { createStore, type Store } from "../observable"
@@ -44,7 +44,7 @@ export function overlay(
 }
 
 /** The creation options offered, through the `bots` Remote. */
-async function creationOptions(mount: Promise<RemoteMount>): Promise<BotCreationOffer> {
+export async function creationOptions(mount: Promise<RemoteMount>): Promise<BotCreationOffer> {
   const mounted = await mount
   if (mounted.status === "failed") throw new Error(mounted.error)
   const result = await mounted.remote.bots.creationOptions()
@@ -58,11 +58,10 @@ export function wireDialogs(
   sources: {
     readonly dialogs: DialogStores
     readonly actions: Pick<BotActions, "createBot">
-    readonly remote: Promise<RemoteMount>
-    readModelCatalog(): Promise<BotModelCatalog>
+    readonly creation: CreationSources
   },
 ): void {
-  const { dialogs, actions, remote, readModelCatalog } = sources
+  const { dialogs, actions, creation } = sources
   overlay(
     ctx,
     "bot-core.create",
@@ -70,8 +69,7 @@ export function wireDialogs(
       ({
         createBot: actions.createBot,
         createDialog: dialogs.createDialog,
-        creationOptions: () => creationOptions(remote),
-        modelCatalog: readModelCatalog,
+        ...creation,
       }) satisfies CreateBotFace,
     CreateBotDialog,
   )

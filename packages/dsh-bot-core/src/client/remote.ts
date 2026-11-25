@@ -16,6 +16,7 @@ import type { BotMainsApi, BotMainsView, MainRotationSettings } from "../shared/
 import type { BotManagedSessionsApi, BotManagedSessionsSnapshot } from "../shared/managed-sessions"
 import type { BotModelsView } from "../shared/models"
 import type { BotNotesApi, BotNotesStatus } from "../shared/notes"
+import type { BotOnboardingApi, BotOnboardingView } from "../shared/onboarding"
 import {
   REMOTE_ENDPOINTS,
   REMOTE_JSON_TYPE,
@@ -124,6 +125,11 @@ export interface BotEnvironmentRemote extends Remoted<Omit<BotEnvironmentApi, "w
   watch(botId: string): StreamHandle<BotEnvironmentView>
 }
 
+/** The mounted `remote.botOnboarding`; `watch` streams instead of resolving once. */
+export interface BotOnboardingRemote extends Remoted<Omit<BotOnboardingApi, "watch">> {
+  watch(): StreamHandle<BotOnboardingView>
+}
+
 export interface BotCoreRemote {
   readonly bots: BotsRemote
   readonly botFiles: BotFilesRemote
@@ -140,6 +146,7 @@ export interface BotCoreRemote {
   readonly botSkills: BotSkillsRemote
   readonly botNotes: BotNotesRemote
   readonly botEnvironment: BotEnvironmentRemote
+  readonly botOnboarding: BotOnboardingRemote
 }
 
 /** The outcome of mounting the contribution: every namespace, or why none is. */

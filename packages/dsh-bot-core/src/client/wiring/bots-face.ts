@@ -1,7 +1,8 @@
-import type { BotCreateInput, BotUpdateInput, BotView } from "../../shared/bots"
+import type { BotUpdateInput, BotView } from "../../shared/bots"
 import { type ArchivedViewStore, createArchivedViewStore } from "../archived-view"
 import { BotsAction } from "../BotsSection"
 import type { BotDeletion } from "../bot-deletion"
+import { type BotCreationRequest, createdBotId, creationInput } from "../creation/request"
 import { SLOT } from "../dsh/slots"
 import { createExpansionStore, type ExpansionStore } from "../expansion"
 import type { BotsFace, PendingActions } from "../face"
@@ -10,7 +11,6 @@ import { FORMAT_LOCALE_KEY } from "../locale-format"
 import type { MainsClient } from "../mains/client"
 import type { ManagedSessionsStore } from "../managed-sessions"
 import type { BotMenuOpener } from "../menu"
-import { ModelsError, refusalOf } from "../models/feed"
 import type { NoticeStore } from "../notices"
 import type { Store } from "../observable"
 import type { SessionArchive } from "../session-archive"
@@ -43,7 +43,7 @@ export interface BotActions {
   setArchivedShown(botId: string, shown: boolean): void
   newSession(bot: BotView): Promise<void>
   /** The browser adds its language (its `format.locale`); a refused model rejects with a `ModelsError`. */
-  createBot(input: Omit<BotCreateInput, "language">): Promise<void>
+  createBot(input: BotCreationRequest): Promise<void>
   saveBot(id: string, change: BotUpdateInput): Promise<void>
   /**
    * Never rejects: resolves once the Host accepted the removal, after which the
@@ -126,12 +126,7 @@ export function createBotActions(
     },
     async createBot(input) {
       const language = ctx.locale.bind(NAMESPACE)(FORMAT_LOCALE_KEY)
-      const result = await remote().create({ ...input, language })
-      if (!result.ok) {
-        const refusal = refusalOf(result.error)
-        throw refusal.kind === "refused" ? new ModelsError(refusal) : new Error(refusal.message)
-      }
-      progress.set(result.value.id)
+      progress.set(createdBotId(await remote().create(creationInput(input, language))))
     },
     async saveBot(id, change) {
       unwrap(await remote().update(id, change))

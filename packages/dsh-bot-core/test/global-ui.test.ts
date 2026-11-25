@@ -45,14 +45,10 @@ function feedOf(state: WebLookupState) {
   } satisfies WebLookupFeed & { set(next: WebLookupState): void }
 }
 
-const page = { detail: null, open() {}, back() {} }
-
 function renderWeb(state: WebLookupState): string {
   return renderToStaticMarkup(
     createElement(WebLookupSection, {
       t,
-      page,
-      close() {},
       confirm: async () => true,
       feed: feedOf(state),
       text: (text) => text.en,

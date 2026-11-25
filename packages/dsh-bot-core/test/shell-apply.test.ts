@@ -326,6 +326,15 @@ function fakeContext(options: FakeOptions = {}) {
       botSkills: { watch: vi.fn() },
       botNotes: { watch: vi.fn() },
       botEnvironment: { watch: vi.fn() },
+      botOnboarding: {
+        watch: vi.fn(() => ({
+          dispose() {},
+          async *[Symbol.asyncIterator]() {
+            yield { version: "0.3.0", welcome: { status: "done" }, releaseNotes: [] }
+            await new Promise(() => {})
+          },
+        })),
+      },
     },
     options.mountFailure,
   )
@@ -944,6 +953,7 @@ describe("client apply(): bot-core's Remote", () => {
         "botSkills",
         "botNotes",
         "botEnvironment",
+        "botOnboarding",
       ]),
     )
 

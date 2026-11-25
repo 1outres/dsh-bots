@@ -9,6 +9,7 @@ import { FILES_CSS } from "./styles-files"
 import { INTERACTIONS_CSS } from "./styles-interactions"
 import { LIFECYCLE_CSS } from "./styles-lifecycle"
 import { NOTES_CSS } from "./styles-notes"
+import { ONBOARDING_CSS } from "./styles-onboarding"
 import { ROWS_CSS } from "./styles-rows"
 import { SETTINGS_CSS } from "./styles-settings"
 import { SHELL_CSS } from "./styles-shell"
@@ -34,4 +35,5 @@ export const BOTS_CSS =
   SETTINGS_CSS +
   WEB_CSS +
   SKILLS_CSS +
-  LIFECYCLE_CSS
+  LIFECYCLE_CSS +
+  ONBOARDING_CSS

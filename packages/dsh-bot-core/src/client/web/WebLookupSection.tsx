@@ -32,6 +32,9 @@ import {
   type WebTestState,
 } from "./model"
 
+/** What the section needs of the surface it is on: the dsh-bots settings or the welcome guide. */
+export type WebLookupSurface = Pick<GlobalSettingsSectionProps, "t" | "confirm">
+
 export interface WebLookupSectionDeps {
   readonly feed: WebLookupFeed
   /** A backend's text in the active language. */
@@ -86,7 +89,7 @@ function testPill(
 }
 
 /** Web lookup of every bot: the backend's key (with its test) and the capabilities' switches. */
-export function WebLookupSection(props: GlobalSettingsSectionProps & WebLookupSectionDeps) {
+export function WebLookupSection(props: WebLookupSurface & WebLookupSectionDeps) {
   const { t, feed } = props
   const state = useObservable(feed)
   const model = useMemo(() => createWebLookupModel(feed), [feed])
@@ -110,7 +113,7 @@ export function WebLookupSection(props: GlobalSettingsSectionProps & WebLookupSe
   )
 }
 
-interface BodyProps extends GlobalSettingsSectionProps, WebLookupSectionDeps {
+interface BodyProps extends WebLookupSurface, WebLookupSectionDeps {
   readonly view: BotWebView
   readonly model: WebLookupModel
   readonly form: WebLookupForm

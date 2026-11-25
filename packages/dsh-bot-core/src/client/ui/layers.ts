@@ -71,6 +71,16 @@ function trapTab(event: KeyboardEvent, container: HTMLElement): void {
   }
 }
 
+/** Whether `target` is in a modal dialog of someone else's (DSH's own), opened over or beside `container`: it keeps its keys and focus. */
+export function inForeignDialog(
+  target: EventTarget | null,
+  container: HTMLElement | null | undefined,
+): boolean {
+  if (!(target instanceof Element) || container === null || container === undefined) return false
+  const dialog = target.closest('[aria-modal="true"]')
+  return dialog !== null && !container.contains(dialog) && !dialog.contains(container)
+}
+
 const stacks = new WeakMap<Document, LayerStack>()
 
 function stackOf(doc: Document): LayerStack {
@@ -81,7 +91,7 @@ function stackOf(doc: Document): LayerStack {
     if (event.isComposing || event.ctrlKey || event.altKey || event.metaKey) return
     if (event.key === "Escape") {
       const layer = stack.top()
-      if (layer === undefined) return
+      if (layer === undefined || inForeignDialog(event.target, layer.element())) return
       event.preventDefault()
       event.stopPropagation()
       if (!event.repeat) layer.escape()
@@ -90,6 +100,7 @@ function stackOf(doc: Document): LayerStack {
     if (event.key !== "Tab") return
     const container = stack.topTrap()?.element()
     if (container === null || container === undefined) return
+    if (inForeignDialog(event.target, container)) return
     event.stopPropagation()
     trapTab(event, container)
   }
@@ -97,6 +108,7 @@ function stackOf(doc: Document): LayerStack {
     const container = stack.topTrap()?.element()
     if (container === null || container === undefined) return
     if (event.target instanceof Node && container.contains(event.target)) return
+    if (inForeignDialog(event.target, container)) return
     focusHome(container)
   }
   let attached = false

@@ -1,0 +1,11 @@
+// Design rule 57: the onboarding state is written in one place.
+// `onboardingState.put/delete` (a receiver with that name or ending in it)
+// may appear only in host/onboarding/store.ts, which serializes every change.
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or { `$receiver.put`, `$receiver.delete`, `$receiver?.put`, `$receiver?.delete` },
+  $receiver <: or { `onboardingState`, `$_.onboardingState`, `$_?.onboardingState` },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 57: do not write the onboarding state table here; go through the onboarding store (host/onboarding/store.ts), which serializes every change."
+  )
+}

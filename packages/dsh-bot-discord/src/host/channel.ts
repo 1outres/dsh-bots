@@ -36,6 +36,24 @@ export function createDiscordChannel(deps: DiscordChannelDeps): BotChannel<typeo
       ja: "このボット専用の Discord ボットとのダイレクトメッセージ。Discord Developer Portal で作成し、会話するユーザーとサーバーを共有してください。",
     },
     guide: "https://github.com/1outres/dsh-bots/tree/main/packages/dsh-bot-discord#discord-setup",
+    setup: [
+      {
+        en: "In the Discord Developer Portal, create a New Application for this bot.",
+        ja: "Discord Developer Portal で、このボット用に New Application を作成します。",
+      },
+      {
+        en: "Under Bot, Reset Token and paste it below. No privileged intent is needed.",
+        ja: "Bot で Reset Token を押し、トークンを下に貼り付けます。特権 Intent は不要です。",
+      },
+      {
+        en: "Under Installation, invite it (scope bot) to a server you share with it.",
+        ja: "Installation から（スコープ bot で）一緒に使うサーバーに招待します。",
+      },
+      {
+        en: "Turn on Developer Mode in Discord, then Copy User ID of each allowed user.",
+        ja: "Discord の開発者モードをオンにし、許可するユーザーの ID をコピーします。",
+      },
+    ],
     fields: DISCORD_FIELDS,
     owners: "approvers",
     capabilities: DISCORD_CAPABILITIES,

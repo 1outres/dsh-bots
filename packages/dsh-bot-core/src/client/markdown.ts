@@ -36,6 +36,9 @@ const NOTE_LINK = /\[\[([^[\]|\n]+)(?:\|([^[\]\n]+))?\]\]/y
 
 const SAFE_URL = /^(https?:|mailto:)/i
 
+/** A bare web address, as GitHub links one: trailing punctuation stays text. */
+const AUTOLINK = /https?:\/\/[^\s<>]*[^\s<>.,:;"'!?)\]]/y
+
 /** Whether a link target may become an `href`. */
 export function safeHref(url: string): string | undefined {
   const trimmed = url.trim()
@@ -58,7 +61,12 @@ function forwardSearch(text: string) {
 }
 
 /** Inline tokens of one block's text, linear in its length: an unclosed delimiter is never rescanned. */
-export function parseInline(text: string, options: MarkdownOptions = {}, depth = 0): Inline[] {
+export function parseInline(
+  text: string,
+  options: MarkdownOptions = {},
+  depth = 0,
+  inLink = false,
+): Inline[] {
   const out: Inline[] = []
   const find = forwardSearch(text)
   let buffer = ""
@@ -99,7 +107,7 @@ export function parseInline(text: string, options: MarkdownOptions = {}, depth =
       const close = leftOk && /\S/.test(text[open] ?? "") ? find(marker, open + 1) : -1
       if (close !== -1 && /\S/.test(text[close - 1] ?? "")) {
         flush(i)
-        const children = parseInline(text.slice(open, close), options, depth + 1)
+        const children = parseInline(text.slice(open, close), options, depth + 1, inLink)
         out.push(strong ? { kind: "strong", children } : { kind: "em", children })
         i = close + marker.length
         plain = i
@@ -123,6 +131,17 @@ export function parseInline(text: string, options: MarkdownOptions = {}, depth =
         continue
       }
     }
+    if (char === "h" && !inLink && !/[\w/]/.test(text[i - 1] ?? "")) {
+      AUTOLINK.lastIndex = i
+      const url = AUTOLINK.exec(text)?.[0]
+      if (url !== undefined) {
+        flush(i)
+        out.push({ kind: "link", href: url, children: [{ kind: "text", text: url }] })
+        i += url.length
+        plain = i
+        continue
+      }
+    }
     if (char === "[") {
       const closeLabel = find("]", i + 1)
       if (closeLabel !== -1 && text[closeLabel + 1] === "(") {
@@ -142,6 +161,7 @@ export function parseInline(text: string, options: MarkdownOptions = {}, depth =
               text.slice(i + 1, closeLabel),
               options,
               Math.max(depth, MAX_DEPTH - 1),
+              true,
             ),
           })
           i = closeUrl + 1

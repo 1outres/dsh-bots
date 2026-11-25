@@ -23,12 +23,13 @@ import { createLockdownStatus } from "./sidebar/lockdown-status"
 import { createSkillsClient } from "./skills/client"
 import { mountBotCoreRemote, watchBots } from "./store"
 import type { ClientContext } from "./types"
+import { createWebLookupFeed } from "./web/feed"
 import { wireArchive } from "./wiring/archive"
 import { createBotActions, createBotsFace, wireBotsSection } from "./wiring/bots-face"
 import { wireClassification } from "./wiring/classification"
 import { wireComposerSeats } from "./wiring/composer-seats"
 import { wireConnectorPanels } from "./wiring/connector-panels"
-import { createDialogStores, wireDialogs } from "./wiring/dialogs"
+import { createDialogStores, creationOptions, wireDialogs } from "./wiring/dialogs"
 import { wireDrawer } from "./wiring/drawer"
 import { wireDshSettings } from "./wiring/dsh-settings"
 import { wireEnvironment } from "./wiring/environment"
@@ -38,6 +39,7 @@ import { wireInteractions } from "./wiring/interactions"
 import { createProgressView, wireLifecycle } from "./wiring/lifecycle"
 import { wireMains } from "./wiring/mains"
 import { wireNotes } from "./wiring/notes"
+import { wireOnboarding } from "./wiring/onboarding"
 import { NAMESPACE } from "./wiring/plugin"
 import { wireRightbar } from "./wiring/rightbar"
 import { createSettingsScreens } from "./wiring/screens"
@@ -157,13 +159,19 @@ export function apply(ctx: ClientContext): void {
   wireArchive(ctx, { archive, notices, face })
   wireBotsSection(ctx, face)
   const readModelCatalog = modelCatalogReader(remote)
-  wireDialogs(ctx, { dialogs, actions, remote, readModelCatalog })
+  const creation = {
+    creationOptions: () => creationOptions(remote),
+    modelCatalog: readModelCatalog,
+  }
+  wireDialogs(ctx, { dialogs, actions, creation })
+  const connections = createConnectionsFeed(() => createConnectionsModel(remote))
+  const webLookup = createWebLookupFeed(remote)
   wireSettings(ctx, {
     bots,
     screens,
     channels: createChannelsHub((botId) => createChannelsModel(remote, botId)),
     connectors,
-    connections: createConnectionsFeed(() => createConnectionsModel(remote)),
+    connections,
     models: createModelsHub((botId) =>
       createModelsModel({ mount: remote, generation: ctx.connection.generation }, botId),
     ),
@@ -182,7 +190,16 @@ export function apply(ctx: ClientContext): void {
   })
   wireSkills(ctx, { skills: createSkillsClient(remote), screens })
   wireEnvironment(ctx, { environment: createEnvironmentClient(remote), screens })
-  wireWebLookup(ctx, remote, screens)
+  wireWebLookup(ctx, webLookup, screens)
+  const onboarding = wireOnboarding(ctx, {
+    remote,
+    bots,
+    progress,
+    pending: actions.pending,
+    creation,
+    web: webLookup,
+    connections,
+  })
   wireGlobalSettings(ctx, screens)
   wireDshSettings(ctx, { openGlobalSettings: () => screens.openGlobalSettings() })
   wireDrawer(ctx, [
@@ -191,5 +208,6 @@ export function apply(ctx: ClientContext): void {
     dialogs.globalSettings,
     archive.confirming,
     deletion.asking,
+    onboarding,
   ])
 }

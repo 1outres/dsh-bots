@@ -96,8 +96,17 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           . infra/release.env
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            echo "The release $GITHUB_REF_NAME exists already."
+          # A draft the author wrote (infra/RELEASING.md, "Release notes") is published with its notes as they are.
+          existing=$(gh api "repos/$GH_REPO/releases?per_page=100" --paginate \
+            --jq ".[] | select(.tag_name == \"$GITHUB_REF_NAME\") | \"\(.id) \(.draft)\"")
+          if [ -n "$existing" ]; then
+            read -r id draft <<<"$existing"
+            if [ "$draft" = true ]; then
+              gh api --method PATCH "repos/$GH_REPO/releases/$id" -F draft=false -f make_latest=true >/dev/null
+              echo "Published the draft release $GITHUB_REF_NAME with its notes."
+            else
+              echo "The release $GITHUB_REF_NAME exists already."
+            fi
             exit 0
           fi
           gh release create "$GITHUB_REF_NAME" --verify-tag --latest --title "dsh-bots $DSH_BOTS_VERSION" --generate-notes \

@@ -1,0 +1,20 @@
+{
+  "name": "dsh_bot_onboarding",
+  "version": 1,
+  "tables": {
+    "state": {
+      "welcome": {
+        "required": true,
+        "type": "{ status: \"open\" } | { status: \"creating\"; botId: string; startedAt: number } | { status: \"done\"; at: number; how: \"created\" | \"later\" | \"existing\"; botId?: string }"
+      },
+      "notesSeen": {
+        "required": true,
+        "type": "string"
+      },
+      "updatedAt": {
+        "required": true,
+        "type": "number"
+      }
+    }
+  }
+}

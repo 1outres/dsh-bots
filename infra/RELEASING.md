@@ -28,8 +28,23 @@ at any time; a piped install never sees it until its tag is released.
    bot-core `workspace:^<version>`, and `DSH_BOTS_VERSION` in `infra/release.env` the same
    value (for a new DSH also every `engines.dsh` and `DSH_VERSION`). `pnpm build && pnpm
    typecheck && pnpm lint && pnpm test`, then merge to `main`.
-3. **Tag** a commit of `main`: `git tag v<version> && git push origin v<version>`.
-4. **Actions** (`.github/workflows/release.yml`) then:
+3. **Release notes**, in English, before tagging: they are what every dsh-bots Web UI shows
+   once it runs the new version (bot-core reads the published `v<version>` releases after the
+   version it last showed from the GitHub API and draws their bodies as Markdown; see
+   `docs/specs/bot-onboarding.md` §5). Write them as a draft release of the coming tag:
+
+   ```sh
+   gh release create v<version> --draft --target main --title "dsh-bots <version>" --notes-file notes.md
+   ```
+
+   Write for the people using dsh-bots: what they can do now and what changed for them, as a
+   short Markdown list (headings, lists, links, code; no HTML, which is shown as text). The
+   Release workflow publishes this draft as it is. Without a draft it creates the release with
+   a generated body (the install line and the changelog link), and that is what the Web UI
+   shows. A body edited after publishing reaches only the installations that have not
+   acknowledged that version yet; a release with an empty body is shown to nobody.
+4. **Tag** a commit of `main`: `git tag v<version> && git push origin v<version>`.
+5. **Actions** (`.github/workflows/release.yml`) then:
    - checks that the tag, `DSH_BOTS_VERSION` and every package's `version` are one version and
      that the tagged commit is on `main`;
    - runs CI (`ci.yml`: install with the lockfile, build, typecheck, lint, test, shellcheck, actionlint);
@@ -39,12 +54,13 @@ at any time; a piped install never sees it until its tag is released.
      dependencies are `<version>` (peers `^<version>`);
    - `pnpm -r publish --access public --provenance` in the environment `npm`, skipping versions
      npm already has and waiting until each is installable before its dependents;
-   - creates the GitHub release `v<version>` (marked latest; skipped if it exists).
+   - publishes the author's draft release `v<version>` with its notes, or creates the release
+     (marked latest either way; nothing is done if it is published already).
 
    Any failed check stops it before npm. If a run fails part-way, fix the cause outside the
    tag (npm, the image, a secret) and use **Re-run failed jobs**: published versions are
    skipped. A fix in the tree needs a new version: npm never takes the same version twice.
-5. **Check**: `npm view @1outres/dsh-bots@<version> dependencies`, and on a clean host
+6. **Check**: `npm view @1outres/dsh-bots@<version> dependencies`, and on a clean host
    `curl -fsSL https://raw.githubusercontent.com/1outres/dsh-bots/main/install.sh | bash`.
 
 ## One-time setup (author)

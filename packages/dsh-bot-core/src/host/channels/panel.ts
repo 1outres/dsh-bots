@@ -32,12 +32,13 @@ export interface ChannelPanel {
 }
 
 /** Only what the browser needs to render the form: no plugin methods. */
-function descriptorOf(channel: BotChannel): BotChannelDescriptor {
+export function descriptorOf(channel: BotChannel): BotChannelDescriptor {
   return {
     id: channel.id,
     name: channel.name,
     ...(channel.description === undefined ? {} : { description: channel.description }),
     ...(channel.guide === undefined ? {} : { guide: channel.guide }),
+    ...(channel.setup === undefined ? {} : { setup: channel.setup }),
     fields: channel.fields,
     ...(channel.owners === undefined ? {} : { owners: channel.owners }),
   }

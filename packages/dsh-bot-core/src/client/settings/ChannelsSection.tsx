@@ -1,5 +1,6 @@
 import { useMemo, useRef } from "react"
 import type {
+  BotChannelChange,
   BotChannelChoice,
   BotChannelField,
   BotChannelListField,
@@ -21,7 +22,7 @@ import {
   textIssue,
   textOf,
 } from "../channel-form"
-import type { ChannelsFeed, ChannelsHub } from "../channels-hub"
+import type { ChannelsHub } from "../channels-hub"
 import { useObservable } from "../hooks"
 import type { MessageKey } from "../i18n"
 import { IconChannels } from "../icons"
@@ -77,7 +78,13 @@ export function ChannelsSection({
   return (
     <div className="dshb-settings-groups" data-dshb-channels="">
       {state.snapshot.channels.map((view) => (
-        <ChannelGroup key={view.channel.id} t={t} text={text} view={view} feed={feed} />
+        <ChannelGroup
+          key={view.channel.id}
+          t={t}
+          text={text}
+          view={view}
+          configure={feed.configure}
+        />
       ))}
     </div>
   )
@@ -106,14 +113,21 @@ const ISSUE_TEXT = (t: Translate, issue: ChannelFieldIssue): string => {
   }
 }
 
-interface ChannelGroupProps {
+/** Where a channel's group stores a change: a bot's settings, or the welcome guide's draft of them. */
+export type ChannelConfigure = (
+  channelId: string,
+  change: BotChannelChange,
+) => Promise<BotChannelView>
+
+export interface ChannelGroupProps {
   readonly t: Translate
   text(text: BotChannelText): string
   readonly view: BotChannelView
-  readonly feed: ChannelsFeed
+  readonly configure: ChannelConfigure
 }
 
-function ChannelGroup({ t, text, view, feed }: ChannelGroupProps) {
+/** One channel's settings: its title row with state and switch, a row per field, the setup guide. */
+export function ChannelGroup({ t, text, view, configure }: ChannelGroupProps) {
   const { channel } = view
   const latest = useRef(view)
   latest.current = view
@@ -121,9 +135,9 @@ function ChannelGroup({ t, text, view, feed }: ChannelGroupProps) {
     () =>
       createSerialSaves<BotChannelView, ChannelEdit>({
         current: () => latest.current,
-        apply: (stored, edit) => feed.configure(channel.id, changeWith(stored, edit)),
+        apply: (stored, edit) => configure(channel.id, changeWith(stored, edit)),
       }),
-    [feed, channel.id],
+    [configure, channel.id],
   )
   const save = (edit: ChannelEdit): Promise<CommitResult> =>
     commitWith(

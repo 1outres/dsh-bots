@@ -1,11 +1,15 @@
+import { readFileSync } from "node:fs"
+import { fileURLToPath } from "node:url"
 import { Context, Service } from "@deepseek-ai/cordis"
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { type BotEnvironment, botOf, type EnsureOptions } from "../src/contract"
 import type { BotRecord, BotSessionRecord } from "../src/host/domain"
 import type { EnvironmentPanel } from "../src/host/environment-spec/panel"
 import { DEFAULT_FILES_LIMITS } from "../src/host/files"
 import type { MainPanel } from "../src/host/mains/panel"
 import type { NotesPanel } from "../src/host/notes/panel"
+import type { OnboardingPanel } from "../src/host/onboarding/panel"
+import { releaseSourceOf } from "../src/host/onboarding/source"
 import type { BotsBackend } from "../src/host/remote"
 import { HOST_REMOTE_CONTRIBUTION, type HostRemoteContribution } from "../src/host/remote-contract"
 import type { SkillPanel } from "../src/host/skills/panel"
@@ -39,6 +43,7 @@ const fileRemotes = vi.hoisted(() => [] as BotFilesApi[])
 const mainPanels = vi.hoisted(() => [] as MainPanel[])
 /** The botEnvironment Remote's panels (BotEnvironmentRemoteService). */
 const environmentPanels = vi.hoisted(() => [] as EnvironmentPanel[])
+const onboardingPanels = vi.hoisted(() => [] as OnboardingPanel[])
 /** The botSkills Remote's panels (BotSkillsRemoteService). */
 const skillPanels = vi.hoisted(() => [] as SkillPanel[])
 /** The botNotes Remote's panels (BotNotesRemoteService). */
@@ -85,6 +90,11 @@ vi.mock("../src/host/remote", () => ({
   BotEnvironmentRemoteService: class {
     constructor(_ctx: unknown, panel: EnvironmentPanel) {
       environmentPanels.push(panel)
+    }
+  },
+  BotOnboardingRemoteService: class {
+    constructor(_ctx: unknown, panel: OnboardingPanel) {
+      onboardingPanels.push(panel)
     }
   },
 }))
@@ -675,7 +685,86 @@ describe("bot-core Config", () => {
   })
 })
 
+const RUNNING = releaseSourceOf(
+  JSON.parse(readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8")),
+).version
+
+/** GitHub's releases of dsh-bots, as the Host reads its release notes: never the network in tests. */
+const githubReleases = { urls: [] as string[] }
+
 describe("bot-core apply", () => {
+  beforeEach(() => {
+    githubReleases.urls.length = 0
+    vi.stubGlobal("fetch", async (url: string) => {
+      githubReleases.urls.push(url)
+      return {
+        ok: true,
+        status: 200,
+        json: async () => [
+          {
+            tag_name: `v${RUNNING}`,
+            draft: false,
+            body: "What changed",
+            html_url: `https://github.com/1outres/dsh-bots/releases/tag/v${RUNNING}`,
+          },
+        ],
+      }
+    })
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it("opens the welcome guide on a new installation and finishes it once the guide's bot is listed", async () => {
+    await start(new Map())
+    const panel = onboardingPanels.at(-1)
+    if (panel === undefined) throw new Error("no onboarding Remote")
+    expect(panel.view()).toMatchObject({
+      version: RUNNING,
+      welcome: { status: "open" },
+      releaseNotes: [],
+    })
+    const { id } = await panel.createBot(
+      {
+        name: "First",
+        avatar,
+        workstation: false,
+        language: "en",
+        timezone: "Asia/Tokyo",
+      },
+      [],
+    )
+    expect(panel.view().welcome).toEqual({ status: "creating", botId: id })
+    await expect(
+      panel.createBot(
+        {
+          name: "Second",
+          avatar,
+          workstation: false,
+          language: "en",
+          timezone: "UTC",
+        },
+        [],
+      ),
+    ).rejects.toMatchObject({ code: "bot-onboarding/closed" })
+    await vi.waitFor(() => expect(panel.view().welcome).toEqual({ status: "done", botId: id }), {
+      timeout: 2_000,
+      interval: 10,
+    })
+  })
+
+  it("shows an existing installation the release notes instead of the guide", async () => {
+    await start(new Map([["a", bot()]]))
+    const panel = onboardingPanels.at(-1)
+    expect(panel?.view().welcome).toEqual({ status: "done" })
+    await vi.waitFor(() =>
+      expect(panel?.view().releaseNotes.map((note) => note.version)).toEqual([RUNNING]),
+    )
+    expect(githubReleases.urls).toEqual([
+      "https://api.github.com/repos/1outres/dsh-bots/releases?per_page=100&page=1",
+    ])
+  })
+
   it("registers its Remote's declared contract with typert", async () => {
     const { typertContributions } = await start(new Map())
     expect([...typertContributions]).toEqual([HOST_REMOTE_CONTRIBUTION])

@@ -84,6 +84,11 @@ import type {
   NoteMonth,
   NoteSearch,
 } from "../shared/notes"
+import type {
+  BotOnboardingApi,
+  BotOnboardingView,
+  BotWelcomeChannelSetup,
+} from "../shared/onboarding"
 import type { RemoteNamespace } from "../shared/remote-contract"
 import type { BotSkillHistory, BotSkillsApi, BotSkillsView, SkillVersion } from "../shared/skills"
 import type {
@@ -115,6 +120,7 @@ import type { ManagedPanel } from "./managed/panel"
 import type { WorkspacesPanel } from "./managed/workspaces-panel"
 import { type ModelPanel, remoteModelsError } from "./models/panel"
 import type { NotesPanel } from "./notes/panel"
+import type { OnboardingPanel } from "./onboarding/panel"
 import type { BotRegistry } from "./registry"
 import type { SkillPanel } from "./skills/panel"
 import { watchStream } from "./stream"
@@ -882,6 +888,52 @@ export class BotEnvironmentRemoteService extends TypertRemoteService implements 
   }
 }
 
+export const BOT_ONBOARDING_REMOTE = "botOnboarding" satisfies RemoteNamespace
+
+const ONBOARDING = Symbol("botOnboardingPanel")
+
+/** The welcome guide and the release notes every page shows until one of them finishes it. */
+export class BotOnboardingRemoteService extends TypertRemoteService implements BotOnboardingApi {
+  [ONBOARDING]: OnboardingPanel
+
+  constructor(ctx: Context, panel: OnboardingPanel) {
+    super(ctx, BOT_ONBOARDING_REMOTE)
+    this[ONBOARDING] = panel
+  }
+
+  @Remote({ mode: "stream" })
+  async *watch(signal?: AbortSignal): AsyncIterable<BotOnboardingView> {
+    const panel = this[ONBOARDING]
+    yield* watchStream(
+      () => panel.view(),
+      (listener) => panel.subscribe(listener),
+      signal,
+    )
+  }
+
+  @Remote
+  async createBot(
+    input: BotCreateInput,
+    channels: readonly BotWelcomeChannelSetup[],
+  ): Promise<{ id: string }> {
+    try {
+      return await this[ONBOARDING].createBot(input, channels)
+    } catch (error) {
+      throw remoteModelsError(error)
+    }
+  }
+
+  @Remote
+  finishWelcome(): Promise<BotOnboardingView> {
+    return this[ONBOARDING].finishWelcome()
+  }
+
+  @Remote
+  acknowledgeReleaseNotes(version: string): Promise<BotOnboardingView> {
+    return this[ONBOARDING].acknowledgeReleaseNotes(version)
+  }
+}
+
 /** The Service serving each namespace of bot-core's Remote. */
 export const REMOTE_SERVICES = {
   bots: BotsRemoteService,
@@ -899,6 +951,7 @@ export const REMOTE_SERVICES = {
   botSkills: BotSkillsRemoteService,
   botNotes: BotNotesRemoteService,
   botEnvironment: BotEnvironmentRemoteService,
+  botOnboarding: BotOnboardingRemoteService,
 } as const satisfies {
   readonly [Namespace in RemoteNamespace]: new (
     ...args: never[]

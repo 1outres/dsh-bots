@@ -1,4 +1,5 @@
 import { CONNECTIONS_EN, CONNECTIONS_JA } from "./i18n-connections"
+import { ONBOARDING_EN, ONBOARDING_JA } from "./i18n-onboarding"
 
 const EN = {
   "format.locale": "en",
@@ -646,6 +647,7 @@ const EN = {
   "registration.refused.permissionSeat":
     "DSH's permission selector could not be removed from bot sessions (another plugin holds its place; see the browser console).",
   ...CONNECTIONS_EN,
+  ...ONBOARDING_EN,
 } as const satisfies Record<string, string>
 
 export type MessageKey = keyof typeof EN
@@ -1304,6 +1306,7 @@ const JA: { readonly [Key in MessageKey]: string } = {
   "registration.refused.permissionSeat":
     "ボットのセッションから DSH の権限選択を取り除けませんでした（ほかのプラグインが先に登録しています。ブラウザーのコンソールを確認してください）。",
   ...CONNECTIONS_JA,
+  ...ONBOARDING_JA,
 }
 
 export const en: Readonly<Record<string, string>> = EN

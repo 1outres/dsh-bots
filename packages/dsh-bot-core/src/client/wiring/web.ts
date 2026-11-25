@@ -2,10 +2,9 @@ import { createElement } from "react"
 import type { GlobalSettingsSection, GlobalSettingsSectionProps } from "../global-settings/sections"
 import { IconGlobe } from "../icons"
 import { derive } from "../observable"
-import type { RemoteMount } from "../remote"
 import type { ClientContext } from "../types"
 import { webLookupBadge } from "../web/badge"
-import { createWebLookupFeed } from "../web/feed"
+import type { WebLookupFeed } from "../web/feed"
 import { WebLookupSection } from "../web/WebLookupSection"
 import type { SettingsScreens } from "./screens"
 
@@ -15,10 +14,9 @@ export const WEB_LOOKUP_SECTION = "bot-core.web"
 /** The Web lookup section, first in the dsh-bots settings. */
 export function wireWebLookup(
   ctx: ClientContext,
-  remote: Promise<RemoteMount>,
+  feed: WebLookupFeed,
   screens: Pick<SettingsScreens, "global">,
 ): void {
-  const feed = createWebLookupFeed(remote)
   const badge = derive([feed], webLookupBadge)
   const text = (value: { readonly en: string; readonly ja?: string }) =>
     ctx.locale.resolveText({ ...value })

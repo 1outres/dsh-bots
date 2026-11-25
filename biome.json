@@ -184,6 +184,13 @@
       ]
     },
     {
+      "path": "./.biome/plugins/57-onboarding-writes.grit",
+      "includes": [
+        "packages/dsh-bot-core/src/**",
+        "!packages/dsh-bot-core/src/host/onboarding/store.ts"
+      ]
+    },
+    {
       "path": "./.biome/plugins/46-connector-decisions.grit",
       "includes": ["packages/*/src/**", "!packages/dsh-bot-core/src/host/connectors/approvals.ts"]
     },

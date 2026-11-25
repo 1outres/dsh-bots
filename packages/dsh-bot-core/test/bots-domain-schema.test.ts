@@ -11,6 +11,7 @@ import { MAINS_DOMAIN } from "../src/host/mains/domain"
 import { MANAGED_SESSIONS_DOMAIN } from "../src/host/managed/domain"
 import { MODELS_DOMAIN } from "../src/host/models/domain"
 import { NOTICES_DOMAIN } from "../src/host/notices/domain"
+import { ONBOARDING_DOMAIN } from "../src/host/onboarding/domain"
 import { SCHEDULES_DOMAIN } from "../src/host/schedule/domain"
 import { SKILLS_DOMAIN } from "../src/host/skills/domain"
 import { WEB_DOMAIN } from "../src/host/web/domain"
@@ -82,6 +83,12 @@ const DOMAINS = [
     source: "src/host/notices/domain.ts",
     domain: NOTICES_DOMAIN,
     file: "notices-domain",
+  },
+  {
+    label: "ONBOARDING_DOMAIN",
+    source: "src/host/onboarding/domain.ts",
+    domain: ONBOARDING_DOMAIN,
+    file: "onboarding-domain",
   },
   {
     label: "SCHEDULES_DOMAIN",

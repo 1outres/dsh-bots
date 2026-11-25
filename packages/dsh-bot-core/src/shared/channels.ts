@@ -69,6 +69,11 @@ export interface BotChannelDescriptor {
   readonly description?: BotChannelText
   /** An https page that walks through setting the channel up. */
   readonly guide?: string
+  /**
+   * The steps that get what the fields ask for, one short line each (at most
+   * {@link MAX_CHANNEL_SETUP_STEPS}); the welcome guide lists them.
+   */
+  readonly setup?: readonly BotChannelText[]
   readonly fields: readonly BotChannelField[]
   /**
    * The key of the list field naming the bot's owners in this channel (their
@@ -142,6 +147,9 @@ export interface BotChannelsApi {
 
 const CHANNEL_ID = /^[a-z][a-z0-9-]*$/
 const FIELD_KEY = /^[a-z][a-zA-Z0-9]*$/
+/** Upper bound of a channel's setup steps. */
+export const MAX_CHANNEL_SETUP_STEPS = 8
+
 /** Upper bound of any one stored text value (a secret, a text, a list item). */
 export const MAX_CHANNEL_VALUE_LENGTH = 4096
 /** Upper bound of the items of one list field. */
@@ -212,6 +220,16 @@ export function checkChannelDescriptor(channel: BotChannelDescriptor): void {
     checkText(channel.description, `channel "${channel.id}" description`)
   if (channel.guide !== undefined && !/^https:\/\/\S+$/.test(channel.guide)) {
     throw new Error(`channel "${channel.id}" guide must be an https URL`)
+  }
+  if (channel.setup !== undefined) {
+    if (channel.setup.length === 0 || channel.setup.length > MAX_CHANNEL_SETUP_STEPS) {
+      throw new Error(
+        `channel "${channel.id}" setup must list 1 to ${MAX_CHANNEL_SETUP_STEPS} steps`,
+      )
+    }
+    for (const [index, step] of channel.setup.entries()) {
+      checkText(step, `channel "${channel.id}" setup step ${index + 1}`)
+    }
   }
   const keys = new Set<string>()
   for (const field of channel.fields) {

@@ -51,7 +51,7 @@ export function ConnectionsSettings({
     <div className="dshb-settings-groups" data-dshb-connections-settings="">
       {providers.map((provider) => (
         <div key={provider.id} className="dshb-settings-groups" data-dshb-oauth={provider.id}>
-          <OAuthClient t={t} provider={provider} connections={connections} />
+          <OAuthClientGroup t={t} provider={provider} connections={connections} />
           {provider.client.configured && (
             <AccountsGroup
               t={t}
@@ -67,7 +67,8 @@ export function ConnectionsSettings({
   )
 }
 
-function OAuthClient(props: {
+/** A provider's OAuth client: the redirect URI to register, its id and secret, the setup guide. */
+export function OAuthClientGroup(props: {
   readonly t: Translate
   readonly provider: ConnectionProviderView
   readonly connections: ConnectionsFeed

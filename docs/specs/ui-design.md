@@ -95,6 +95,8 @@ These follow the same rules:
 - **Connector preparation stages** (`connector-preparing.tsx`, in the connector panel and the connector's settings): a compact stage list (StatusPill `busy` for the running stage, elapsed time as `meta`); the connector's preparation hint is shown only as the panel's `EmptyState` title, not as a paragraph.
 - **Channel Owners field and the empty-owners note**: Owners is a `block` list row; an empty Owners is shown as the row's `warning` state (pill on the channel title row and the row's error style), not as a note.
 
+- **Welcome guide and release notes** (`docs/specs/bot-onboarding.md` §7): the guide is the one surface with explanatory text — a two-pane panel (a picture drawn with theme tokens on a soft gradient, then eyebrow, 28px title, one lead line; the welcome page's four features as cards with a gradient icon tile, a name and one line, two columns, one under 760px), page dots, Back / Skip or Next / Create later / Create at the bottom; its setup pages reuse the dsh-bots settings' groups, a bot's Channels group (with the channel's numbered setup steps above it) and the New bot dialog's fields unchanged. ≤ 760px the picture sits on top, ≤ 640px it is a full-screen sheet. Motion (slide, fade, floating pictures) is off under `prefers-reduced-motion`. The release notes are a dialog: a gradient banner, the title, then per version a heading linking to its GitHub release and its Markdown body (scrolling inside the dialog, its bottom edge fading), OK.
+
 ## Out of scope (follow-ups)
 
 - OAuth callback page styling and closing itself (Host).

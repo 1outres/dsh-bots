@@ -8,6 +8,7 @@ import type { BotInteractionsApi } from "./interactions"
 import type { BotMainsApi } from "./mains"
 import type { BotManagedSessionsApi } from "./managed-sessions"
 import type { BotNotesApi } from "./notes"
+import type { BotOnboardingApi } from "./onboarding"
 import type { BotSkillsApi } from "./skills"
 import type { BotWebApi } from "./web"
 import type { BotWorkspacesApi } from "./workspaces"
@@ -35,6 +36,7 @@ export interface BotCoreApi {
   readonly botSkills: BotSkillsApi
   readonly botNotes: BotNotesApi
   readonly botEnvironment: BotEnvironmentApi
+  readonly botOnboarding: BotOnboardingApi
 }
 
 export type RemoteNamespace = keyof BotCoreApi
@@ -55,6 +57,7 @@ export const REMOTE_NAMESPACES = [
   "botSkills",
   "botNotes",
   "botEnvironment",
+  "botOnboarding",
 ] as const satisfies readonly RemoteNamespace[]
 
 /** Gateway refusals of a call whose shape is not the Host's declared contract: the two faces disagree. */
@@ -213,6 +216,12 @@ export const REMOTE_METHODS: {
   botEnvironment: {
     watch: { parameters: [{ name: "botId" }], stream: true, cancellable: true },
     configure: { parameters: [{ name: "botId" }, { name: "spec" }] },
+  },
+  botOnboarding: {
+    watch: { parameters: [], stream: true, cancellable: true },
+    createBot: { parameters: [{ name: "input" }, { name: "channels" }] },
+    finishWelcome: { parameters: [] },
+    acknowledgeReleaseNotes: { parameters: [{ name: "version" }] },
   },
 }
 

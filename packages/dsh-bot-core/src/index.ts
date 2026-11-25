@@ -5,6 +5,7 @@ import { createUserMessage, type UserMessage } from "@deepseek-ai/dsh-llm"
 import { setSandboxMode } from "@deepseek-ai/dsh-sandbox-policy"
 import { setApprovalPolicy } from "@deepseek-ai/dsh-user-approval"
 import z from "@deepseek-ai/schemastery"
+import manifest from "../package.json"
 import type { BotPresetChange } from "./contract"
 import { createChannelCatalog } from "./host/channels/catalog"
 import { createCommandRunner } from "./host/channels/commands"
@@ -167,6 +168,15 @@ import { createNoteTools } from "./host/notes/tools"
 import { createNoticeDelivery, type NoticeAgent, type NoticeMessage } from "./host/notices/delivery"
 import { NOTICES_DOMAIN, type NoticeRecord } from "./host/notices/domain"
 import { createNoticeOutbox } from "./host/notices/outbox"
+import { createWelcomeChannels } from "./host/onboarding/channels"
+import { ONBOARDING_DOMAIN, type OnboardingRecord } from "./host/onboarding/domain"
+import { followWelcomeBot } from "./host/onboarding/follow"
+import { createReleaseNotesKeeper } from "./host/onboarding/notes"
+import { createOnboardingPanel } from "./host/onboarding/panel"
+import { fetchDueNotes } from "./host/onboarding/releases"
+import { releaseSourceOf } from "./host/onboarding/source"
+import { openOnboardingStore } from "./host/onboarding/store"
+import { acknowledging } from "./host/onboarding/welcome"
 import { createBotPermissions, type PermissionPresets } from "./host/permission"
 import { createSessionPreparations } from "./host/preparations"
 import { createTemplateCatalog } from "./host/preset/catalog"
@@ -193,6 +203,7 @@ import {
   BotMainsRemoteService,
   BotManagedSessionsRemoteService,
   BotNotesRemoteService,
+  BotOnboardingRemoteService,
   BotSkillsRemoteService,
   BotsRemoteService,
   BotWebRemoteService,
@@ -238,7 +249,7 @@ import { CURATION_REFUSAL, REVIEW_REFUSAL } from "./host/skills/texts"
 import type { TranscriptMessage } from "./host/spoken-messages"
 import { createWebBridge } from "./host/web/bridge"
 import { createWebBackendCatalog } from "./host/web/catalog"
-import { WEB_DOMAIN } from "./host/web/domain"
+import { WEB_DOMAIN, WEB_SETTINGS_KEY } from "./host/web/domain"
 import { createWebPanel } from "./host/web/panel"
 import { createWebState } from "./host/web/state"
 import { openWebSettingsStore } from "./host/web/store"
@@ -381,6 +392,10 @@ const MAX_SSH_PAYLOAD_BYTES = 32 * 1024 * 1024
 const MAX_CHANNEL_FILE_BYTES = 512 * 1024 * 1024
 /** Bounds reading one turn's presented files, which holds the Main session's later outputs back. */
 const PRESENTED_READ_MS = 60_000
+/** How long one read of the GitHub releases may take. */
+const RELEASES_READ_LIMIT_MS = 20_000
+/** Retrying a failed read of the release notes: from a minute, doubling, up to an hour. */
+const RELEASES_RETRY = { firstMs: 60_000, maxMs: 60 * 60_000 } as const
 
 export const DEFAULT_CHANNEL_LIMITS = {
   attachments: { maxCount: 10, maxFileBytes: 25 * 1024 * 1024, maxMessageBytes: 50 * 1024 * 1024 },
@@ -580,6 +595,11 @@ interface WebDomain {
   close(): Promise<void>
 }
 
+interface OnboardingDomain {
+  table(name: "state"): BotTable<OnboardingRecord>
+  close(): Promise<void>
+}
+
 interface SchedulesDomain {
   table(name: "jobs"): BotTable<JobRecord>
   table(name: "runs"): BotTable<RunRecord>
@@ -685,6 +705,7 @@ interface HostServices {
     open(spec: typeof MODELS_DOMAIN): Promise<ModelsDomain>
     open(spec: typeof MANAGED_SESSIONS_DOMAIN): Promise<ManagedSessionsDomain>
     open(spec: typeof ENVIRONMENT_SPECS_DOMAIN): Promise<EnvironmentSpecsDomain>
+    open(spec: typeof ONBOARDING_DOMAIN): Promise<OnboardingDomain>
   }
   workspaceRegistry: {
     readonly archivedSessionIds: readonly string[]
@@ -1023,6 +1044,8 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
   // through the backend the settings name, with bot-core's own secrets.
   const webDomain = await services.storageDomain.open(WEB_DOMAIN)
   ctx.effect(() => () => void webDomain.close(), "bot-core: web storage domain")
+  /** Whether an earlier start stored the web lookup settings: bot-core ran here before (onboarding). */
+  const webSettingsStoredBefore = webDomain.table("settings").get(WEB_SETTINGS_KEY) !== undefined
   const webStore = await openWebSettingsStore({ webSettings: webDomain.table("settings") })
   const webBackends = createWebBackendCatalog()
   const webState = createWebState({ store: webStore, catalog: webBackends, warn })
@@ -1076,6 +1099,44 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     clients: connectionsDomain.table("clients"),
     now: Date.now,
   })
+  // Onboarding (docs/specs/bot-onboarding.md): the welcome guide and the
+  // release notes every page shows until one finishes it. Opened before any
+  // Remote can store a bot, so a first start sees only what earlier ones left.
+  const onboardingDomain = await services.storageDomain.open(ONBOARDING_DOMAIN)
+  ctx.effect(() => () => void onboardingDomain.close(), "bot-core: onboarding storage domain")
+  const releases = releaseSourceOf(manifest)
+  const onboardingStore = await openOnboardingStore({
+    onboardingState: onboardingDomain.table("state"),
+    prior: () => ({
+      bots: botIds().length > 0,
+      webSettings: webSettingsStoredBefore,
+      oauthClients: [...connectionsDomain.table("clients").entries()].length > 0,
+    }),
+    version: releases.version,
+    now: Date.now,
+  })
+  // The notes of the releases since the stored version, from its GitHub releases (English).
+  const releaseNotes = createReleaseNotesKeeper({
+    version: releases.version,
+    seen: () => onboardingStore.current().notesSeen,
+    subscribe: (listener) => onboardingStore.subscribe(listener),
+    fetch: (seen, signal) =>
+      fetchDueNotes(
+        { fetch: (url, init) => fetch(url, init), repository: releases.repository },
+        seen,
+        releases.version,
+        AbortSignal.any([signal, AbortSignal.timeout(RELEASES_READ_LIMIT_MS)]),
+      ),
+    record: async (version) => {
+      await onboardingStore.change((current) =>
+        acknowledging(current, version, releases.version, Date.now()),
+      )
+    },
+    later,
+    retry: RELEASES_RETRY,
+    warn,
+  })
+  ctx.effect(() => () => releaseNotes.dispose(), "bot-core: release notes")
   const connectionProviders = createConnectionProviders()
   const connectionServices = createConnectionServices(connectorCatalog)
   const connectorAccounts = createConnectorAccounts(connectionStore)
@@ -1913,6 +1974,9 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
   // Channels' outputs (replies, turns, files, interactions) for every bot's
   // connections; the connections themselves are kept below, with the settings.
   const channelCatalog = createChannelCatalog()
+  // The channels the welcome guide sets up for its bot, through the channels' panel (below).
+  const welcomeChannels = createWelcomeChannels({ catalog: channelCatalog })
+  ctx.effect(() => () => welcomeChannels.dispose(), "bot-core: the welcome guide's channels")
   const outlets = createChannelOutlets({ warn })
   /** Tell the managed sessions an interaction opened (set once they are wired, below). */
   let interactionOpened: (sessionId: string, interaction: BotInteraction) => void = () => {}
@@ -3498,6 +3562,31 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     }),
     createSession: (botId) => sessions.create(botId),
   })
+  new BotOnboardingRemoteService(
+    ctx,
+    createOnboardingPanel({
+      store: onboardingStore,
+      version: releases.version,
+      notes: releaseNotes,
+      channels: welcomeChannels,
+      create: (input) => lifecycle.create(input),
+      discard: (botId) => lifecycle.discardCreate(botId),
+      now: Date.now,
+    }),
+  )
+  ctx.effect(
+    () =>
+      followWelcomeBot({
+        store: onboardingStore,
+        bots: {
+          snapshot: () => lifecycle.snapshot(),
+          subscribe: (listener) => lifecycle.subscribe(listener),
+        },
+        now: Date.now,
+        warn,
+      }),
+    "bot-core: the welcome guide's bot",
+  )
 
   /** The bot's channels its settings turn on (none while DSH has no credential store, which channels need). */
   let channelStatus: (botId: string) => readonly BotStatusChannel[] = () => []
@@ -3691,6 +3780,13 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
         channelStatus = () => []
       }
     }, "bot-core: channels in the bots' status")
+    channelsCtx.effect(
+      () =>
+        welcomeChannels.attach((botId, channelId, change) =>
+          panel.configure(botId, channelId, change),
+        ),
+      "bot-core: the welcome guide's channels",
+    )
     new BotChannelsRemoteService(channelsCtx, panel, (listener) => {
       const offs = [
         hub.subscribe(listener),

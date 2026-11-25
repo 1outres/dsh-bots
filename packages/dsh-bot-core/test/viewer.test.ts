@@ -312,6 +312,20 @@ describe("markdown", () => {
       { kind: "text", text: "a * b `c [d] (e) _f" },
     ])
     expect(parseInline("snake_case_name")).toEqual([{ kind: "text", text: "snake_case_name" }])
+    expect(
+      parseInline("See https://github.com/o/r/compare/v1...v2. Or ftp://x, xhttps://y"),
+    ).toEqual([
+      { kind: "text", text: "See " },
+      {
+        kind: "link",
+        href: "https://github.com/o/r/compare/v1...v2",
+        children: [{ kind: "text", text: "https://github.com/o/r/compare/v1...v2" }],
+      },
+      { kind: "text", text: ". Or ftp://x, xhttps://y" },
+    ])
+    expect(parseInline("[https://a.b](https://a.b)")).toEqual([
+      { kind: "link", href: "https://a.b", children: [{ kind: "text", text: "https://a.b" }] },
+    ])
     expect(parseInline("`` a`b ``")).toEqual([{ kind: "code", text: "a`b" }])
     expect(parseMarkdown("## Title ##")).toEqual([
       { kind: "heading", level: 2, content: [{ kind: "text", text: "Title" }] },
