@@ -401,6 +401,9 @@ importers:
       '@deepseek-ai/schemastery':
         specifier: ~3.19.0
         version: 3.19.0
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
     devDependencies:
       '@1outres/dsh-bot-core':
         specifier: workspace:*

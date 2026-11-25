@@ -23,13 +23,7 @@ const settings: EnvironmentSettings = {
   profiles: ["dsh-bot"],
   guestUser: "bot",
   workspace: "/home/bot/workspace",
-  vsockProxy: {
-    node: "/node",
-    script: "/lib/vsock-proxy.js",
-    socket: "/incus.sock",
-    project: "default",
-  },
-  socat: "socat",
+  guestProxy: { node: "/node", script: "/lib/guest-proxy.js", socket: "/state/run/guest.sock" },
   guestRipgrep: "/usr/bin/rg",
   guestNode: "/usr/bin/node",
   helper: "/opt/helper.js",
@@ -48,11 +42,9 @@ const settings: EnvironmentSettings = {
 const IDMAP = "uid 1000 1001\ngid 1000 1001"
 const HOST_RG = "/opt/dsh/node_modules/@vscode/ripgrep/bin/rg"
 const TOOLS = {
-  which: async (command: string) => `/usr/bin/${command}`,
   hostRipgrep: async () => HOST_RG,
 }
-const proxyOf = (name: string) =>
-  `/node /lib/vsock-proxy.js --socket /incus.sock --project default --instance ${name} --port 22 --socat /usr/bin/socat`
+const proxyOf = (name: string) => `/node /lib/guest-proxy.js /state/run/guest.sock ${name}`
 const SECURE_MOUNT = async () => ({
   target: "/share",
   options: ["rw", "nosuid", "nodev", "nosymfollow"],
@@ -106,7 +98,7 @@ function fakeIncus() {
       instances.set(spec.name, {
         name: spec.name,
         status: spec.start ? "Running" : "Stopped",
-        config: { ...spec.config, "volatile.vsock_id": "4242" },
+        config: { ...spec.config },
         devices: structuredClone(spec.devices) as FakeInstance["devices"],
       })
     },
@@ -179,24 +171,8 @@ interface Harness {
   clock: { now: number }
   /** Exit codes the readiness probe returns, in order (then 0). */
   probe: number[]
-  /** What `ssh -G` reports; `undefined` means "as the managed config says". */
-  sshG?: (alias: string) => string
   /** Options of the mount the share lies on. */
   mount?: readonly string[]
-}
-
-/** `ssh -G` output when the included config is in effect. */
-function resolved(name: string) {
-  const botId = name.slice("dsh-bot-".length)
-  return [
-    "user bot",
-    `hostkeyalias ${name}`,
-    "stricthostkeychecking true",
-    `userknownhostsfile /state/bots/${botId}/known_hosts`,
-    `identityfile /state/bots/${botId}/id_ed25519`,
-    `proxycommand ${proxyOf(name)}`,
-    "",
-  ].join("\n")
 }
 
 function setup(overrides: Partial<Harness> = {}, patch: Partial<EnvironmentDeps> = {}) {
@@ -227,10 +203,6 @@ function setup(overrides: Partial<Harness> = {}, patch: Partial<EnvironmentDeps>
         await h.files.api.write(path, `PRIVATE ${path}`, 0o600)
         await h.files.api.write(`${path}.pub`, `ssh-ed25519 PUB${path.length} ${args[6]}\n`, 0o644)
         return { code: 0, stdout: "", stderr: "" }
-      }
-      if (file === "ssh" && args[0] === "-G") {
-        const name = args[1] as string
-        return { code: 0, stdout: (h.sshG ?? resolved)(name), stderr: "" }
       }
       const code = h.probe.shift() ?? 0
       return { code, stdout: "", stderr: code === 255 ? "Connection refused" : "" }
@@ -290,6 +262,7 @@ describe("incus-vm environment", () => {
           helperHash: "a".repeat(64),
           workspace: "/home/bot/workspace",
           requestTimeoutMs: 30_000,
+          configFile: "/state/ssh/1a2b3c4d.conf",
         },
       },
       {
@@ -373,9 +346,11 @@ describe("incus-vm environment", () => {
     })
     expect(h.files.dirs.get(dir)).toBe(0o700)
     expect(h.files.dirs.get("/state/ssh")).toBe(0o700)
-    const probe = h.commands.find((command) => command[0] === "ssh" && command[1] !== "-G")
+    const probe = h.commands.find((command) => command[0] === "ssh")
     expect(probe).toEqual([
       "ssh",
+      "-F",
+      "/state/ssh/1a2b3c4d.conf",
       "-o",
       "BatchMode=yes",
       "-o",
@@ -390,7 +365,7 @@ describe("incus-vm environment", () => {
     })
     // Then the helper starts once, as a session's connection will, so its first
     // handshake does not read everything cold (E2E: the first turn failed on it).
-    const sshCommands = h.commands.filter((command) => command[0] === "ssh" && command[1] !== "-G")
+    const sshCommands = h.commands.filter((command) => command[0] === "ssh")
     expect(sshCommands).toHaveLength(3)
     expect(sshCommands[1]?.slice(-2)).toEqual([
       alias,
@@ -415,7 +390,6 @@ describe("incus-vm environment", () => {
           await files.api.write(`${path}.pub`, "ssh-ed25519 PUB c\n", 0o644)
           return { code: 0, stdout: "", stderr: "" }
         }
-        if (args[0] === "-G") return { code: 0, stdout: resolved(args[1] as string), stderr: "" }
         calls++
         timeouts.push(options?.timeoutMs)
         // The readiness probe answers; the warm-up times out; the ripgrep link is made.
@@ -632,22 +606,6 @@ describe("incus-vm environment", () => {
     )
   })
 
-  it("explains a missing Include and an overriding ~/.ssh/config", async () => {
-    const missing = setup({ sshG: () => "user alice\n" })
-    await expect(missing.environment.ensure(target)).rejects.toThrow(
-      'add "Include /state/ssh/*.conf" at the top of ~/.ssh/config',
-    )
-    const overridden = setup({
-      sshG: (name) =>
-        resolved(name)
-          .replace("stricthostkeychecking true", "stricthostkeychecking false")
-          .replace(`identityfile ${dir}/id_ed25519`, "identityfile ~/.ssh/id_rsa"),
-    })
-    await expect(overridden.environment.ensure(target)).rejects.toThrow(
-      "StrictHostKeyChecking is false; IdentityFile is ~/.ssh/id_rsa",
-    )
-  })
-
   it("does not adopt an instance it did not create, or one missing its state", async () => {
     const foreign = setup()
     foreign.h.incus.foreign(alias)
@@ -699,7 +657,7 @@ describe("incus-vm environment", () => {
     expect(h.incus.log.filter((line) => line.startsWith("create"))).toHaveLength(2)
   })
 
-  it("relays SSH through the package's vsock proxy and socat from the PATH, without fd passing", async () => {
+  it("relays SSH through the package's guest proxy and this process's relay, without fd passing", async () => {
     const { h, environment } = setup()
     await environment.ensure(target)
     const conf = h.files.files.get("/state/ssh/1a2b3c4d.conf")?.content
@@ -710,7 +668,7 @@ describe("incus-vm environment", () => {
   it("links DSH's ripgrep path to the VM's ripgrep after the VM is ready", async () => {
     const { h, environment } = setup()
     await environment.ensure(target)
-    const link = h.commands.filter((command) => command[0] === "ssh" && command[1] !== "-G")[2]
+    const link = h.commands.filter((command) => command[0] === "ssh")[2]
     expect(link?.at(-2)).toBe(alias)
     expect(link?.at(-1)).toBe(
       [
@@ -729,16 +687,27 @@ describe("incus-vm environment", () => {
     )
   })
 
-  it("fails ensure when socat is not found", async () => {
-    const { environment } = setup(
-      {},
-      {
-        which: async (command) => {
-          throw new Error(`${command} is not on the PATH of DSH`)
-        },
-      },
+  it("opens sshd -i only in a running VM it created for a bot", async () => {
+    const { h, environment } = setup()
+    const execs: string[] = []
+    h.incus.client.exec = async (name, request) => {
+      execs.push(`${name} ${request.command.join(" ")} ${request.user}`)
+      return {} as never
+    }
+    await environment.ensure(target)
+    await environment.openGuest(alias)
+    expect(execs).toEqual([`${alias} /usr/sbin/sshd -i 0`])
+    h.incus.foreign("dsh-bot-feed0001", {
+      "user.dsh-bot.id": "feed0001",
+      "user.dsh-bot.owner": "b",
+    })
+    await expect(environment.openGuest("dsh-bot-feed0001")).rejects.toThrow(
+      "not a bot VM of this installation",
     )
-    await expect(environment.ensure(target)).rejects.toThrow("socat is not on the PATH of DSH")
+    await expect(environment.openGuest("other-vm")).rejects.toThrow("not a bot VM")
+    await expect(environment.openGuest("x; rm")).rejects.toThrow("not an Incus instance name")
+    await h.incus.client.setState(alias, "stop")
+    await expect(environment.openGuest(alias)).rejects.toThrow("is Stopped")
   })
 
   it("asks bot-core to ensure again a healthy bot whose VM stopped", async () => {
@@ -754,7 +723,7 @@ describe("incus-vm environment", () => {
   })
 
   it("does not poll a bot whose ensure is failing (bot-core backs off)", async () => {
-    const { h, environment } = setup({ sshG: () => "" })
+    const { h, environment } = setup({ probe: Array(50).fill(255) })
     const changes: string[] = []
     environment.onChange((botId) => changes.push(botId))
     await expect(environment.ensure(target)).rejects.toThrow()

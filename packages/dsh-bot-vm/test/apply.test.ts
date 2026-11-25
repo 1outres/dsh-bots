@@ -87,17 +87,14 @@ describe("@1outres/dsh-bot-vm", () => {
     }
   })
 
-  it("expands ~ and proxies SSH through its own vsock-proxy.js on this Node", () => {
+  it("expands ~ and proxies SSH through its own guest-proxy.js on this Node to its relay", () => {
     const settings = vm.settingsOf(vm.Config({} as never), "0".repeat(16))
     expect(settings.stateDir.endsWith("/.dsh/bots-vm")).toBe(true)
     expect(settings.stateDir.startsWith("/")).toBe(true)
-    expect(settings.vsockProxy.node).toBe(process.execPath)
-    expect(settings.vsockProxy.script.endsWith("/vsock-proxy.js")).toBe(true)
-    expect(settings.vsockProxy).toMatchObject({
-      socket: "/var/lib/incus/unix.socket",
-      project: "default",
-    })
-    expect([settings.socat, settings.guestRipgrep]).toEqual(["socat", "/usr/bin/rg"])
+    expect(settings.guestProxy.node).toBe(process.execPath)
+    expect(settings.guestProxy.script.endsWith("/guest-proxy.js")).toBe(true)
+    expect(settings.guestProxy.socket).toBe(`${settings.stateDir}/run/guest.sock`)
+    expect(settings.guestRipgrep).toBe("/usr/bin/rg")
   })
 
   it("shares from ~/.dsh/bots as the DSH user, guest uid 1001", () => {
@@ -107,14 +104,6 @@ describe("@1outres/dsh-bot-vm", () => {
     expect(settings.hostUid).toBe(process.getuid?.())
     expect(settings.hostGid).toBe(process.getgid?.())
     expect([settings.guestUid, settings.guestGid]).toEqual([1001, 1001])
-  })
-
-  it("finds commands on the PATH and refuses missing ones", async () => {
-    await expect(vm.which("sh")).resolves.toMatch(/^\/.*\/sh$/)
-    await expect(vm.which("dsh-bot-vm-no-such-command")).rejects.toThrow(
-      "is not on the PATH of DSH",
-    )
-    await expect(vm.which("/nonexistent/socat")).rejects.toThrow("is not an executable file")
   })
 
   it("finds the mount a path lies on in mountinfo", () => {

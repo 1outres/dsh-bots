@@ -124,9 +124,8 @@ interface GuestTransport {
 - `sshd -i`（inetd モード、[sshd(8)](https://man.openbsd.org/sshd.8#i)）なので VM の中で sshd が何も listen しなくてよい。イメージの sshd 設定（鍵のみ、`AllowUsers bot`、`AllowStreamLocalForwarding yes`）とホスト鍵がそのまま使われ、ssh の認証とホスト鍵の固定は今と同じ。`security.guestapi=false` でも exec は incus-agent 経由で動く（確認済み）。
 - DSH ホストに socat・vsock・vhost_vsock は要らない。
 - dsh-ssh は 1 つの SshConnection で ssh のマスターを 1 本だけ張り、ストリームはその多重化（`-O forward`）で通すので、exec の operation は SshConnection 1 つにつき 1 つ（dsh-ssh のコードからの推測。operation の数は数えていない）。
-- ProxyCommand の作り方は 2 案（§10 の決めてほしいこと 1）:
-  - A. **プロセス内の中継（推奨）**: dsh-bot-vm が DSH のプロセスの中で Unix ソケット `<stateDir>/run/guest.sock`（ディレクトリ 0700）を listen し、ProxyCommand は「そのソケットにつなぎ、インスタンス名を 1 行送り、あとはバイト列を中継する」だけの小さな Node スクリプト。Incus への接続・証明書・秘密鍵・サーバ証明書の固定は DSH のプロセスの IncusClient 1 つだけが持つ。鍵がファイルにならず、ProxyCommand の引数に秘密が載らず、local と remote で ProxyCommand が同じ。DSH が止まれば SSH も止まるが、dsh-ssh の接続はもともと DSH のプロセスと一緒に終わるので失うものは無い。
-  - B. 独立した ProxyCommand: 今の `vsock-proxy.js` と同じく ProxyCommand 自身が Incus につなぐ。秘密鍵をファイル（0600）に置く必要がある。spike はこちらで測った（数値は §8）。A は B と同じ exec を DSH のプロセスでするだけなので、数値は B と同等と見込む（推測、A は未計測）。
+- ProxyCommand は DSH のプロセスの中で中継する（§10 の 1 で決定）: dsh-bot-vm が DSH のプロセスの中で Unix ソケット `<stateDir>/run/guest.sock`（ディレクトリ 0700）を listen し、ProxyCommand（`lib/guest-proxy.js`）は「そのソケットにつなぎ、インスタンス名を 1 行送り、`ok` を受けたらあとはバイト列を中継する」だけ。中継はボットのインスタンス（この owner が作り、動いているもの）だけを受け付ける。Incus への接続・証明書・秘密鍵・サーバ証明書の固定は DSH のプロセスの IncusClient 1 つだけが持ち、鍵がファイルにならず、ProxyCommand の引数に秘密が載らず、local と remote で ProxyCommand が同じ。DSH が止まれば SSH も止まるが、ボットの SSH 接続はもともと DSH のプロセスと一緒に終わるので失うものは無い。
+  - 実装（`src/host/guest-transport.ts`、`src/node/guest-relay.ts`、`src/standalone/guest-proxy.ts`）で確認済み（2026-11-25、Unix ソケットの Incus）: `ssh -F <ボットの設定> <alias> 'id -un'` が 252–282 ms（初回 4.6 s）、SshConnection の ready まで初回 6.3 s（イメージから作った VM で helper が初めて読まれるため。spike の値と同じ傾向）。spike の独立した ProxyCommand（B）と同等。
 
 ### 5.3 ssh の設定の渡し方（spike c）
 
@@ -136,7 +135,7 @@ interface GuestTransport {
   - 起動は `ssh -F <stateDir>/ssh/<id>.conf …`。`-F` を渡すと OpenSSH は `~/.ssh/config` も `/etc/ssh/ssh_config` も読まないので、利用者の設定に左右されない。設定ファイルには ProxyCommand（プロセス内の中継、§5.2）、IdentityFile、UserKnownHostsFile、HostKeyAlias、User を書く。
   - helper（VM の中）・`@deepseek-ai/dsh-ssh/protocol`・`@deepseek-ai/dsh-ssh/schemas` はそのまま使い、複製は Host 側の接続だけにする。複製元の版（0.2.2-rc.5）と LICENSE を明記する。
   - サービスの形（`request`、`connectStream`、`ready`、`ptcLaunch`、`dispose`）は dsh-ssh と同じにし、dsh-fs-ssh と dsh-subprocess-ssh が変更なしで動くことをテストで保つ。DSH の版を上げるときは、このテストと複製元との差分で追従する。
-  - つなぎ直しと、使っていない接続を閉じる処理をサービスに組み込む（今の `./ssh` の包みが dsh-ssh の非公開の `failure`/`closed` を読む作りは無くなる）。
+  - つなぎ直しと、使っていない接続を閉じる処理をサービスに組み込む（今の `./ssh` の包みが dsh-ssh の非公開の `failure`/`closed` を読む作りは無くなる）。実装: `src/node/ssh/connection.ts`（複製、`LICENSE.dsh-ssh`）、`src/host/reconnect.ts`（呼び出し中・開いたストリーム・リモートのハンドルが無い状態が `idleMs`、既定 5 分、続くと閉じる）、`src/plugins/ssh.ts`。dsh-fs-ssh と dsh-subprocess-ssh は `test/ssh-providers.test.ts`（本物の helper と、ssh の代わりのスタブ）で保つ。
 - DSH ホストに要るのは OpenSSH のクライアント（`ssh`）だけ。
 
 ### 5.4 Workspace（custom storage volume）
@@ -222,7 +221,7 @@ interface ImageRelease {
 | クライアント証明書（公開）、URL、サーバ証明書の sha256 | `<stateDir>/endpoint.json`（0600）                                                                                                          |
 | ボットごとの SSH クライアント鍵・ホスト鍵・known_hosts | 今と同じ `<stateDir>/bots/<id>/`（ssh が読むのでファイルのまま）                                                                            |
 
-ProxyCommand が独立したプロセス（§5.2 の B）なら Incus の秘密鍵もファイルにするしかない。A ならファイルにしない。
+ProxyCommand は DSH のプロセスの中で中継する（§5.2）ので、Incus の秘密鍵はファイルにしない。
 
 ### 6.3 exec 越しの SSH の信頼
 
@@ -248,7 +247,7 @@ ProxyCommand が独立したプロセス（§5.2 の B）なら Incus の秘密�
 | `host-setup.sh` packages                              | 残す（VM ホスト）。socat は要らなくなる。virtiofsd は Incus の依存として入るので明示はやめる。対象 OS から Arch・NixOS・WSL を VM ホストとしては外す（DSH ホストとしては引き続き対象）                                                                                      |
 | `host-setup.sh` incus                                 | 残す。加えて project（§3.4）を作る。プロファイル `dsh-bot` は作らない（§3.4）。`incus-admin` に DSH ユーザを入れるのは形 1 だけ                                                                                                                                             |
 | `host-setup.sh` firewall                              | 残す（VM ホスト）                                                                                                                                                                                                                                                           |
-| `host-setup.sh` workspaces                            | 消す（bind mount、`incus.service` の `RequiresMountsFor`、`~/.ssh/config` の Include はどれも要らなくなる。Include はプラグインが書く、§5.3）                                                                                                                               |
+| `host-setup.sh` workspaces                            | 消す（bind mount、`incus.service` の `RequiresMountsFor`、`~/.ssh/config` の Include はどれも要らなくなる。プラグインはボットごとの設定を `ssh -F` で渡す、§5.3）                                                                                                           |
 | 新規 `host-setup.sh remote`                           | `core.https_address`（既定 `:8443`）、trust token の発行                                                                                                                                                                                                                    |
 | 新規 `incus-admin-setup.sh`                           | 形 3 の管理者向け（§3.3）                                                                                                                                                                                                                                                   |
 | `import-image.sh`                                     | 消す（プラグインが取り込む）                                                                                                                                                                                                                                                |
@@ -340,3 +339,5 @@ ProxyCommand が独立したプロセス（§5.2 の B）なら Incus の秘密�
 ## 付録: spike で作ったもの（すべて片付け済み）
 
 - Incus: project `dsh-spike`（中に VM `spk-a`、custom volume `ws-a`、イメージ `dsh-bot-base` の別名、プロファイル `dsh-bot`）、ストレージプール `dshspike`（btrfs 40 GiB の loop）、default project のブリッジ `dshspk0` と ACL `dsh-spike-egress`、trust の証明書 `dsh-spike-client`。サーバの `core.https_address` を一時的に `127.0.0.1:8443`（元は未設定）。
+- ファイル: `/tmp/dsh-spike/`、`/var/tmp/dsh-spike/`（イメージの export）。
+- incusd を 2 回再起動した（11:10 と 11:25 頃。本番の VM は動いたまま、vsock の SSH は切れなかった）。

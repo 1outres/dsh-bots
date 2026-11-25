@@ -1,9 +1,9 @@
-/** OpenSSH client files for one bot VM: its `Host` block and known_hosts line. */
+/** OpenSSH client files for one bot VM: its config (`ssh -F`) and known_hosts line. */
 
 export interface SshHostEntry {
   /** Host alias dsh-ssh connects to, e.g. "dsh-bot-1a2b3c4d". */
   readonly alias: string
-  /** Command that relays stdin/stdout to the guest sshd over vsock (src/host/vsock.ts). */
+  /** Command that relays stdin/stdout to the guest's sshd (src/host/guest-transport.ts). */
   readonly proxyCommand: string
   readonly user: string
   readonly identityFile: string
@@ -26,9 +26,10 @@ function configPath(value: string): string {
 }
 
 /**
- * The `Host` block `~/.ssh/config` includes. The host key is pinned under the
- * alias (HostKeyAlias), so a changed vsock CID does not invalidate it, and only
- * the pinned ed25519 key type is offered.
+ * The bot's whole OpenSSH client config, passed with `ssh -F` (so neither
+ * ~/.ssh/config nor /etc/ssh/ssh_config is read). The host key is pinned
+ * under the alias (HostKeyAlias), and only the pinned ed25519 key type is
+ * offered.
  */
 export function sshConfigText(entry: SshHostEntry): string {
   return [

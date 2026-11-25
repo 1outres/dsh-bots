@@ -23,13 +23,18 @@ export interface RowSettings {
   readonly requestTimeoutMs: number
 }
 
+export interface RowContext extends RowSettings {
+  /** Directory of the bots' OpenSSH configs, `<id>.conf` each. */
+  readonly sshConfigDir: string
+}
+
 export function hostAliasOf(settings: Pick<RowSettings, "hostAliasPrefix">, botId: string) {
   return `${settings.hostAliasPrefix}${botId}`
 }
 
 /** The bot's execution rows: SSH connection, policy, then the SSH-backed providers. */
 export function environmentRows(
-  settings: RowSettings,
+  settings: RowContext,
   bot: BotEnvironmentBot,
 ): readonly PluginRow[] {
   return [
@@ -38,6 +43,7 @@ export function environmentRows(
       name: SSH_PLUGIN,
       config: {
         host: hostAliasOf(settings, bot.id),
+        configFile: `${settings.sshConfigDir}/${bot.id}.conf`,
         launch: { kind: "node-script", node: settings.guestNode },
         helper: settings.helper,
         helperHash: settings.helperHash,

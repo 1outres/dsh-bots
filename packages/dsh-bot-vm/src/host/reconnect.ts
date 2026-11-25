@@ -15,10 +15,20 @@
  * the first helper start on a VM that just booted reads everything cold and
  * can outlast dsh-ssh's handshake deadline once, then answers in well under a
  * second.
+ *
+ * A connection with no call in flight, no open stream and no remote handle
+ * for `idleMs` is closed; the next call opens a new one. An open SSH
+ * connection holds an Incus exec operation, which delays an incusd restart
+ * (docs/specs/incus-endpoint.md §8.2).
  */
 
+/** A forwarded stream: the front counts it as activity until it closes. */
+export interface ClosableStream {
+  once(event: "close", listener: () => void): unknown
+}
+
 /** The part of `SshConnection` this front delegates to. */
-export interface SshLike<Stream = unknown> {
+export interface SshLike<Stream extends ClosableStream = ClosableStream> {
   readonly ready: Promise<unknown>
   readonly ptcLaunch: unknown
   request<T>(
@@ -48,7 +58,11 @@ export interface ReconnectOptions<C> {
   readonly retryDelayMs: number
   /** Connections opened for one call before it fails (at least 1). Default 1. */
   readonly connectAttempts?: number
+  /** Close a connection unused this long; 0 keeps it open. */
+  readonly idleMs: number
   readonly now: () => number
+  /** Run `task` after `ms`; returns its cancellation. */
+  readonly later: (ms: number, task: () => void) => () => void
   readonly log?: (message: string) => void
 }
 
@@ -80,6 +94,8 @@ interface Entry<C> {
   root?: string
   /** Retired: no call is sent here any more. */
   dead: boolean
+  /** Calls in flight and open streams. */
+  active: number
 }
 
 function handleOf(params: unknown): string | undefined {
@@ -124,12 +140,15 @@ export class Reconnector<C extends SshLike> {
   private readonly handles = new Map<string, Entry<C>>()
   /** Connections with a known stream root, newest last (dead ones kept for routing). */
   private readonly roots: Entry<C>[] = []
+  private cancelIdle: (() => void) | undefined
 
   constructor(private readonly options: ReconnectOptions<C>) {}
 
   /** The live connection, connecting (again) when there is none. */
   async connection(signal?: AbortSignal): Promise<C> {
-    return (await this.live(signal)).opened?.connection as C
+    const entry = await this.live(signal)
+    this.settle(entry)
+    return entry.opened?.connection as C
   }
 
   /** The connection whose helper has answered, if any; never connects. */
@@ -161,6 +180,7 @@ export class Reconnector<C extends SshLike> {
       signal,
     )
     this.track(method, id, value, entry)
+    this.settle(entry)
     return value
   }
 
@@ -180,6 +200,11 @@ export class Reconnector<C extends SshLike> {
       (connection) => connection.connectStream(endpoint, signal),
       signal,
     )
+    entry.active++
+    stream.once("close", () => {
+      entry.active--
+      this.settle(entry)
+    })
     return stream as Awaited<ReturnType<C["connectStream"]>>
   }
 
@@ -214,14 +239,44 @@ export class Reconnector<C extends SshLike> {
     invoke: (connection: C) => Promise<T>,
     signal: AbortSignal | undefined,
   ): Promise<T> {
-    const connection = (await entry.pending).connection
+    this.stopIdleTimer()
+    entry.active++
     try {
-      return await invoke(connection)
-    } catch (error) {
-      if (this.options.failed(connection)) void this.retire(entry)
-      else if (!signal?.aborted) this.lastCallFailure = entry
-      throw error
+      const connection = (await entry.pending).connection
+      try {
+        return await invoke(connection)
+      } catch (error) {
+        if (this.options.failed(connection)) void this.retire(entry)
+        else if (!signal?.aborted) this.lastCallFailure = entry
+        throw error
+      }
+    } finally {
+      entry.active--
+      this.settle(entry)
     }
+  }
+
+  private busy(entry: Entry<C>): boolean {
+    if (entry.active > 0) return true
+    for (const owner of this.handles.values()) if (owner === entry) return true
+    return false
+  }
+
+  private stopIdleTimer(): void {
+    this.cancelIdle?.()
+    this.cancelIdle = undefined
+  }
+
+  /** Start the idle countdown of the current connection once nothing uses it. */
+  private settle(entry: Entry<C>): void {
+    if (this.options.idleMs <= 0 || entry !== this.current || entry.dead || this.busy(entry)) return
+    this.stopIdleTimer()
+    this.cancelIdle = this.options.later(this.options.idleMs, () => {
+      this.cancelIdle = undefined
+      if (entry !== this.current || entry.dead || this.busy(entry)) return
+      this.options.log?.(`closing the idle connection to ${this.options.host}`)
+      void this.retire(entry)
+    })
   }
 
   /** Remember which connection issued a handle; forget released ones. */
@@ -303,7 +358,7 @@ export class Reconnector<C extends SshLike> {
     }
     this.options.log?.(`connecting to ${this.options.host}`)
     const pending = this.options.open()
-    const entry: Entry<C> = { pending, dead: false }
+    const entry: Entry<C> = { pending, dead: false, active: 0 }
     void pending.then(
       (opened) => {
         entry.opened = opened
@@ -319,7 +374,10 @@ export class Reconnector<C extends SshLike> {
   private async retire(entry: Entry<C>): Promise<void> {
     if (entry.dead) return
     entry.dead = true
-    if (this.current === entry) this.current = undefined
+    if (this.current === entry) {
+      this.current = undefined
+      this.stopIdleTimer()
+    }
     // Keep only the handles and roots of a few lost connections for routing.
     const deadRoots = this.roots.filter((root) => root.dead)
     for (const stale of deadRoots.slice(0, Math.max(0, deadRoots.length - 8))) {

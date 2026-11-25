@@ -65,7 +65,8 @@
     "@deepseek-ai/dsh-fs-ssh": "0.2.2-rc.5",
     "@deepseek-ai/dsh-ssh": "0.2.2-rc.5",
     "@deepseek-ai/dsh-subprocess-ssh": "0.2.2-rc.5",
-    "@deepseek-ai/schemastery": "~3.19.0"
+    "@deepseek-ai/schemastery": "~3.19.0",
+    "zod": "4.4.3"
   },
   "dsh": {
     "bundle": {

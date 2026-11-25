@@ -1,6 +1,7 @@
 /**
  * The `incus-vm` bot environment: one Incus VM per bot, reached over SSH
- * through the VM's vsock. All I/O (Incus, files, child processes, clock) is
+ * whose transport is `sshd -i` run through Incus' exec API
+ * (src/host/guest-transport.ts). All I/O (Incus, files, child processes, clock) is
  * injected by src/index.ts.
  */
 import type {
@@ -12,16 +13,19 @@ import type {
 } from "@1outres/dsh-bot-core"
 import { capacityOf } from "./capacity"
 import { BOOT_FINISHED, isCanonicalPath, userDataText } from "./cloud-init"
-import type { IncusClient, IncusDevice, IncusInstance } from "./incus"
+import { checkInstanceName, type GuestProxy, proxyCommandOf, SSHD_COMMAND } from "./guest-transport"
+import type { ExecSession, IncusClient, IncusDevice, IncusInstance } from "./incus"
 import { createLimiter } from "./limit"
 import { type InstanceWants, type Reconfiguration, reconfigure } from "./reconfigure"
 import { environmentRows, hostAliasOf, ISOLATED_SERVICES, type RowSettings } from "./rows"
 import { createSerializer } from "./serial"
 import { CPU_KEY, instanceSizesOf, MEMORY_KEY, ROOT_DEVICE, specOfInstance } from "./spec"
 import { knownHostsText, MANAGED_HEADER, shellQuote, sshConfigText } from "./ssh-config"
-import { proxyCommandOf, type VsockProxy } from "./vsock"
 
 export const ENVIRONMENT_ID = "incus-vm"
+
+/** Where each bot's OpenSSH config (`ssh -F`) lives. */
+export const sshConfigDirOf = (stateDir: string) => `${stateDir}/ssh`
 
 /** Host files under the state directory. Paths are absolute. */
 export interface EnvironmentFiles {
@@ -57,8 +61,6 @@ export interface HostMount {
 
 export interface EnvironmentDeps {
   readonly incus: IncusClient
-  /** The absolute path of a command the Host's PATH resolves; rejects when it does not. */
-  readonly which: (command: string) => Promise<string>
   /** The absolute ripgrep path the Host's DSH spawns, inside the bot's environment too. */
   readonly hostRipgrep: () => Promise<string>
   readonly files: EnvironmentFiles
@@ -71,7 +73,7 @@ export interface EnvironmentDeps {
 }
 
 export interface EnvironmentSettings extends RowSettings {
-  /** Absolute state directory (keys, known_hosts, state); `ssh/` under it holds the included configs. */
+  /** Absolute state directory (keys, known_hosts, state); `ssh/` under it holds each bot's ssh config. */
   readonly stateDir: string
   /**
    * Marks the instances this installation created (`user.dsh-bot.owner`).
@@ -85,10 +87,8 @@ export interface EnvironmentSettings extends RowSettings {
   readonly image: string
   readonly profiles: readonly string[]
   readonly guestUser: string
-  /** The ProxyCommand reaching the guest's sshd over vsock. */
-  readonly vsockProxy: VsockProxy
-  /** socat as configured: a command the Host's PATH resolves, or an absolute path. */
-  readonly socat: string
+  /** The ProxyCommand reaching the guest's sshd through the relay. */
+  readonly guestProxy: GuestProxy
   /** The guest's ripgrep; the Host DSH's ripgrep path is linked to it in every VM. */
   readonly guestRipgrep: string
   readonly readyTimeoutMs: number
@@ -153,6 +153,11 @@ export interface VmEnvironment extends BotEnvironment {
    * the Host is never deleted.
    */
   reconcile(keep: Iterable<string>, signal?: AbortSignal): Promise<ReconcileResult>
+  /**
+   * The streams of `sshd -i` in a bot's VM, for the relay. Only a running
+   * instance this owner created for a bot is reached.
+   */
+  openGuest(instance: string, signal?: AbortSignal): Promise<ExecSession>
 }
 
 export interface ReconcileResult {
@@ -194,7 +199,7 @@ export function createVmEnvironment(
   const listeners = new Set<(botId: string) => void>()
   const { incus, files } = deps
   const botsDir = `${settings.stateDir}/bots`
-  const sshDir = `${settings.stateDir}/ssh`
+  const sshDir = sshConfigDirOf(settings.stateDir)
 
   const paths = (botId: string) => {
     const dir = `${botsDir}/${botId}`
@@ -322,21 +327,6 @@ export function createVmEnvironment(
     return { privateKey, publicKey: publicKey.trim() }
   }
 
-  /** The VM's vsock context id once Incus assigned it. */
-  async function cidOf(name: string, signal?: AbortSignal): Promise<number> {
-    const deadline = deps.now() + settings.readyTimeoutMs
-    for (;;) {
-      const instance = await incus.instance(name, signal)
-      if (instance === undefined) throw new Error(`Incus instance "${name}" disappeared`)
-      const cid = Number(instance.config["volatile.vsock_id"])
-      if (Number.isInteger(cid) && cid > 2) return cid
-      if (deps.now() >= deadline) {
-        throw new Error(`Incus instance "${name}" has no vsock id (volatile.vsock_id)`)
-      }
-      await deps.sleep(settings.probeIntervalMs, signal)
-    }
-  }
-
   async function start(instance: IncusInstance, signal?: AbortSignal): Promise<void> {
     switch (instance.status) {
       case "Running":
@@ -350,44 +340,19 @@ export function createVmEnvironment(
     }
   }
 
-  /**
-   * `ssh -G` shows whether ~/.ssh/config reaches this bot's included config,
-   * and that no earlier block overrides the values that keep it pinned.
-   */
-  async function checkSshConfig(
-    alias: string,
-    expected: { identityFile: string; knownHostsFile: string; proxyCommand: string },
-    signal?: AbortSignal,
-  ): Promise<void> {
-    const result = await deps.run("ssh", ["-G", alias], { signal, timeoutMs: 10_000 })
-    const lines = result.stdout.split("\n").map((line) => line.trim())
-    const values = (key: string) =>
-      lines
-        .filter((line) => line.toLowerCase().startsWith(`${key} `))
-        .map((line) => line.slice(key.length + 1))
-    if (result.code !== 0 || !values("hostkeyalias").includes(alias)) {
-      throw new Error(
-        `ssh does not read ${sshDir}/*.conf for "${alias}": add "Include ${sshDir}/*.conf" at the top of ~/.ssh/config`,
-      )
-    }
-    const problems: string[] = []
-    const strict = values("stricthostkeychecking")[0]
-    if (strict !== "true" && strict !== "yes") problems.push(`StrictHostKeyChecking is ${strict}`)
-    if (values("userknownhostsfile").join(" ") !== expected.knownHostsFile) {
-      problems.push(`UserKnownHostsFile is ${values("userknownhostsfile").join(" ")}`)
-    }
-    if (values("identityfile").join(" ") !== expected.identityFile) {
-      problems.push(`IdentityFile is ${values("identityfile").join(" ")}`)
-    }
-    if (values("proxycommand")[0] !== expected.proxyCommand) {
-      problems.push(`ProxyCommand is ${values("proxycommand")[0]}`)
-    }
-    if (problems.length > 0) {
-      throw new Error(
-        `~/.ssh/config overrides ${sshDir}/${alias.slice(settings.hostAliasPrefix.length)}.conf for "${alias}" (${problems.join("; ")}); put the Include first`,
-      )
-    }
-  }
+  /** ssh as the bot's connection runs it: the bot's own config, never the user's. */
+  const sshArgs = (alias: string, command: string) => [
+    "-F",
+    paths(alias.slice(settings.hostAliasPrefix.length)).conf,
+    "-o",
+    "BatchMode=yes",
+    "-o",
+    "StrictHostKeyChecking=yes",
+    "-o",
+    "ConnectTimeout=10",
+    alias,
+    command,
+  ]
 
   /**
    * Wait until ssh logs in through the alias, cloud-init's boot finished and
@@ -406,16 +371,7 @@ export function createVmEnvironment(
       signal?.throwIfAborted()
       const result = await deps.run(
         "ssh",
-        [
-          "-o",
-          "BatchMode=yes",
-          "-o",
-          "StrictHostKeyChecking=yes",
-          "-o",
-          "ConnectTimeout=10",
-          alias,
-          `test -e ${BOOT_FINISHED} && test -d ${workspace} && test -w ${workspace}`,
-        ],
+        sshArgs(alias, `test -e ${BOOT_FINISHED} && test -d ${workspace} && test -w ${workspace}`),
         { signal, timeoutMs: 30_000 },
       )
       if (result.code === 0) return warmUp(alias, deadline, signal)
@@ -446,20 +402,10 @@ export function createVmEnvironment(
   async function warmUp(alias: string, deadline: number, signal?: AbortSignal): Promise<void> {
     const started = deps.now()
     const command = `cd ${shellQuote(settings.workspace)} && ${shellQuote(settings.guestNode)} --disable-sigusr1 ${shellQuote(settings.helper)} </dev/null >/dev/null 2>&1; exit 0`
-    const result = await deps.run(
-      "ssh",
-      [
-        "-o",
-        "BatchMode=yes",
-        "-o",
-        "StrictHostKeyChecking=yes",
-        "-o",
-        "ConnectTimeout=10",
-        alias,
-        command,
-      ],
-      { signal, timeoutMs: Math.max(deadline - started, WARM_UP_MIN_MS) },
-    )
+    const result = await deps.run("ssh", sshArgs(alias, command), {
+      signal,
+      timeoutMs: Math.max(deadline - started, WARM_UP_MIN_MS),
+    })
     signal?.throwIfAborted()
     const took = deps.now() - started
     if (result.code !== 0) {
@@ -624,24 +570,17 @@ export function createVmEnvironment(
     }
     await start(instance, signal)
 
-    await cidOf(name, signal)
-    const proxyCommand = proxyCommandOf(settings.vsockProxy, await deps.which(settings.socat), name)
     report("connecting")
     await files.write(
       file.conf,
       sshConfigText({
         alias,
-        proxyCommand,
+        proxyCommand: proxyCommandOf(settings.guestProxy, name),
         user: settings.guestUser,
         identityFile: file.key,
         knownHostsFile: file.knownHosts,
       }),
       0o600,
-    )
-    await checkSshConfig(
-      alias,
-      { identityFile: file.key, knownHostsFile: file.knownHosts, proxyCommand },
-      signal,
     )
     await waitForSsh(alias, signal)
     await linkHostRipgrep(alias, signal)
@@ -662,20 +601,7 @@ export function createVmEnvironment(
       `[ "$(readlink -- ${link})" = ${to} ] && exit 0`,
       `sudo -n install -d -m 0755 -- "$(dirname -- ${link})" && sudo -n ln -sfn -- ${to} ${link}`,
     ].join("; ")
-    const result = await deps.run(
-      "ssh",
-      [
-        "-o",
-        "BatchMode=yes",
-        "-o",
-        "StrictHostKeyChecking=yes",
-        "-o",
-        "ConnectTimeout=10",
-        alias,
-        command,
-      ],
-      { signal, timeoutMs: 30_000 },
-    )
+    const result = await deps.run("ssh", sshArgs(alias, command), { signal, timeoutMs: 30_000 })
     if (result.code !== 0) {
       throw new Error(
         `cannot link DSH's ripgrep ${host} to ${settings.guestRipgrep} in ${alias} (exit ${result.code}): ${result.stderr.trim()}`,
@@ -735,7 +661,20 @@ export function createVmEnvironment(
       })
     },
     rows(bot) {
-      return environmentRows(settings, bot)
+      return environmentRows({ ...settings, sshConfigDir: sshDir }, bot)
+    },
+    async openGuest(instance, signal) {
+      const name = checkInstanceName(instance)
+      const botId = name.slice(settings.instancePrefix.length)
+      if (!name.startsWith(settings.instancePrefix) || !BOT_ID.test(botId)) {
+        throw new Error(`"${name}" is not a bot VM`)
+      }
+      const found = await incus.instance(name, signal)
+      if (found === undefined || !ours(found, botId)) {
+        throw new Error(`"${name}" is not a bot VM of this installation`)
+      }
+      if (found.status !== "Running") throw new Error(`"${name}" is ${found.status}`)
+      return incus.exec(name, { command: SSHD_COMMAND, user: 0, group: 0, environment: {} }, signal)
     },
     async capacity(botId, signal) {
       checkId(botId)

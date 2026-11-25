@@ -1,7 +1,8 @@
 /**
  * `@1outres/dsh-bot-vm` (row `bot-vm`): registers the `incus-vm` bot
  * environment with bot-core. Every bot gets its own Incus VM; bot Agents
- * reach it over SSH (through the VM's vsock) with the rows `rows()` returns.
+ * reach it over SSH (`sshd -i` through Incus' exec API, relayed by this
+ * process) with the rows `rows()` returns.
  *
  * This file is the composition root: it wires the Host modules to Node
  * (HTTP over the Incus Unix socket, files, child processes, timers).
@@ -9,9 +10,9 @@
 import { execFile } from "node:child_process"
 import { createHash, randomBytes } from "node:crypto"
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs"
-import { access, chmod, mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises"
+import { chmod, mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
-import { delimiter, isAbsolute, join, resolve } from "node:path"
+import { join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import type { Bot } from "@1outres/dsh-bot-core"
 import type { Context } from "@deepseek-ai/cordis"
@@ -26,6 +27,7 @@ import {
 } from "./host/environment"
 import { createIncusClient } from "./host/incus"
 import { decideOwner, OWNER_FILE } from "./host/owner"
+import { startGuestRelay } from "./node/guest-relay"
 import { createIncusTransport } from "./node/incus-transport"
 
 export const name = "bot-vm"
@@ -56,7 +58,6 @@ export interface Config {
   profiles: string[]
   instancePrefix: string
   hostAliasPrefix: string
-  socat: string
   guestRipgrep: string
   guestUser: string
   workspace: string
@@ -80,7 +81,7 @@ export const Config: z<Config> = z.object({
     .string()
     .default("~/.dsh/bots-vm")
     .description(
-      "Keys, known_hosts and state per bot; ssh/<bot>.conf under it must be included by ~/.ssh/config. A leading ~ is your home.",
+      "Keys, known_hosts, each bot's ssh config (ssh/<bot>.conf) and the SSH relay's socket (run/guest.sock). A leading ~ is your home.",
     ),
   hostRoot: z
     .string()
@@ -105,12 +106,6 @@ export const Config: z<Config> = z.object({
     .string()
     .default("dsh-bot-")
     .description("SSH host alias is <prefix><bot id>."),
-  socat: z
-    .string()
-    .default("socat")
-    .description(
-      "socat (1.7.4 or newer) relays SSH to the VM's vsock: a command the PATH of DSH resolves, or an absolute path.",
-    ),
   guestRipgrep: z
     .string()
     .default("/usr/bin/rg")
@@ -277,27 +272,6 @@ export const runCommand: RunCommand = (file, args, options) =>
     )
   })
 
-/** A command's absolute path: itself when absolute, else the first executable on PATH. */
-export async function which(command: string): Promise<string> {
-  const executable = async (path: string) =>
-    access(path, 1).then(
-      () => true,
-      () => false,
-    )
-  if (isAbsolute(command)) {
-    if (await executable(command)) return command
-    throw new Error(`${command} is not an executable file`)
-  }
-  for (const directory of (process.env.PATH ?? "").split(delimiter)) {
-    if (directory === "" || !isAbsolute(directory)) continue
-    const path = join(directory, command)
-    if (await executable(path)) return path
-  }
-  throw new Error(
-    `${command} is not on the PATH of DSH (${process.env.PATH ?? ""}); install it or configure its absolute path`,
-  )
-}
-
 /** The ripgrep DSH's grep and glob spawn (@deepseek-ai/dsh-util-ripgrep, from the Host's DSH). */
 async function hostRipgrep(): Promise<string> {
   const { resolveRgPath } = await import("@deepseek-ai/dsh-util-ripgrep")
@@ -319,6 +293,9 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   })
 }
 
+/** The relay's socket (src/host/guest-transport.ts). */
+export const guestRelaySocketOf = (stateDir: string) => join(stateDir, "run", "guest.sock")
+
 /** Environment settings from the plugin config, paths expanded. */
 export function settingsOf(config: Config, owner: string): EnvironmentSettings {
   const stateDir = expandHome(config.stateDir)
@@ -337,13 +314,11 @@ export function settingsOf(config: Config, owner: string): EnvironmentSettings {
     profiles: config.profiles,
     guestUser: config.guestUser,
     workspace: config.workspace,
-    vsockProxy: {
+    guestProxy: {
       node: process.execPath,
-      script: fileURLToPath(new URL("./vsock-proxy.js", import.meta.url)),
-      socket: config.incusSocket,
-      project: config.incusProject,
+      script: fileURLToPath(new URL("./guest-proxy.js", import.meta.url)),
+      socket: guestRelaySocketOf(stateDir),
     },
-    socat: config.socat,
     guestRipgrep: config.guestRipgrep,
     guestNode: config.guestNode,
     helper: config.helper,
@@ -365,7 +340,6 @@ export function apply(ctx: Context, config: Config): void {
       operationTimeoutMs: config.operationTimeoutMs,
       requestTimeoutMs: config.incusTimeoutMs,
     }),
-    which,
     hostRipgrep,
     files: nodeFiles,
     mountOf: hostMountOf,
@@ -375,6 +349,18 @@ export function apply(ctx: Context, config: Config): void {
     log: (message) => ctx.logger.info(message),
   })
   const bot = botOf(ctx)
+  ctx.effect(() => {
+    const relay = startGuestRelay({
+      socket: guestRelaySocketOf(stateDir),
+      open: (instance, signal) => environment.openGuest(instance, signal),
+      log: (message) => ctx.logger.debug(message),
+      requestTimeoutMs: 10_000,
+    })
+    relay.catch((error: unknown) =>
+      ctx.logger.error(`bot-vm: the SSH relay did not start: ${String(error)}`),
+    )
+    return () => relay.then((started) => started.close()).catch(() => {})
+  }, "bot-vm: guest relay")
   ctx.effect(() => bot.registerEnvironment(environment), "bot-vm: environment")
 
   const lifetime = new AbortController()
