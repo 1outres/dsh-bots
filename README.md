@@ -12,3 +12,9 @@ Bots for [DeepSeek Harness](https://www.npmjs.com/package/@deepseek-ai/dsh). Eac
 ```sh
 curl -fsSL https://raw.githubusercontent.com/1outres/dsh-bots/main/install.sh | bash
 ```
+
+Or paste this to a coding agent on that machine (DeepSeek Harness, Claude Code, Codex, …):
+
+```
+Set up dsh-bots on this machine: follow https://raw.githubusercontent.com/1outres/dsh-bots/main/docs/agent-setup.md
+```

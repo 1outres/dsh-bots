@@ -9,6 +9,7 @@
 #   DSH_BOTS_SOURCE     a checkout to use instead of downloading one
 #   DSH_BOTS_PROFILE    DSH profile to install into (default: the only one, else asked, else web)
 #   DSH_BOTS_YES=1      answer yes to every question (third-party Incus repository)
+#   DSH_BOTS_NONINTERACTIVE=1  never read the terminal (for agents): questions stop with what to set
 #   DSH_BOTS_NPM_REGISTRY  npm registry for the plugins (e.g. a local Verdaccio)
 #   DSH_BOTS_PACKAGE    what to pass to "dsh plugin add" instead of @1outres/dsh-bots@<version>
 #   DSH_BOTS_IMAGE_URL  where manifest.txt and the image parts are (default: the GitHub release)
@@ -73,7 +74,7 @@ else
   C_DIM="" C_OK="" C_ERR="" C_BOLD="" C_OFF="" TTY_OUT=0
 fi
 HAVE_TTY=0
-if { : </dev/tty; } 2>/dev/null; then HAVE_TTY=1; fi
+if [[ ${DSH_BOTS_NONINTERACTIVE:-} != 1 ]] && { : </dev/tty; } 2>/dev/null; then HAVE_TTY=1; fi
 
 step_label() {
   local title="[$STEP/$TOTAL] $1 "
@@ -159,11 +160,10 @@ ask() {
   [[ $answer == [yY]* ]]
 }
 
-# choose <question> <default> <options...>: one of the options.
+# choose <question> <default> <options...>: one of the options, from the terminal (HAVE_TTY).
 choose() {
   local question=$1 default=$2 answer
   shift 2
-  if ((!HAVE_TTY)); then printf '%s' "$default"; return; fi
   ((LINE_OPEN)) && printf '\n' >/dev/tty
   printf '  %s (%s) [%s] ' "$question" "$*" "$default" >/dev/tty
   read -r answer </dev/tty || answer=""
@@ -185,7 +185,7 @@ acquire_root() {
   fi
   if ! sudo -n true 2>/dev/null; then
     if ((!HAVE_TTY)); then
-      printf '%s\n  sudo asks for a password and there is no terminal: run this from a terminal.\n' "$why" >&2
+      printf '%s\n  sudo asks for a password and there is no terminal: run this from a terminal, or allow %s passwordless sudo while it runs.\n' "$why" "$USER" >&2
       exit 1
     fi
     printf '%s\n' "$why"
@@ -287,6 +287,7 @@ step_dsh() {
     if ((${#profiles[@]} == 1)); then
       PROFILE=${profiles[0]}
     elif ((${#profiles[@]} > 1)); then
+      ((HAVE_TTY)) || stop "There are several DSH profiles (${profiles[*]}) and no terminal to ask which one." "Set DSH_BOTS_PROFILE to one of them, then run this again."
       PROFILE=$(choose "Install into which DSH profile?" web "${profiles[@]}")
     else
       PROFILE=web

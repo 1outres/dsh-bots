@@ -79,7 +79,7 @@ VM の通信は Incus の `inet incus` テーブルで許可されても、別�
 
 ## 6. DSH のプロファイルとプラグイン
 
-- プロファイル: `${DSH_HOME:-~/.dsh}/profiles/` の一覧。`DSH_BOTS_PROFILE` があればそれ。1 つだけならそれ。複数なら尋ねる（既定 `web`）。非対話で複数なら `web`、無ければ止まる。プロファイルがまだ無ければ `web`（`dsh plugin` が初回に作る）。
+- プロファイル: `${DSH_HOME:-~/.dsh}/profiles/` の一覧。`DSH_BOTS_PROFILE` があればそれ。1 つだけならそれ。複数なら尋ねる（既定 `web`）。端末が無いときに複数なら、`DSH_BOTS_PROFILE` を案内して止まる。プロファイルがまだ無ければ `web`（`dsh plugin` が初回に作る）。
 - 入れ方: `dsh plugin --profile <p> add @1outres/dsh-bots@<版>`（中身は pnpm）。プロファイルの `package.json` の `dependencies` に入り、`dsh.profile.bundles` の末尾に `@1outres/dsh-bots` が足される（/tmp の DSH_HOME で確認済み）。
 - `@deepseek-ai/dsh-ssh` / `dsh-fs-ssh` / `dsh-subprocess-ssh` は DSH に同梱されず、プロファイルは `autoInstallPeers: false`。`@1outres/dsh-bot-vm` の peerDependencies から dependencies（版ちょうど）に移し、バンドル 1 つで揃うようにする。
 - 済みの判定: `dependencies` の版と `bundles` を見る。`@1outres/dsh-bot-*` の個別バンドルが `bundles` にあれば（同じ行 id を入れるので）止まる。
@@ -115,7 +115,7 @@ VM の通信は Incus の `inet incus` テーブルで許可されても、別�
 
 - 端末（stdout が tty）のときだけ色。各ステップ 1 行。進行中は `…`、終わったら同じ行を `✓`/`✗`/`–`（済み）で書き換える。詳細はすべてログへ。
 - 失敗時だけ 3 行（何が・なぜ・どう直す）とログの場所。
-- 入力は /dev/tty から。端末が無いときは既定値で進む。第三者リポジトリの確認は既定が「いいえ」なので止まる。`DSH_BOTS_YES=1` で確認を通す。
+- 入力は /dev/tty から。`DSH_BOTS_NONINTERACTIVE=1`（エージェント向け、[agent-setup.md](../agent-setup.md)）なら端末を読まない。端末が無いとき、第三者リポジトリの確認は「いいえ」なので止まり（`DSH_BOTS_YES=1` で通す）、プロファイルが複数なら止まり（`DSH_BOTS_PROFILE`）、sudo にパスワードが要れば止まる。
 - sudo は、ステップ 2 の後（NixOS はステップ 3 の後）に一度だけ理由を 1 行示して `sudo -v`。
 - ステップの関数は errexit のサブシェルで動き、失敗したコマンドで止まる。root のスクリプトは `fail`（何が・どう直す）を `DSH_BOTS_REPORT` に書き、それ以外の失敗は ERR trap が「どのコマンドが何行目で」を書く。
 
