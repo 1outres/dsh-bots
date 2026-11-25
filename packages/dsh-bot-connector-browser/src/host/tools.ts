@@ -15,9 +15,9 @@ import type { OfferedTool } from "./catalog"
 import type { BrowserConnections } from "./connections"
 import { McpCallError, McpUnavailableError } from "./mcp/client"
 import { McpProtocolError } from "./mcp/protocol"
-import type { McpServer } from "./mcp/server"
 import { resultOf } from "./result"
 import { toolSchema } from "./schema"
+import type { BrowserAttachment } from "./session"
 
 /** Snapshots of large pages run long; bot-core cuts what is beyond. */
 export const MAX_RESULT_CHARS = 128_000
@@ -50,12 +50,25 @@ export function explain(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error))
 }
 
+/** The result, after a note when it is the first since the connection was opened again. */
+export function withReconnection(
+  result: BotConnectorResult,
+  connections: BrowserConnections,
+  botId: string,
+): BotConnectorResult {
+  if (!connections.takeReconnected(botId)) return result
+  return {
+    ...result,
+    text: [RECONNECTED, ...(result.text === undefined ? [] : [result.text])].join("\n\n"),
+  }
+}
+
 export function browserTools(
   offered: readonly OfferedTool[],
   connections: BrowserConnections,
-): readonly BotConnectorToolDefinition<McpServer>[] {
-  return offered.map((entry): BotConnectorToolDefinition<McpServer> => {
-    const tool: BotConnectorSchemaTool<McpServer> = {
+): readonly BotConnectorToolDefinition<BrowserAttachment>[] {
+  return offered.map((entry): BotConnectorToolDefinition<BrowserAttachment> => {
+    const tool: BotConnectorSchemaTool<BrowserAttachment> = {
       name: entry.name,
       description: entry.upstream.description,
       inputSchema: toolSchema(entry.upstream.inputSchema, entry.upstream.name),
@@ -68,7 +81,7 @@ export function browserTools(
         let result: BotConnectorResult
         try {
           result = await resultOf(
-            await run.attachment.callTool(entry.upstream.name, args, {
+            await run.attachment.mcp.callTool(entry.upstream.name, args, {
               signal: run.signal,
               timeoutMs: CALL_TIMEOUT_MS,
             }),
@@ -77,11 +90,7 @@ export function browserTools(
         } catch (error) {
           throw explain(error)
         }
-        if (!connections.takeReconnected(run.bot.id)) return result
-        return {
-          ...result,
-          text: [RECONNECTED, ...(result.text === undefined ? [] : [result.text])].join("\n\n"),
-        }
+        return withReconnection(result, connections, run.bot.id)
       },
     }
     return tool

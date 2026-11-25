@@ -6,6 +6,7 @@
 import type { Resolution } from "../settings"
 import {
   AGENT_DIR,
+  CHROME_POLICY,
   CHROME_RUN,
   DISPLAY_ENV_FILE,
   LIB_DIR,
@@ -48,6 +49,7 @@ const PLACEMENTS: readonly Placement[] = [
     mode: 0o644,
   },
   { from: "config/fcitx5-profile", to: "/etc/xdg/fcitx5/profile", mode: 0o644 },
+  { from: "config/chrome-policy.json", to: CHROME_POLICY, mode: 0o644 },
   {
     from: "config/libreoffice.xcd",
     to: "/usr/lib/libreoffice/share/registry/dsh-desktop.xcd",

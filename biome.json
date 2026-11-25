@@ -184,6 +184,17 @@
       ]
     },
     {
+      "path": "./.biome/plugins/64-secret-channels.grit",
+      "includes": ["packages/dsh-bot-connector-*/src/**"]
+    },
+    {
+      "path": "./.biome/plugins/65-browser-vault-reveals.grit",
+      "includes": [
+        "packages/dsh-bot-connector-browser/src/**",
+        "!packages/dsh-bot-connector-browser/src/host/vault/tools.ts"
+      ]
+    },
+    {
       "path": "./.biome/plugins/49-event-writes.grit",
       "includes": [
         "packages/dsh-bot-core/src/**",

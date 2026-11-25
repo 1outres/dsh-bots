@@ -9,7 +9,7 @@ import { DEFAULT_BOT_ENVIRONMENT_SPEC, environmentShortfall } from "../src/share
 import {
   createBrowserConnector,
   GENERATED_SERVER,
-  readMcpInstallation,
+  readBrowserInstallation,
 } from "@1outres/dsh-bot-connector-browser"
 import {
   createDesktopConnector,
@@ -24,6 +24,7 @@ import {
 } from "../src/connector-contract"
 import type { ConnectorPermission } from "../src/contract"
 import { createConnectorCatalog } from "../src/host/connectors/catalog"
+import { VAULT_KIT } from "../src/vault-bytes"
 
 /** The spec's browser table (9): every listed tool allow, run_code_unsafe disallow. */
 const BROWSER_ALLOWED = [
@@ -57,6 +58,8 @@ const BROWSER_ALLOWED = [
   "mouse_down",
   "mouse_up",
   "mouse_wheel",
+  "fill_credential",
+  "use_passkey",
 ]
 
 const mailTools = connectorTools()
@@ -160,7 +163,9 @@ describe("the spec's connectors fit the contract", () => {
     })
     const browser = createBrowserConnector({
       generated: GENERATED_SERVER,
-      installation: await readMcpInstallation(),
+      installation: await readBrowserInstallation(),
+      kit: VAULT_KIT,
+      mark: () => "0".repeat(32),
       deadline: (ms) => AbortSignal.timeout(ms),
     })
     const catalog = createConnectorCatalog()
@@ -192,7 +197,17 @@ describe("the spec's connectors fit the contract", () => {
         .map((entry) => entry.tool.name)
         .sort(),
     ).toEqual([...BROWSER_ALLOWED].sort())
-    expect(browserTools.every((entry) => entry.maxResultChars === 128_000)).toBe(true)
+    expect(
+      browserTools
+        .filter((entry) => entry.tool.vault !== true)
+        .every((entry) => entry.maxResultChars === 128_000),
+    ).toBe(true)
+    expect(
+      browserTools
+        .filter((entry) => entry.tool.vault === true)
+        .map((entry) => entry.tool.name)
+        .sort(),
+    ).toEqual(["fill_credential", "use_passkey"])
     expect(catalog.get("browser")).toMatchObject({
       sessions: "bot",
       minimumSpec: { memoryMiB: 3072 },

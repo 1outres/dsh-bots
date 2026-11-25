@@ -2,15 +2,23 @@
  * Making the bot's environment ready for the browser, one idempotent path
  * (the desktop, which runs the Chrome it drives, is ready before: the
  * connector requires it): Playwright MCP installed from the pinned
- * npm-shrinkwrap.json when the installed one differs, the desktop's Chrome answering DevTools,
- * and the server listing exactly the generated tools.
+ * npm-shrinkwrap.json when the installed one differs, the login helpers when they differ, the
+ * desktop's Chrome answering DevTools, and the server listing exactly the generated tools.
  */
 import type { BotConnectorContext, BotConnectorPreparation } from "@1outres/dsh-bot-core"
 import { type GeneratedServer, toolDifferences } from "./catalog"
 import type { McpClientDeps } from "./mcp/client"
 import { startServer } from "./mcp/server"
 import { readVmUser, run } from "./vm/commands"
-import { CDP_ENDPOINT, MCP_DIR, MCP_SHRINKWRAP, stagingDir, type VmUser } from "./vm/layout"
+import {
+  CDP_ENDPOINT,
+  HELPER_DIR,
+  helperStagingDir,
+  MCP_DIR,
+  MCP_SHRINKWRAP,
+  stagingDir,
+  type VmUser,
+} from "./vm/layout"
 
 /** The package's vm/ files the preparation installs from. */
 export interface McpInstallation {
@@ -20,10 +28,23 @@ export interface McpInstallation {
   readonly script: Uint8Array
 }
 
+/** The login helpers (vm/helper/*.mjs) and vm/install-helper.sh. */
+export interface HelperInstallation {
+  readonly files: readonly { readonly name: string; readonly data: Uint8Array }[]
+  readonly script: Uint8Array
+}
+
+export interface BrowserInstallation {
+  readonly mcp: McpInstallation
+  readonly helper: HelperInstallation
+}
+
 export interface BrowserPreparationDeps extends McpClientDeps {
   readonly generated: GeneratedServer
-  readonly installation: McpInstallation
+  readonly installation: BrowserInstallation
 }
+
+const HELPER_FILE = /^[a-z][a-z0-9-]*\.mjs$/
 
 const INSTALL_TIMEOUT_MS = 15 * 60_000
 
@@ -51,9 +72,9 @@ export function createBrowserPreparation(deps: BrowserPreparationDeps): BotConne
     await run(environment, ["rm", "-rf", "--", stage], { signal })
     await run(environment, ["mkdir", "-p", "-m", "0700", "--", stage], { signal })
     const files: readonly [string, Uint8Array][] = [
-      ["package.json", deps.installation.packageJson],
-      ["npm-shrinkwrap.json", deps.installation.shrinkwrap],
-      ["install-mcp.sh", deps.installation.script],
+      ["package.json", deps.installation.mcp.packageJson],
+      ["npm-shrinkwrap.json", deps.installation.mcp.shrinkwrap],
+      ["install-mcp.sh", deps.installation.mcp.script],
     ]
     for (const [name, data] of files) {
       await environment.writeFile(`${stage}/${name}`, data, { mode: 0o644, signal })
@@ -71,7 +92,41 @@ export function createBrowserPreparation(deps: BrowserPreparationDeps): BotConne
       accept: [0, 1],
       maxOutputBytes: 4 << 20,
     })
-    return current.exitCode === 0 && current.stdout === decoder.decode(deps.installation.shrinkwrap)
+    return (
+      current.exitCode === 0 && current.stdout === decoder.decode(deps.installation.mcp.shrinkwrap)
+    )
+  }
+
+  const helperInstalled = async (context: BotConnectorContext) => {
+    for (const file of deps.installation.helper.files) {
+      const current = await run(context.environment, ["cat", "--", `${HELPER_DIR}/${file.name}`], {
+        signal: context.signal,
+        accept: [0, 1],
+        maxOutputBytes: 1 << 20,
+      })
+      if (current.exitCode !== 0 || current.stdout !== decoder.decode(file.data)) return false
+    }
+    return true
+  }
+
+  const installHelper = async (context: BotConnectorContext, user: VmUser) => {
+    const stage = helperStagingDir(user)
+    const { signal, environment } = context
+    await run(environment, ["rm", "-rf", "--", stage], { signal })
+    await run(environment, ["mkdir", "-p", "-m", "0700", "--", stage], { signal })
+    for (const file of deps.installation.helper.files) {
+      if (!HELPER_FILE.test(file.name))
+        throw new Error(`vm/helper/${file.name} is not a helper module`)
+      await environment.writeFile(`${stage}/${file.name}`, file.data, { mode: 0o644, signal })
+    }
+    await environment.writeFile(`${stage}/install-helper.sh`, deps.installation.helper.script, {
+      mode: 0o644,
+      signal,
+    })
+    await run(environment, ["sudo", "-n", "sh", `${stage}/install-helper.sh`, stage, HELPER_DIR], {
+      signal,
+    })
+    await run(environment, ["rm", "-rf", "--", stage], { signal })
   }
 
   const checkTools = async (context: BotConnectorContext, user: VmUser) => {
@@ -105,6 +160,11 @@ export function createBrowserPreparation(deps: BrowserPreparationDeps): BotConne
       if (!(await installed(context))) {
         progress(`installing Playwright MCP ${deps.generated.version}`)
         await install(context, user)
+      }
+      progress("checking the login helpers")
+      if (!(await helperInstalled(context))) {
+        progress("installing the login helpers")
+        await installHelper(context, user)
       }
       progress("checking the desktop's Chrome")
       const answer = await run(

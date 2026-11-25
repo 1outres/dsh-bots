@@ -12,6 +12,8 @@ HELPER_SHA256=${HELPER_SHA256:-}
 read -ra desktop_packages <<<"${DESKTOP_PACKAGES:?DESKTOP_PACKAGES required}"
 BROWSER_MCP_STAGE=${BROWSER_MCP_STAGE:?BROWSER_MCP_STAGE required}
 BROWSER_MCP_DIR=${BROWSER_MCP_DIR:?BROWSER_MCP_DIR required}
+BROWSER_HELPER_STAGE=${BROWSER_HELPER_STAGE:?BROWSER_HELPER_STAGE required}
+BROWSER_HELPER_DIR=${BROWSER_HELPER_DIR:?BROWSER_HELPER_DIR required}
 
 apt-get update -q
 apt-get full-upgrade -y -q
@@ -66,6 +68,9 @@ npm cache clean --force >/dev/null 2>&1 || true
 # install script, as its preparation installs it.
 sh "$BROWSER_MCP_STAGE/install-mcp.sh" "$BROWSER_MCP_STAGE" "$BROWSER_MCP_DIR"
 rm -rf "$BROWSER_MCP_STAGE"
+# Its login helpers (vm/helper), with its own install script.
+sh "$BROWSER_HELPER_STAGE/install-helper.sh" "$BROWSER_HELPER_STAGE" "$BROWSER_HELPER_DIR"
+rm -rf "$BROWSER_HELPER_STAGE"
 rm -rf /root/.npm
 
 # Bot user (no password; passwordless sudo, see below); ~/workspace is the bot cwd.

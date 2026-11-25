@@ -10,6 +10,8 @@ export const XVNC_START = `${LIB_DIR}/xvnc-start`
 /** How the desktop's Chrome starts (its profile, DevTools on 127.0.0.1:9222, accessibility). */
 export const CHROME_RUN = `${LIB_DIR}/chrome-run`
 export const USER_UNIT_DIR = "/etc/systemd/user"
+/** Chrome's managed policy: no saving or filling of passwords, addresses or cards (logins go through the bot's password manager). */
+export const CHROME_POLICY = "/etc/opt/chrome/policies/managed/dsh-desktop.json"
 
 export const UNITS = {
   xvnc: "dsh-desktop-xvnc.service",

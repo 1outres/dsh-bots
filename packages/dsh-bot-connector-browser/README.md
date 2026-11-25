@@ -22,7 +22,7 @@ Everything the server answers is untrusted (the bot is root in the VM): lines ar
 
 ## Preparation
 
-One idempotent path (`src/host/preparation.ts`): read the account → compare `/opt/dsh-browser/mcp/npm-shrinkwrap.json` with `vm/mcp/npm-shrinkwrap.json` and, if it differs (a VM installed with an earlier `package-lock.json` has none), run `vm/install-mcp.sh` (`npm ci --omit=dev --ignore-scripts`, then swap the directory in) → ask `http://127.0.0.1:9222/json/version` and require `Chrome/<version>` → start the server and require its `tools/list` to equal the generated tools exactly (names, descriptions, schemas, annotations). There is nothing to stop when it is turned off: bot-core closes the server; Chrome stays the desktop's.
+One idempotent path (`src/host/preparation.ts`): read the account → compare `/opt/dsh-browser/mcp/npm-shrinkwrap.json` with `vm/mcp/npm-shrinkwrap.json` and, if it differs (a VM installed with an earlier `package-lock.json` has none), run `vm/install-mcp.sh` (`npm ci --omit=dev --ignore-scripts`, then swap the directory in) → compare each installed login helper in `/opt/dsh-browser/helper` with `vm/helper/` and, if one differs, run `vm/install-helper.sh` → ask `http://127.0.0.1:9222/json/version` and require `Chrome/<version>` → start the server and require its `tools/list` to equal the generated tools exactly (names, descriptions, schemas, annotations). There is nothing to stop when it is turned off: bot-core closes the server; Chrome stays the desktop's.
 
 The bot base image runs the same `vm/install-mcp.sh` with the same shrinkwrap (`infra/vm/build-base-image.sh`), so a new VM installs nothing; `test/base-image.test.ts` checks that.
 
@@ -48,6 +48,17 @@ From that file (`src/host/catalog.ts`, `src/host/tools.ts`):
 Action results carry the page's snapshot as a file link (`~/.cache/dsh-browser/output/page-….yml`, readable with the bot's file tools); `browser_snapshot` returns it inline. Screenshots are images for the calling model; an approved action (a tool someone set to ask) has no caller, so its images are left out and the text says so.
 
 Do not sign the bot's Chrome in to anyone's personal accounts: it would hand the account to the bot without any approval.
+
+## Logins (password manager)
+
+Two tools fill the bot's logins (docs/specs/bot-vaults.md §8) without the model, Playwright MCP or any log seeing a value. Both are `vault: true`, allow by default and exclusive on `page`:
+
+| Tool                                                          | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| browser_fill_credential `{ credential, field, ref, submit? }` | Types the username, password or current one-time code of a login into the element of `ref`. Playwright MCP only marks the element; the helper `dsh-browser-fill` finds the mark over DevTools in every frame, takes the frame's origin as Chrome reports it, bot-core checks that origin against the login's sites, and the value goes on the helper's stdin as bytes, then `Input.insertText` after the origin is checked again. A password goes only into a password field. The result says only what was filled where. |
+| browser_use_passkey `{ credential }`                          | Offers the login's passkey to the current tab for 60 seconds through a WebAuthn virtual authenticator of the helper `dsh-browser-passkey` (kept with the connector's resident resource); it goes away once used, when the tab leaves the origin or at the next call. A login without a passkey (1Password) fails plainly.                                                                                                                                                                                                 |
+
+The helpers are `vm/helper/*.mjs` (no dependencies, their own WebSocket so that a value is never a JS string), installed as root into `/opt/dsh-browser/helper` by the preparation and the base image (`vm/install-helper.sh`). They print closed codes only. Chrome's saving and filling of passwords is turned off by the desktop connector's managed policy.
 
 ## Development
 

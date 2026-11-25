@@ -26,6 +26,8 @@ DESKTOP_VM=$HERE/../../packages/dsh-bot-connector-desktop/vm
 BROWSER_VM=$HERE/../../packages/dsh-bot-connector-browser/vm
 BROWSER_MCP_DIR=/opt/dsh-browser/mcp
 BROWSER_MCP_STAGE=/root/dsh-browser-mcp
+BROWSER_HELPER_DIR=/opt/dsh-browser/helper
+BROWSER_HELPER_STAGE=/root/dsh-browser-helper
 
 cleanup() { incus delete --force "$BUILDER" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
@@ -45,13 +47,16 @@ for _ in $(seq 1 120); do
 done
 incus exec "$BUILDER" -- cloud-init status --wait >/dev/null || true
 
-log "Copying the desktop's Chrome package source and the browser's Playwright MCP shrinkwrap"
+log "Copying the desktop's Chrome package source and policy, the browser's Playwright MCP shrinkwrap and login helpers"
 push() { incus file push -q -p --uid 0 --gid 0 --mode "$1" "$2" "$BUILDER$3"; }
 push 0644 "$DESKTOP_VM/apt/google-chrome.asc" /etc/apt/keyrings/dsh-google-chrome.asc
 push 0644 "$DESKTOP_VM/apt/google-chrome.sources" /etc/apt/sources.list.d/dsh-google-chrome.sources
+push 0644 "$DESKTOP_VM/config/chrome-policy.json" /etc/opt/chrome/policies/managed/dsh-desktop.json
 push 0644 "$BROWSER_VM/mcp/package.json" "$BROWSER_MCP_STAGE/package.json"
 push 0644 "$BROWSER_VM/mcp/npm-shrinkwrap.json" "$BROWSER_MCP_STAGE/npm-shrinkwrap.json"
 push 0644 "$BROWSER_VM/install-mcp.sh" "$BROWSER_MCP_STAGE/install-mcp.sh"
+for helper in "$BROWSER_VM"/helper/*.mjs; do push 0644 "$helper" "$BROWSER_HELPER_STAGE/$(basename "$helper")"; done
+push 0644 "$BROWSER_VM/install-helper.sh" "$BROWSER_HELPER_STAGE/install-helper.sh"
 
 # Provisioning runs detached in the builder (a transient unit) and is polled with
 # short execs: one long incus exec stream dies when the host is busy.
@@ -63,6 +68,7 @@ provision_env=$(mktemp)
   printf 'DSH_VERSION="%s"\nHELPER_SHA256="%s"\n' "$DSH_VERSION" "$HELPER_SHA256"
   printf 'DESKTOP_PACKAGES="%s"\n' "$desktop_packages"
   printf 'BROWSER_MCP_STAGE="%s"\nBROWSER_MCP_DIR="%s"\n' "$BROWSER_MCP_STAGE" "$BROWSER_MCP_DIR"
+  printf 'BROWSER_HELPER_STAGE="%s"\nBROWSER_HELPER_DIR="%s"\n' "$BROWSER_HELPER_STAGE" "$BROWSER_HELPER_DIR"
 } >"$provision_env"
 push 0600 "$provision_env" "$PROVISION/env"
 rm -f "$provision_env"

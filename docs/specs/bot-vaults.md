@@ -198,13 +198,15 @@ type CredentialTarget =
 
 ## 8. ブラウザ（`@1outres/dsh-bot-connector-browser`）
 
-- `browser_fill_credential { credential, field: "username" | "password" | "otp", ref, submit?: boolean }`（Allow、exclusive `page`、credentials）:
-  1. Playwright MCP の `browser_evaluate`（ref つき）で要素に一度きりの印（`data-dsh-fill=<乱数>`）を付け、要素の種類（input / textarea / contenteditable、type）とそのフレームの origin を返させる。password には `type=password` か autocomplete が `current-password` / `new-password` の要素だけ。
-  2. `run.credentials.reveal(handle, field, { kind: "browser", origin })`。
-  3. VM の補助プログラム `dsh-browser-fill`（Node、`vm/` に同梱。CDP 127.0.0.1:9222 に直接つなぐ）に、印・期待する origin を JSON で、値を stdin のバイト列で渡す。補助はすべてのフレームから印の要素を探し、**その時点のフレームの origin を照合し直し**、`DOM.focus` → 既存の値を消す → `Input.insertText`、印を外し、`submit` なら Enter。値は Playwright MCP を通らない。
-  4. 結果は「<label> の <field> を <origin> に入力した」だけ。スナップショットは返さない（必要なら bot が取る。漏洩ガードが検査する）。
-- `browser_use_passkey { credential }`（Allow、exclusive `page`、credentials）: 今のタブの origin を確かめ、`run.credentials.passkey` で取り、補助 `dsh-browser-passkey` がそのタブの CDP セッションで `WebAuthn.enable` → `addVirtualAuthenticator`（ctap2、internal、resident、UV あり）→ `addCredential`。**60 秒か、`WebAuthn.credentialAsserted` が 1 回来るまで** 待ち、認証器を外して終わる（常駐リソースとして持ち、次の呼び出しやタブの origin の変化で外す）。ツールはすぐ返り「60 秒以内にサイトのパスキーでのログインを押す」と案内する。1Password の許可では `passkey` が無いので、このツールは「この credential にはパスキーが無い」で失敗する。
-- 準備: Chrome のパスワード保存と自動入力を切る（デスクトップの Chrome の policy `PasswordManagerEnabled=false`、`AutofillAddressEnabled=false`、`AutofillCreditCardEnabled=false`。Chrome の持ち主はデスクトップなので policy ファイルはデスクトップのパッケージ）。
+- `browser_fill_credential { credential, field: "username" | "password" | "otp", ref, submit?: boolean }`（Allow、exclusive `page`、`vault: true`）:
+  1. `run.vault.describe` で許可を確かめ、`field` が `kinds` に無ければ断る。
+  2. Playwright MCP の `browser_evaluate`（`target: ref`）で要素に一度きりの印（`data-dsh-fill=<32 桁の乱数>`）を付けるだけ。結果は使わない（ページの JS が返す値は信用しない）。
+  3. VM の補助 `dsh-browser-fill`（`vm/helper/`、Node、依存なし。準備で `/opt/dsh-browser/helper` に root で置く。ベースイメージも同じ `vm/install-helper.sh` で入れる）を `spawn` し、stdin に `{ devtools, mark, field }` を渡す。補助は CDP（127.0.0.1:9222）の page / iframe（別プロセスのフレームも）すべてに付き、各フレームの isolated world で印を探す（open な shadow root も）。ちょうど 1 つでなければ断る。**origin はブラウザが報告するフレームの `securityOrigin`**（ページの JS の `origin` は偽れるので使わない）。要素は enabled な input（text 系の type）・textarea・contenteditable だけ、password は `type=password` か autocomplete `current-password` / `new-password` だけ。`{ located: { origin, element } }` を返す。
+  4. Host が `run.vault.reveal(handle, field, { kind: "browser", origin })`。断られたら補助の stdin を閉じる（補助は印を外して終わる。値は送らない）。
+  5. `{ fill: { origin, submit, length } }` の行と値の生バイトを 1 つの配列で stdin に書き、すぐ 0 埋め。補助は origin が 3 の値と同じか確かめ、フレームの origin を取り直して照合 → `DOM.focus` → 既存の値を選択 → もう一度 origin を照合 → `Input.insertText`（CDP のメッセージは補助が自前の WebSocket でバイト列から組み立て、値を JS の文字列にしない）→ 印を外す → `submit` なら Enter。
+  6. 結果は「Filled the <field> of "<label>" in <origin>」だけ。値もスナップショットも返さない。補助は閉じたコード（`not-found`、`origin-changed` など）しか出力せず、Host は固定の文に直す。
+- `browser_use_passkey { credential }`（Allow、exclusive `page`、`vault: true`）: `passkey` の無い許可（1Password）は「"<label>" has no passkey this bot may use … browser_fill_credential を使う」でページにも vault にも触れずに失敗。Playwright MCP で今のタブの `documentElement` に印（`data-dsh-passkey`）を付け、補助 `dsh-browser-passkey` がその page の主フレームの `securityOrigin` を返す → `run.vault.passkey(handle, { kind: "browser", origin })` → 秘密鍵（PKCS#8）を stdin のバイトで渡す → 補助がそのタブのセッションで `WebAuthn.enable` → `addVirtualAuthenticator`（ctap2、internal、resident、UV あり、自動で presence）→ `addCredential` → `ready`。ツールはここで返り「60 秒以内にサイトのパスキーでのサインインを押す」と案内する。補助は **60 秒、`credentialAsserted` 1 回、主フレームが別 origin へ移る、タブが閉じる、Host が終わらせる** のどれかで認証器を外して終わる。補助のプロセスはコネクターの常駐リソース（attachment）が持ち（ツールの呼び出しの signal は呼び出しが終わると切れるため）、次の `browser_use_passkey` と常駐リソースの破棄で終わらせる。
+- 準備: Chrome のパスワード保存と自動入力を切る（デスクトップの Chrome の managed policy `PasswordManagerEnabled=false`、`PasswordLeakDetectionEnabled=false`、`AutofillAddressEnabled=false`、`AutofillCreditCardEnabled=false`。`packages/dsh-bot-connector-desktop/vm/config/chrome-policy.json` を準備が `/etc/opt/chrome/policies/managed/dsh-desktop.json` に置き、ベースイメージにも入れる。Chrome は書き換えを再起動なしで反映する。Chrome 158 では Autofill の 2 つは Deprecated と表示されるが有効）。
 
 ## 9. デスクトップ（`@1outres/dsh-bot-connector-desktop`）
 
@@ -234,7 +236,7 @@ provider を 1 つ登録するだけ: setup（サーバー URL、client_id / cli
 
 - グループの行の `tools/post-execute` が結果を置き換えられ、コネクター・サブエージェント・MCP のツールの結果も通ること。
 - サービスアカウントで `op read op://<vaultId>/<itemId>/<fieldId>`（ID 指定）と `?attribute=otp` が動くこと。zip の URL とハッシュ。
-- CDP の補助が Playwright MCP と同じ Chrome に同時につなげること。WebAuthn の仮想認証器はそれを作った CDP セッションが付いている間だけ有効なこと。
+- CDP の補助が Playwright MCP と同じ Chrome に同時につなげること。WebAuthn の仮想認証器はそれを作った CDP セッションが付いている間だけ有効なこと（確かめた。末尾「feat/vault-browser」）。
 
 ## 14. 検証用
 
@@ -262,7 +264,7 @@ provider を 1 つ登録するだけ: setup（サーバー URL、client_id / cli
 - **設計ルール** 58（vaults の表は `host/vaults/store.ts` だけ）、59（provider の `reveal` / `passkey` は `host/vaults/access.ts` だけ）、60（`tools/pre-execute` / `tools/post-execute` は `plugins/vault-guard.ts` だけ）、61（`SecretBytes.use` のコールバックで文字列化しない。`host/vaults/`、`vault-*.ts`、コネクターと `dsh-bot-vault-*` のパッケージ）。34 の例外に `plugins/vaults.ts`。
 - **dev/fake-vault**: provider は `Bot.vaultKit().secret` で値を渡す。passkey は口座のセッションを開くたびに作り、`FAKE_VAULT_PASSKEYS` のファイルに公開鍵側を書く。テストページは `node dev/fake-vault/cli.js`（`/login`、`/otp`、`/passkey`、`/account`）。
 - **セキュリティレビューで直したこと**:
-  - `SecretBytes.from` は受け取った配列を自分の配列へ移し、元を 0 埋めする（Node の Buffer はプールの view のことがあり、`slice` は view を返すため）。bot-core の中のコピーは `new Uint8Array(bytes)`。設計ルール 60 で `use` のコールバックの `slice` / `subarray` / `Buffer.from` / `Array.from` / `join` と、関数参照を渡すことも禁止した。
+  - `SecretBytes.from` は受け取った配列を自分の配列へ移し、元を 0 埋めする（Node の Buffer はプールの view のことがあり、`slice` は view を返すため）。bot-core の中のコピーは `new Uint8Array(bytes)`。設計ルール 61 で `use` のコールバックの `slice` / `subarray` / `Buffer.from` / `Array.from` / `join` と、関数参照を渡すことも禁止した。
   - 承認後の action の結果・Ask の snapshot・notice・イベント・ノート・スキル・チャネルからの受信も検査する（7.2 の一覧）。
   - 鍵の導出を HKDF に、probe に鍵つきの非線形な仕上げを入れた（7.1）。指紋に鍵 ID を持たせ、合わなければ fail closed。
   - `vault: true` のツールは `snapshot` を持てない（カタログで断る）。run は目的（`execute` / `snapshot`）を持ち、snapshot には `vault` を渡さない。
@@ -275,3 +277,14 @@ provider を 1 つ登録するだけ: setup（サーバー URL、client_id / cli
   - handle は `cred-<hex>` の形と bot の一致を確かめる。未確認の事故は同じものを `repeats` にまとめる。assistant の reasoning も検査する。口座の削除と接続中のセッションの競合で、削除後に開いたセッションは閉じて捨てる。
   - チャネルへの `credential-incident` は、記録したときと、オーナーが確認するまで新しい接続のたびに送る。
 - **残っていること**: ツールの実行中の進捗表示（bash のストリーム出力など、モデルには渡らないが UI に出るもの）は検査していない。チャネルへの返信（Discord に送る assistant の返答）は記録するだけで送信前に伏せない。画像は検査できない。
+
+## 実装で確定したこと（`feat/vault-browser`）
+
+- **spike（13 章の 3 項目目）は成り立つ**: VM の Chrome に Playwright MCP がつないだまま、別の CDP クライアントが同じ page に付いて Runtime / WebAuthn を使え、Playwright MCP のスナップショットも続けて動く。仮想認証器はそれを作ったセッションが付いている間だけ有効で、`Target.detachFromTarget` でも WebSocket を切るだけでも消える（その後の `navigator.credentials.get` は認証器が無く失敗し、別のセッションからは古い authenticatorId が見えない）。`WebAuthn.credentialAsserted` は使われたときに届く。
+- 補助は 1 本（`dsh-browser-fill`）ではなく、`vm/helper/` の ES モジュール群（`cdp.mjs` 自前の最小 WebSocket と CDP、`page.mjs` 印とフレーム、`channel.mjs` stdin、`bytes.mjs`、入口の `dsh-browser-fill.mjs` と `dsh-browser-passkey.mjs`）。DevTools の場所は Host が要求の行で渡す（`127.0.0.1:<port>` だけ受け付ける。テストは偽の DevTools に向ける）。
+- 入力の補助も `exec` ではなく `spawn`（位置の確認 → reveal → 値、を 1 つの CDP 接続と要素の handle のまま行うため）。値は spawn の後に stdin で渡す（argv・環境変数には入らない）。
+- origin は Playwright MCP の evaluate の結果ではなく補助がブラウザから取る（ページの JS は `window.origin` を上書きできる）。reveal に渡すのもこの origin。
+- Enter は印を外した後に押す（送信で移ったページでは印を外せないため）。
+- 常駐リソースの値は `{ mcp, passkeys }`（Playwright MCP と、パスキーの補助を 1 つ持つ枠）。
+- 設計ルール: 64（コネクターの `SecretBytes.use` の中で `exec` / `spawn` / `writeFile` / `console` / `process.env` を使わない）、65（ブラウザ コネクターで vault の `reveal` / `passkey` を呼ぶのは `src/host/vault/tools.ts` だけ）、66（補助のテスト: 期待した origin の印の要素だけに打ち、値を出力しない）、67（Chrome の policy のテスト）。
+- デスクトップ パッケージで触ったのは `vm/config/chrome-policy.json`、`src/host/vm/files.ts` の配置 1 行、`src/host/vm/layout.ts` の `CHROME_POLICY`、`test/base-image.test.ts`。policy の変更で Chrome は再起動しない（Chrome は managed policy のディレクトリを見ていて、書き換えると 20 秒以内に再起動なしで反映することを確かめた）。

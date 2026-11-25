@@ -50,7 +50,7 @@ describe("the base image", () => {
     )
   })
 
-  it("has Google's Chrome source where the preparation puts it, before the packages", () => {
+  it("has Google's Chrome source and policy where the preparation puts them, before the packages", () => {
     for (const source of ["apt/google-chrome.asc", "apt/google-chrome.sources"]) {
       const { target } = placementOf(source)
       expect(build).toContain(`push 0644 "$DESKTOP_VM/${source}" ${target}
@@ -59,8 +59,32 @@ describe("the base image", () => {
     expect(build.indexOf('push 0644 "$DESKTOP_VM/')).toBeLessThan(
       build.indexOf('log "Provisioning"'),
     )
+    const policy = placementOf("config/chrome-policy.json").target
+    expect(build).toContain(`push 0644 "$DESKTOP_VM/config/chrome-policy.json" ${policy}\n`)
+    expect(build.indexOf("chrome-policy.json")).toBeLessThan(build.indexOf('log "Provisioning"'))
     expect(lineOf(build, "DESKTOP_VM=")).toBe(
       "DESKTOP_VM=$HERE/../../packages/dsh-bot-connector-desktop/vm",
     )
+  })
+})
+
+describe("Chrome's managed policy (design rule 67)", () => {
+  it("turns off saving and filling passwords, addresses and cards", () => {
+    const policy = JSON.parse(
+      readFileSync(
+        fileURLToPath(new URL("../vm/config/chrome-policy.json", import.meta.url)),
+        "utf8",
+      ),
+    )
+    expect(policy).toEqual({
+      PasswordManagerEnabled: false,
+      PasswordLeakDetectionEnabled: false,
+      AutofillAddressEnabled: false,
+      AutofillCreditCardEnabled: false,
+    })
+    expect(placementOf("config/chrome-policy.json")).toEqual({
+      target: "/etc/opt/chrome/policies/managed/dsh-desktop.json",
+      mode: 0o644,
+    })
   })
 })

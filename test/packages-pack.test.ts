@@ -2,7 +2,7 @@ import { mkdtempSync, readdirSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
-import { readMcpInstallation } from "@1outres/dsh-bot-connector-browser"
+import { readBrowserInstallation } from "@1outres/dsh-bot-connector-browser"
 import { readVmSources } from "@1outres/dsh-bot-connector-desktop"
 import { afterAll, describe, expect, it } from "vitest"
 import { unpack, unpackedPaths } from "./support/pack"
@@ -31,7 +31,7 @@ describe("the files a connector reads from its package at run time", () => {
   it("are in the browser connector's tarball", async () => {
     const unpacked = unpack(packages("dsh-bot-connector-browser"), join(destination, "browser"))
     const vm = new URL("vm/", pathToFileURL(`${unpacked}/`))
-    expect(await readMcpInstallation(vm)).toEqual(await readMcpInstallation())
+    expect(await readBrowserInstallation(vm)).toEqual(await readBrowserInstallation())
   })
 
   it("are in the desktop connector's tarball", async () => {

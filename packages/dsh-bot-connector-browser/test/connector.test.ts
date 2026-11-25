@@ -1,11 +1,12 @@
 import type { BotConnectorImageInput, BotConnectorRun } from "@1outres/dsh-bot-core"
+import { VAULT_KIT } from "@1outres/dsh-bot-core"
 import { describe, expect, it } from "vitest"
 import { GENERATED_SERVER } from "../src/host/catalog"
 import { createBrowserConnector } from "../src/host/connector"
-import type { McpServer } from "../src/host/mcp/server"
 import { chromeVersion } from "../src/host/preparation"
 import { imageOf, resultOf } from "../src/host/result"
-import { readMcpInstallation } from "../src/index"
+import type { BrowserAttachment } from "../src/host/session"
+import { readBrowserInstallation } from "../src/index"
 import {
   ACCOUNT,
   CHROME_VERSION,
@@ -16,14 +17,32 @@ import {
 } from "./support"
 
 const PNG = Buffer.from("iVBORw0KGgo=", "base64").toString("base64")
-const installation = await readMcpInstallation()
-const SHRINKWRAP = new TextDecoder().decode(installation.shrinkwrap)
+const installation = await readBrowserInstallation()
+const SHRINKWRAP = new TextDecoder().decode(installation.mcp.shrinkwrap)
 
-function vm(options: { shrinkwrap?: string; tools?: readonly unknown[]; chrome?: string } = {}) {
+const HELPERS = new Map(
+  installation.helper.files.map((file) => [
+    `cat -- /opt/dsh-browser/helper/${file.name}`,
+    new TextDecoder().decode(file.data),
+  ]),
+)
+
+function vm(
+  options: {
+    shrinkwrap?: string
+    tools?: readonly unknown[]
+    chrome?: string
+    helpersMissing?: boolean
+  } = {},
+) {
   return fakeEnvironment(
     (command) => {
       const line = command.argv.join(" ")
       if (line.startsWith("sh -c id -u")) return { stdoutText: ACCOUNT }
+      const helper = HELPERS.get(line)
+      if (helper !== undefined) {
+        return options.helpersMissing === true ? { exitCode: 1 } : { stdoutText: helper }
+      }
       if (line === "cat -- /opt/dsh-browser/mcp/npm-shrinkwrap.json") {
         return { stdoutText: options.shrinkwrap ?? SHRINKWRAP }
       }
@@ -37,7 +56,13 @@ function vm(options: { shrinkwrap?: string; tools?: readonly unknown[]; chrome?:
 }
 
 const connector = () =>
-  createBrowserConnector({ generated: GENERATED_SERVER, installation, deadline })
+  createBrowserConnector({
+    generated: GENERATED_SERVER,
+    installation,
+    kit: VAULT_KIT,
+    mark: () => "0".repeat(32),
+    deadline,
+  })
 
 const context = (environment: ReturnType<typeof vm>["environment"]) => ({
   bot: { id: "b1", name: "Bot" },
@@ -69,6 +94,7 @@ describe("preparing the browser", () => {
     expect(steps).toEqual([
       "reading the bot's account",
       "checking Playwright MCP",
+      "checking the login helpers",
       "checking the desktop's Chrome",
       "checking Playwright MCP's tools",
     ])
@@ -94,6 +120,21 @@ describe("preparing the browser", () => {
     )
   })
 
+  it("installs the login helpers as root with the image's script when one differs", async () => {
+    const machine = vm({ helpersMissing: true })
+    const steps: string[] = []
+    await connector().preparation?.prepare(context(machine.environment), (step) => steps.push(step))
+    expect(steps).toContain("installing the login helpers")
+    const stage = "/home/bot/.cache/dsh-browser/helper-staging"
+    expect([...machine.files.keys()]).toEqual([
+      ...installation.helper.files.map((file) => `${stage}/${file.name}`),
+      `${stage}/install-helper.sh`,
+    ])
+    expect(machine.commands.map((command) => command.argv.join(" "))).toContain(
+      `sudo -n sh ${stage}/install-helper.sh ${stage} /opt/dsh-browser/helper`,
+    )
+  })
+
   it("fails when the server lists other tools than were generated, or DevTools is not Chrome's", async () => {
     const changed = vm({ tools: GENERATED_SERVER.tools.slice(1) })
     await expect(
@@ -108,9 +149,9 @@ describe("preparing the browser", () => {
 })
 
 function runOf(
-  server: McpServer,
+  server: BrowserAttachment,
   admit: string | null = "ok",
-): BotConnectorRun<McpServer> & { admitted: BotConnectorImageInput[] } {
+): BotConnectorRun<BrowserAttachment> & { admitted: BotConnectorImageInput[] } {
   const admitted: BotConnectorImageInput[] = []
   return {
     admitted,
@@ -171,7 +212,7 @@ describe("a browser tool", () => {
 
 describe("a Playwright MCP result", () => {
   it("returns the text and admits the images for the calling model", async () => {
-    const server = {} as McpServer
+    const server = {} as BrowserAttachment
     const run = runOf(server)
     const result = await resultOf(
       {
@@ -191,7 +232,7 @@ describe("a Playwright MCP result", () => {
   })
 
   it("fails with the server's error, a model without images, or a bad image", async () => {
-    const server = {} as McpServer
+    const server = {} as BrowserAttachment
     await expect(
       resultOf(
         { content: [{ type: "text", text: "### Error\nno page" }], isError: true },

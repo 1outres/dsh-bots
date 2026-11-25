@@ -4,25 +4,30 @@
  * MCP there over DevTools, for every session of the bot. It requires the
  * desktop: the browser is the one on the screen a person watches.
  */
-import type { BotConnector } from "@1outres/dsh-bot-core"
+import type { BotConnector, VaultKit } from "@1outres/dsh-bot-core"
 import { BROWSER_CONNECTOR_ID, DESKTOP_CONNECTOR_ID } from "../shared/connector"
 import { type GeneratedServer, offeredTools } from "./catalog"
 import { BrowserConnections } from "./connections"
 import type { McpClientDeps } from "./mcp/client"
-import type { McpServer } from "./mcp/server"
-import { createBrowserPreparation, type McpInstallation } from "./preparation"
-import { browserAttachment } from "./session"
+import { type BrowserInstallation, createBrowserPreparation } from "./preparation"
+import { type BrowserAttachment, browserAttachment } from "./session"
 import { browserTools } from "./tools"
+import { vaultTools } from "./vault/tools"
 
 /** The least memory for Chrome's pages beside Playwright MCP's Node process. */
 export const BROWSER_MIN_MEMORY_MIB = 3072
 
 export interface BrowserConnectorDeps extends McpClientDeps {
   readonly generated: GeneratedServer
-  readonly installation: McpInstallation
+  readonly installation: BrowserInstallation
+  readonly kit: VaultKit
+  /** A new one-time mark for a login's target (32 lower-case hex digits). */
+  mark(): string
 }
 
-export function createBrowserConnector(deps: BrowserConnectorDeps): BotConnector<McpServer> {
+export function createBrowserConnector(
+  deps: BrowserConnectorDeps,
+): BotConnector<BrowserAttachment> {
   const connections = new BrowserConnections()
   return {
     id: BROWSER_CONNECTOR_ID,
@@ -43,6 +48,9 @@ export function createBrowserConnector(deps: BrowserConnectorDeps): BotConnector
       },
     },
     attachment: browserAttachment({ ...deps, connections }),
-    tools: browserTools(offeredTools(deps.generated.tools), connections),
+    tools: [
+      ...browserTools(offeredTools(deps.generated.tools), connections),
+      ...vaultTools({ ...deps, connections }),
+    ],
   }
 }
