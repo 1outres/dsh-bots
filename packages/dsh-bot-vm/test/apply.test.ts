@@ -97,28 +97,10 @@ describe("@1outres/dsh-bot-vm", () => {
     expect(settings.guestRipgrep).toBe("/usr/bin/rg")
   })
 
-  it("shares from ~/.dsh/bots as the DSH user, guest uid 1001", () => {
+  it("uses the dsh-bots project and a 16 GiB root disk, sharing nothing from the Host", () => {
     const settings = vm.settingsOf(vm.Config({} as never), "0".repeat(16))
-    expect(settings.hostRoot.endsWith("/.dsh/bots")).toBe(true)
-    expect(settings.hostRoot.startsWith("/")).toBe(true)
-    expect(settings.hostUid).toBe(process.getuid?.())
-    expect(settings.hostGid).toBe(process.getgid?.())
-    expect([settings.guestUid, settings.guestGid]).toEqual([1001, 1001])
-  })
-
-  it("finds the mount a path lies on in mountinfo", () => {
-    const info = [
-      "26 1 8:2 / / rw,relatime shared:1 - ext4 /dev/sda2 rw",
-      "40 26 0:30 / /home/u/.dsh/bots-vm rw shared:2 - tmpfs t rw",
-      "41 26 8:2 /home/u/.dsh/bots /home/u/.dsh/bots rw,nosuid,nodev,relatime,nosymfollow shared:1 - ext4 /dev/sda2 rw",
-      "42 26 8:2 /x /home/u/with\\040space rw,nosuid shared:1 - ext4 /dev/sda2 rw",
-      "",
-    ].join("\n")
-    expect(vm.mountFromInfo(info, "/home/u/.dsh/bots/a/workspace")).toEqual({
-      target: "/home/u/.dsh/bots",
-      options: ["rw", "nosuid", "nodev", "relatime", "nosymfollow"],
-    })
-    expect(vm.mountFromInfo(info, "/home/u/.dsh/botsx").target).toBe("/")
-    expect(vm.mountFromInfo(info, "/home/u/with space/a").options).toEqual(["rw", "nosuid"])
+    expect(settings.project).toBe("dsh-bots")
+    expect(settings.rootDiskGiB).toBe(16)
+    expect(settings).not.toHaveProperty("hostRoot")
   })
 })

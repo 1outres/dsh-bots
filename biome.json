@@ -280,7 +280,11 @@
     },
     {
       "path": "./.biome/plugins/17-channel-host-services.grit",
-      "includes": ["packages/dsh-bot-*/src/**", "!packages/dsh-bot-core/**"]
+      "includes": [
+        "packages/dsh-bot-*/src/**",
+        "!packages/dsh-bot-core/**",
+        "!packages/dsh-bot-vm/src/index.ts"
+      ]
     },
     {
       "path": "./.biome/plugins/20-service-private-members.grit",

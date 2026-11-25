@@ -2,6 +2,8 @@
 import { posix } from "node:path"
 
 export interface UserDataInput {
+  /** The guest device of the workspace volume (stable across boots: by id). */
+  readonly workspaceDevice: string
   /** Unprivileged guest user dsh-ssh logs in as (exists in the base image). */
   readonly user: string
   /** Guest directory that is the cwd of every bot session, e.g. /home/bot/workspace. */
@@ -17,12 +19,22 @@ export interface UserDataInput {
 export const BOOT_FINISHED = "/var/lib/cloud/instance/boot-finished"
 
 /**
- * Runs once, after the user exists: the base image already has the default
- * workspace; another configured one is created for the user (new parents
- * root 0755; an existing directory is left as it is). Positional arguments,
- * so the path needs no quoting: $1 workspace, $2 user.
+ * The workspace's fstab options: systemd makes an ext4 only on a device
+ * without a file system (cloud-init's `fs_setup` reformatted an existing
+ * volume of a re-created VM, docs/specs/incus-endpoint.md §5.4) and grows it
+ * after the volume grew.
  */
-const WORKSPACE_SCRIPT = '[ -d "$1" ] || install -d -o "$2" -g "$2" -m 0755 "$1"'
+export const WORKSPACE_MOUNT_OPTIONS =
+  "defaults,x-systemd.makefs,x-systemd.growfs,x-systemd.device-timeout=60s"
+
+/**
+ * Runs once, after cloud-init wrote the fstab line: mount the workspace
+ * through systemd (whose generator makes the file system), then give its top
+ * to the user. Positional arguments, so the path needs no quoting:
+ * $1 workspace, $2 user.
+ */
+const MOUNT_SCRIPT =
+  'systemctl daemon-reload && systemctl start "$(systemd-escape --path --suffix=mount "$1")" && mountpoint -q "$1" && chown "$2:$2" "$1"'
 
 /** A canonical absolute path: no `.`/`..`/empty segments, no trailing slash, not `/`. */
 export function isCanonicalPath(path: string): boolean {
@@ -68,8 +80,9 @@ export function userDataText(input: UserDataInput): string {
       ed25519_private: input.hostPrivateKey,
       ed25519_public: input.hostPublicKey.trim(),
     },
+    mounts: [[input.workspaceDevice, input.workspace, "ext4", WORKSPACE_MOUNT_OPTIONS, "0", "2"]],
     runcmd: [
-      ["sh", "-c", WORKSPACE_SCRIPT, "sh", input.workspace, input.user],
+      ["sh", "-c", MOUNT_SCRIPT, "sh", input.workspace, input.user],
       // Make the first boot's writes (host keys, user) durable before ensure resolves.
       ["sync"],
     ],

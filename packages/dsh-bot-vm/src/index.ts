@@ -5,30 +5,37 @@
  * process) with the rows `rows()` returns.
  *
  * This file is the composition root: it wires the Host modules to Node
- * (HTTP over the Incus Unix socket, files, child processes, timers).
+ * (the Incus API of the stored endpoint, files, child processes, timers).
  */
 import { execFile } from "node:child_process"
 import { createHash, randomBytes } from "node:crypto"
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs"
-import { chmod, mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises"
+import { chmod, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import type { Bot } from "@1outres/dsh-bot-core"
 import type { Context } from "@deepseek-ai/cordis"
 import z from "@deepseek-ai/schemastery"
+import { endpointOf, type IncusEndpoint } from "./host/endpoint"
+import {
+  clientKeyRecord,
+  ENDPOINT_FILE,
+  fileEndpointStore,
+  recordClientKeyStore,
+  type SecretRecords,
+} from "./host/endpoint-store"
 import {
   type CommandResult,
   createVmEnvironment,
   type EnvironmentFiles,
   type EnvironmentSettings,
-  type HostMount,
   type RunCommand,
 } from "./host/environment"
 import { createIncusClient } from "./host/incus"
 import { decideOwner, OWNER_FILE } from "./host/owner"
+import { endpointTransport } from "./node/endpoint-transport"
 import { startGuestRelay } from "./node/guest-relay"
-import { createIncusTransport } from "./node/incus-transport"
 
 export const name = "bot-vm"
 /**
@@ -49,13 +56,10 @@ export const HELPER_SHA256 = "8cf436d3657343765ea0031bcc6e78edb20580fb9c2595fd7b
 
 export interface Config {
   stateDir: string
-  hostRoot: string
-  guestUid: number
-  guestGid: number
   incusSocket: string
   incusProject: string
   image: string
-  profiles: string[]
+  rootDiskGiB: number
   instancePrefix: string
   hostAliasPrefix: string
   guestRipgrep: string
@@ -83,24 +87,25 @@ export const Config: z<Config> = z.object({
     .description(
       "Keys, known_hosts, each bot's ssh config (ssh/<bot>.conf) and the SSH relay's socket (run/guest.sock). A leading ~ is your home.",
     ),
-  hostRoot: z
+  incusSocket: z
     .string()
-    .default("~/.dsh/bots")
+    .default("/var/lib/incus/unix.socket")
     .description(
-      "Host directory of the bots' workspaces: a bot's /home/bot/workspace is <hostRoot>/<bot id>/workspace, shared into its VM (virtiofs). Must be mounted nosuid,nodev (infra/vm/host-setup.sh). Deleting a bot keeps it. A leading ~ is your home.",
+      "Incus API socket of this machine, used while no other VM host is paired (<stateDir>/endpoint.json).",
     ),
-  guestUid: z
-    .number()
-    .default(1001)
-    .description("The guest user's uid in the image; it maps to the DSH user in the share."),
-  guestGid: z.number().default(1001).description("The guest user's gid in the image."),
-  incusSocket: z.string().default("/var/lib/incus/unix.socket").description("Incus API socket."),
-  incusProject: z.string().default("default").description("Incus project of the bot VMs."),
+  incusProject: z
+    .string()
+    .default("dsh-bots")
+    .description(
+      'Incus project of the bot VMs and workspace volumes, made for dsh-bots (docs/specs/incus-endpoint.md §3.4); "default" is refused.',
+    ),
   image: z.string().default("dsh-bot-base").description("Incus image alias bot VMs start from."),
-  profiles: z
-    .array(z.string())
-    .default(["dsh-bot"])
-    .description("Incus profiles of a bot VM (network, limits, storage)."),
+  rootDiskGiB: z
+    .number()
+    .default(16)
+    .description(
+      "Root disk of every bot VM in GiB (the system and what the bot installs with apt or npm; its files are on the workspace volume). It only grows.",
+    ),
   instancePrefix: z.string().default("dsh-bot-").description("Instance name is <prefix><bot id>."),
   hostAliasPrefix: z
     .string()
@@ -225,35 +230,6 @@ export const nodeFiles: EnvironmentFiles = {
   },
 }
 
-/** `\040`-style escapes of /proc/self/mountinfo. */
-function unescapeMountField(field: string): string {
-  return field.replace(/\\([0-7]{3})/g, (_, octal: string) =>
-    String.fromCharCode(Number.parseInt(octal, 8)),
-  )
-}
-
-/** The mount an existing path lies on, from /proc/self/mountinfo (the last mount of the longest matching point). */
-export function mountFromInfo(info: string, path: string): HostMount {
-  let best: HostMount | undefined
-  for (const line of info.split("\n")) {
-    const fields = line.split(" ")
-    if (fields.length < 6) continue
-    const target = unescapeMountField(fields[4] as string)
-    const inside = target === "/" || path === target || path.startsWith(`${target}/`)
-    if (!inside) continue
-    // Later lines are mounted on top: a later mount of the same point wins.
-    if (best === undefined || target.length >= best.target.length) {
-      best = { target, options: (fields[5] as string).split(",") }
-    }
-  }
-  if (best === undefined) throw new Error(`no mount found for ${path}`)
-  return best
-}
-
-export async function hostMountOf(path: string): Promise<HostMount> {
-  return mountFromInfo(await readFile("/proc/self/mountinfo", "utf8"), await realpath(path))
-}
-
 export const runCommand: RunCommand = (file, args, options) =>
   new Promise<CommandResult>((resolvePromise, reject) => {
     execFile(
@@ -300,18 +276,14 @@ export const guestRelaySocketOf = (stateDir: string) => join(stateDir, "run", "g
 export function settingsOf(config: Config, owner: string): EnvironmentSettings {
   const stateDir = expandHome(config.stateDir)
   return {
-    hostRoot: expandHome(config.hostRoot),
-    hostUid: process.getuid?.() ?? -1,
-    hostGid: process.getgid?.() ?? -1,
-    guestUid: config.guestUid,
-    guestGid: config.guestGid,
     stateDir,
+    project: config.incusProject,
+    rootDiskGiB: config.rootDiskGiB,
     owner,
     orphanGraceMs: config.orphanGraceMs,
     instancePrefix: config.instancePrefix,
     hostAliasPrefix: config.hostAliasPrefix,
     image: config.image,
-    profiles: config.profiles,
     guestUser: config.guestUser,
     workspace: config.workspace,
     guestProxy: {
@@ -330,19 +302,65 @@ export function settingsOf(config: Config, owner: string): EnvironmentSettings {
   }
 }
 
+/** DSH's `credentials` service, as the client key of a paired VM host is kept in it. */
+interface CredentialServices {
+  credentials: SecretRecords
+}
+
+/**
+ * The stored endpoint (`<stateDir>/endpoint.json`), or this machine's socket
+ * while none is stored. A paired VM host's client key is read from DSH's
+ * credential store; without that service a paired endpoint cannot be used.
+ */
+function storedEndpoint(
+  stateDir: string,
+  socket: string,
+  records: () => SecretRecords | undefined,
+): () => Promise<IncusEndpoint> {
+  const store = fileEndpointStore(join(stateDir, ENDPOINT_FILE), nodeFiles)
+  const secrets: SecretRecords = {
+    readRecord: (key) => required().readRecord(key),
+    modifyRecord: (key, mutate) => required().modifyRecord(key, mutate),
+    deleteRecord: (key) => required().deleteRecord(key),
+  }
+  function required(): SecretRecords {
+    const found = records()
+    if (found === undefined) {
+      throw new Error(
+        "DSH's credentials service is not available; it keeps the paired VM host's key",
+      )
+    }
+    return found
+  }
+  const keys = recordClientKeyStore(secrets, clientKeyRecord(name))
+  return async () => endpointOf((await store.read()) ?? { kind: "local", socket }, keys)
+}
+
 export function apply(ctx: Context, config: Config): void {
   const stateDir = expandHome(config.stateDir)
   const settings = settingsOf(config, config.owner === "" ? ownerOf(stateDir) : config.owner)
+  let records: SecretRecords | undefined
+  ctx.inject(["credentials"], (scope) => {
+    records = (scope as unknown as CredentialServices).credentials
+    scope.effect(
+      () => () => {
+        records = undefined
+      },
+      "bot-vm: credentials",
+    )
+  })
+  const transport = endpointTransport(storedEndpoint(stateDir, config.incusSocket, () => records))
+  ctx.effect(() => () => transport.close(), "bot-vm: Incus connections")
   const environment = createVmEnvironment(settings, {
     incus: createIncusClient({
-      transport: createIncusTransport({ kind: "local", socket: config.incusSocket }),
+      transport,
       project: config.incusProject,
       operationTimeoutMs: config.operationTimeoutMs,
       requestTimeoutMs: config.incusTimeoutMs,
     }),
+    endpointKind: () => transport.kind(),
     hostRipgrep,
     files: nodeFiles,
-    mountOf: hostMountOf,
     run: runCommand,
     sleep,
     now: Date.now,

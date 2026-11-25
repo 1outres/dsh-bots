@@ -1,46 +1,25 @@
 /**
- * How an existing instance comes to have what its bot needs (pure; the
- * environment carries it out). The bot's ensure target is the goal; the
- * instance's own config is what is applied:
- * - A share or a spec that differs from what the instance runs with stops a
- *   running instance, is written while it is stopped, and the instance
- *   starts again. Incus refuses to change `raw.idmap` of a running VM, and
- *   does not give a running VM more memory than it booted with; more CPUs
- *   or a larger disk written live are not seen by the guest until it restarts
- *   (measured on Incus 6.0).
- * - Own config that differs only in how it is written (the profiles give the
- *   same values, or `4GiB` for `4096MiB`) is written without a stop: Incus
- *   changes nothing in the running VM then.
- * - A root disk smaller than the instance's is refused: Incus cannot shrink
- *   a VM's block volume.
+ * How an existing instance comes to have its bot's layout (pure; the
+ * environment carries it out). The instance's own config and devices are
+ * compared with the layout:
+ * - Anything that differs stops a running instance, is written while it is
+ *   stopped, and the instance starts again: Incus does not give a running VM
+ *   more memory than it booted with, a guest sees more CPUs or a larger disk
+ *   only after a restart, and devices are never hot-plugged.
+ * - CPU and memory written differently but meaning the same (`4GiB` for
+ *   `4096MiB`) are written without a stop.
+ * - A root disk smaller than the instance's is refused (Incus cannot shrink a
+ *   VM's block volume).
  */
-import type { BotEnvironmentSpec } from "@1outres/dsh-bot-core"
 import type { IncusDevice, IncusInstance, InstanceUpdate } from "./incus"
-import {
-  bytesOfDisk,
-  instanceSizesOf,
-  ROOT_DEVICE,
-  rootDeviceOf,
-  runsWith,
-  specConfigOf,
-} from "./spec"
-
-/** What the bot needs of its instance. */
-export interface InstanceWants {
-  /** Config keys the share needs (`raw.idmap`). */
-  readonly shareConfig: Readonly<Record<string, string>>
-  /** The share's device. */
-  readonly shareDevice: { readonly name: string; readonly device: IncusDevice }
-  readonly spec: BotEnvironmentSpec
-}
+import { type InstanceLayout, ROOT_DEVICE } from "./layout"
+import { CPU_KEY, MEMORY_KEY, sizeBytesOf } from "./spec"
 
 export interface Reconfiguration {
   /** A running (or frozen) instance stops before {@link change} is set. */
   readonly stop: boolean
   /** Made before the instance (re)starts; undefined when nothing changes. */
   readonly change: InstanceUpdate | undefined
-  /** Whether the change gives the instance another spec (not only another way of writing it). */
-  readonly resizes: boolean
 }
 
 export const sameDevice = (found: IncusDevice | undefined, wanted: IncusDevice) =>
@@ -48,38 +27,45 @@ export const sameDevice = (found: IncusDevice | undefined, wanted: IncusDevice) 
   Object.keys(found).length === Object.keys(wanted).length &&
   Object.entries(wanted).every(([key, value]) => found[key] === value)
 
-/** @throws when the spec's disk is smaller than the instance's. */
-export function reconfigure(instance: IncusInstance, wants: InstanceWants): Reconfiguration {
-  const stopped = instance.status === "Stopped"
-  const shared =
-    sameDevice(instance.devices[wants.shareDevice.name], wants.shareDevice.device) &&
-    Object.entries(wants.shareConfig).every(([key, value]) => instance.config[key] === value)
-  const sizes = instanceSizesOf(instance)
-  if (sizes.diskBytes !== undefined && bytesOfDisk(wants.spec) < sizes.diskBytes) {
+const SAME_MEANING: Readonly<Record<string, (value: string) => number | undefined>> = {
+  [CPU_KEY]: (value) => (/^\d+$/.test(value) ? Number(value) : undefined),
+  [MEMORY_KEY]: sizeBytesOf,
+}
+
+function meansTheSame(key: string, found: string | undefined, wanted: string): boolean {
+  const read = SAME_MEANING[key]
+  if (read === undefined || found === undefined) return false
+  const value = read(found)
+  return value !== undefined && value === read(wanted)
+}
+
+/** @throws when the layout's root disk is smaller than the instance's. */
+export function reconfigure(instance: IncusInstance, layout: InstanceLayout): Reconfiguration {
+  const root = layout.devices[ROOT_DEVICE]
+  const currentRoot = sizeBytesOf(instance.devices[ROOT_DEVICE]?.size)
+  const wantedRoot = sizeBytesOf(root?.size)
+  if (currentRoot !== undefined && wantedRoot !== undefined && wantedRoot < currentRoot) {
     throw new Error(
-      `the root disk of Incus instance "${instance.name}" is ${instance.expanded_devices?.[ROOT_DEVICE]?.size}; it cannot shrink to ${wants.spec.diskGiB}GiB`,
+      `the root disk of Incus instance "${instance.name}" is ${instance.devices[ROOT_DEVICE]?.size}; it cannot shrink to ${root?.size}`,
     )
   }
-  const resizes = !runsWith(sizes, wants.spec)
-  const specConfig = Object.fromEntries(
-    Object.entries(specConfigOf(wants.spec)).filter(
-      ([key, value]) => instance.config[key] !== value,
+  const config = Object.fromEntries(
+    Object.entries(layout.config).filter(([key, value]) => instance.config[key] !== value),
+  )
+  const devices = Object.fromEntries(
+    Object.entries(layout.devices).filter(
+      ([name, device]) => !sameDevice(instance.devices[name], device),
     ),
   )
-  const root = rootDeviceOf(instance, wants.spec)
-  const rootDiffers = !sameDevice(instance.devices[ROOT_DEVICE], root)
-  const config = { ...(shared ? {} : wants.shareConfig), ...specConfig }
-  const devices = {
-    ...(shared ? {} : { [wants.shareDevice.name]: wants.shareDevice.device }),
-    ...(rootDiffers ? { [ROOT_DEVICE]: root } : {}),
-  }
+  const restarts =
+    Object.keys(devices).length > 0 ||
+    Object.entries(config).some(([key, value]) => !meansTheSame(key, instance.config[key], value))
   const change: InstanceUpdate = {
     ...(Object.keys(config).length > 0 ? { config } : {}),
     ...(Object.keys(devices).length > 0 ? { devices } : {}),
   }
   return {
-    stop: !stopped && (!shared || resizes),
+    stop: instance.status !== "Stopped" && restarts,
     change: Object.keys(change).length > 0 ? change : undefined,
-    resizes,
   }
 }

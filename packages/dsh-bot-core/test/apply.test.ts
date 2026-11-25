@@ -1979,7 +1979,7 @@ describe("bot-core apply", () => {
         "Big needs 8 GiB of memory or more",
       )
       await expect(panel.configure(view.id, { ...larger, diskGiB: 20 })).rejects.toThrow(
-        "the disk cannot be made smaller than 30 GiB",
+        "the workspace disk cannot be made smaller than 30 GiB",
       )
       await expect(panel.configure(view.id, { ...larger, cpus: 64 })).rejects.toThrow(
         "CPUs must be from 1 CPU to 8 CPUs",

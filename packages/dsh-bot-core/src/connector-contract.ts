@@ -58,7 +58,8 @@ export interface BotConnector<A = undefined> {
   readonly settings?: readonly ConnectorSettingField[]
   /**
    * The least the bot's environment must have for the connector (memory in
-   * MiB, …). A bot whose spec has less cannot turn it on, and a bot with it
+   * MiB, …). `diskGiB` is the workspace (the bot's files), not room for
+   * system packages, which the environment provides itself. A bot whose spec has less cannot turn it on, and a bot with it
    * on cannot lower its spec below this; it never changes the spec itself.
    */
   readonly minimumSpec?: BotEnvironmentMinimum

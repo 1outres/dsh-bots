@@ -157,7 +157,8 @@ interface WorkspaceVolume {
   - `x-systemd.growfs`: ボリュームを大きくした後の起動で ext4 が広がる（3 GiB → 4 GiB で `df` 2.9G → 3.9G、確認済み）。
   - 所有者: ゲストの uid のまま（1001）。raw.idmap は要らない。guest root も普通に書ける（共有のときの "EIO" は無くなる）。
 - 拡張: 動いている VM の block ボリュームは大きくできない（"In use"、確認済み）。止めてから `PATCH size`、起動で growfs。spec の変更（今も止めて変えて起動する）に入れる。縮小は拒否する（今の root と同じ）。
-- 寿命: VM を消してもボリュームは残る（確認済み）。`remove(botId)` でボリュームも消すかは §10 の 4。`user.dsh-bot.id` / `user.dsh-bot.owner` をボリュームにも付ける（`PATCH` で付けられる、確認済み）。他の owner のボリュームには触れない。
+- 大きさ（段階 3 で決定）: BotEnvironmentSpec の `diskGiB` はワークスペースのボリュームの大きさ。root は dsh-bot-vm の設定 `rootDiskGiB`（既定 16 GiB、イメージは新しい VM で root を 3.1 GiB 使う（確認済み）。デスクトップのパッケージ込みで約 4.2 GiB）。bot-core の画面の文言と契約のコメントは「ワークスペースのディスク（ボットのファイル）」に直した。今あるコネクターの `minimumSpec` は `memoryMiB` だけで `diskGiB` を求めていない（コードで確認）。
+- 寿命: VM を消してもボリュームは残る（確認済み）。`remove(botId)` は VM・鍵・ssh 設定をすぐ消し、ボリュームには `user.dsh-bot.orphaned` を付け、orphan の猶予（7 日）の後に片付けで消す（§10 の 4。どのインスタンスも使っていないときだけ）。`user.dsh-bot.id` / `user.dsh-bot.owner` をボリュームにも付ける（`PATCH` で付けられる、確認済み）。他の owner のボリュームには触れない。
 - 速さ（確認済み、2 vCPU / 2 GiB、btrfs のプール）: 小さいファイル 2000 個の作成 154 ms（VM の root では 129 ms、今の virtiofs の README の値 1.7 s）、512 MiB の fdatasync 書き込みは初回 95–101 MB/s（btrfs の疎なファイルへの割り当て）、上書き 490 MB/s（root は 232–484 MB/s）。
 
 ### 5.5 イメージの取り込み
@@ -179,6 +180,7 @@ interface ImageRelease {
 
 - インタフェースは変わらない。`workspace`（`/home/bot/workspace`）も同じ。
 - `remove` の説明は「VM、鍵、ssh 設定、ワークスペースのデータを含めて消す」で、今の incus-vm は Host のフォルダを残している。ボリュームにすると契約どおり消せる。消すか残すかは §10 の 4 で決め、bot-core の README（「ファイルは Host に残る」の記述 2 か所）と削除の確認文を合わせて直す。
+  - 段階 3 で実装: bot-core の README の「ファイルは Host に残る」の記述を直した。削除の確認文（「データはすべて削除されます」）は猶予の後に消えるので変えていない。
 - `capacity`: `GET /1.0/resources` とプールの `resources` と project の config は制限付きでも読める（確認済み）。`GET /1.0/storage-pools`（一覧）は拒否される（確認済み）ので、プールは `user.dsh-bots.pool` から名前で引く。共有のサーバでは「ホストのメモリの 3/4」はあてにならないので、上限は project の `limits.*` を先に見る（形 3 では管理者が必ず `limits.memory`/`limits.cpu`/`limits.disk` を付ける前提にする）。
 - bot-core の機能が共有フォルダに頼っていないこと（コードで確認、実機の DSH では未検証。ファイルビューワー・ノート・スキル・AGENTS.md は該当箇所を読んだ。present と添付とコネクタはファイルの扱いを grep で追っただけ）: ファイルビューワー（`host/files.ts`、環境の `fs`）、AGENTS.md / SOUL.md（`host/workspace-files.ts`）、ノート（`host/notes/notebook.ts`）、スキル（`host/skills/library.ts`）、present（`host/channels/presented-delivery.ts`）、添付の保存（`host/channels/inbox-shell.ts`、環境の subprocess で書く）、コネクタ（`host/connectors/environment.ts`、環境の exec）はどれも環境の fs / subprocess だけを使い、Host のパスを使わない。Host のパス（`hostRoot`）を使うのは dsh-bot-vm だけ。
 
@@ -303,7 +305,7 @@ ProxyCommand は DSH のプロセスの中で中継する（§5.2）ので、Inc
 
 ## 9. 残る課題と未検証のこと
 
-- **未検証**: 実機の確認用 DSH での bot-core の一通り（ファイルビューワー、添付、present、ノート、スキル）。今の dsh-bot-vm は exec と volume を持たないので、実装の段階 3 の後に確かめる。コードでは §5.6 のとおり共有フォルダに頼っていない。
+- 確認済み（2026-11-25、段階 3、確認用 DSH・形 1・Unix ソケット・project `dsh-bots-test`）: ボット作成（ボリューム作成・インスタンスに直接書いた VM・cloud-init の mount）、会話でのファイル作成と bash、ファイルビューワー（一覧とプレビュー）、present、ノート、スキル、チャネルからの添付の保存（`.inbox/…/report.csv` が VM のボリュームに bot の所有で書かれた）、VM を外で消した後の作り直しでファイルが残る、VM ページでのワークスペース 20 → 22 GiB（止めて拡張して起動、`df` 22G）、ボット削除で VM が消えボリュームに orphan の印。
 - **未検証**: 別のマシンからの remote。spike の HTTPS は同じホストの loopback。NAT・遅い回線での数値、token の `addresses` が `:8443`（全アドレス）のとき何を並べるか。
 - **未検証**: WSL・NixOS・Arch の DSH ホスト（プラグインだけで動くはずだが試していない）。
 - 制限付き証明書は自分の証明書を消せない（確認済み、§4）。**未検証**: 証明書の期限（作った証明書は 10 年）と更新の手順。

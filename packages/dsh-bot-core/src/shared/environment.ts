@@ -5,7 +5,11 @@ export const BOT_ENVIRONMENT_SPEC_KEYS = ["cpus", "memoryMiB", "diskGiB"] as con
 
 export type BotEnvironmentSpecKey = (typeof BOT_ENVIRONMENT_SPEC_KEYS)[number]
 
-/** The CPUs, memory (MiB) and root disk (GiB) of a bot's environment. */
+/**
+ * The CPUs, memory (MiB) and workspace disk (GiB) of a bot's environment:
+ * `diskGiB` is the size of the disk holding the bot's files (its workspace),
+ * not of the system the environment runs.
+ */
 export type BotEnvironmentSpec = { readonly [Key in BotEnvironmentSpecKey]: number }
 
 /** The least of some keys a connector needs of the bot's environment while it is on. */
@@ -207,7 +211,7 @@ const UNIT: { readonly [Key in BotEnvironmentSpecKey]: (value: number) => string
 const NOUN: { readonly [Key in BotEnvironmentSpecKey]: string } = {
   cpus: "CPUs",
   memoryMiB: "memory",
-  diskGiB: "disk",
+  diskGiB: "workspace disk",
 }
 
 /** A value of a key in English, e.g. "4 GiB". */

@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest"
 import { isCanonicalPath, userDataText } from "../src/host/cloud-init"
 import { sshConfigText } from "../src/host/ssh-config"
 
+const DEVICE = "/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_incus_workspace"
 const input = {
+  workspaceDevice: DEVICE,
   user: "bot",
   workspace: "/home/bot/workspace",
   authorizedKey: "ssh-ed25519 AAAA bot",
@@ -20,15 +22,25 @@ describe("userDataText", () => {
     expect(document.ssh_genkeytypes).toEqual(["ed25519"])
   })
 
-  it("mounts nothing and only creates a missing workspace, then syncs", () => {
+  it("mounts the workspace volume through fstab (made and grown by systemd), gives it to the user, then syncs", () => {
     const document = JSON.parse(userDataText(input).slice("#cloud-config\n".length))
     expect(document.bootcmd).toBeUndefined()
-    expect(document.mounts).toBeUndefined()
+    expect(document.fs_setup).toBeUndefined()
+    expect(document.mounts).toEqual([
+      [
+        DEVICE,
+        "/home/bot/workspace",
+        "ext4",
+        "defaults,x-systemd.makefs,x-systemd.growfs,x-systemd.device-timeout=60s",
+        "0",
+        "2",
+      ],
+    ])
     expect(document.runcmd).toEqual([
       [
         "sh",
         "-c",
-        '[ -d "$1" ] || install -d -o "$2" -g "$2" -m 0755 "$1"',
+        'systemctl daemon-reload && systemctl start "$(systemd-escape --path --suffix=mount "$1")" && mountpoint -q "$1" && chown "$2:$2" "$1"',
         "sh",
         "/home/bot/workspace",
         "bot",

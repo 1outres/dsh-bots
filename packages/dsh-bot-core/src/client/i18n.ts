@@ -226,7 +226,8 @@ const EN = {
   "connectors.switch.required": "Turn off {connectors} first: it needs {connector}",
   "connectors.switch.spec.cpus": "Needs {value} or more. Raise the CPUs on the VM page.",
   "connectors.switch.spec.memoryMiB": "Needs {value} of memory or more. Raise it on the VM page.",
-  "connectors.switch.spec.diskGiB": "Needs a disk of {value} or more. Grow it on the VM page.",
+  "connectors.switch.spec.diskGiB":
+    "Needs a workspace disk (the bot's files) of {value} or more. Grow it on the VM page.",
   "connectors.switch.specUnread": "Waiting until the bot's VM spec is read.",
   "settings.environment": "VM",
   "environment.loading": "Loading the VM…",
@@ -236,7 +237,7 @@ const EN = {
     "What this Host allows could not be read ({message}); nothing can be saved until it is.",
   "environment.cpus": "CPUs",
   "environment.memory": "Memory",
-  "environment.disk": "Disk",
+  "environment.disk": "Workspace disk (the bot's files)",
   "environment.unit.cpus": "vCPU",
   "environment.unit.memoryMiB": "GiB",
   "environment.unit.diskGiB": "GiB",
@@ -885,7 +886,7 @@ const JA: { readonly [Key in MessageKey]: string } = {
   "connectors.switch.spec.memoryMiB":
     "メモリが {value} 以上必要です。VM のページで増やしてください",
   "connectors.switch.spec.diskGiB":
-    "ディスクが {value} 以上必要です。VM のページで増やしてください",
+    "ワークスペースのディスク（ボットのファイル）が {value} 以上必要です。VM のページで増やしてください",
   "connectors.switch.specUnread": "ボットの VM のスペックを読み込むまで待っています",
   "settings.environment": "VM",
   "environment.loading": "VM を読み込んでいます…",
@@ -895,7 +896,7 @@ const JA: { readonly [Key in MessageKey]: string } = {
     "この Host で使える範囲を読み込めませんでした（{message}）。読み込めるまで保存できません。",
   "environment.cpus": "CPU",
   "environment.memory": "メモリ",
-  "environment.disk": "ディスク",
+  "environment.disk": "ワークスペースのディスク（ボットのファイル）",
   "environment.unit.cpus": "vCPU",
   "environment.unit.memoryMiB": "GiB",
   "environment.unit.diskGiB": "GiB",

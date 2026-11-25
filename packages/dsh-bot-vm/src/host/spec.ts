@@ -1,21 +1,20 @@
 /**
- * A bot's spec as Incus config: the instance's own `limits.cpu`,
- * `limits.memory` and root disk `size`, and what an instance runs with
- * now (its expanded config and devices, profiles included).
+ * A bot's spec as Incus config: the instance's own `limits.cpu` and
+ * `limits.memory`, and the size of its workspace volume (`diskGiB`).
  */
 import type { BotEnvironmentSpec } from "@1outres/dsh-bot-core"
-import type { IncusDevice, IncusInstance } from "./incus"
+import type { IncusInstance, IncusVolume } from "./incus"
 
 export const CPU_KEY = "limits.cpu"
 export const MEMORY_KEY = "limits.memory"
-export const ROOT_DEVICE = "root"
+export const SIZE_KEY = "size"
 
-/** What Incus gives a VM whose config and profiles set no `limits.cpu` / `limits.memory`. */
+/** What Incus gives a VM whose config sets no `limits.cpu` / `limits.memory`. */
 export const INCUS_VM_DEFAULT_CPUS = 1
 export const INCUS_VM_DEFAULT_MEMORY = "1GiB"
 
-const MIB = 1024 ** 2
-const GIB = 1024 ** 3
+export const MIB = 1024 ** 2
+export const GIB = 1024 ** 3
 
 const UNITS: Readonly<Record<string, number>> = {
   B: 1,
@@ -44,20 +43,12 @@ export function specConfigOf(spec: BotEnvironmentSpec): Readonly<Record<string, 
   return { [CPU_KEY]: String(spec.cpus), [MEMORY_KEY]: `${spec.memoryMiB}MiB` }
 }
 
-/** The instance's own root disk: the one it runs with (its pool, from the profiles), at the spec's size. */
-export function rootDeviceOf(instance: IncusInstance, spec: BotEnvironmentSpec): IncusDevice {
-  const root = instance.expanded_devices?.[ROOT_DEVICE]
-  if (root === undefined || root.type !== "disk" || root.path !== "/") {
-    throw new Error(`Incus instance "${instance.name}" has no root disk device`)
-  }
-  return { ...root, size: `${spec.diskGiB}GiB` }
-}
+export const gibText = (gib: number) => `${gib}GiB`
 
-/** What the instance runs with now, each value in bytes or a count; undefined where Incus's value cannot be read. */
+/** The CPUs and memory an instance runs with; undefined where Incus's value cannot be read. */
 export interface InstanceSizes {
   readonly cpus: number | undefined
   readonly memoryBytes: number | undefined
-  readonly diskBytes: number | undefined
 }
 
 export function instanceSizesOf(instance: IncusInstance): InstanceSizes {
@@ -66,21 +57,11 @@ export function instanceSizesOf(instance: IncusInstance): InstanceSizes {
   return {
     cpus: cpu === undefined ? INCUS_VM_DEFAULT_CPUS : /^\d+$/.test(cpu) ? Number(cpu) : undefined,
     memoryBytes: sizeBytesOf(config[MEMORY_KEY] ?? INCUS_VM_DEFAULT_MEMORY),
-    diskBytes: sizeBytesOf(instance.expanded_devices?.[ROOT_DEVICE]?.size),
   }
 }
 
-/** Whether the instance runs with exactly the spec. */
-export function runsWith(sizes: InstanceSizes, spec: BotEnvironmentSpec): boolean {
-  return (
-    sizes.cpus === spec.cpus &&
-    sizes.memoryBytes === spec.memoryMiB * MIB &&
-    sizes.diskBytes === spec.diskGiB * GIB
-  )
-}
-
-/** The spec of what the instance runs with. @throws when a value is not a whole number of the spec's units. */
-export function specOfInstance(instance: IncusInstance): BotEnvironmentSpec {
+/** The spec of what the instance and its workspace volume run with. @throws when a value is not a whole number of the spec's units. */
+export function specOf(instance: IncusInstance, volume: IncusVolume): BotEnvironmentSpec {
   const sizes = instanceSizesOf(instance)
   const whole = (value: number | undefined, unit: number, what: string) => {
     if (value === undefined || !Number.isSafeInteger(value / unit) || value / unit < 1) {
@@ -91,8 +72,6 @@ export function specOfInstance(instance: IncusInstance): BotEnvironmentSpec {
   return {
     cpus: whole(sizes.cpus, 1, `CPU count (${CPU_KEY})`),
     memoryMiB: whole(sizes.memoryBytes, MIB, `memory in MiB (${MEMORY_KEY})`),
-    diskGiB: whole(sizes.diskBytes, GIB, "root disk size in GiB"),
+    diskGiB: whole(sizeBytesOf(volume.config[SIZE_KEY]), GIB, "workspace volume size in GiB"),
   }
 }
-
-export const bytesOfDisk = (spec: BotEnvironmentSpec) => spec.diskGiB * GIB
