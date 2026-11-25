@@ -5,6 +5,7 @@ import type {
   BotChannelValuesOf,
 } from "../../contract"
 import type { BotChannelConnectionState, BotChannelField } from "../../shared/channels"
+import type { VaultIncidentView } from "../../shared/vaults"
 import type { ConnectorApprovals } from "../connectors/approvals"
 import type { InteractionBoard } from "../interactions/board"
 import { commandsOf } from "./capabilities"
@@ -28,6 +29,8 @@ export interface ChannelHubDeps {
   outlets: Pick<ChannelOutlets, "attach" | "publishTo">
   interactions: Pick<InteractionBoard, "mainOf">
   approvals: Pick<ConnectorApprovals, "open" | "fromChannel" | "pendingFor" | "find">
+  /** The bot's credential incidents its owner has not acknowledged, oldest first. */
+  incidents: { open(botId: string): readonly VaultIncidentView[] }
   warn(message: string): void
 }
 
@@ -141,6 +144,9 @@ export function createChannelHub(deps: ChannelHubDeps): ChannelHub {
         }
         for (const action of deps.approvals.open(bot.id)) {
           deps.outlets.publishTo(bot.id, channel.id, { kind: "connector-action", action })
+        }
+        for (const incident of deps.incidents.open(bot.id)) {
+          deps.outlets.publishTo(bot.id, channel.id, { kind: "credential-incident", incident })
         }
         return connection
       })().catch((error: unknown) => {

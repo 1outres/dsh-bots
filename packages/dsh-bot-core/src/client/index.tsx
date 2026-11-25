@@ -23,6 +23,7 @@ import { createLockdownStatus } from "./sidebar/lockdown-status"
 import { createSkillsClient } from "./skills/client"
 import { mountBotCoreRemote, watchBots } from "./store"
 import type { ClientContext } from "./types"
+import { createBotVaultsHub, createVaultsFeed, openIncidentsOf } from "./vaults/model"
 import { createWebLookupFeed } from "./web/feed"
 import { wireArchive } from "./wiring/archive"
 import { createBotActions, createBotsFace, wireBotsSection } from "./wiring/bots-face"
@@ -83,6 +84,10 @@ export function apply(ctx: ClientContext): void {
   const connectors = createConnectorsHub((botId) =>
     createConnectorsModel({ mount: remote, generation: ctx.connection.generation }, botId),
   )
+  const vaultDeps = { mount: remote, generation: ctx.connection.generation }
+  const vaults = createVaultsFeed(vaultDeps)
+  const logins = createBotVaultsHub(vaultDeps)
+  const incidents = derive([vaults], openIncidentsOf)
   const progress = createProgressView()
   const classification = wireClassification(ctx, bots, progress)
   const notices = createNoticeStore()
@@ -137,6 +142,7 @@ export function apply(ctx: ClientContext): void {
       viewer: files.viewer,
     }),
     connectorPanels: wireConnectorPanels(ctx, { remote, connectors }),
+    incidents,
   })
 
   const face = createBotsFace(ctx, {
@@ -151,6 +157,7 @@ export function apply(ctx: ClientContext): void {
     notices,
     progress,
     waiting,
+    incidents,
     deletion,
     managed,
   })
@@ -172,6 +179,8 @@ export function apply(ctx: ClientContext): void {
     channels: createChannelsHub((botId) => createChannelsModel(remote, botId)),
     connectors,
     connections,
+    vaults,
+    logins,
     models: createModelsHub((botId) =>
       createModelsModel({ mount: remote, generation: ctx.connection.generation }, botId),
     ),

@@ -503,6 +503,7 @@ describe("the notes of a step", () => {
       },
       placeOf: () => ({ fs, workspace: WORKSPACE }),
       tools: createNoteTools({ newId: idMaker() }),
+      shield: async (_botId, text) => text,
     })
     const step = { agentId: "main", messages: [{ fromUser: true, text: "hello" }] }
     expect(await notes.prepare("a", "t", step, signal)).toBeUndefined()

@@ -1,0 +1,3 @@
+- insert:
+    - id: fake-vault
+      name: dsh-bot-fake-vault

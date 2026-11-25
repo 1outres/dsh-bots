@@ -6,7 +6,8 @@ import type { ConnectionsFeed } from "../connections-model"
 import type { ConnectorsHub } from "../connectors-hub"
 import { DeleteBotDialog, type DeleteBotFace } from "../DeleteBotDialog"
 import { ConnectionsSettings } from "../global-settings/ConnectionsSettings"
-import { IconConnectors } from "../icons"
+import { IconConnectors, IconKey } from "../icons"
+import { localeFormat } from "../locale-format"
 import type { ModelsHub } from "../models/feed"
 import { derive, type Observable } from "../observable"
 import type { BotsState } from "../session-classification"
@@ -15,6 +16,11 @@ import { builtinSettingsSections } from "../settings/builtin"
 import { dismissWhenGone } from "../settings/flow"
 import { SettingsScreen, type SettingsScreenFace } from "../settings/SettingsScreen"
 import type { ClientContext } from "../types"
+import { LoginsSection } from "../vaults/LoginsSection"
+import type { BotVaultsHub, VaultsFeed } from "../vaults/model"
+import { openIncidentsOf } from "../vaults/model"
+import { LOGINS_SECTION, VAULTS_SECTION } from "../vaults/sections"
+import { VaultsSettings } from "../vaults/VaultsSettings"
 import type { WorkspacesClient } from "../workspaces"
 import type { BotActions } from "./bots-face"
 import { overlay } from "./dialogs"
@@ -26,6 +32,8 @@ export interface SettingsSources {
   readonly channels: ChannelsHub
   readonly connectors: ConnectorsHub
   readonly connections: ConnectionsFeed
+  readonly vaults: VaultsFeed
+  readonly logins: BotVaultsHub
   readonly models: ModelsHub
   readonly workspaces: WorkspacesClient
   readCatalog(): Promise<BotModelCatalog>
@@ -71,6 +79,47 @@ export function wireSettings(ctx: ClientContext, sources: SettingsSources): void
         component: (props) => createElement(ConnectionsSettings, { ...props, connections }),
       }),
     "bot-core: connections settings",
+  )
+  const text = (value: { readonly en: string; readonly ja?: string }) =>
+    ctx.locale.resolveText({ ...value })
+  ctx.effect(
+    () =>
+      screens.global.sections.register({
+        id: VAULTS_SECTION,
+        order: 250,
+        label: (t) => t("global.vaults"),
+        icon: IconKey,
+        component: (props) =>
+          createElement(VaultsSettings, { ...props, vaults: sources.vaults, text }),
+      }),
+    "bot-core: password manager settings",
+  )
+  ctx.effect(
+    () =>
+      sections.register({
+        id: LOGINS_SECTION,
+        order: 320,
+        label: (t) => t("settings.logins"),
+        icon: IconKey,
+        component: (props) =>
+          createElement(LoginsSection, {
+            ...props,
+            logins: sources.logins,
+            vaults: sources.vaults,
+            openVaultSettings: () => screens.openGlobalSettings(VAULTS_SECTION),
+          }),
+        badge: (botId) =>
+          derive([sources.vaults], (state) => {
+            const count = openIncidentsOf(state)[botId]
+            return count === undefined
+              ? null
+              : {
+                  tone: "danger" as const,
+                  label: (t) => localeFormat(t).count("bot.incidents", count),
+                }
+          }),
+      }),
+    "bot-core: logins settings",
   )
   ctx.effect(
     () => dismissWhenGone(flow, derive([bots], snapshotOf)),

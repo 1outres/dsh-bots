@@ -32,6 +32,7 @@ function props(state: BotsState, shell = IDLE, rightbar = IDLE, scene: Scene = {
     },
     status: value({}),
     waiting: value({}),
+    incidents: value({}),
     managed: Object.assign(value({ sessions: [] }), {
       entrust: () => {},
       release: () => {},

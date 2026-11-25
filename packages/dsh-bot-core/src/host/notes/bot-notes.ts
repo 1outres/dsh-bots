@@ -40,6 +40,11 @@ export interface BotNotesDeps<A extends KindAgent> {
   /** The file system that revision's files row handed over, with the environment's workspace. */
   placeOf(botId: string, token: string): NotesPlace | undefined
   tools: NoteTools
+  /**
+   * Text of the notes handed to the bot's prompt, with its secrets withheld
+   * (docs/specs/bot-vaults.md §7.2). @throws when the vault guard cannot check it.
+   */
+  shield(botId: string, text: string): Promise<string>
 }
 
 /** Sessions whose context carries the pinned notes (§6). */
@@ -53,6 +58,9 @@ export const PINNED_UNREADABLE =
 
 /** Bound of a notice's one-line summary (dsh-llm CONTEXT_SUMMARY_MAX_CHARS). */
 const SUMMARY_MAX = 120
+
+/** Why the pinned notes are not shown when the vault guard could not check them. */
+const VAULT_UNCHECKED = "the vault guard could not check them for the bot's secrets"
 
 export interface BotNotes {
   call(
@@ -82,6 +90,18 @@ export function createBotNotes<A extends KindAgent>(deps: BotNotesDeps<A>): BotN
   const failures = new Map<string, string>()
   const queues = new Map<string, Promise<unknown>>()
   const listeners = new Set<(botId: string) => void>()
+  /** The pinned notes as the bot's latest step read them, its secrets withheld. */
+  const pinnedTexts = new Map<string, string>()
+  const renderPinnedOf = (view: NotesView) => {
+    const { catalog } = view
+    const notes = catalog.ids().map((id) => [id, catalog.note(id)] as const)
+    return renderPinned(
+      pinnedNotes(
+        notes.flatMap(([id, note]) => (note === undefined ? [] : [[id, note] as const])),
+        catalog.shown,
+      ),
+    )
+  }
 
   const stateOf = (botId: string) => {
     const known = states.get(botId)
@@ -154,10 +174,18 @@ export function createBotNotes<A extends KindAgent>(deps: BotNotesDeps<A>): BotN
       try {
         const place = requirePlace(botId, token)
         view = await withNotes(botId, (state) => state.notebook.load(place, signal))
-        failures.delete(botId)
       } catch (error) {
         signal.throwIfAborted()
         failures.set(botId, error instanceof Error ? error.message : String(error))
+        pinnedTexts.delete(botId)
+        return undefined
+      }
+      try {
+        pinnedTexts.set(botId, await deps.shield(botId, renderPinnedOf(view)))
+        failures.delete(botId)
+      } catch {
+        failures.set(botId, VAULT_UNCHECKED)
+        pinnedTexts.delete(botId)
         return undefined
       }
       if (!MENTION_SESSIONS.includes(kind)) return undefined
@@ -170,14 +198,22 @@ export function createBotNotes<A extends KindAgent>(deps: BotNotesDeps<A>): BotN
       const mentions = mentionsIn(owned.join("\n\n"), nameTable(view.catalog))
       if (mentions.length === 0) return undefined
       const summary = `Notes mentioned: ${mentions.map((mention) => mention.text).join(", ")}`
-      return {
-        text: [
-          MENTIONS_LEAD,
-          ...mentions.map(
-            (mention) => `- "${mention.text}" → ${describeNotes(view.catalog, mention.ids)}`,
+      const text = [
+        MENTIONS_LEAD,
+        ...mentions.map(
+          (mention) => `- "${mention.text}" → ${describeNotes(view.catalog, mention.ids)}`,
+        ),
+      ].join("\n")
+      try {
+        return {
+          text: await deps.shield(botId, text),
+          summary: await deps.shield(
+            botId,
+            summary.length > SUMMARY_MAX ? `${summary.slice(0, SUMMARY_MAX - 1)}…` : summary,
           ),
-        ].join("\n"),
-        summary: summary.length > SUMMARY_MAX ? `${summary.slice(0, SUMMARY_MAX - 1)}…` : summary,
+        }
+      } catch {
+        return undefined
       }
     },
     pinned(botId, token, agentId) {
@@ -185,16 +221,7 @@ export function createBotNotes<A extends KindAgent>(deps: BotNotesDeps<A>): BotN
       if (!PINNED_SESSIONS.includes(kind)) return ""
       const failure = failures.get(botId)
       if (failure !== undefined) return `${PINNED_UNREADABLE}: ${failure}`
-      const view = states.get(botId)?.notebook.current()
-      if (view === undefined) return ""
-      const { catalog } = view
-      const notes = catalog.ids().map((id) => [id, catalog.note(id)] as const)
-      return renderPinned(
-        pinnedNotes(
-          notes.flatMap(([id, note]) => (note === undefined ? [] : [[id, note] as const])),
-          catalog.shown,
-        ),
-      )
+      return pinnedTexts.get(botId) ?? ""
     },
     withNotes,
     subscribe(listener) {
@@ -208,6 +235,7 @@ export function createBotNotes<A extends KindAgent>(deps: BotNotesDeps<A>): BotN
         if (exists(botId)) continue
         states.delete(botId)
         failures.delete(botId)
+        pinnedTexts.delete(botId)
       }
     },
   }

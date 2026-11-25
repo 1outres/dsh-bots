@@ -17,6 +17,7 @@ import type {
   BotInteractionClosure,
   BotInteractionKind,
 } from "./shared/interactions"
+import type { VaultIncidentView } from "./shared/vaults"
 
 export type * from "./shared/interactions"
 
@@ -92,6 +93,13 @@ export interface BotChannelCapabilities {
    * field lists, so an empty list lets nobody decide through the channel.
    */
   readonly connectorActions?: true
+  /**
+   * The channel tells the bot's owners there of credential incidents (a
+   * secret of one of the bot's logins found where the bot reads or writes,
+   * docs/specs/bot-vaults.md §7.3); absent: it does not. Needs
+   * {@link BotChannel.owners}: the incident is for the people that field lists.
+   */
+  readonly credentialIncidents?: true
 }
 
 export interface BotAttachmentCapability {
@@ -133,6 +141,13 @@ export type BotChannelOutput =
    * again. A connection made while some are open gets them first.
    */
   | { readonly kind: "connector-action"; readonly action: ConnectorActionView }
+  /**
+   * A credential incident of the bot, for the owners the settings list: sent
+   * when it is recorded, and again to every new connection while the owner
+   * has not acknowledged it (show each id once). `exposed` means the model already had the
+   * value: tell them to change the password.
+   */
+  | { readonly kind: "credential-incident"; readonly incident: VaultIncidentView }
 
 /** One assistant message the bot wrote in its Main session: its text blocks, without reasoning or tool calls. */
 export interface BotReply {

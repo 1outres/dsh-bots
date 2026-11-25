@@ -30,6 +30,8 @@ export interface BotsFace {
   readonly status: Observable<Readonly<Record<string, BotStatus>>>
   /** Connector actions waiting for the owner's decision, per bot that has any. */
   readonly waiting: Observable<Readonly<Record<string, number>>>
+  /** Unacknowledged credential incidents, per bot that has any. */
+  readonly incidents: Observable<Readonly<Record<string, number>>>
   readonly sessions: Observable<SessionListState>
   readonly workspaces: Observable<WorkspaceSnapshot>
   openSession(sessionId: string): void

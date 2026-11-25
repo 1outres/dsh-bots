@@ -49,6 +49,12 @@ export interface ConversationDeps {
    * `work` with the Main it goes to once no maintenance holds the bot.
    */
   admit<T>(botId: string, work: (sessionId: string | undefined) => Promise<T>): Promise<T>
+  /**
+   * A person's message with the bot's secrets withheld before the bot reads it
+   * (recorded as an incident; docs/specs/bot-vaults.md §7.2).
+   * @throws when the vault guard cannot check it: it is not delivered.
+   */
+  shield(botId: string, sessionId: string, message: BotInboundMessage): Promise<BotInboundMessage>
 }
 
 /** A bot's Main session as one channel connection's inputs reach it. */
@@ -87,6 +93,7 @@ export function openMainConversation(
         failure: { code: "no-main-session", message: "The bot has no Main session yet." },
       }
     }
+    const shielded = await deps.shield(botId, sessionId, message)
     let composed: ComposedPrompt
     try {
       const header = messageHeader({
@@ -95,7 +102,10 @@ export function openMainConversation(
         sender: message.sender,
         owner: owners.has(message.sender.id),
       })
-      composed = await deps.compose({ botId, channelId, capabilities, message, header }, signal)
+      composed = await deps.compose(
+        { botId, channelId, capabilities, message: shielded, header },
+        signal,
+      )
     } catch (error) {
       if (signal.aborted) return { delivered: false, failure: { code: "closed", message: CLOSED } }
       throw error

@@ -28,9 +28,26 @@ import type { CursorRecord, EventRecord } from "../src/host/events/domain"
 import { createEventStore } from "../src/host/events/store"
 import { createConnectorOwnTools } from "../src/host/events/tools"
 import { createSaveQueue } from "../src/host/save-queue"
+import type { VaultAccessContext, VaultRun } from "../src/host/vaults/access"
 import type { ConnectorAction } from "../src/shared/connectors"
 import { type BotEnvironmentSpec, DEFAULT_BOT_ENVIRONMENT_SPEC } from "../src/shared/environment"
 import { memoryTable } from "./channels-support"
+
+/** A bot without logins: every use of the vault is refused. */
+const refusingVault = (): VaultRun => ({
+  access: {
+    describe: async () => {
+      throw new Error("not one of this bot's credentials")
+    },
+    reveal: async () => {
+      throw new Error("not one of this bot's credentials")
+    },
+    passkey: async () => {
+      throw new Error("not one of this bot's credentials")
+    },
+  },
+  release() {},
+})
 
 /** A manual clock: timers run only when the test advances it. */
 export function manualClock(start = 1_000_000) {
@@ -149,6 +166,7 @@ export function brokerSetup(
     connectorEnvironment?: BotConnectorEnvironment
     images?: ImageServices
     connection?: (record: ConnectionRecord) => BotConnectorConnection
+    vault?: (context: VaultAccessContext) => VaultRun
   } = {},
 ) {
   const clock = manualClock()
@@ -204,6 +222,7 @@ export function brokerSetup(
         sessionId,
         signal,
       ),
+    vault: options.vault ?? refusingVault,
     connection:
       options.connection ??
       ((record) => ({
@@ -259,6 +278,7 @@ export function brokerSetup(
   let ids = 0
   const broker = createConnectorBroker({
     catalog,
+    shield: async (_botId, _tool, value) => value,
     permissions,
     ledger,
     deadlines: createDeadlines({ later: clock.later, now: clock.now, maxDelayMs: 2_000 }),

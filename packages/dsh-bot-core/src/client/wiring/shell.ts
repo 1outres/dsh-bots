@@ -30,6 +30,7 @@ export interface ShellSources {
   readonly approvals: ActionsHub
   readonly panels: SidePanels
   readonly connectorPanels: ConnectorPanelsFace
+  readonly incidents: ShellFace["incidents"]
 }
 
 /**
@@ -72,6 +73,7 @@ export function wireShell(
     actionsWidth: createPanelWidth(ACTIONS_PANEL_WIDTH),
     panels: sources.panels,
     connectorPanels: sources.connectorPanels,
+    incidents: sources.incidents,
   }
 
   const status = createStore<RegistrationStatus>({ state: "idle" })

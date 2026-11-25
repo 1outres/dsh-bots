@@ -128,6 +128,10 @@ function toolProblem(
   if (tool.readOnly !== undefined && typeof tool.readOnly !== "boolean") {
     return "has a readOnly that is not true or false"
   }
+  if (tool.vault !== undefined && tool.vault !== true) return "has a vault that is not true"
+  if (tool.vault === true && tool.snapshot !== undefined) {
+    return "fills logins (vault) and has a snapshot; a snapshot runs before the owner decides, so it may not reach the logins"
+  }
   const timing = timingProblem(tool)
   if (timing !== undefined) return timing
   try {

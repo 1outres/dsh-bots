@@ -2,7 +2,7 @@
  * `@1outres/dsh-bot-core/prompt`: bot-core's own row inside every bot's
  * isolated `bot-environment` group (compose.ts puts it after the schedule
  * row; templates and overlays cannot name it). For the bot's Agents it
- * registers bot-core's prompt sections, the `bot:status` and `bot:management` contexts and the
+ * registers bot-core's prompt sections, the `bot:status`, `bot:management` and `bot:logins` contexts and the
  * `{{bot_name}}` variable (docs/specs/bot-system-prompt.md), each worded from
  * what the `bot` service tells about the assembling Agent, and takes
  * {@link BOT_PROMPT_EXCLUSIONS} out of their prompt.
@@ -18,6 +18,7 @@ import { BOT_SERVICE, botOf } from "../contract"
 import { agentIdOf } from "../host/prompt/assembly"
 import { withoutExcluded } from "../host/prompt/exclusions"
 import {
+  BOT_LOGINS_CONTEXT,
   BOT_MANAGEMENT_CONTEXT,
   BOT_NAME_VARIABLE,
   BOT_PROMPT_SECTIONS,
@@ -68,7 +69,7 @@ export default class BotPrompt {
         text: textOf(part),
       })
     }
-    for (const part of [BOT_STATUS_CONTEXT, BOT_MANAGEMENT_CONTEXT]) {
+    for (const part of [BOT_STATUS_CONTEXT, BOT_MANAGEMENT_CONTEXT, BOT_LOGINS_CONTEXT]) {
       ctx.systemPrompt.context({
         name: part.name,
         order: part.order,

@@ -432,6 +432,16 @@ export const CONNECTORS_ROW_ID = "env-bot-core-connectors"
 // Registers the bot's connector tools, which run on the Host (src/plugins/connectors.ts).
 export const CONNECTORS_ROW_PLUGIN = "@1outres/dsh-bot-core/connectors"
 
+export const VAULTS_ROW_ID = "env-bot-core-vaults"
+
+// credentials_list (docs/specs/bot-vaults.md §4).
+export const VAULTS_ROW_PLUGIN = "@1outres/dsh-bot-core/vaults"
+
+export const VAULT_GUARD_ROW_ID = "env-bot-core-vault-guard"
+
+// The leak guard on every tool call of the bot's Agents (docs/specs/bot-vaults.md §7).
+export const VAULT_GUARD_ROW_PLUGIN = "@1outres/dsh-bot-core/vault-guard"
+
 export const SCHEDULE_ROW_ID = "env-bot-core-schedule"
 
 // Registers the schedule and schedule_result tools for the bot's Agents (src/plugins/schedule.ts).
@@ -536,6 +546,8 @@ const BOT_CORE_ROWS = [
   { id: FILES_ROW_ID, plugin: FILES_ROW_PLUGIN },
   { id: CHANNEL_ROW_ID, plugin: CHANNEL_ROW_PLUGIN },
   { id: CONNECTORS_ROW_ID, plugin: CONNECTORS_ROW_PLUGIN },
+  { id: VAULTS_ROW_ID, plugin: VAULTS_ROW_PLUGIN },
+  { id: VAULT_GUARD_ROW_ID, plugin: VAULT_GUARD_ROW_PLUGIN },
   { id: SCHEDULE_ROW_ID, plugin: SCHEDULE_ROW_PLUGIN },
   { id: SESSIONS_ROW_ID, plugin: SESSIONS_ROW_PLUGIN },
   { id: PROMPT_ROW_ID, plugin: PROMPT_ROW_PLUGIN },

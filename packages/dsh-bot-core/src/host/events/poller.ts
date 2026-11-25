@@ -6,7 +6,11 @@
  * nobody receives any more forgets its cursor, so turning events on again
  * starts from then, not from the old cursor.
  */
-import type { BotConnectorConnection, BotConnectorPoll } from "../../connector-contract"
+import type {
+  BotConnectorConnection,
+  BotConnectorPoll,
+  ConnectorEvent,
+} from "../../connector-contract"
 import type { ConnectorJson } from "../../shared/connectors"
 import type { ConnectionRecord } from "../connections/domain"
 import type { ConnectionStore } from "../connections/store"
@@ -19,6 +23,11 @@ export interface EventPollerDeps {
   /** The bots that receive the connector's events of the account. */
   subscribers(connectionId: string, connector: CatalogConnector): readonly string[]
   store: Pick<EventStore, "cursor" | "start" | "receive" | "dropCursor">
+  /**
+   * Events with the bot's secrets withheld before they are kept (docs/specs/bot-vaults.md §7.2).
+   * @throws when the vault guard cannot check them: nothing is kept, the poll fails.
+   */
+  shield(botId: string, events: readonly ConnectorEvent[]): Promise<readonly ConnectorEvent[]>
   /** The account as a poll uses it. */
   connection(record: ConnectionRecord): BotConnectorConnection
   later(ms: number, work: () => void): () => void
@@ -108,12 +117,15 @@ export function createEventPoller(deps: EventPollerDeps): EventPoller {
       await deps.store.start(connectionId, connector.id, polled.cursor)
       return
     }
+    const botIds = deps.subscribers(connectionId, connector)
+    let kept: readonly ConnectorEvent[] = polled.events
+    for (const botId of botIds) kept = await deps.shield(botId, kept)
     await deps.store.receive(
       {
-        botIds: deps.subscribers(connectionId, connector),
+        botIds,
         connectorId: connector.id,
         connectionId,
-        events: polled.events,
+        events: kept,
         ...(polled.gap === undefined ? {} : { gap: polled.gap }),
       },
       polled.cursor,

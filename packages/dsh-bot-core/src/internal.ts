@@ -7,6 +7,7 @@
  * other Host code cannot hand bot-core a file system for a bot or act as a
  * bot's Agent.
  */
+import type { PostToolDecision, ToolExecutionResult } from "@deepseek-ai/dsh-tools"
 import type { BotChannelStatus } from "./shared/channels"
 import type { ConnectorReadiness } from "./shared/connectors"
 import type { BotWebStatus } from "./shared/web"
@@ -306,6 +307,8 @@ export interface BotPromptFacts {
   /** Absent while the session is not managed (and always for the Main session and subagents). */
   readonly management?: BotManagementFacts
   readonly channels: readonly BotPromptChannel[]
+  /** Whether the bot has a login it fills with the connectors' credential tools. */
+  readonly logins: boolean
   readonly status: BotStatusFacts
 }
 
@@ -498,3 +501,81 @@ export type CallConversationTool = (
   request: ConversationToolRequest,
   signal: AbortSignal,
 ) => Promise<ConversationToolResponse>
+/** Key of the `bot` service's method that checks a tool call's arguments for the bot's secrets (src/plugins/vault-guard.ts). */
+export const GUARD_TOOL_ARGUMENTS: unique symbol = Symbol.for(
+  "@1outres/dsh-bot-core#guardToolArguments",
+) as never
+
+/** One call of any tool by a bot's Agent, before it runs. */
+export interface GuardArgumentsRequest {
+  readonly agentId: string
+  readonly tool: string
+  readonly args: unknown
+}
+
+/** `deny`: the arguments hold a secret (or the guard could not tell). */
+export type GuardArgumentsVerdict =
+  | { readonly kind: "allow" }
+  | { readonly kind: "deny"; readonly reason: string }
+
+/** The `bot` service's method under {@link GUARD_TOOL_ARGUMENTS}. */
+export type GuardToolArguments = (
+  botId: string,
+  token: string,
+  request: GuardArgumentsRequest,
+) => Promise<GuardArgumentsVerdict>
+
+/** Key of the `bot` service's method that checks a tool call's outcome for the bot's secrets. */
+export const GUARD_TOOL_RESULT: unique symbol = Symbol.for(
+  "@1outres/dsh-bot-core#guardToolResult",
+) as never
+
+/** One call's outcome as dsh-tools has it: its result and the post-execute decision so far. */
+export interface GuardResultRequest {
+  readonly agentId: string
+  readonly tool: string
+  readonly result: Readonly<ToolExecutionResult>
+  readonly decision: PostToolDecision
+}
+
+/**
+ * - `clean`: nothing of the bot's secrets;
+ * - `withheld`: the same result and decision with each secret replaced (an incident is stored);
+ * - `failed`: the guard could not check or record; the outcome must not reach the model.
+ */
+export type GuardResultVerdict =
+  | { readonly kind: "clean" }
+  | {
+      readonly kind: "withheld"
+      readonly result: Readonly<ToolExecutionResult>
+      readonly decision: PostToolDecision
+    }
+  | { readonly kind: "failed"; readonly reason: string }
+
+/** The `bot` service's method under {@link GUARD_TOOL_RESULT}. */
+export type GuardToolResult = (
+  botId: string,
+  token: string,
+  request: GuardResultRequest,
+) => Promise<GuardResultVerdict>
+
+/** Key of the `bot` service's method that tells whether an Agent sees `credentials_list` (src/plugins/vaults.ts). */
+export const CREDENTIALS_AVAILABLE: unique symbol = Symbol.for(
+  "@1outres/dsh-bot-core#credentialsAvailable",
+) as never
+
+/** The `bot` service's method under {@link CREDENTIALS_AVAILABLE}. */
+export type CredentialsAvailable = (botId: string, token: string, agentId: string) => boolean
+
+/** Key of the `bot` service's method that answers `credentials_list`. */
+export const LIST_CREDENTIALS: unique symbol = Symbol.for(
+  "@1outres/dsh-bot-core#listCredentials",
+) as never
+
+/** The `bot` service's method under {@link LIST_CREDENTIALS}; rejects when the Agent is not the bot's. */
+export type ListCredentials = (
+  botId: string,
+  token: string,
+  agentId: string,
+  signal: AbortSignal,
+) => Promise<{ readonly text: string; readonly data: unknown }>

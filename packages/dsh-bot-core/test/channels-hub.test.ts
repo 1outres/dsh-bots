@@ -9,6 +9,7 @@ import { createChannelSettings } from "../src/host/channels/settings"
 import { createConnectorApprovals } from "../src/host/connectors/approvals"
 import { createInteractionBoard } from "../src/host/interactions/board"
 import type { ConnectorAction } from "../src/shared/connectors"
+import type { VaultIncidentView } from "../src/shared/vaults"
 import {
   CAPABILITIES,
   DECIDING,
@@ -39,6 +40,18 @@ const enable = {
   secrets: { token: { op: "set", value: "tok-XYZ" } },
 }
 
+const openIncident: VaultIncidentView = {
+  id: "vinc-1",
+  botId: "a",
+  at: 1,
+  source: "tool-result",
+  tool: "bash",
+  grantId: "cred-1",
+  label: "Example login",
+  kind: "password",
+  outcome: "redacted",
+}
+
 function setup() {
   const records = memoryTable<ChannelRecord>()
   const vault = memoryVault()
@@ -56,6 +69,7 @@ function setup() {
   })
   const conversation: ConversationDeps = {
     admit: (botId, work) => work(botId === "a" ? "main-a" : undefined),
+    shield: async (_botId, _sessionId, message) => message,
     mainSessionOf: (botId) => (botId === "a" ? "main-a" : undefined),
     activityOf: () => "idle",
     busyMode: () => "queue",
@@ -89,6 +103,7 @@ function setup() {
     outlets,
     interactions,
     approvals,
+    incidents: { open: (botId) => (botId === "a" ? [openIncident] : []) },
     warn: (message) => warnings.push(message),
   })
   settings.subscribe(() => hub.sync())
@@ -173,6 +188,20 @@ describe("channel hub", () => {
     await panel.configure("a", "chat", { ...enable, enabled: false, secrets: {} })
     await settle()
     expect(link?.pendingActions("1")).toEqual({ ok: false, reason: "closed" })
+  })
+
+  it("sends a channel telling owners of incidents the unacknowledged ones when it connects", async () => {
+    const { panel, channels } = setup()
+    const told = recordingChannel("told", { ...DECIDING, credentialIncidents: true })
+    const silent = recordingChannel("silent", DECIDING)
+    channels.push(told.channel, silent.channel)
+    await panel.configure("a", "told", enable)
+    await panel.configure("a", "silent", enable)
+    await settle()
+    expect(told.outputs.filter((output) => output.kind === "credential-incident")).toEqual([
+      { kind: "credential-incident", incident: openIncident },
+    ])
+    expect(silent.outputs.some((output) => output.kind === "credential-incident")).toBe(false)
   })
 
   it("lets nobody decide through a channel without the capability, and sends it no action", async () => {

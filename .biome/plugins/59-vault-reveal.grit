@@ -1,0 +1,22 @@
+// Design rule 59: a login's value is taken in one place.
+// A password manager session's `reveal` and `passkey` may be reached only in
+// host/vaults/access.ts, which checks the bot's login, records the use and
+// fingerprints the value for the leak guard before anything gets it. Any
+// member access named `reveal` / `passkey` (a call, a reference, a bound
+// method) and any destructuring of them is refused elsewhere in bot-core.
+or {
+  JsStaticMemberExpression(member = $member) as $found where {
+    $member <: r"reveal|passkey"
+  },
+  JsObjectBindingPatternShorthandProperty(identifier = $binding) as $found where {
+    $binding <: r"reveal|passkey"
+  },
+  JsObjectBindingPatternProperty(member = $member) as $found where {
+    $member <: r"reveal|passkey"
+  }
+} where {
+  register_diagnostic(
+    span = $found,
+    message = "Design rule 59: do not reach a password manager's reveal or passkey here; go through host/vaults/access.ts, which checks the login, records the use and fingerprints the value first."
+  )
+}

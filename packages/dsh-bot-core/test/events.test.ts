@@ -80,6 +80,7 @@ async function eventsSetup(
   const poller = () =>
     createEventPoller({
       catalog: setup.catalog,
+      shield: async (_botId, events) => events,
       connections: setup.connectionStore,
       subscribers,
       store: setup.eventStore,

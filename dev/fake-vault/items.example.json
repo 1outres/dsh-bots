@@ -1,0 +1,36 @@
+{
+  "vaults": [
+    {
+      "id": "botsvault1",
+      "name": "Bots",
+      "items": [
+        {
+          "id": "example1",
+          "title": "Example login",
+          "username": "alice",
+          "password": "correct-horse-battery-1",
+          "totp": "JBSWY3DPEHPK3PXP",
+          "websites": ["https://login.example.test/"]
+        },
+        {
+          "id": "localtest1",
+          "title": "Local test site",
+          "username": "bot",
+          "password": "fake-vault-Pa55word!",
+          "totp": "KRSXG5CTMVRXEZLU",
+          "websites": ["http://localhost:8443/login"],
+          "passkey": {
+            "rpId": "localhost"
+          }
+        },
+        {
+          "id": "shortpin1",
+          "title": "Short PIN",
+          "username": "pin",
+          "password": "1234",
+          "websites": ["https://pin.example.test/"]
+        }
+      ]
+    }
+  ]
+}

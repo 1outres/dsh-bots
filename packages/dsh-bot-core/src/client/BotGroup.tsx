@@ -30,8 +30,12 @@ export function BotGroup({ node, tabKey, index, count, ...props }: GroupProps) {
   const size = 1 + sessions.length + (overflow === undefined ? 0 : 1)
   const botStatus = useObservable(status)[bot.id]
   const waiting = useObservable(props.waiting)[bot.id]
+  const incidents = useObservable(props.incidents)[bot.id]
   const waitingText =
     waiting === undefined ? undefined : localeFormat(t).count("bot.waiting", waiting)
+  const incidentsText =
+    incidents === undefined ? undefined : localeFormat(t).count("bot.incidents", incidents)
+  const description = [incidentsText, waitingText].filter((part) => part !== undefined).join(", ")
   const menuOpen = useObservable(props.menuBot) === bot.id
   const opener = rowMenuOpener(bot.id)
   const buttonExpanded = useObservable(props.menuOpener) === opener
@@ -58,7 +62,7 @@ export function BotGroup({ node, tabKey, index, count, ...props }: GroupProps) {
         aria-expanded={expanded}
         aria-selected={rowSelected}
         aria-label={bot.name}
-        aria-description={waitingText}
+        aria-description={description === "" ? undefined : description}
         tabIndex={tabKey === key ? 0 : -1}
         data-dshb-key={key}
         data-selected={rowSelected ? "" : undefined}
@@ -89,6 +93,18 @@ export function BotGroup({ node, tabKey, index, count, ...props }: GroupProps) {
           </span>
         </span>
         <span className="dshb-title">{bot.name}</span>
+        {incidents !== undefined && (
+          <span
+            className="dshb-waiting"
+            data-tone="danger"
+            data-dshb-incidents=""
+            title={incidentsText}
+            role="img"
+            aria-label={incidentsText}
+          >
+            {incidents}
+          </span>
+        )}
         {waiting !== undefined && (
           <span
             className="dshb-waiting"

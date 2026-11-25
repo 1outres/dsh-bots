@@ -23,6 +23,7 @@ import {
 import { botShellView, shellPhase } from "../shell-phase"
 import type { Translate } from "../types"
 import { useCompactLayout } from "../ui"
+import { LOGINS_SECTION } from "../vaults/sections"
 import type { ShellSlotProps } from "./face"
 import { PreparingSession } from "./PreparingSession"
 import { BotHeader, PendingHeader, SHELL_NAME_SELECTOR } from "./ShellHeader"
@@ -35,7 +36,7 @@ import {
   ShellMenuBar,
   ShellMenuButton,
 } from "./ShellMenuBar"
-import { BotErrorStatus, ConnectionStatus, ShellNotice } from "./ShellNotice"
+import { BotErrorStatus, ConnectionStatus, IncidentStatus, ShellNotice } from "./ShellNotice"
 import type { ShellBot } from "./shell-view"
 
 /** The Factory's `views` position: Chat only, as DSH's embedded subagent chat (ui-subagent FixedChatConversationView). */
@@ -142,6 +143,7 @@ export function BotSessionShell(props: BotSessionShellProps) {
         )}
         <div className="dshb-shell-banners" data-dshb-shell-banners="">
           <ConnectionStatus t={t} bots={props.bots} />
+          {known !== undefined && <BotIncidents {...props} bot={known} />}
           {known !== undefined && <BotError {...props} bot={known} afterDismiss={focusName} />}
           <ShellNotice
             t={t}
@@ -256,6 +258,17 @@ function KnownShellBar(props: KnownProps & { readonly bot: BotView; readonly com
 
 function PendingShellBar(props: BotSessionShellProps & { readonly compact: boolean }) {
   return <>{pendingMenus(props, props.compact).bar}</>
+}
+
+function BotIncidents(props: KnownProps & { readonly bot: BotView }) {
+  const count = useObservable(props.incidents)[props.bot.id]
+  return (
+    <IncidentStatus
+      t={props.t}
+      count={count}
+      review={() => props.openSettings(props.bot.id, LOGINS_SECTION)}
+    />
+  )
 }
 
 function BotError(

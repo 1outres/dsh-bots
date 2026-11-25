@@ -76,6 +76,7 @@ describe("createPromptFacts", () => {
       sessionId === "task" || sessionId === "main" ? { answerer: "main" } : undefined,
     botName: (botId) => (botId === "a" ? "Mia" : undefined),
     channels: () => [{ name: "Discord", formatHint: "hint" }],
+    logins: () => false,
     channelStatus: () => [{ name: "Discord", status: { state: "connected" }, owners: [] }],
     connectors: () => [
       connector("Gmail", true, { state: "ready", since: 1 }, [
@@ -98,6 +99,7 @@ describe("createPromptFacts", () => {
   it("tells the bot's name, the session's kind and the enabled connectors with their usable accounts", () => {
     expect(facts("a", "t", "side")).toEqual({
       botName: "Mia",
+      logins: false,
       session: "web",
       channels: [{ name: "Discord", formatHint: "hint" }],
       status: {
@@ -183,6 +185,7 @@ describe("BOT_PROMPT_SECTIONS", () => {
     botName: "Mia",
     session: "main",
     channels: [{ name: "Discord", formatHint: "tables do not render." }, { name: "Plain" }],
+    logins: false,
     status: {
       channels: [],
       connectors: [],

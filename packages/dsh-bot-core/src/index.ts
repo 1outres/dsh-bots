@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto"
+import { createHash, createHmac, hkdfSync, randomBytes, randomUUID, scrypt } from "node:crypto"
 import type { Context } from "@deepseek-ai/cordis"
 import { installModelSelection } from "@deepseek-ai/dsh-agent"
 import { createUserMessage, type UserMessage } from "@deepseek-ai/dsh-llm"
@@ -12,7 +12,11 @@ import { createCommandRunner } from "./host/channels/commands"
 import { busyModeOf, type SettingsForm } from "./host/channels/composer"
 import type { ConversationDeps } from "./host/channels/conversation"
 import { CHANNELS_DOMAIN, type ChannelRecord } from "./host/channels/domain"
-import { createMainFeed, type SessionEventLike } from "./host/channels/feed"
+import {
+  type AssistantMessageData,
+  createMainFeed,
+  type SessionEventLike,
+} from "./host/channels/feed"
 import { createChannelHub } from "./host/channels/hub"
 import { composePrompt, type ImageLimits, type PromptPart } from "./host/channels/inbound"
 import { INBOX_DIRECTORY } from "./host/channels/inbox"
@@ -206,6 +210,7 @@ import {
   BotOnboardingRemoteService,
   BotSkillsRemoteService,
   BotsRemoteService,
+  BotVaultsRemoteService,
   BotWebRemoteService,
   BotWorkspacesRemoteService,
 } from "./host/remote"
@@ -247,6 +252,25 @@ import {
 import { createSkillStore } from "./host/skills/store"
 import { CURATION_REFUSAL, REVIEW_REFUSAL } from "./host/skills/texts"
 import type { TranscriptMessage } from "./host/spoken-messages"
+import { createVaultAccess } from "./host/vaults/access"
+import { createVaultAvailability } from "./host/vaults/availability"
+import { createVaultChecks } from "./host/vaults/checks"
+import {
+  VAULTS_DOMAIN,
+  type VaultAccountRecord,
+  type VaultFingerprintRecord,
+  type VaultGrantRecord,
+  type VaultIncidentRecord,
+  type VaultUseRecord,
+} from "./host/vaults/domain"
+import { type GuardKeys, ROLLING_HASH_BYTES, rollingHashFrom } from "./host/vaults/fingerprints"
+import { createVaultGuard, incidentView } from "./host/vaults/guard"
+import { createVaultPanel } from "./host/vaults/panel"
+import { createVaultProviders } from "./host/vaults/providers"
+import { createVaultRecords, type GuardKeyMaterial } from "./host/vaults/records"
+import { createVaultRows } from "./host/vaults/rows"
+import { createVaultSessions } from "./host/vaults/sessions"
+import { createVaultStore } from "./host/vaults/store"
 import { createWebBridge } from "./host/web/bridge"
 import { createWebBackendCatalog } from "./host/web/catalog"
 import { WEB_DOMAIN, WEB_SETTINGS_KEY } from "./host/web/domain"
@@ -606,6 +630,54 @@ interface SchedulesDomain {
   close(): Promise<void>
 }
 
+interface VaultsDomain {
+  table(name: "accounts"): BotTable<VaultAccountRecord>
+  table(name: "grants"): BotTable<VaultGrantRecord>
+  table(name: "uses"): BotTable<VaultUseRecord>
+  table(name: "fingerprints"): BotTable<VaultFingerprintRecord>
+  table(name: "incidents"): BotTable<VaultIncidentRecord>
+  close(): Promise<void>
+}
+
+/** scrypt's cost (docs/specs/bot-vaults.md §7.1). */
+const GUARD_SCRYPT = { N: 2 ** 14, r: 8, p: 1, maxmem: 64 * 1024 * 1024 } as const
+const GUARD_DIGEST_BYTES = 32
+
+const guardDigest = (bytes: Uint8Array, salt: Uint8Array): Promise<string> =>
+  new Promise((resolve, reject) => {
+    scrypt(bytes, salt, GUARD_DIGEST_BYTES, GUARD_SCRYPT, (error, key) => {
+      if (error !== null) reject(error)
+      else resolve(key.toString("base64"))
+    })
+  })
+
+/** Most bytes of text one scan of the vault guard reads (docs/specs/bot-vaults.md §7.2). */
+const GUARD_SCAN_LIMIT = 2 * 1024 * 1024
+
+const guardKeyCache = new WeakMap<GuardKeyMaterial, GuardKeys>()
+
+/** The guard's keys of the key material (records hand out the same material object), derived once. */
+function derivedGuardKeys(material: GuardKeyMaterial): GuardKeys {
+  const known = guardKeyCache.get(material)
+  if (known !== undefined) return known
+  const keys = guardKeysOf(material)
+  guardKeyCache.set(material, keys)
+  return keys
+}
+
+/** The guard's keys, derived from the installation's key material with HKDF. */
+function guardKeysOf(material: GuardKeyMaterial): GuardKeys {
+  const key = Buffer.from(material.key, "base64")
+  const salt = Buffer.from(material.salt, "base64")
+  const derive = (info: string, length: number) =>
+    new Uint8Array(hkdfSync("sha256", key, salt, `dsh-bot-core vault-guard ${info}`, length))
+  return {
+    id: Buffer.from(derive("key id", 8)).toString("hex"),
+    hash: rollingHashFrom(derive("rolling hash", ROLLING_HASH_BYTES)),
+    salt,
+  }
+}
+
 interface ConnectionsDomain {
   table(name: "connections"): BotTable<ConnectionRecord>
   table(name: "grants"): BotTable<GrantRecord>
@@ -698,6 +770,7 @@ interface HostServices {
     open(spec: typeof NOTICES_DOMAIN): Promise<NoticesDomain>
     open(spec: typeof SCHEDULES_DOMAIN): Promise<SchedulesDomain>
     open(spec: typeof CONNECTIONS_DOMAIN): Promise<ConnectionsDomain>
+    open(spec: typeof VAULTS_DOMAIN): Promise<VaultsDomain>
     open(spec: typeof EVENTS_DOMAIN): Promise<EventsDomain>
     open(spec: typeof WEB_DOMAIN): Promise<WebDomain>
     open(spec: typeof MAINS_DOMAIN): Promise<MainsDomain>
@@ -1520,6 +1593,98 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
   })
   /** The bot a session verifiably belongs to (never an unverified one's). */
   const sessionBotOf = (agent: LiveAgent) => botOfIdentity(sessionOf(agent))
+  // Password managers (docs/specs/bot-vaults.md): accounts the owner connects,
+  // the logins each bot may fill, and the leak guard over every tool call.
+  const outlets = createChannelOutlets({ warn })
+  const vaultsDomain = await services.storageDomain.open(VAULTS_DOMAIN)
+  ctx.effect(() => () => void vaultsDomain.close(), "bot-core: vaults storage domain")
+  const vaultStore = createVaultStore({
+    vaultAccounts: vaultsDomain.table("accounts"),
+    vaultGrants: vaultsDomain.table("grants"),
+    vaultUses: vaultsDomain.table("uses"),
+    vaultFingerprints: vaultsDomain.table("fingerprints"),
+    vaultIncidents: vaultsDomain.table("incidents"),
+    now: Date.now,
+  })
+  const vaultProviders = createVaultProviders()
+  const vaultRecords = createVaultRecords({
+    records: () => credentials(),
+    random: (bytes) => randomBytes(bytes).toString("base64"),
+  })
+  const vaultSessions = createVaultSessions({
+    store: vaultStore,
+    providers: vaultProviders,
+    records: vaultRecords,
+    warn,
+  })
+  ctx.effect(() => () => void vaultSessions.dispose(), "bot-core: password manager sessions")
+  const vaultAvailability = createVaultAvailability()
+  const vaultGuard = createVaultGuard({
+    store: vaultStore,
+    keys: async () => derivedGuardKeys(await vaultRecords.guardKeys()),
+    digest: guardDigest,
+    scanLimit: GUARD_SCAN_LIMIT,
+    report: (incident) =>
+      outlets.publish(incident.botId, { kind: "credential-incident", incident }),
+    newId: () => `vinc-${randomUUID().replaceAll("-", "").slice(0, 12)}`,
+    now: Date.now,
+  })
+  const vaultAccess = createVaultAccess({
+    store: vaultStore,
+    providers: vaultProviders,
+    sessions: vaultSessions,
+    guard: vaultGuard,
+    availability: vaultAvailability,
+    newId: () => `vuse-${randomUUID().replaceAll("-", "").slice(0, 12)}`,
+    now: Date.now,
+    warn,
+  })
+  const vaultChecks = createVaultChecks({
+    guard: vaultGuard,
+    sessionOf: (agentId) => host.agents.get(agentId)?.session.id,
+    warn,
+  })
+  const vaultRows = createVaultRows<LiveAgent>({
+    sealed: (botId, token) => revisionTokens.get(botId)?.has(token) === true,
+    agent: (agentId) => host.agents.get(agentId),
+    botOf: sessionBotOf,
+    checks: vaultChecks,
+    access: vaultAccess,
+    store: vaultStore,
+  })
+  new BotVaultsRemoteService(
+    ctx,
+    createVaultPanel({
+      store: vaultStore,
+      providers: vaultProviders,
+      sessions: vaultSessions,
+      records: vaultRecords,
+      access: vaultAccess,
+      availability: vaultAvailability,
+      guard: vaultGuard,
+      fillers: () =>
+        connectorCatalog
+          .list()
+          .filter((connector) => connector.tools.some((tool) => tool.vault === true))
+          .map((connector) => ({ id: connector.id, name: connector.name })),
+      onFillersChange: (listener) => connectorCatalog.subscribe(listener),
+      exists: (botId) => table.get(botId) !== undefined,
+      newId: (prefix) => `${prefix}-${randomUUID().replaceAll("-", "").slice(0, 12)}`,
+      now: Date.now,
+      deadline: (ms) => AbortSignal.timeout(ms),
+    }),
+  )
+  events.on("session/event", (session: { id: string }, event: SessionEventLike) => {
+    if (event.type !== "assistant/message") return
+    const agent = host.agents.get(session.id)
+    const botId = agent === undefined ? registry.botOfSession(session.id) : sessionBotOf(agent)
+    if (botId === undefined) return
+    const { message } = event.data as AssistantMessageData
+    void vaultChecks.assistantMessage(botId, session.id, message.content)
+  })
+  /** Text bot-core hands a bot outside tool calls, its secrets withheld (docs/specs/bot-vaults.md §7.2). */
+  const shieldContext = <T>(botId: string, value: T, tool?: string) =>
+    vaultGuard.shield({ botId, ...(tool === undefined ? {} : { tool }) }, "bot-context", value)
   /** A Main session created before bot presets: locked down, never switched, reported. */
   const isLegacyMain = (sessionId: string): boolean => {
     for (const [, record] of table.entries()) {
@@ -1850,6 +2015,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     kind: sessionKinds,
     placeOf: notesPlaceOf,
     tools: createNoteTools({ newId: newNoteId }),
+    shield: (botId, text) => shieldContext(botId, text),
   })
   ctx.effect(
     () => registry.subscribe(() => botNotes.forget((botId) => table.get(botId) !== undefined)),
@@ -1977,7 +2143,6 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
   // The channels the welcome guide sets up for its bot, through the channels' panel (below).
   const welcomeChannels = createWelcomeChannels({ catalog: channelCatalog })
   ctx.effect(() => () => welcomeChannels.dispose(), "bot-core: the welcome guide's channels")
-  const outlets = createChannelOutlets({ warn })
   /** Tell the managed sessions an interaction opened (set once they are wired, below). */
   let interactionOpened: (sessionId: string, interaction: BotInteraction) => void = () => {}
   /** The bot managing a Workspace session (set once managed sessions are wired, below). */
@@ -2234,6 +2399,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
         signal,
       ),
     connection: connectionOf,
+    vault: (context) => vaultAccess.forRun(context),
   })
   const readiness = createConnectorReadiness({
     catalog: connectorCatalog,
@@ -2300,11 +2466,13 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
   const ledger = createConnectorLedger({ actions: connectorsDomain.table("actions"), warn })
   const outbox = createNoticeOutbox({
     notices: noticesDomain.table("notices"),
+    shield: (botId, notice) => shieldContext(botId, notice),
     newId: () => randomUUID(),
     now: Date.now,
   })
   const broker = createConnectorBroker({
     catalog: connectorCatalog,
+    shield: (botId, tool, value) => shieldContext(botId, value, tool),
     permissions: connectorPermissions,
     ledger,
     deadlines: createDeadlines({
@@ -2447,6 +2615,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     kind: sessionKinds,
     reviews: reviewSessions,
     placeOf: skillsPlaceOf,
+    shield: (botId, value) => shieldContext(botId, value),
     history: {
       store: skillStore,
       newId: () => uuidv7(Date.now(), randomBytes(10)),
@@ -2695,6 +2864,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     connections: connectionStore,
     subscribers: eventSubscribers,
     store: eventStore,
+    shield: (botId, events) => shieldContext(botId, events),
     connection: connectionOf,
     later: (ms, work) => later(work, Math.min(ms, MAX_TIMER_MS)),
     deadline: (ms) => AbortSignal.timeout(ms),
@@ -3267,6 +3437,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
       connectorSettings.purge(exists),
       specStore.purge(exists),
       connectionStore.purgeBots(exists),
+      vaultStore.purgeBots(exists),
       outbox.purge(exists),
       scheduleStore.purge(exists),
       mainStore.purge(exists),
@@ -3412,6 +3583,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     channelStatus: (botId) => channelStatus(botId),
     connectors: (botId) => connectors.states(botId),
     web: () => webState.status(),
+    logins: (botId) => vaultStore.grants(botId).length > 0,
   })
 
   // Past conversations: conversation_search and conversation_read (docs/specs/bot-session-search.md).
@@ -3481,6 +3653,11 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
         connectors.toolAvailable(botId, token, shownAs(agentId), name),
     },
     connectionProviders: connectionProviders,
+    vaults: {
+      register: (provider) => vaultProviders.register(provider),
+      list: () => vaultProviders.list(),
+      ...vaultRows,
+    },
     stayChannelSilent: (botId, token, request) => silencer.staySilent(botId, token, request),
     schedules: {
       available: (botId, token, agentId, tool) =>
@@ -3644,6 +3821,10 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     })
     const conversation: ConversationDeps = {
       mainSessionOf,
+      shield: async (botId, sessionId, message) => ({
+        ...message,
+        text: await vaultGuard.shield({ botId, sessionId }, "inbound-message", message.text),
+      }),
       activityOf: (sessionId) => host.agents.get(sessionId)?.status ?? "idle",
       busyMode: () => busyModeOf(forms()),
       compose: (request, signal) =>
@@ -3736,6 +3917,14 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
       outlets,
       interactions,
       approvals: connectorApprovals,
+      incidents: {
+        open: (botId) =>
+          vaultStore
+            .incidents(botId)
+            .filter((incident) => incident.acknowledgedAt === undefined)
+            .reverse()
+            .map(incidentView),
+      },
       warn,
     })
     channelsCtx.effect(() => () => hub.dispose(), "bot-core: channel connections")

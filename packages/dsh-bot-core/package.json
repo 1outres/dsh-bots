@@ -24,6 +24,8 @@
     "./skills": "./lib/skills.js",
     "./conversations": "./lib/conversations.js",
     "./web": "./lib/web.js",
+    "./vaults": "./lib/vaults.js",
+    "./vault-guard": "./lib/vault-guard.js",
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg",
     "./package.json": "./package.json"

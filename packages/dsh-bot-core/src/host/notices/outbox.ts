@@ -4,6 +4,14 @@ import type { NoticeRecord, NoticeTopic } from "./domain"
 export interface NoticeOutboxDeps {
   /** The notices table of NOTICES_DOMAIN; only the outbox writes it (design rule 41). */
   notices: BotTable<NoticeRecord>
+  /**
+   * The notice with the bot's secrets withheld (docs/specs/bot-vaults.md §7.2).
+   * @throws when the vault guard cannot check it: nothing is stored.
+   */
+  shield(
+    botId: string,
+    notice: { readonly text: string; readonly summary: string },
+  ): Promise<{ readonly text: string; readonly summary: string }>
   newId(): string
   now(): number
 }
@@ -53,7 +61,8 @@ export function createNoticeOutbox(deps: NoticeOutboxDeps): NoticeOutbox {
     [...entries].sort((a, b) => a.createdAt - b.createdAt)
 
   return {
-    async enqueue(botId, topic, notice) {
+    async enqueue(botId, topic, given) {
+      const notice = await deps.shield(botId, given)
       const id = deps.newId()
       const record: NoticeRecord = {
         botId,

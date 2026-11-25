@@ -161,6 +161,7 @@ export interface BotsFaceSources {
   readonly notices: Pick<NoticeStore, "show">
   readonly progress: Store<string | null>
   readonly waiting: BotsFace["waiting"]
+  readonly incidents: BotsFace["incidents"]
   readonly deletion: Pick<BotDeletion, "ask">
   readonly managed: ManagedSessionsStore
 }
@@ -173,6 +174,7 @@ export function createBotsFace(ctx: ClientContext, sources: BotsFaceSources): Bo
     registrations,
     status: actions.status,
     waiting,
+    incidents: sources.incidents,
     sessions: ctx.sessions.list,
     workspaces: ctx.workspaces.list,
     openSession(sessionId) {

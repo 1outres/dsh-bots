@@ -53,6 +53,7 @@ function setup() {
     kind: {} as never,
     placeOf: () => undefined,
     tools: createNoteTools({ newId: idMaker() }),
+    shield: async (_botId, text) => text,
   })
   const placeOf = (botId: string): NotesPlace | undefined => {
     const fs = filesOf.get(botId)

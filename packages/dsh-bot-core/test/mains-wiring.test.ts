@@ -58,6 +58,7 @@ describe("the /new command", () => {
       run: (botId, command) => commands.run(botId, command),
       interactions,
       admit: (_botId, work) => work("m1"),
+      shield: async (_botId, _sessionId, message) => message,
     }
     const conversation = openMainConversation(
       deps,
@@ -105,6 +106,7 @@ describe("the /new command", () => {
         run: async () => ({ ok: false, message: "-" }),
         interactions,
         admit: (_botId, work) => work("m2"),
+        shield: async (_botId, _sessionId, message) => message,
       },
       {
         botId: "a",

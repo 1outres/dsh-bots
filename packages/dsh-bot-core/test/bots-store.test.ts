@@ -67,6 +67,7 @@ function remote() {
       botNotes: {} as never,
       botEnvironment: {} as never,
       botOnboarding: {} as never,
+      botVaults: {} as never,
     },
   }
   return { mount, watch, streams, bots }

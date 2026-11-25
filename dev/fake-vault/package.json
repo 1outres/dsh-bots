@@ -1,0 +1,41 @@
+{
+  "name": "dsh-bot-fake-vault",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Verification only: a fake password manager (provider fake-vault) for bot-core's vaults, and test pages for logins, one-time codes and passkeys. Never published or bundled.",
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./provider": "./provider.js",
+    "./server": "./server.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "provider.js",
+    "provider.d.ts",
+    "otp.js",
+    "otp.d.ts",
+    "server.js",
+    "server.d.ts",
+    "cli.js",
+    "items.example.json",
+    "cordis.patch.yml",
+    "icon.svg",
+    "README.md",
+    "connector.js"
+  ],
+  "engines": {
+    "dsh": "0.2.2-rc.5",
+    "node": ">=22"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": [
+        "./cordis.patch.yml"
+      ]
+    }
+  }
+}

@@ -10,6 +10,7 @@ import type { BotManagedSessionsApi } from "./managed-sessions"
 import type { BotNotesApi } from "./notes"
 import type { BotOnboardingApi } from "./onboarding"
 import type { BotSkillsApi } from "./skills"
+import type { BotVaultsApi } from "./vaults"
 import type { BotWebApi } from "./web"
 import type { BotWorkspacesApi } from "./workspaces"
 
@@ -37,6 +38,7 @@ export interface BotCoreApi {
   readonly botNotes: BotNotesApi
   readonly botEnvironment: BotEnvironmentApi
   readonly botOnboarding: BotOnboardingApi
+  readonly botVaults: BotVaultsApi
 }
 
 export type RemoteNamespace = keyof BotCoreApi
@@ -58,6 +60,7 @@ export const REMOTE_NAMESPACES = [
   "botNotes",
   "botEnvironment",
   "botOnboarding",
+  "botVaults",
 ] as const satisfies readonly RemoteNamespace[]
 
 /** Gateway refusals of a call whose shape is not the Host's declared contract: the two faces disagree. */
@@ -222,6 +225,18 @@ export const REMOTE_METHODS: {
     createBot: { parameters: [{ name: "input" }, { name: "channels" }] },
     finishWelcome: { parameters: [] },
     acknowledgeReleaseNotes: { parameters: [{ name: "version" }] },
+  },
+  botVaults: {
+    watch: { parameters: [], stream: true, cancellable: true },
+    addAccount: { parameters: [{ name: "request" }] },
+    renameAccount: { parameters: [{ name: "accountId" }, { name: "label" }] },
+    removeAccount: { parameters: [{ name: "accountId" }] },
+    listItems: { parameters: [{ name: "accountId" }, { name: "query" }] },
+    watchBot: { parameters: [{ name: "botId" }], stream: true, cancellable: true },
+    grant: { parameters: [{ name: "botId" }, { name: "request" }] },
+    updateGrant: { parameters: [{ name: "botId" }, { name: "grantId" }, { name: "change" }] },
+    revoke: { parameters: [{ name: "botId" }, { name: "grantId" }] },
+    acknowledgeIncident: { parameters: [{ name: "botId" }, { name: "incidentId" }] },
   },
 }
 

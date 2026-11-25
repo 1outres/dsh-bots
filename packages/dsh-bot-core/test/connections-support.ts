@@ -113,6 +113,7 @@ export function connectionsSetup(options: {
   const poller = () =>
     createEventPoller({
       catalog: setup.catalog,
+      shield: async (_botId, events) => events,
       connections: setup.connectionStore,
       subscribers: (connectionId, connector) =>
         [...setup.bots].filter(

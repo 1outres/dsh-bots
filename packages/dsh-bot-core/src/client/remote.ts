@@ -24,6 +24,7 @@ import {
   type RemoteEndpoint,
 } from "../shared/remote-contract"
 import type { BotSkillsApi, BotSkillsView } from "../shared/skills"
+import type { BotVaultsApi, BotVaultsSnapshot, BotVaultView } from "../shared/vaults"
 import type { BotWebApi, BotWebView } from "../shared/web"
 import type { BotWorkspacesApi, BotWorkspacesSnapshot } from "../shared/workspaces"
 import type {
@@ -130,6 +131,12 @@ export interface BotOnboardingRemote extends Remoted<Omit<BotOnboardingApi, "wat
   watch(): StreamHandle<BotOnboardingView>
 }
 
+/** The mounted `remote.botVaults`; both watches stream instead of resolving once. */
+export interface BotVaultsRemote extends Remoted<Omit<BotVaultsApi, "watch" | "watchBot">> {
+  watch(): StreamHandle<BotVaultsSnapshot>
+  watchBot(botId: string): StreamHandle<BotVaultView>
+}
+
 export interface BotCoreRemote {
   readonly bots: BotsRemote
   readonly botFiles: BotFilesRemote
@@ -147,6 +154,7 @@ export interface BotCoreRemote {
   readonly botNotes: BotNotesRemote
   readonly botEnvironment: BotEnvironmentRemote
   readonly botOnboarding: BotOnboardingRemote
+  readonly botVaults: BotVaultsRemote
 }
 
 /** The outcome of mounting the contribution: every namespace, or why none is. */

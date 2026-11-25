@@ -92,6 +92,18 @@ import type {
 import type { RemoteNamespace } from "../shared/remote-contract"
 import type { BotSkillHistory, BotSkillsApi, BotSkillsView, SkillVersion } from "../shared/skills"
 import type {
+  BotVaultsApi,
+  BotVaultsSnapshot,
+  BotVaultView,
+  VaultAccountRequest,
+  VaultAccountView,
+  VaultGrantChange,
+  VaultGrantRequest,
+  VaultGrantView,
+  VaultIncidentView,
+  VaultItemView,
+} from "../shared/vaults"
+import type {
   BotWebApi,
   BotWebCapability,
   BotWebSecretChange,
@@ -124,6 +136,7 @@ import type { OnboardingPanel } from "./onboarding/panel"
 import type { BotRegistry } from "./registry"
 import type { SkillPanel } from "./skills/panel"
 import { watchStream } from "./stream"
+import type { VaultPanel } from "./vaults/panel"
 import type { WebPanel } from "./web/panel"
 
 export const BOTS_REMOTE = "bots" satisfies RemoteNamespace
@@ -934,6 +947,85 @@ export class BotOnboardingRemoteService extends TypertRemoteService implements B
   }
 }
 
+export const BOT_VAULTS_REMOTE = "botVaults" satisfies RemoteNamespace
+
+const VAULTS = Symbol("botVaultPanel")
+
+/** The owner's password managers and the bots' logins: every call carries the calling Peer's principal to the panel. */
+export class BotVaultsRemoteService extends TypertRemoteService implements BotVaultsApi {
+  [VAULTS]: VaultPanel
+
+  constructor(ctx: Context, panel: VaultPanel) {
+    super(ctx, BOT_VAULTS_REMOTE)
+    this[VAULTS] = panel
+  }
+
+  @Remote({ mode: "stream" })
+  async *watch(signal?: AbortSignal): AsyncIterable<BotVaultsSnapshot> {
+    const panel = this[VAULTS]
+    const caller = this.ctx.invocation?.peer.principal
+    panel.snapshot(caller)
+    yield* watchStream(
+      () => panel.snapshot(caller),
+      (listener) => panel.subscribe(listener),
+      signal,
+    )
+  }
+
+  @Remote
+  addAccount(request: VaultAccountRequest): Promise<VaultAccountView> {
+    return this[VAULTS].addAccount(this.ctx.invocation?.peer.principal, request)
+  }
+
+  @Remote
+  renameAccount(accountId: string, label: string): Promise<VaultAccountView> {
+    return this[VAULTS].renameAccount(this.ctx.invocation?.peer.principal, accountId, label)
+  }
+
+  @Remote
+  removeAccount(accountId: string): Promise<{ readonly removedGrants: number }> {
+    return this[VAULTS].removeAccount(this.ctx.invocation?.peer.principal, accountId)
+  }
+
+  @Remote
+  listItems(accountId: string, query: string): Promise<readonly VaultItemView[]> {
+    return this[VAULTS].listItems(this.ctx.invocation?.peer.principal, accountId, query)
+  }
+
+  @Remote({ mode: "stream" })
+  async *watchBot(botId: string, signal?: AbortSignal): AsyncIterable<BotVaultView> {
+    const panel = this[VAULTS]
+    const caller = this.ctx.invocation?.peer.principal
+    panel.bot(caller, botId)
+    void panel.refresh(botId)
+    yield* watchStream(
+      () => panel.bot(caller, botId),
+      (listener) => panel.subscribeBot(botId, listener),
+      signal,
+    )
+  }
+
+  @Remote
+  grant(botId: string, request: VaultGrantRequest): Promise<VaultGrantView> {
+    return this[VAULTS].grant(this.ctx.invocation?.peer.principal, botId, request)
+  }
+
+  @Remote
+  updateGrant(botId: string, grantId: string, change: VaultGrantChange): Promise<VaultGrantView> {
+    return this[VAULTS].updateGrant(this.ctx.invocation?.peer.principal, botId, grantId, change)
+  }
+
+  @Remote
+  revoke(botId: string, grantId: string): Promise<{ readonly revoked: true }> {
+    return this[VAULTS].revoke(this.ctx.invocation?.peer.principal, botId, grantId)
+  }
+
+  @Remote
+  acknowledgeIncident(botId: string, incidentId: string): Promise<VaultIncidentView> {
+    return this[VAULTS].acknowledgeIncident(this.ctx.invocation?.peer.principal, botId, incidentId)
+  }
+}
+
 /** The Service serving each namespace of bot-core's Remote. */
 export const REMOTE_SERVICES = {
   bots: BotsRemoteService,
@@ -952,6 +1044,7 @@ export const REMOTE_SERVICES = {
   botNotes: BotNotesRemoteService,
   botEnvironment: BotEnvironmentRemoteService,
   botOnboarding: BotOnboardingRemoteService,
+  botVaults: BotVaultsRemoteService,
 } as const satisfies {
   readonly [Namespace in RemoteNamespace]: new (
     ...args: never[]

@@ -28,6 +28,7 @@ import type {
   PluginRow,
 } from "./shared/preset"
 import type { BotWebStatus } from "./shared/web"
+import type { BotVaultProvider, VaultKit } from "./vault-contract"
 import type { BotWebBackend } from "./web-contract"
 
 /**
@@ -52,6 +53,8 @@ export type * from "./channel-contract"
 export * from "./connector-contract"
 export type * from "./connector-panel-contract"
 export type * from "./mains-contract"
+export * from "./vault-bytes"
+export * from "./vault-contract"
 export type * from "./web-contract"
 
 /** Cordis service key the core registers; channel plugins put it in `inject`. */
@@ -363,6 +366,19 @@ export interface Bot {
   webStatus(): BotWebStatus
   /** Called after the web settings, the backends or their secrets changed; returns the unsubscriber. */
   onWebChange(listener: () => void): () => void
+
+  /**
+   * Register a password manager (docs/specs/bot-vaults.md); the returned
+   * function unregisters it (its accounts' sessions close; the accounts and
+   * the bots' logins stay). The owner connects its accounts and gives bots
+   * logins in the Web UI; connector tools reach them through `run.vault`.
+   * @throws when it is invalid or its id is taken.
+   */
+  registerVaultProvider(provider: BotVaultProvider): () => void
+  /** Password managers registered right now. */
+  vaultProviders(): readonly BotVaultProvider[]
+  /** Secrets and their byte encodings for packages that import only bot-core's types. */
+  vaultKit(): VaultKit
 }
 
 /**

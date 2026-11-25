@@ -11,8 +11,9 @@ import type {
   BotConnectorTrigger,
 } from "../../connector-contract"
 import type { ConnectionRecord } from "../connections/domain"
+import type { VaultAccessContext, VaultRun } from "../vaults/access"
 import type { ConnectorAttachments } from "./attachments"
-import type { CatalogConnector } from "./catalog"
+import type { CatalogConnector, CatalogTool } from "./catalog"
 import type { RunImages } from "./images"
 import type { ConnectorSettings } from "./settings"
 
@@ -20,6 +21,15 @@ import type { ConnectorSettings } from "./settings"
 export interface PreparedRun {
   readonly run: BotConnectorRun<unknown>
   readonly images?: RunImages
+  /** End the run: every value its `vault` handed out is wiped. */
+  release(): void
+}
+
+/** What a prepared run is for: a tool's `execute`, or the `snapshot` of an `ask` call (never given the vault). */
+export interface RunPurpose {
+  readonly kind: "execute" | "snapshot"
+  readonly callerSessionId?: string
+  readonly connection?: ConnectionRecord
 }
 
 export interface ConnectorRunsDeps {
@@ -30,6 +40,8 @@ export interface ConnectorRunsDeps {
   images(sessionId: string, signal: AbortSignal): RunImages
   /** The account a run acts as. */
   connection(record: ConnectionRecord): BotConnectorConnection
+  /** The bot's logins, for a run of a tool that declares `vault`. */
+  vault(context: VaultAccessContext): VaultRun
 }
 
 export interface ConnectorRuns {
@@ -45,11 +57,10 @@ export interface ConnectorRuns {
    */
   prepare(
     botId: string,
-    connector: CatalogConnector,
+    entry: CatalogTool,
     trigger: BotConnectorTrigger,
     signal: AbortSignal,
-    callerSessionId?: string,
-    connection?: ConnectionRecord,
+    purpose: RunPurpose,
   ): Promise<PreparedRun>
 }
 
@@ -68,7 +79,9 @@ export function createConnectorRuns(deps: ConnectorRunsDeps): ConnectorRuns {
   }
   return {
     context,
-    async prepare(botId, connector, trigger, signal, callerSessionId, connection) {
+    async prepare(botId, entry, trigger, signal, purpose) {
+      const { callerSessionId, connection } = purpose
+      const { connector } = entry
       const base = context(botId, connector, signal)
       if (base === undefined) throw new Error("the bot no longer exists")
       let attachment: unknown
@@ -82,6 +95,16 @@ export function createConnectorRuns(deps: ConnectorRunsDeps): ConnectorRuns {
       }
       const images =
         callerSessionId === undefined ? undefined : deps.images(callerSessionId, signal)
+      const vault =
+        purpose.kind === "execute" && entry.tool.vault === true
+          ? deps.vault({
+              botId,
+              connector: connector.id,
+              tool: entry.name,
+              ...(callerSessionId === undefined ? {} : { sessionId: callerSessionId }),
+              signal,
+            })
+          : undefined
       const run: BotConnectorRun<unknown> = {
         ...base,
         trigger,
@@ -90,8 +113,10 @@ export function createConnectorRuns(deps: ConnectorRunsDeps): ConnectorRuns {
           ? {}
           : { caller: { sessionId: callerSessionId, images: images.images } }),
         ...(connection === undefined ? {} : { connection: deps.connection(connection) }),
+        ...(vault === undefined ? {} : { vault: vault.access }),
       }
-      return images === undefined ? { run } : { run, images }
+      const release = () => vault?.release()
+      return images === undefined ? { run, release } : { run, images, release }
     },
   }
 }

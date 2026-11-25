@@ -674,3 +674,18 @@ export function IconNotes({ size = 16 }: IconProps) {
     </svg>
   )
 }
+
+/** A key: password managers and logins. */
+export function IconKey({ size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="5" cy="11" r="3" stroke="currentColor" strokeWidth="1.2" />
+      <path
+        d="M7.2 8.8L13.5 2.5M11 5l1.8 1.8M9.6 6.4l1.4 1.4"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}

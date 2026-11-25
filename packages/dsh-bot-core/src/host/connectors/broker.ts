@@ -74,6 +74,13 @@ export interface ConnectorBrokerDeps {
   exclusive: ExclusiveRuns
   /** The name of a connector the given one requires that a person operates for the bot now, if any. */
   operated(botId: string, connector: CatalogTool["connector"]): string | undefined
+  /**
+   * What a connector returned that bot-core keeps or hands the bot outside a
+   * tool call (an approved action's outcome, an `ask` call's snapshot), with
+   * the bot's secrets withheld (docs/specs/bot-vaults.md §7.2).
+   * @throws when the vault guard cannot check it.
+   */
+  shield<T>(botId: string, tool: string, value: T): Promise<T>
   /** Queue a notice for the bot's Main session (the outbox stores it first). */
   notify(botId: string, notice: ConnectorNotice): Promise<void>
   newId(): string
@@ -226,15 +233,16 @@ export function createConnectorBroker(deps: ConnectorBrokerDeps): ConnectorBroke
       const operated =
         entry.tool.readOnly === true ? undefined : deps.operated(botId, entry.connector)
       if (operated !== undefined) return { ok: false, reason: userInControl(operated, entry) }
-      const prepared = await deps.runs.prepare(
-        botId,
-        entry.connector,
-        trigger,
-        signal,
-        callerSessionId,
-        connection,
-      )
-      return runConnectorTool(entry, args, prepared)
+      const prepared = await deps.runs.prepare(botId, entry, trigger, signal, {
+        kind: "execute",
+        ...(callerSessionId === undefined ? {} : { callerSessionId }),
+        ...(connection === undefined ? {} : { connection }),
+      })
+      try {
+        return await runConnectorTool(entry, args, prepared)
+      } finally {
+        prepared.release()
+      }
     }
     const key = entry.tool.exclusive
     try {
@@ -301,16 +309,23 @@ export function createConnectorBroker(deps: ConnectorBrokerDeps): ConnectorBroke
     )
     // Unloading: the action stays executing, and the next load reports it as interrupted.
     if (lifetime.signal.aborted && !outcome.ok) return
+    let kept: ExecutionOutcome
+    try {
+      kept = await deps.shield(action.botId, entry.name, outcome)
+    } catch {
+      fail("its result could not be checked by the vault guard, so it was not kept")
+      return
+    }
     ledger.advance(
       action.id,
-      outcome.ok
+      kept.ok
         ? {
             kind: "succeed",
             at: deps.now(),
-            result: outcome.output.data,
-            ...(outcome.output.text === undefined ? {} : { text: outcome.output.text }),
+            result: kept.output.data,
+            ...(kept.output.text === undefined ? {} : { text: kept.output.text }),
           }
-        : { kind: "fail", at: deps.now(), reason: outcome.reason },
+        : { kind: "fail", at: deps.now(), reason: kept.reason },
     )
   }
 
@@ -418,20 +433,23 @@ export function createConnectorBroker(deps: ConnectorBrokerDeps): ConnectorBroke
     if (action === undefined) {
       let snapshot: ConnectorJson | undefined
       if (entry.tool.snapshot !== undefined) {
-        const prepared = await deps.runs.prepare(
-          call.botId,
-          entry.connector,
-          { kind: "call" },
-          signal,
-          call.sessionId,
-          connection,
-        )
+        const prepared = await deps.runs.prepare(call.botId, entry, { kind: "call" }, signal, {
+          kind: "snapshot",
+          callerSessionId: call.sessionId,
+          ...(connection === undefined ? {} : { connection }),
+        })
         try {
-          snapshot = await takeSnapshot(entry, call.args, prepared.run)
+          snapshot = await deps.shield(
+            call.botId,
+            entry.name,
+            await takeSnapshot(entry, call.args, prepared.run),
+          )
         } catch (error) {
           throw new Error(
             `${entry.name} could not read what this call concerns: ${messageOf(error)}`,
           )
+        } finally {
+          prepared.release()
         }
       }
       let described: ConnectorPreview

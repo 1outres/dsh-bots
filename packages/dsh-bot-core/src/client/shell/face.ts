@@ -41,6 +41,8 @@ export interface ShellFace {
   readonly panels: SidePanels
   /** Connectors' panels beside the chat. */
   readonly connectorPanels: ConnectorPanelsFace
+  /** Unacknowledged credential incidents per bot (docs/specs/bot-vaults.md §7.3). */
+  readonly incidents: Observable<Readonly<Record<string, number>>>
 }
 
 export interface ShellSlotProps extends MainConversationSlotProps, ShellFace {

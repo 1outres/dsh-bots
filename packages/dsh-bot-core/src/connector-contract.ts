@@ -14,6 +14,7 @@ import type {
   ConnectorText,
 } from "./shared/connectors"
 import type { BotEnvironmentMinimum } from "./shared/environment"
+import type { BotVaultAccess } from "./vault-contract"
 
 export type * from "./shared/connections"
 export type * from "./shared/connectors"
@@ -417,6 +418,8 @@ export interface BotConnectorRun<A = undefined> extends BotConnectorContext {
   readonly caller?: BotConnectorCaller
   /** The account the call acts as, for a connector with {@link BotConnector.connections}. */
   readonly connection?: BotConnectorConnection
+  /** The bot's logins, for a tool that declares {@link BotConnectorToolBase.vault}; undefined otherwise. */
+  readonly vault?: BotVaultAccess
 }
 
 export interface BotConnectorCaller {
@@ -498,6 +501,11 @@ export interface BotConnectorToolBase<Args, A> {
   readonly readOnly?: boolean
   /** Largest text and data (as JSON) of a result, in characters; more is cut. */
   readonly maxResultChars?: number
+  /**
+   * The tool fills the bot's logins: its runs get {@link BotConnectorRun.vault}
+   * (docs/specs/bot-vaults.md §5), approved actions included.
+   */
+  readonly vault?: true
   /**
    * Only for what a preview cannot show from the arguments alone (the message
    * a reply quotes): read it when an `ask` call becomes an action, with I/O.

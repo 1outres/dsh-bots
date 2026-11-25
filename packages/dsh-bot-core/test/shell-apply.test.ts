@@ -335,6 +335,16 @@ function fakeContext(options: FakeOptions = {}) {
           },
         })),
       },
+      botVaults: {
+        watch: vi.fn(() => ({
+          async *[Symbol.asyncIterator]() {
+            yield { providers: [], accounts: [], openIncidents: {} }
+            await new Promise(() => {})
+          },
+          dispose() {},
+        })),
+        watchBot: vi.fn(),
+      },
     },
     options.mountFailure,
   )
@@ -554,6 +564,7 @@ describe("client apply(): the bot session shell", () => {
         "clearError",
         "connectorPanels",
         "files",
+        "incidents",
         "lockdownNotice",
         "menu",
         "notes",
@@ -954,6 +965,7 @@ describe("client apply(): bot-core's Remote", () => {
         "botNotes",
         "botEnvironment",
         "botOnboarding",
+        "botVaults",
       ]),
     )
 
@@ -994,6 +1006,7 @@ describe("client apply(): bot-core's Remote", () => {
       SETTINGS_SECTION.channels,
       "bot-core.environment",
       SETTINGS_SECTION.connectors,
+      "bot-core.logins",
       "bot-core.skills",
     ])
     expect(face.flow.target.getSnapshot()).toBeNull()
@@ -1044,6 +1057,7 @@ describe("client apply(): bot-core's Remote", () => {
       "bot-core.web",
       "bot-core.mains",
       "bot-core.connections",
+      "bot-core.vaults",
     ])
     expect(global.flow.target.getSnapshot()).toBeNull()
 

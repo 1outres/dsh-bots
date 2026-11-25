@@ -66,11 +66,16 @@ function checkDistinct(values: unknown, known: ReadonlySet<string>, what: string
   }
 }
 
-function checkConnectorActions(value: unknown, owners: string | undefined, what: string): void {
+function checkOwnersOutput(
+  name: "connectorActions" | "credentialIncidents",
+  value: unknown,
+  owners: string | undefined,
+  what: string,
+): void {
   if (value === undefined) return
-  if (value !== true) throw new Error(`${what}: connectorActions must be true or absent`)
+  if (value !== true) throw new Error(`${what}: ${name} must be true or absent`)
   if (owners === undefined) {
-    throw new Error(`${what}: connectorActions needs the channel to name its owners field`)
+    throw new Error(`${what}: ${name} needs the channel to name its owners field`)
   }
 }
 
@@ -107,7 +112,8 @@ export function checkChannelCapabilities(
       `${what}: command "${ownersOnly}" is for owners only and needs the channel to name its owners field`,
     )
   }
-  checkConnectorActions(value.connectorActions, channel.owners, what)
+  checkOwnersOutput("connectorActions", value.connectorActions, channel.owners, what)
+  checkOwnersOutput("credentialIncidents", value.credentialIncidents, channel.owners, what)
 }
 
 /** The specs of the commands a channel declared, in its order. */
@@ -138,5 +144,7 @@ export function carries(capabilities: BotChannelCapabilities, output: BotChannel
       return capabilities.interactions.includes(output.closure.kind)
     case "connector-action":
       return capabilities.connectorActions === true
+    case "credential-incident":
+      return capabilities.credentialIncidents === true
   }
 }

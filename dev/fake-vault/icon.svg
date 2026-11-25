@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none" role="img" aria-labelledby="title">
+  <title id="title">Connector probe</title>
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="#B45309"/>
+  <path d="M14 32h10M40 32h10" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+  <rect x="24" y="22" width="16" height="20" rx="4" stroke="#FFFFFF" stroke-width="4"/>
+  <path d="M29 28v8M35 28v8" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 3"/>
+</svg>

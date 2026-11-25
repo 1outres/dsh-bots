@@ -116,6 +116,7 @@ function botNotes() {
     },
     placeOf: () => place,
     tools: createNoteTools({ newId }),
+    shield: async (_botId, text) => text,
   })
   const initial = createInitialNotes({
     placeOf: () => place,
@@ -157,6 +158,7 @@ class FakeBot extends Service {
       session,
       ...(management === undefined ? {} : { management }),
       channels: [{ name: "Discord", formatHint: DISCORD_HINT }],
+      logins: false,
       status: this.status,
     }
   }
@@ -192,6 +194,8 @@ const modules: Record<string, unknown> = {
   "@1outres/dsh-bot-core/schedule": { name: "schedule", apply() {} },
   "@1outres/dsh-bot-core/sessions": { name: "sessions", apply() {} },
   "@1outres/dsh-bot-core/web": { name: "web", apply() {} },
+  "@1outres/dsh-bot-core/vaults": { name: "vaults", apply() {} },
+  "@1outres/dsh-bot-core/vault-guard": { name: "vault-guard", apply() {} },
   "@1outres/dsh-bot-core/skills": { name: "skills", apply() {} },
   "@1outres/dsh-bot-core/conversations": { name: "conversations", apply() {} },
   "@deepseek-ai/dsh-skill": { name: "dsh-skill", apply() {} },
@@ -364,6 +368,7 @@ describe("@1outres/dsh-bot-core/prompt in a bot preset", () => {
         "bot:status",
         "bot:pinned-notes",
         "bot:management",
+        "bot:logins",
       ])
     }
 

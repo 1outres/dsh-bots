@@ -26,6 +26,8 @@ export interface PromptFactsDeps<A extends KindAgent> {
   channelStatus(botId: string): readonly BotStatusChannel[]
   connectors(botId: string): readonly BotConnectorView[]
   web(): BotWebStatus
+  /** Whether the bot has a login (docs/specs/bot-vaults.md §4). */
+  logins(botId: string): boolean
 }
 
 function connectorOf(view: BotConnectorView): BotStatusConnector {
@@ -59,6 +61,7 @@ export function createPromptFacts<A extends KindAgent>(deps: PromptFactsDeps<A>)
       session,
       ...(management === undefined ? {} : { management }),
       channels: deps.channels(),
+      logins: deps.logins(botId),
       status: {
         channels: deps.channelStatus(botId),
         connectors: deps

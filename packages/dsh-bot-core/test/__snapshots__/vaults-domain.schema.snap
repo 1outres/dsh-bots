@@ -1,0 +1,224 @@
+{
+  "name": "dsh_bot_vaults",
+  "version": 1,
+  "tables": {
+    "accounts": {
+      "id": {
+        "required": true,
+        "type": "string"
+      },
+      "provider": {
+        "required": true,
+        "type": "string"
+      },
+      "label": {
+        "required": true,
+        "type": "string"
+      },
+      "subject": {
+        "required": true,
+        "type": "string"
+      },
+      "status": {
+        "required": true,
+        "type": "\"active\" | \"error\""
+      },
+      "statusReason": {
+        "required": false,
+        "type": "string"
+      },
+      "createdAt": {
+        "required": true,
+        "type": "number"
+      }
+    },
+    "grants": {
+      "id": {
+        "required": true,
+        "type": "string"
+      },
+      "botId": {
+        "required": true,
+        "type": "string"
+      },
+      "accountId": {
+        "required": true,
+        "type": "string"
+      },
+      "vaultId": {
+        "required": true,
+        "type": "string"
+      },
+      "itemId": {
+        "required": true,
+        "type": "string"
+      },
+      "label": {
+        "required": true,
+        "type": "string"
+      },
+      "kinds": {
+        "required": true,
+        "type": "(\"username\" | \"password\" | \"otp\" | \"passkey\")[]"
+      },
+      "sites": {
+        "required": true,
+        "type": "{ origin: string; subdomains: boolean }[]"
+      },
+      "desktop": {
+        "required": true,
+        "type": "boolean"
+      },
+      "showUsername": {
+        "required": true,
+        "type": "boolean"
+      },
+      "connectors": {
+        "required": false,
+        "type": "string[]"
+      },
+      "grantedAt": {
+        "required": true,
+        "type": "number"
+      }
+    },
+    "uses": {
+      "id": {
+        "required": true,
+        "type": "string"
+      },
+      "botId": {
+        "required": true,
+        "type": "string"
+      },
+      "grantId": {
+        "required": true,
+        "type": "string"
+      },
+      "kind": {
+        "required": true,
+        "type": "\"username\" | \"password\" | \"otp\" | \"passkey\""
+      },
+      "connector": {
+        "required": true,
+        "type": "string"
+      },
+      "tool": {
+        "required": true,
+        "type": "string"
+      },
+      "sessionId": {
+        "required": false,
+        "type": "string"
+      },
+      "target": {
+        "required": true,
+        "type": "{ kind: \"browser\"; origin: string } | { kind: \"desktop\"; application: string }"
+      },
+      "at": {
+        "required": true,
+        "type": "number"
+      },
+      "outcome": {
+        "required": true,
+        "type": "\"filled\" | \"refused\""
+      },
+      "reason": {
+        "required": false,
+        "type": "string"
+      }
+    },
+    "fingerprints": {
+      "botId": {
+        "required": true,
+        "type": "string"
+      },
+      "grantId": {
+        "required": true,
+        "type": "string"
+      },
+      "kind": {
+        "required": true,
+        "type": "\"password\" | \"otp\" | \"passkey\""
+      },
+      "label": {
+        "required": false,
+        "type": "string"
+      },
+      "keyId": {
+        "required": false,
+        "type": "string"
+      },
+      "revokedAt": {
+        "required": false,
+        "type": "number"
+      },
+      "state": {
+        "required": true,
+        "type": "\"fingerprinted\" | \"short\""
+      },
+      "prints": {
+        "required": true,
+        "type": "{ variant: string; length: number; probe: number; digest: string }[]"
+      },
+      "at": {
+        "required": true,
+        "type": "number"
+      }
+    },
+    "incidents": {
+      "id": {
+        "required": true,
+        "type": "string"
+      },
+      "botId": {
+        "required": true,
+        "type": "string"
+      },
+      "sessionId": {
+        "required": false,
+        "type": "string"
+      },
+      "at": {
+        "required": true,
+        "type": "number"
+      },
+      "source": {
+        "required": true,
+        "type": "\"tool-result\" | \"tool-arguments\" | \"assistant-message\" | \"inbound-message\" | \"bot-context\""
+      },
+      "tool": {
+        "required": false,
+        "type": "string"
+      },
+      "grantId": {
+        "required": true,
+        "type": "string"
+      },
+      "label": {
+        "required": true,
+        "type": "string"
+      },
+      "kind": {
+        "required": true,
+        "type": "\"password\" | \"otp\" | \"passkey\""
+      },
+      "outcome": {
+        "required": true,
+        "type": "\"redacted\" | \"exposed\""
+      },
+      "acknowledgedAt": {
+        "required": false,
+        "type": "number"
+      },
+      "repeats": {
+        "required": false,
+        "type": "number"
+      },
+      "lastAt": {
+        "required": false,
+        "type": "number"
+      }
+    }
+  }
+}

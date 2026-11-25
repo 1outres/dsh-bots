@@ -101,7 +101,8 @@
         "!packages/dsh-bot-core/src/plugins/sessions.ts",
         "!packages/dsh-bot-core/src/plugins/notes.ts",
         "!packages/dsh-bot-core/src/plugins/skills.ts",
-        "!packages/dsh-bot-core/src/plugins/conversations.ts"
+        "!packages/dsh-bot-core/src/plugins/conversations.ts",
+        "!packages/dsh-bot-core/src/plugins/vaults.ts"
       ]
     },
     {
@@ -153,6 +154,33 @@
       "includes": [
         "packages/dsh-bot-core/src/**",
         "!packages/dsh-bot-core/src/host/connections/store.ts"
+      ]
+    },
+    {
+      "path": "./.biome/plugins/58-vault-writes.grit",
+      "includes": [
+        "packages/dsh-bot-core/src/**",
+        "!packages/dsh-bot-core/src/host/vaults/store.ts"
+      ]
+    },
+    {
+      "path": "./.biome/plugins/59-vault-reveal.grit",
+      "includes": [
+        "packages/dsh-bot-core/src/**",
+        "!packages/dsh-bot-core/src/host/vaults/access.ts"
+      ]
+    },
+    {
+      "path": "./.biome/plugins/60-tool-waterfalls.grit",
+      "includes": ["packages/*/src/**", "!packages/dsh-bot-core/src/plugins/vault-guard.ts"]
+    },
+    {
+      "path": "./.biome/plugins/61-secret-strings.grit",
+      "includes": [
+        "packages/dsh-bot-core/src/host/vaults/**",
+        "packages/dsh-bot-core/src/vault-*.ts",
+        "packages/dsh-bot-connector-*/src/**",
+        "packages/dsh-bot-vault-*/src/**"
       ]
     },
     {

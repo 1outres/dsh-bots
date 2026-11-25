@@ -1,5 +1,6 @@
 /** The Actions panel (approvals/) and the waiting mark of a bot's row and its menu bar entry. */
 export const APPROVALS_CSS = `
+.dshb-waiting[data-tone='danger'] { background: var(--dsw-alias-state-error-primary); }
 .dshb-waiting {
   flex: none;
   min-width: 16px;

@@ -75,6 +75,7 @@ export function setup() {
     },
     store,
     stepped: (_botId, sessionId) => stepped.push(sessionId),
+    shield: async (_botId, value) => value,
     now: () => clock.now,
     warn: () => {},
   })

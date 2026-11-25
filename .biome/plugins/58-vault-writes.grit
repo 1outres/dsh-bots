@@ -1,0 +1,19 @@
+// Design rule 58: the vaults' records are written in one place.
+// `vaultAccounts`, `vaultGrants`, `vaultUses`, `vaultFingerprints` and
+// `vaultIncidents` `.put/delete` (a receiver with that name or ending in it)
+// may appear only in host/vaults/store.ts: an account, its logins and their
+// fingerprints change together, and uses and incidents are kept bounded there.
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or { `$receiver.put`, `$receiver.delete`, `$receiver?.put`, `$receiver?.delete` },
+  $receiver <: or {
+    `vaultAccounts`, `$_.vaultAccounts`, `$_?.vaultAccounts`,
+    `vaultGrants`, `$_.vaultGrants`, `$_?.vaultGrants`,
+    `vaultUses`, `$_.vaultUses`, `$_?.vaultUses`,
+    `vaultFingerprints`, `$_.vaultFingerprints`, `$_?.vaultFingerprints`,
+    `vaultIncidents`, `$_.vaultIncidents`, `$_?.vaultIncidents`
+  },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 58: do not write the vaults tables here; go through the vault store (host/vaults/store.ts), which keeps accounts, logins and their fingerprints consistent."
+  )
+}

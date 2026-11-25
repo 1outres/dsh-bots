@@ -1,6 +1,7 @@
 import type { BotPromptChannel, BotPromptFacts, BotSessionKind } from "../../internal"
 import { CONVERSATIONS_SECTION } from "../conversations/texts"
 import { SKILLS_SECTION } from "../skills/texts"
+import { VAULT_PROMPT } from "../vaults/texts"
 import { renderStatus } from "./status"
 import {
   ENVIRONMENT,
@@ -110,6 +111,17 @@ export const BOT_MANAGEMENT_CONTEXT: BotPromptPart = {
           MANAGEMENT_HEAD,
           management.answerer === "main" ? MANAGEMENT_ANSWERS_MAIN : MANAGEMENT_ANSWERS_OWNER,
         ].join("\n"),
+}
+
+/**
+ * The runtime context of the bot's logins (docs/specs/bot-vaults.md §4): only
+ * a bot with a login gets it, and one can be given or taken during a session,
+ * so it is a context, never a section.
+ */
+export const BOT_LOGINS_CONTEXT: BotPromptPart = {
+  name: "bot:logins",
+  order: 330,
+  text: (facts) => (facts.logins ? VAULT_PROMPT : ""),
 }
 
 /**

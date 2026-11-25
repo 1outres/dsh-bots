@@ -58,6 +58,7 @@ function setup(capabilities: BotChannelCapabilities = CAPABILITIES) {
     },
     interactions,
     admit: (botId, work) => work(mains[botId]),
+    shield: async (_botId, _sessionId, message) => message,
   }
   const controller = new AbortController()
   const open = (botId = "a") =>

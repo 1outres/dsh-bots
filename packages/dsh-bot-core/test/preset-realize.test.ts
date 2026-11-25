@@ -553,6 +553,16 @@ describe("createPresetRealizer", () => {
             config: { botId: "a", token: realizer.registration("a")?.revisionToken },
           },
           {
+            id: "env-bot-core-vaults",
+            name: "@1outres/dsh-bot-core/vaults",
+            config: { botId: "a", token: realizer.registration("a")?.revisionToken },
+          },
+          {
+            id: "env-bot-core-vault-guard",
+            name: "@1outres/dsh-bot-core/vault-guard",
+            config: { botId: "a", token: realizer.registration("a")?.revisionToken },
+          },
+          {
             id: "env-bot-core-schedule",
             name: "@1outres/dsh-bot-core/schedule",
             config: { botId: "a", token: realizer.registration("a")?.revisionToken },

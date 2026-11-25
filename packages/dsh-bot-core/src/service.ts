@@ -50,9 +50,19 @@ import {
   type ConnectorToolResponse,
   type ConversationToolRequest,
   type ConversationToolsAvailable,
+  CREDENTIALS_AVAILABLE,
+  type CredentialsAvailable,
   DESCRIBE_PROMPT,
   type DescribePrompt,
+  GUARD_TOOL_ARGUMENTS,
+  GUARD_TOOL_RESULT,
+  type GuardArgumentsRequest,
+  type GuardResultRequest,
+  type GuardToolArguments,
+  type GuardToolResult,
+  LIST_CREDENTIALS,
   LIST_SKILLS,
+  type ListCredentials,
   type ListSkills,
   LOAD_SKILL,
   type LoadSkill,
@@ -108,6 +118,8 @@ import type {
 } from "./shared/models"
 import type { BotPresetPreview, BotPresetState, BotTemplate } from "./shared/preset"
 import type { BotWebStatus } from "./shared/web"
+import { VAULT_KIT } from "./vault-bytes"
+import type { BotVaultProvider, VaultKit } from "./vault-contract"
 import type { BotWebBackend } from "./web-contract"
 
 /** The Host modules the `bot` service delegates to; `apply` wires every one of them. */
@@ -139,6 +151,17 @@ export interface BotBackend {
   readonly notes: BotNotesBackend
   readonly skills: BotSkillsBackend
   readonly conversations: BotConversationsBackend
+  readonly vaults: BotVaultsBackend
+}
+
+/** What the `bot` service's vault methods delegate to (host/vaults/, wired in src/index.ts). */
+export interface BotVaultsBackend {
+  register(provider: BotVaultProvider): () => void
+  list(): readonly BotVaultProvider[]
+  readonly guardArguments: GuardToolArguments
+  readonly guardResult: GuardToolResult
+  readonly credentialsAvailable: CredentialsAvailable
+  readonly listCredentials: ListCredentials
 }
 
 /** What the `bot` service's conversation tool methods delegate to (host/conversations/bot-conversations.ts). */
@@ -532,6 +555,38 @@ export class BotService extends Service implements Bot {
   /** For bot-core's own `notes` row only (src/internal.ts). */
   [PINNED_NOTES](botId: string, token: string, agentId: string) {
     return this[BACKEND].notes.pinned(botId, token, agentId)
+  }
+
+  registerVaultProvider(provider: BotVaultProvider): () => void {
+    return this[BACKEND].vaults.register(provider)
+  }
+
+  vaultProviders(): readonly BotVaultProvider[] {
+    return this[BACKEND].vaults.list()
+  }
+
+  vaultKit(): VaultKit {
+    return VAULT_KIT
+  }
+
+  /** For bot-core's own `vault-guard` row only (src/internal.ts). */
+  [GUARD_TOOL_ARGUMENTS](botId: string, token: string, request: GuardArgumentsRequest) {
+    return this[BACKEND].vaults.guardArguments(botId, token, request)
+  }
+
+  /** For bot-core's own `vault-guard` row only (src/internal.ts). */
+  [GUARD_TOOL_RESULT](botId: string, token: string, request: GuardResultRequest) {
+    return this[BACKEND].vaults.guardResult(botId, token, request)
+  }
+
+  /** For bot-core's own `vaults` row only (src/internal.ts). */
+  [CREDENTIALS_AVAILABLE](botId: string, token: string, agentId: string) {
+    return this[BACKEND].vaults.credentialsAvailable(botId, token, agentId)
+  }
+
+  /** For bot-core's own `vaults` row only (src/internal.ts). */
+  [LIST_CREDENTIALS](botId: string, token: string, agentId: string, signal: AbortSignal) {
+    return this[BACKEND].vaults.listCredentials(botId, token, agentId, signal)
   }
 
   environment(): BotEnvironmentInfo | undefined {

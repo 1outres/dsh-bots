@@ -52,7 +52,12 @@ function setup(stored: [string, NoticeRecord][] = []) {
   const notices = memoryTable<NoticeRecord>()
   for (const [id, record] of stored) notices.rows.set(id, record)
   let ids = 0
-  const outbox = createNoticeOutbox({ notices, newId: () => `id-${++ids}`, now: clock.now })
+  const outbox = createNoticeOutbox({
+    notices,
+    shield: async (_botId, notice) => notice,
+    newId: () => `id-${++ids}`,
+    now: clock.now,
+  })
   const main = fakeAgent()
   const next = fakeAgent()
   const flags = { archived: false, failResolve: false, main: "main-1" }

@@ -93,6 +93,7 @@ function props(overrides: Partial<ShellSlotProps> = {}) {
     actionsWidth: { ...value(420), resize: () => {} },
     panels,
     connectorPanels: idleConnectorPanels,
+    incidents: value<Readonly<Record<string, number>>>({}),
     renderSlot: () => null,
     files: filesFace(viewer),
     notes: notesFace(),

@@ -42,6 +42,11 @@ export interface BotSkillsDeps<A extends KindAgent> {
   store: Pick<SkillStore, "recordUse">
   /** A step of a Main or Web session (not a review's) is about to run. */
   stepped(botId: string, sessionId: string): void
+  /**
+   * Skills as the bot's prompt and its skill tool show them, with its secrets
+   * withheld (docs/specs/bot-vaults.md §7.2). @throws when the vault guard cannot check them.
+   */
+  shield<T>(botId: string, value: T): Promise<T>
   now(): number
   warn(message: string): void
 }
@@ -216,7 +221,10 @@ export function createBotSkills<A extends KindAgent>(deps: BotSkillsDeps<A>): Bo
       requireSealed(botId, token)
       const place = requirePlace(botId, token)
       const catalog = await rescan(botId, place, signal)
-      return catalog.skills.map((skill) => entryOf(place, skill.name, skill.description))
+      return deps.shield(
+        botId,
+        catalog.skills.map((skill) => entryOf(place, skill.name, skill.description)),
+      )
     },
     async load(botId, token, name, signal) {
       requireSealed(botId, token)
@@ -230,7 +238,10 @@ export function createBotSkills<A extends KindAgent>(deps: BotSkillsDeps<A>): Bo
       })
       if (loaded === undefined) return undefined
       await deps.store.recordUse(botId, name, deps.now())
-      return { ...entryOf(place, name, loaded.description), content: loaded.body }
+      return deps.shield(botId, {
+        ...entryOf(place, name, loaded.description),
+        content: loaded.body,
+      })
     },
     watch(botId, _token, listener) {
       let set = watchers.get(botId)
