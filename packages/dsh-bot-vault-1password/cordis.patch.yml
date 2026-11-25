@@ -1,0 +1,6 @@
+# Installs this plugin on its own (dsh plugin add @1outres/dsh-bot-vault-1password).
+# The @1outres/dsh-bots bundle inserts the same "bot-vault-1password" row, so select
+# one bundle or the other, never both.
+- insert:
+    - id: bot-vault-1password
+      name: "@1outres/dsh-bot-vault-1password"

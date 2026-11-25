@@ -63,6 +63,18 @@ at any time; a piped install never sees it until its tag is released.
 6. **Check**: `npm view @1outres/dsh-bots@<version> dependencies`, and on a clean host
    `curl -fsSL https://raw.githubusercontent.com/1outres/dsh-bots/main/install.sh | bash`.
 
+## 1Password CLI
+
+`@1outres/dsh-bot-vault-1password` downloads one pinned 1Password CLI (`packages/dsh-bot-vault-1password/src/cli/release.ts`). To raise it:
+
+1. Pick the version from <https://releases.1password.com/developers/cli/> (stable only).
+2. Download `https://cache.agilebits.com/dist/1P/op2/pkg/v<version>/op_<os>_<arch>_v<version>.zip` for `linux_amd64`, `linux_arm64`, `darwin_amd64` and `darwin_arm64` into an empty directory.
+3. Verify each: unzip into its own directory and check `op.sig` against `op` with 1Password's key (`gpg --keyserver keyserver.ubuntu.com --receive-keys 3FEF9748469ADBE15DA7CA80AC2D62742012EA22`, then `gpg --verify op.sig op`, "Good signature from 1Password"; the fingerprint must be exactly that one).
+4. Put the version and, per platform, `sha256sum` of the zip (`sha256`) and of the verified `op` (`binarySha256`) in `release.ts`, and the version in the test "the pinned release".
+5. Check with a real service account (docs/1password.md, "本物のアカウントで確かめる"): the JSON of `op whoami`, `op item get` and the errors' wording may change between versions (`src/op/items.ts`, `src/op/failure.ts`).
+
+On the next start each DSH installs the new version under its data directory and removes the old one.
+
 ## One-time setup (author)
 
 ### Repository

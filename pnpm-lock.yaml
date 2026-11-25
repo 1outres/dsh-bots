@@ -387,6 +387,18 @@ importers:
         specifier: ~4.1.0
         version: 4.1.0(@deepseek-ai/cordis-plugin-include@1.1.0)(@deepseek-ai/cordis-plugin-loader@1.1.0)
 
+  packages/dsh-bot-vault-1password:
+    devDependencies:
+      '@1outres/dsh-bot-core':
+        specifier: workspace:*
+        version: link:../dsh-bot-core
+      '@deepseek-ai/cordis':
+        specifier: ~4.1.0
+        version: 4.1.0(@deepseek-ai/cordis-plugin-include@1.1.0)(@deepseek-ai/cordis-plugin-loader@1.1.0)
+      '@deepseek-ai/dsh-home-paths':
+        specifier: 0.2.2-rc.5
+        version: 0.2.2-rc.5(@deepseek-ai/cordis@4.1.0)
+
   packages/dsh-bot-vm:
     dependencies:
       '@deepseek-ai/dsh-fs-ssh':
@@ -454,6 +466,9 @@ importers:
       '@1outres/dsh-bot-discord':
         specifier: workspace:*
         version: link:../dsh-bot-discord
+      '@1outres/dsh-bot-vault-1password':
+        specifier: workspace:*
+        version: link:../dsh-bot-vault-1password
       '@1outres/dsh-bot-vm':
         specifier: workspace:*
         version: link:../dsh-bot-vm

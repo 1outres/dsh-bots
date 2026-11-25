@@ -202,6 +202,33 @@
       ]
     },
     {
+      "path": "./.biome/plugins/68-op-process.grit",
+      "includes": [
+        "packages/dsh-bot-vault-1password/src/**",
+        "!packages/dsh-bot-vault-1password/src/op/runner.ts"
+      ]
+    },
+    {
+      "path": "./.biome/plugins/69-op-environment.grit",
+      "includes": ["packages/dsh-bot-vault-1password/src/**"]
+    },
+    {
+      "path": "./.biome/plugins/70-op-output-text.grit",
+      "includes": [
+        "packages/dsh-bot-vault-1password/src/**",
+        "!packages/dsh-bot-vault-1password/src/json/reader.ts",
+        "!packages/dsh-bot-vault-1password/src/op/environment.ts",
+        "!packages/dsh-bot-vault-1password/src/op/runner.ts"
+      ]
+    },
+    {
+      "path": "./.biome/plugins/71-vault-file-writes.grit",
+      "includes": [
+        "packages/dsh-bot-vault-1password/src/**",
+        "!packages/dsh-bot-vault-1password/src/cli/install.ts"
+      ]
+    },
+    {
       "path": "./.biome/plugins/49-event-writes.grit",
       "includes": [
         "packages/dsh-bot-core/src/**",
@@ -278,7 +305,8 @@
         "!packages/dsh-bot-connector-google/src/index.ts",
         "!packages/dsh-bot-web/src/index.ts",
         "!packages/dsh-bot-connector-desktop/src/index.ts",
-        "!packages/dsh-bot-connector-browser/src/index.ts"
+        "!packages/dsh-bot-connector-browser/src/index.ts",
+        "!packages/dsh-bot-vault-1password/src/index.ts"
       ]
     },
     {

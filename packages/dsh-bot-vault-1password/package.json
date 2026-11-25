@@ -1,0 +1,62 @@
+{
+  "name": "@1outres/dsh-bot-vault-1password",
+  "version": "0.3.1",
+  "description": "Lets bots of DeepSeek Harness log in with items of 1Password: connects 1Password service accounts as a password manager of dsh-bots, through a 1Password CLI it downloads, verifies and runs itself.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/1outres/dsh-bots.git",
+    "directory": "packages/dsh-bot-vault-1password"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "src",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg"
+  ],
+  "scripts": {
+    "prepublishOnly": "node ../../scripts/build.mjs"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "bot",
+    "vault",
+    "1password",
+    "password-manager",
+    "deepseek-harness"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "dsh": "0.2.2-rc.5",
+    "node": ">=22"
+  },
+  "peerDependencies": {
+    "@1outres/dsh-bot-core": "workspace:^0.3.1",
+    "@deepseek-ai/cordis": "~4.1.0",
+    "@deepseek-ai/dsh-home-paths": "0.2.2-rc.5"
+  },
+  "devDependencies": {
+    "@1outres/dsh-bot-core": "workspace:*",
+    "@deepseek-ai/cordis": "~4.1.0",
+    "@deepseek-ai/dsh-home-paths": "0.2.2-rc.5"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": [
+        "./cordis.patch.yml"
+      ]
+    }
+  }
+}

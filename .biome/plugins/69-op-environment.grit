@@ -1,0 +1,10 @@
+// Design rule 69: op never sees DSH's environment.
+// packages/dsh-bot-vault-1password does not read process.env, so nothing of
+// DSH's environment (OP_CONNECT_HOST, OP_CONNECT_TOKEN, another account's
+// session) can reach op; src/op/environment.ts builds op's whole environment.
+`process.env` as $env where {
+  register_diagnostic(
+    span = $env,
+    message = "Design rule 69: do not read process.env in the 1Password provider; op's environment is built whole in src/op/environment.ts, so nothing of DSH's (OP_CONNECT_*) reaches it."
+  )
+}

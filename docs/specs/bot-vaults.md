@@ -49,7 +49,7 @@ type VaultSecretKind = "password" | "otp" | "passkey"
 type VaultFieldKind = "username" | VaultSecretKind
 
 interface BotVaultProvider {
-  readonly id: string // [a-z][a-z0-9-]*  "1password" / 将来 "bitwarden"
+  readonly id: string // [a-z][a-z0-9-]*  "onepassword" / 将来 "bitwarden"
   readonly name: string
   readonly guide?: string // https のセットアップ手順
   readonly setup: readonly VaultSetupField[] // 口座をつなぐのに要る項目
@@ -215,12 +215,12 @@ type CredentialTarget =
 ## 10. 1Password（`@1outres/dsh-bot-vault-1password`、row `bot-vault-1password`）
 
 - 認証は **サービスアカウント**（オーナーがボット用の Vault だけに読み取りで作る。ガイドに手順）。setup は `token`（secret）だけ。
-- **op CLI は dsh-bots が管理する**: パッケージにピン留めした版と、プラットフォームごとの公式 zip（`https://cache.agilebits.com/dist/1P/op2/pkg/v<ver>/op_<os>_<arch>_v<ver>.zip`）の SHA-256 を持ち、初回に DSH のデータディレクトリの下（`<plugin data>/op/<ver>/op`、0700）へ取得・検証・展開する。検証できなければ使わない（PATH の op は使わない。fallback なし）。状態（取得中・ready・失敗）を provider の `status` で出す。
-- 実行: `spawn`（シェルなし）、環境変数は `OP_SERVICE_ACCOUNT_TOKEN`・専用の `HOME` / `OP_CONFIG_DIR`（0700 の一時ディレクトリ）・`OP_FORMAT=json` だけ、タイムアウトあり、stdout は Buffer で受ける。
+- **op CLI は dsh-bots が管理する**: パッケージにピン留めした版と、プラットフォームごとの公式 zip（`https://cache.agilebits.com/dist/1P/op2/pkg/v<ver>/op_<os>_<arch>_v<ver>.zip`）と中の `op` の SHA-256 を持ち、初回に DSH のホームの下（`<DSH_HOME>/bot-vault-1password/op/<ver>/op`、0700）へ取得・検証・展開する。検証できなければ使わない（PATH の op は使わない。fallback なし）。状態（取得中・ready・失敗）を provider の `status` で出す。
+- 実行: `spawn`（シェルなし）、環境変数は `OP_SERVICE_ACCOUNT_TOKEN`・専用の `HOME` / `OP_CONFIG_DIR`（0700 の一時ディレクトリ）・`OP_FORMAT=json`・`OP_CACHE=false` だけ（親の環境を継承しない）、タイムアウトあり、stdout は Buffer で受ける。
   - `identify`: `op whoami`。`listItems`: `op vault list` と `op item list --vault <id> --categories Login,Password`（値を含まない）。
   - フィールドの種類（`item`）: `op item get <id> --vault <vid> --format json` は値も返すので、**出力の Buffer をバイトのまま走査する JSON パーサ**で `value` / `totp` / `reference` を文字列にせずに読み飛ばし、id・type・purpose・label・ユーザ名・URL だけを取り出し、Buffer を 0 埋めする。
-  - `reveal`: `op read --no-newline op://<vaultId>/<itemId>/<fieldId>`（OTP は `?attribute=otp`）。ID は英数字だけを受け付ける（参照の注入を防ぐ）。stdout の Buffer をそのまま `SecretBytes` にする。
-- `kinds: ["password", "otp"]`。パスキーは 1Password の SDK / CLI / Connect のどれも秘密鍵を出さないので扱えない（設定画面にそう出す）。
+  - `reveal`: `op read --no-newline op://<vaultId>/<itemId>/<fieldId>`（OTP は `?attribute=otp`）。ID は英数字と `_` だけを受け付ける（参照の注入を防ぐ。OTP のフィールドは `TOTP_<id>`）。stdout の Buffer をそのまま `SecretBytes` にする。
+- provider id は `onepassword`。`kinds: ["password", "otp"]`。パスキーは 1Password の SDK / CLI / Connect のどれも秘密鍵を出さないので扱えない（設定画面のトークン欄の説明にそう出す）。詳細は末尾「実装で確定したこと（`feat/vault-1password`）」。
 
 ## 11. Web の画面（bot-core）
 
@@ -301,3 +301,20 @@ provider を 1 つ登録するだけ: setup（サーバー URL、client_id / cli
 - 設計ルール 62（デスクトップのパッケージで `.reveal()` / `.passkey()` を呼べるのは `host/tools/credentials.ts` だけ、grit）と 63（agent の `type_secret` が値を応答・エラー・ログ・引数・クリップボードに出さない、`test/agent/test_secret_input.py` を vitest から `python3` で実行）。
 - 0 埋めは Host まで。agent（Python）の中では値は `bytes`（不変）で、0 埋めできない（0 章のとおり VM はボットのもの）。
 - 動作確認（DSH_HOME=/tmp/dsh-vault-desktop）: 実モデルが yad（GTK3）のログインダイアログにユーザ名とパスワード（`"`・`\` を含む ASCII）を入力し、ダイアログの出力の sha256 が値と一致した。Chrome のアドレスバーでは `browser_refused`、デスクトップを許可していないログインは bot-core が断った。値と base64 は DSH_HOME（セッション・ストレージ・ログ）、VM の journal、クリップボードのどこにも出なかった。
+
+## 実装で確定したこと（`feat/vault-1password`）
+
+- **パッケージ**: `@1outres/dsh-bot-vault-1password`（行 `bot-vault-1password`、`@1outres/dsh-bots` に追加）。Host だけ（client なし）。provider id は `onepassword`（2 章の例の `1password` は id の形 `[a-z][a-z0-9-]*` に合わないため）。bot-core は peer で型だけ、`ctx.get("bot")`（設計ルール 8 の例外に追加）。設定の手順は `docs/1password.md`（provider の `guide`）。bot-core の変更は 1 か所だけ: 全体設定「パスワード管理」の口座の追加の form で、setup の各項目の `help` を項目名の下に出す（`client/vaults/VaultsSettings.tsx` の `Row` に `meta` を渡す。これまで `help` は表示されていなかった）。
+- **op CLI**: 版（2.42.0）とプラットフォームごと（linux / darwin × amd64 / arm64）に **zip の SHA-256 と中の `op` の SHA-256** の両方を `src/cli/release.ts` に固定（どちらも GPG 署名を確かめた zip から取った）。置き場所は `<DSH のホーム>/bot-vault-1password/op/<ver>/op`（`~/.dsh` か `$DSH_HOME`、途中のディレクトリはすべて 0700、シンボリックリンクは拒否）。起動時に既存の `op` を SHA-256 で確かめ、合わなければ取得 → zip の SHA-256 → 名前がちょうど `op` の項目だけを取り出し（項目名は比較するだけでパスに使わない。stored / deflate、サイズ上限、暗号化・重複は拒否）→ `op` の SHA-256 → 一時ファイル（`wx`、0700）から rename。ほかの版のディレクトリは消す。失敗したら status が `failed`（理由つき）で、次の接続時にやり直す（PATH の op は使わない）。status の `preparing` の step は Checking / Downloading / Installing。版の上げ方は infra/RELEASING.md「1Password CLI」。
+- **実行**: 環境変数は `OP_SERVICE_ACCOUNT_TOKEN`・`HOME`・`OP_CONFIG_DIR`・`OP_FORMAT=json`・`OP_CACHE=false` だけ（親の env を継承しない）。`HOME` は口座のセッションごとに OS の一時ディレクトリに作る 0700 のディレクトリ（`OP_CONFIG_DIR` はその下の 0700）で、セッションを閉じると消す。コマンドごとにタイムアウトと出力の上限、口座あたり同時 4 つまで。stdout は読んだチャンクを連結したら 0 埋めし、失敗時も 0 埋めする。
+- **トークン**: setup の `SecretBytes` から 1 回だけコピーしてセッションが持ち（閉じると 0 埋め）、形（`ops_` で始まる・使える文字・長さ）を値を引用せずに検査する。op が受け取れるのは環境変数だけなので、コマンドごとに JS の文字列になる（0 章の接続の秘密の例外）。
+- **エラー**: op の stderr は理由の分類（トークンを受け付けない・権限なし・見つからない・レート制限・届かない・タイムアウト・中断・出力過大・その他）にだけ使い、メッセージに引用しない（op は不正なトークンの一部をエラーに出すことがある）。stdout も ID もメッセージに入れない。`item` は見つからない・権限なし（403）なら `undefined`。
+- **identify**: `op whoami` の `user_type` が `SERVICE_ACCOUNT` のときだけ。subject は `<url>#<user_uuid>`、label は `1Password <ホスト>`。
+- **項目**: カテゴリが Login / Password のものだけ。フィールドは purpose が USERNAME の最初のもの（その値がユーザ名）、purpose が PASSWORD の最初のもの（ほかの CONCEALED は出さない）、type が OTP の最初のもの。websites は `urls[].href`、updatedAt は `updated_at`。
+- **ID**: 英数字と `_`、64 文字まで（OTP のフィールドの id が `TOTP_<id>` のため、10 章の「英数字だけ」から `_` を足した）。それ以外の ID は op を呼ぶ前に断り、そういうフィールドは項目に出さない。
+- **JSON の読み方**: `src/json/reader.ts` がバイト列を文字列にせずにスパンの木にし、`text()` で求められた文字列ノードだけをデコードする。`isText()` はバイトで比較する。読み終えたら Buffer を 0 埋め。テストは `TextDecoder.decode` / `Buffer.toString` / `String.fromCharCode` をすべて記録して、値（パスワード・履歴・OTP のシードと現在のコード・ほかの CONCEALED・メモ）が一度もデコードされないことを確かめる。
+- **レート制限への対策**: `listItems` は `op vault list` と Vault ごとの `op item list` のあと、項目のメタデータ（値なし）を `updated_at` ごとに覚えておき、新しいか変わった項目だけ `op item get` する。一覧は 30 秒間、オーナーの検索（入力が止まるたびに呼ばれる）に使い回す。入力 1 回は読み取り 2 回（bot-core の `item` と `reveal`）。初回の一覧は項目ごとに 1 回読むので、項目の多い Vault では時間がかかり（bot-core の一覧の期限は 60 秒）上限にも近づく。ボット用の小さな Vault を前提にする。429 は「レート制限」のエラーになる。
+- **パスキー**: `kinds` は `["password", "otp"]`。設定画面にはトークン欄の説明（`help`）の先頭で「パスキーは使えない」と出す（bot-core に provider の説明文の欄が無いため。説明は 1 行に切り詰めて出るので先頭に置く）。書き込みのコマンドは使わない。
+- **設計ルール** 68（プロセスの起動は `src/op/runner.ts` だけ）、69（`process.env` を読まない）、70（バイト列の文字列化は `src/json/reader.ts`・`src/op/environment.ts`・`src/op/runner.ts`（stderr）だけ）、71（ファイルの書き込みは `src/cli/install.ts` だけ）。
+- **動作確認用 DSH で確かめたこと**: 起動時に実際の 2.42.0 の zip を取得・検証して `<DSH_HOME>/bot-vault-1password/op/2.42.0/op`（0700、SHA-256 一致）に入れ、状態が「利用可能」になる。形だけ正しい偽のトークンで口座を追加すると、本物の op が「1Password did not accept the service account token (revoked, expired or mistyped) (op whoami)」で断り、トークンの一部はメッセージに出ない。DSH の環境に `OP_CONNECT_HOST` / `OP_CONNECT_TOKEN` を置いても op には渡らない（Connect へ行かずにトークンのエラーになる）。
+- **本物での確認**: 本物のサービスアカウントでは確かめていない（テストは偽の op）。確かめる手順は `docs/1password.md` の末尾。

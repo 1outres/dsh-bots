@@ -1,0 +1,14 @@
+// Design rule 71: the 1Password provider writes one kind of file.
+// In packages/dsh-bot-vault-1password, only src/cli/install.ts writes a file
+// (the verified op binary), so no value, token or op output is ever written
+// to disk, a temporary file included.
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or {
+    `writeFile`, `writeFileSync`, `appendFile`, `appendFileSync`, `createWriteStream`,
+    `$_.writeFile`, `$_.writeFileSync`, `$_.appendFile`, `$_.appendFileSync`, `$_.createWriteStream`
+  },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 71: do not write files in the 1Password provider; only src/cli/install.ts writes the verified op binary, so no value or token reaches the disk."
+  )
+}

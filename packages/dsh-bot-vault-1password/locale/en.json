@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "1Password for bots",
+    "description": "Lets bots log in with 1Password items the owner picks: connect a 1Password service account in the dsh-bots settings (Password managers). Passwords and one-time codes only; values never reach the model."
+  }
+}

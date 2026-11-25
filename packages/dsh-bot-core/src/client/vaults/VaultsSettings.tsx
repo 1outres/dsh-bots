@@ -247,6 +247,7 @@ function AddAccount(
         <Row
           key={field.key}
           label={text(field.label)}
+          meta={field.help === undefined ? undefined : text(field.help)}
           trailing={
             field.kind === "secret" ? (
               <SecretInput

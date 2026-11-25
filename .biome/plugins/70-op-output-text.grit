@@ -1,0 +1,18 @@
+// Design rule 70: op's output is read as bytes.
+// In packages/dsh-bot-vault-1password, bytes become text only in
+// src/json/reader.ts (one trusted JSON field at a time), src/op/environment.ts
+// (the token, for op's environment) and src/op/runner.ts (op's stderr, to
+// classify a failure): TextDecoder, .decode(), .toString() and
+// String.fromCharCode() are refused elsewhere, so a value op printed is
+// never decoded by accident.
+or {
+  JsNewExpression(callee = `TextDecoder`),
+  JsCallExpression(callee = or { `$_.decode`, `String.fromCharCode` }),
+  `$_.toString($_)`,
+  `$_.toString()`
+} as $text where {
+  register_diagnostic(
+    span = $text,
+    message = "Design rule 70: do not turn bytes into text here; read op's JSON with src/json/reader.ts, which decodes only the fields asked for and leaves values as bytes it wipes."
+  )
+}

@@ -1,0 +1,14 @@
+// Design rule 68: 1Password's CLI is started in one place.
+// In packages/dsh-bot-vault-1password, only src/op/runner.ts starts a
+// process: it runs the pinned op without a shell, with the environment it
+// is given (never DSH's) and keeps stdout as bytes it wipes.
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or {
+    `spawn`, `spawnSync`, `execFile`, `execFileSync`, `execSync`, `fork`,
+    `$_.spawn`, `$_.spawnSync`, `$_.execFile`, `$_.execFileSync`, `$_.execSync`, `$_.fork`
+  },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 68: do not start a process here; run op through src/op/runner.ts, which starts the pinned binary without a shell and with only the environment it is given."
+  )
+}
