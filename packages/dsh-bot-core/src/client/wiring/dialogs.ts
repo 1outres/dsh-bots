@@ -1,4 +1,5 @@
 import type { BotCreationOffer } from "../../shared/bots"
+import type { BotChannelDefault } from "../../shared/channels"
 import { CreateBotDialog, type CreateBotFace } from "../CreateBotDialog"
 import type { CreationSources } from "../creation/use-creation-form"
 import { SLOT } from "../dsh/slots"
@@ -47,6 +48,16 @@ export async function creationOptions(mount: Promise<RemoteMount>): Promise<BotC
   return result.value
 }
 
+export async function channelDefaults(
+  mount: Promise<RemoteMount>,
+): Promise<readonly BotChannelDefault[]> {
+  const mounted = await mount
+  if (mounted.status === "failed") throw new Error(mounted.error)
+  const result = await mounted.remote.botChannels.defaults()
+  if (!result.ok) throw new Error(result.error.message ?? "request refused")
+  return result.value
+}
+
 export function wireDialogs(
   ctx: ClientContext,
   sources: {
@@ -64,6 +75,7 @@ export function wireDialogs(
         createBot: actions.createBot,
         createDialog: dialogs.createDialog,
         ...creation,
+        text: (value) => ctx.locale.resolveText({ ...value }),
       }) satisfies CreateBotFace,
     CreateBotDialog,
   )

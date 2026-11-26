@@ -15,3 +15,5 @@
       name: "@1outres/dsh-bot-connector-browser"
     - id: bot-vault-1password
       name: "@1outres/dsh-bot-vault-1password"
+    - id: bot-matrix
+      name: "@1outres/dsh-bot-matrix"

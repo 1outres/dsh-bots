@@ -1,9 +1,11 @@
 import { createHash } from "node:crypto"
 import { describe, expect, it } from "vitest"
 import type { BotChannel, BotChannelCapabilities, BotChannelOutput } from "../src/contract"
+import { createAccountReconciler } from "../src/host/channels/accounts"
 import type { ConversationDeps } from "../src/host/channels/conversation"
 import type { ChannelRecord } from "../src/host/channels/domain"
 import { createChannelHub } from "../src/host/channels/hub"
+import { createInitialChannels } from "../src/host/channels/initial"
 import { createChannelOutlets } from "../src/host/channels/outlets"
 import { createChannelPanel } from "../src/host/channels/panel"
 import { createProfileRenderer } from "../src/host/channels/profile/render"
@@ -22,6 +24,7 @@ import {
   memoryVault,
   recordingChannel,
   settle,
+  sharedChannels,
 } from "./channels-support"
 import { brokerSetup } from "./connectors-support"
 
@@ -131,10 +134,12 @@ function setup() {
     warn: (message) => warnings.push(message),
   })
   settings.subscribe((botId) => profiles.refresh(botId))
+  const shared = sharedChannels(() => channels, { synced: () => hub.sync() })
   const hub = createChannelHub({
     channels: () => channels,
     bots: () => bots,
     settings,
+    shared: shared.settings,
     conversation,
     outlets,
     interactions,
@@ -158,9 +163,11 @@ function setup() {
     settings,
     hub,
     profiles,
+    shared: shared.panel,
     deadline: () => new AbortController().signal,
   })
   return {
+    shared,
     profiles,
     drawn,
     settings,
@@ -580,5 +587,227 @@ describe("channel profiles", () => {
       panel.configure("a", "chat", { ...enable, secrets: {}, profileSync: true }),
     ).rejects.toThrow("does not take the bot's name and avatar")
     expect(profilesOf(chat.outputs)).toEqual([])
+  })
+})
+
+const SHARED_FIELDS = [
+  { kind: "secret", key: "apiKey", label: { en: "API key" }, required: true, maxLength: 64 },
+  { kind: "text", key: "owner", label: { en: "Owner" }, required: false, maxLength: 32 },
+] as const
+
+function sharedChannel(
+  base: ReturnType<typeof recordingChannel>,
+  hooks: Partial<Pick<BotChannel, "initialSettings" | "accounts">> & {
+    readonly check?: (
+      shared: Record<string, unknown>,
+    ) => { ok: true } | { ok: false; reason: { en: string } }
+  } = {},
+): BotChannel {
+  return {
+    ...base.channel,
+    shared: {
+      fields: SHARED_FIELDS,
+      check: async ({ shared }) => hooks.check?.(shared) ?? { ok: true },
+      inspect: async ({ shared }) => ({
+        state: "ready",
+        links: [],
+        warnings: [{ en: `owner ${String(shared.owner)}` }],
+        snippets: [{ label: { en: "Config" }, language: "text", text: "x" }],
+      }),
+      ...(hooks.initialSettings === undefined
+        ? {}
+        : {
+            describeInitial: (shared) =>
+              shared.owner === ""
+                ? { state: "unavailable", reason: { en: "no owner" } }
+                : { state: "ready", summary: { en: `DM with ${String(shared.owner)}` } },
+          }),
+    },
+    ...(hooks.initialSettings === undefined ? {} : { initialSettings: hooks.initialSettings }),
+    ...(hooks.accounts === undefined ? {} : { accounts: hooks.accounts }),
+  }
+}
+
+const sharedChange = (owner: string, apiKey?: string, newBots = false) => ({
+  values: { owner },
+  secrets: apiKey === undefined ? {} : { apiKey: { op: "set", value: apiKey } },
+  newBots,
+})
+
+describe("shared channel settings", () => {
+  it("holds every bot of the channel as unconfigured until its shared settings are complete, then connects with them", async () => {
+    const { panel, channels, shared } = setup()
+    const chat = recordingChannel("chat", CAPABILITIES)
+    channels.push(sharedChannel(chat))
+    await panel.configure("a", "chat", enable)
+    await settle()
+    expect(panel.snapshot("a").channels[0]?.status).toEqual({ state: "unconfigured" })
+    expect(chat.links).toEqual([])
+    expect(shared.panel.snapshot().channels[0]).toMatchObject({
+      status: { state: "incomplete", missing: ["apiKey"] },
+      secrets: { apiKey: false },
+      newBots: false,
+    })
+    expect(await shared.panel.configure("chat", sharedChange("alice", "k1"))).toMatchObject({
+      saved: true,
+      view: { status: { state: "ready" }, secrets: { apiKey: true }, values: { owner: "alice" } },
+    })
+    await settle()
+    expect(chat.links.map((link) => link.shared)).toEqual([{ apiKey: "k1", owner: "alice" }])
+    expect(shared.vault.stored.get("chat")).toEqual({ apiKey: "k1" })
+    await shared.panel.configure("chat", sharedChange("bob"))
+    await settle()
+    expect(chat.links.map((link) => link.shared)).toEqual([
+      { apiKey: "k1", owner: "alice" },
+      { apiKey: "k1", owner: "bob" },
+    ])
+  })
+
+  it("saves the shared settings only when the channel's shared check accepts them", async () => {
+    const { channels, shared } = setup()
+    const chat = recordingChannel("chat", CAPABILITIES)
+    channels.push(
+      sharedChannel(chat, {
+        check: (values) =>
+          values.owner === "mallory" ? { ok: false, reason: { en: "not mallory" } } : { ok: true },
+      }),
+    )
+    expect(await shared.panel.configure("chat", sharedChange("mallory", "k"))).toEqual({
+      saved: false,
+      reason: { en: "not mallory" },
+    })
+    expect(shared.records.rows.size).toBe(0)
+    await expect(
+      shared.panel.configure("chat", { ...sharedChange("a", "k"), newBots: true }),
+    ).rejects.toThrow("new bots")
+  })
+
+  it("answers the bot's queries as unavailable while unconfigured, and the shared ones through the shared hooks", async () => {
+    const { panel, channels, shared } = setup()
+    const chat = recordingChannel("chat", CAPABILITIES)
+    channels.push(sharedChannel(chat))
+    expect(await panel.inspect("chat", { kind: "bot", botId: "a" }, undefined)).toMatchObject({
+      state: "unavailable",
+      reason: { en: expect.stringContaining("dsh-bots settings") },
+    })
+    expect(
+      await panel.inspect(
+        "chat",
+        { kind: "shared-draft", values: { owner: "dora" }, secrets: { apiKey: "typed" } },
+        undefined,
+      ),
+    ).toMatchObject({ warnings: [{ en: "owner dora" }], snippets: [{ text: "x" }] })
+    await shared.panel.configure("chat", sharedChange("eve", "k"))
+    expect(await panel.inspect("chat", { kind: "shared" }, undefined)).toMatchObject({
+      warnings: [{ en: "owner eve" }],
+    })
+  })
+
+  it("turns a new bot's channel on with the channel's initial settings, or records why not", async () => {
+    const { panel, channels, shared, settings } = setup()
+    const chat = recordingChannel("chat", CAPABILITIES)
+    const requests: unknown[] = []
+    channels.push(
+      sharedChannel(chat, {
+        initialSettings: async (request) => {
+          requests.push(request)
+          return {
+            state: "ready",
+            values: { server: "", users: [String(request.shared.owner)] },
+            secrets: { token: "tok" },
+            profileSync: false,
+            summary: { en: "DM" },
+          }
+        },
+      }),
+    )
+    const warnings: string[] = []
+    const initial = createInitialChannels({
+      channel: (id) => channels.find((channel) => channel.id === id),
+      defaults: () => shared.panel.defaults(),
+      shared: (channel) => shared.panel.values(channel),
+      configure: (botId, channelId, change) => panel.configure(botId, channelId, change),
+      markFailed: (botId, channel, failure) => settings.markInitialFailed(botId, channel, failure),
+      deadline: () => new AbortController().signal,
+      now: () => 7,
+      warn: (message) => warnings.push(message),
+    })
+    await initial.apply({ id: "a", name: "a", language: "ja" }, ["chat"])
+    expect(panel.snapshot("a").channels[0]).toMatchObject({
+      enabled: false,
+      initial: { state: "failed", at: 7 },
+    })
+    await shared.panel.configure("chat", sharedChange("", "k", true))
+    expect(shared.panel.defaults()).toEqual([
+      {
+        channelId: "chat",
+        name: "Chat",
+        initial: { state: "unavailable", reason: { en: "no owner" } },
+      },
+    ])
+    await shared.panel.configure("chat", sharedChange("7", "k", true))
+    expect(shared.panel.defaults()).toEqual([
+      {
+        channelId: "chat",
+        name: "Chat",
+        initial: { state: "ready", summary: { en: "DM with 7" } },
+      },
+    ])
+    await initial.apply({ id: "a", name: "a", language: "ja" }, ["chat"])
+    expect(requests).toMatchObject([
+      { bot: { id: "a", language: "ja" }, shared: { owner: "7", apiKey: "k" } },
+    ])
+    const view = panel.snapshot("a").channels[0]
+    expect(view).toMatchObject({
+      enabled: true,
+      values: { users: ["7"] },
+      secrets: { token: true },
+    })
+    expect(view?.initial).toBeUndefined()
+    expect(warnings).toHaveLength(1)
+  })
+
+  it("reconciles a channel's accounts once at a time, folding the calls made meanwhile into one", async () => {
+    const { channels, shared } = setup()
+    const chat = recordingChannel("chat", CAPABILITIES)
+    let release: () => void = () => {}
+    const calls: string[][] = []
+    const listed = new Set(["a"])
+    channels.push(
+      sharedChannel(chat, {
+        accounts: {
+          async reconcile(request) {
+            calls.push(["x", "a", "b"].filter((botId) => request.listed(botId)))
+            await new Promise<void>((resolve) => {
+              release = resolve
+            })
+          },
+        },
+      }),
+    )
+    const accounts = createAccountReconciler({
+      channels: () => channels,
+      ready: (channel) => shared.panel.ready(channel),
+      shared: (channel) => shared.panel.values(channel),
+      listed: (botId) => listed.has(botId),
+      signal: () => new AbortController().signal,
+      warn: () => {},
+    })
+    accounts.request()
+    await settle()
+    expect(calls).toEqual([])
+    await shared.panel.configure("chat", sharedChange("o", "k"))
+    accounts.request()
+    await settle()
+    accounts.request("chat")
+    listed.add("b")
+    accounts.request("chat")
+    await settle()
+    expect(calls).toEqual([["a"]])
+    release()
+    await settle()
+    expect(calls).toEqual([["a"], ["a", "b"]])
+    release()
+    await accounts.idle()
   })
 })

@@ -16,6 +16,7 @@ import type { ChannelOutlets } from "./outlets"
 import { ownersOf } from "./owners"
 import type { ProfileSync } from "./profile/sync"
 import type { ChannelSettings } from "./settings"
+import type { SharedSettings } from "./shared-settings"
 
 export interface HubBot {
   readonly id: string
@@ -26,6 +27,7 @@ export interface ChannelHubDeps {
   channels(): readonly BotChannel[]
   bots(): readonly HubBot[]
   settings: Pick<ChannelSettings, "readiness" | "revision" | "resolve">
+  shared: Pick<SharedSettings, "status" | "revision" | "resolve">
   conversation: ConversationDeps
   outlets: Pick<ChannelOutlets, "attach" | "publishTo">
   interactions: Pick<InteractionBoard, "mainOf">
@@ -45,7 +47,7 @@ export interface ChannelHub {
 
 interface Slot {
   readonly channel: BotChannel
-  readonly revision: number
+  readonly revision: string
   readonly controller: AbortController
   state: BotChannelConnectionState
   readonly connected: Promise<BotChannelConnection | undefined>
@@ -78,7 +80,19 @@ export function createChannelHub(deps: ChannelHubDeps): ChannelHub {
     })
   }
 
-  const start = (key: string, bot: HubBot, channel: BotChannel, revision: number) => {
+  const sharedOf = (channel: BotChannel) =>
+    channel.shared === undefined
+      ? Promise.resolve({})
+      : deps.shared.resolve({ id: channel.id, shared: channel.shared })
+
+  const sharedReady = (channel: BotChannel) =>
+    channel.shared === undefined ||
+    deps.shared.status({ id: channel.id, shared: channel.shared }).state === "ready"
+
+  const revisionOf = (botId: string, channel: BotChannel) =>
+    `${deps.settings.revision(botId, channel.id)}:${channel.shared === undefined ? 0 : deps.shared.revision(channel.id)}`
+
+  const start = (key: string, bot: HubBot, channel: BotChannel, revision: string) => {
     const controller = new AbortController()
     const { signal } = controller
     const previous = closing.get(key) ?? Promise.resolve()
@@ -91,6 +105,7 @@ export function createChannelHub(deps: ChannelHubDeps): ChannelHub {
         await previous
         if (signal.aborted) return undefined
         const settings = await deps.settings.resolve(bot.id, channel)
+        const shared = await sharedOf(channel)
         if (signal.aborted) return undefined
         const { capabilities } = channel
         const owners = ownersOf(channel, settings)
@@ -114,6 +129,7 @@ export function createChannelHub(deps: ChannelHubDeps): ChannelHub {
         const link: BotChannelLink<BotChannelValuesOf<readonly BotChannelField[]>> = {
           bot: { id: bot.id, name: bot.name },
           settings,
+          shared,
           signal,
           commands: commandsOf(capabilities),
           deliver: (message) => conversation.deliver(message),
@@ -183,14 +199,15 @@ export function createChannelHub(deps: ChannelHubDeps): ChannelHub {
   return {
     sync() {
       if (disposed) return
-      const desired = new Map<string, { bot: HubBot; channel: BotChannel; revision: number }>()
+      const desired = new Map<string, { bot: HubBot; channel: BotChannel; revision: string }>()
+      const ready = deps.channels().filter(sharedReady)
       for (const bot of deps.bots()) {
-        for (const channel of deps.channels()) {
+        for (const channel of ready) {
           if (deps.settings.readiness(bot.id, channel).state !== "ready") continue
           desired.set(channelRecordKey(bot.id, channel.id), {
             bot,
             channel,
-            revision: deps.settings.revision(bot.id, channel.id),
+            revision: revisionOf(bot.id, channel),
           })
         }
       }

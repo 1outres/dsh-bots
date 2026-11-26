@@ -99,7 +99,7 @@ export function createChannelDrafts(queries: ChannelQueries): ChannelDrafts {
   const draftOf = (channel: BotChannelDescriptor) =>
     drafts.getSnapshot().get(channel.id) ?? emptyDraft(channel)
   const readyOnes = (channels: readonly BotChannelDescriptor[]) =>
-    channels.filter((channel) => draftReady(channel, draftOf(channel)))
+    channels.filter((channel) => channel.shared !== true && draftReady(channel, draftOf(channel)))
   return {
     getSnapshot: drafts.getSnapshot,
     subscribe: drafts.subscribe,

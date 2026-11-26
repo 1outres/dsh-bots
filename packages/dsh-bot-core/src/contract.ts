@@ -4,7 +4,7 @@ import type { BotConnectionProvider, BotConnector } from "./connector-contract"
 import type { MainPreparation } from "./mains-contract"
 import type { BotSettingsArea } from "./settings-contract"
 import type { BotView, EnvironmentPhase } from "./shared/bots"
-import type { BotChannelField } from "./shared/channels"
+import type { BotChannelField, BotChannelSharedField } from "./shared/channels"
 import type {
   BotConnectorChange,
   BotConnectorView,
@@ -139,7 +139,10 @@ export interface BotPresetChange {
 export interface Bot {
   bots(): readonly BotView[]
   botIds(): readonly string[]
-  registerChannel<F extends readonly BotChannelField[]>(channel: BotChannel<F>): () => void
+  registerChannel<
+    F extends readonly BotChannelField[],
+    S extends readonly BotChannelSharedField[] = readonly [],
+  >(channel: BotChannel<F, S>): () => void
   channels(): readonly BotChannel[]
 
   registerConnector<A>(connector: BotConnector<A>): () => void

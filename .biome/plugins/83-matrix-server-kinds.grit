@@ -1,0 +1,7 @@
+JsStringLiteralExpression() as $literal where {
+  $literal <: r"[\"'](?:synapse|tuwunel)[\"']",
+  register_diagnostic(
+    span = $literal,
+    message = "Design rule 83: do not name a homeserver kind outside src/host/servers/; take the MatrixServer from MATRIX_SERVERS, so a new kind is one file there and nothing else branches on it."
+  )
+}

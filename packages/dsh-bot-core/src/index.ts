@@ -7,11 +7,16 @@ import { setApprovalPolicy } from "@deepseek-ai/dsh-user-approval"
 import z from "@deepseek-ai/schemastery"
 import manifest from "../package.json"
 import type { BotPresetChange } from "./contract"
+import { createAccountReconciler } from "./host/channels/accounts"
 import { createChannelCatalog } from "./host/channels/catalog"
 import { createCommandRunner } from "./host/channels/commands"
 import { busyModeOf, type SettingsForm } from "./host/channels/composer"
 import type { ConversationDeps } from "./host/channels/conversation"
-import { CHANNELS_DOMAIN, type ChannelRecord } from "./host/channels/domain"
+import {
+  CHANNELS_DOMAIN,
+  type ChannelRecord,
+  type SharedChannelRecord,
+} from "./host/channels/domain"
 import {
   type AssistantMessageData,
   createMainFeed,
@@ -25,6 +30,7 @@ import {
   createShellInboxWriter,
   type EnvironmentWriteSubprocess,
 } from "./host/channels/inbox-shell"
+import { createInitialChannels, createInitialChannelsGate } from "./host/channels/initial"
 import { createChannelOutlets } from "./host/channels/outlets"
 import { ownersOf } from "./host/channels/owners"
 import { createChannelPanel } from "./host/channels/panel"
@@ -35,9 +41,15 @@ import { createSharpRasterizer } from "./host/channels/profile/sharp"
 import { createProfileSync } from "./host/channels/profile/sync"
 import { createChannelSequence } from "./host/channels/sequence"
 import { createChannelSettings } from "./host/channels/settings"
+import { createSharedChannelPanel } from "./host/channels/shared-panel"
+import { createSharedSettings } from "./host/channels/shared-settings"
 import { createTurnSilence, turnBoundaryOf } from "./host/channels/silence"
 import { createSilencer } from "./host/channels/stay-silent"
-import { type CredentialRecords, createSecretVault } from "./host/channels/vault"
+import {
+  type CredentialRecords,
+  createSecretVault,
+  createSharedSecretVault,
+} from "./host/channels/vault"
 import { cleanupBotSessions } from "./host/cleanup"
 import { createConnectorAccounts } from "./host/connections/accounts"
 import { CALLBACK_HEADERS, callbackPage } from "./host/connections/callback-page"
@@ -835,6 +847,7 @@ interface AttachmentReads {
 
 interface ChannelsDomain {
   table(name: "channels"): BotTable<ChannelRecord>
+  table(name: "shared"): BotTable<SharedChannelRecord>
   close(): Promise<void>
 }
 
@@ -1458,10 +1471,12 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
   })
 
   const preparations = createSessionPreparations()
+  const initialChannels = createInitialChannelsGate(warn)
   const lifecycle = createBotLifecycle({
     registry,
     environment: environments,
     preparations,
+    channels: initialChannels,
     preset: {
       settle: (botId) => realizer.refresh(botId),
       registered: (botId) => realizer.registration(botId) !== undefined,
@@ -4085,6 +4100,12 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
       now: Date.now,
       warn,
     })
+    const sharedSettings = createSharedSettings({
+      shared: channelsDomain.table("shared"),
+      vault: createSharedSecretVault(credentials),
+      now: Date.now,
+      warn,
+    })
 
     let forms: () => readonly SettingsForm[] = () => []
     channelsCtx.inject(["settings"], (settingsCtx) => {
@@ -4233,6 +4254,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
       channels: () => channelCatalog.list(),
       bots: () => registry.list(),
       settings,
+      shared: sharedSettings,
       conversation,
       outlets,
       interactions,
@@ -4256,16 +4278,46 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
         .catch((error: unknown) => {
           warn(`bot-core: could not forget the channel settings of deleted bots: ${String(error)}`)
         })
+    const sharedPanel = createSharedChannelPanel({
+      channels: () => channelCatalog.list(),
+      channel: (id) => channelCatalog.get(id),
+      shared: sharedSettings,
+      enabledBots: (channelId) => {
+        const channel = channelCatalog.get(channelId)
+        if (channel === undefined) return 0
+        return registry.list().filter((bot) => settings.view(bot.id, channel).enabled).length
+      },
+      synced: () => hub.sync(),
+      deadline: () => AbortSignal.timeout(CHANNEL_QUERY_MS),
+    })
+    const accountsWork = new AbortController()
+    channelsCtx.effect(() => () => accountsWork.abort(), "bot-core: channel accounts")
+    const accounts = createAccountReconciler({
+      channels: () => channelCatalog.list(),
+      ready: (channel) => sharedPanel.ready(channel),
+      shared: (channel) => sharedPanel.values(channel),
+      listed: (botId) => table.get(botId) !== undefined,
+      signal: () => accountsWork.signal,
+      warn,
+    })
     const upgradeThenSync = () =>
       void Promise.all(
-        channelCatalog.list().map((channel) =>
-          settings.upgrade(channel).catch((error: unknown) => {
+        channelCatalog.list().map(async (channel) => {
+          try {
+            await settings.upgrade(channel)
+            if (channel.shared !== undefined) {
+              await sharedSettings.upgrade({ id: channel.id, shared: channel.shared })
+            }
+          } catch (error) {
             warn(
               `bot-core: could not upgrade the settings of channel "${channel.id}": ${String(error)}`,
             )
-          }),
-        ),
-      ).then(() => hub.sync())
+          }
+        }),
+      ).then(() => {
+        hub.sync()
+        accounts.request()
+      })
     channelsCtx.effect(() => channelCatalog.subscribe(upgradeThenSync), "bot-core: channels")
     channelsCtx.effect(
       () =>
@@ -4273,6 +4325,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
           hub.sync()
           profiles.refresh()
           void purge()
+          accounts.request()
         }),
       "bot-core: channels of bots",
     )
@@ -4283,6 +4336,14 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
           profiles.refresh(botId)
         }),
       "bot-core: channel settings",
+    )
+    channelsCtx.effect(
+      () =>
+        sharedSettings.subscribe((channelId) => {
+          hub.sync()
+          accounts.request(channelId)
+        }),
+      "bot-core: shared channel settings",
     )
     void purge()
     upgradeThenSync()
@@ -4298,8 +4359,26 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
       settings,
       hub,
       profiles,
+      shared: sharedPanel,
       deadline: () => AbortSignal.timeout(CHANNEL_QUERY_MS),
     })
+    channelsCtx.effect(
+      () =>
+        initialChannels.attach(
+          createInitialChannels({
+            channel: (id) => channelCatalog.get(id),
+            defaults: () => sharedPanel.defaults(),
+            shared: (channel) => sharedPanel.values(channel),
+            configure: (botId, channelId, change) => panel.configure(botId, channelId, change),
+            markFailed: (botId, channel, failure) =>
+              settings.markInitialFailed(botId, channel, failure),
+            deadline: () => AbortSignal.timeout(CHANNEL_QUERY_MS),
+            now: Date.now,
+            warn,
+          }),
+        ),
+      "bot-core: channels of new bots",
+    )
     channelsCtx.effect(() => {
       channelStatus = (botId) =>
         panel
@@ -4330,11 +4409,12 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
         }),
       "bot-core: the welcome guide's channels",
     )
-    new BotChannelsRemoteService(channelsCtx, panel, (listener) => {
+    new BotChannelsRemoteService(channelsCtx, { bots: panel, shared: sharedPanel }, (listener) => {
       const offs = [
         hub.subscribe(listener),
         profiles.subscribe(listener),
         settings.subscribe(listener),
+        sharedSettings.subscribe(listener),
         channelCatalog.subscribe(listener),
         registry.subscribe(listener),
       ]

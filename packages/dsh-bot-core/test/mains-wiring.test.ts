@@ -287,6 +287,7 @@ describe("replaceMain", () => {
       language: "en",
       workstation: false,
       timezone: "Asia/Tokyo",
+      channels: [],
     })
     await bots.repairMains()
     await bots.adopt("b1", "s2")

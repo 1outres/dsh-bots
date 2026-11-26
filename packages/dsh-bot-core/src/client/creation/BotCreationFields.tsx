@@ -1,5 +1,6 @@
 import { useMemo } from "react"
 import { MAX_NAME_LENGTH } from "../../shared/bots"
+import type { BotChannelText } from "../../shared/channels"
 import type { BotCreationOption } from "../../shared/connectors"
 import {
   BOT_ENVIRONMENT_SPEC_KEYS,
@@ -31,10 +32,12 @@ import type { BotCreationForm } from "./use-creation-form"
 
 export function BotCreationFields({
   t,
+  text,
   form,
   autoFocus,
 }: {
   readonly t: Translate
+  text(text: BotChannelText): string
   readonly form: BotCreationForm
   readonly autoFocus: boolean
 }) {
@@ -92,6 +95,7 @@ export function BotCreationFields({
         disabled={busy}
         onChange={form.setOption}
       />
+      <ChannelDefaults t={t} form={form} text={text} disabled={busy} />
       {form.error !== undefined && <ErrorText>{form.error}</ErrorText>}
     </>
   )
@@ -207,6 +211,49 @@ function CreationOptions({
           <ErrorText key={shortfall.key}>{shortfallText(t, shortfall)}</ErrorText>
         ))}
     </>
+  )
+}
+
+function ChannelDefaults(props: {
+  readonly t: Translate
+  text(text: BotChannelText): string
+  readonly form: BotCreationForm
+  readonly disabled: boolean
+}) {
+  const { t, text, form } = props
+  const { defaults } = form
+  if (defaults.status === "loading") return null
+  if (defaults.status === "failed") {
+    return <ErrorText>{t("form.channelsFailed", { message: defaults.message })}</ErrorText>
+  }
+  if (defaults.defaults.length === 0) return null
+  return (
+    <Group title={t("form.channels")}>
+      {defaults.defaults.map((offer) => {
+        const ready = offer.initial.state === "ready"
+        const label = ready
+          ? t("form.channelOn", { channel: offer.name, summary: text(offer.initial.summary) })
+          : offer.name
+        return (
+          <Row
+            key={offer.channelId}
+            label={label}
+            meta={offer.initial.state === "unavailable" ? text(offer.initial.reason) : undefined}
+            metaTone={ready ? undefined : "warning"}
+            marks={{ "data-dshb-create-channel": offer.channelId }}
+            trailing={
+              <Switch
+                checked={ready && form.channels.includes(offer.channelId)}
+                label={label}
+                disabled={props.disabled || !ready}
+                onChange={(on) => form.setChannel(offer.channelId, on)}
+                marks={{ "data-dshb-create-channel-switch": offer.channelId }}
+              />
+            }
+          />
+        )
+      })}
+    </Group>
   )
 }
 

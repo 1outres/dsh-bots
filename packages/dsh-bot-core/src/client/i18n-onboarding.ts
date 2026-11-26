@@ -18,9 +18,9 @@ export const ONBOARDING_EN = {
   "welcome.accounts.title": "Google accounts",
   "welcome.accounts.lead":
     "To let bots use Gmail and Google Calendar, register an OAuth client. Accounts are added later, in a bot's settings.",
-  "welcome.channels.title": "Talk from Discord",
+  "welcome.channels.title": "Talk from a chat app",
   "welcome.channels.lead":
-    "Give your first bot a Discord bot of its own to talk to it from anywhere. The settings are saved with the bot once it is created.",
+    "Connect a chat app to talk to your bots from anywhere. A channel's own settings (a Discord bot) are saved with the bot once it is created; a homeserver (Matrix) is saved now and serves every bot.",
   "welcome.bot.channels": "Set up with the bot",
   "welcome.bot.channelAfter": "After creation",
   "welcome.bot.title": "Create your first bot",
@@ -63,9 +63,9 @@ export const ONBOARDING_JA: { readonly [Key in keyof typeof ONBOARDING_EN]: stri
   "welcome.accounts.title": "Google アカウント",
   "welcome.accounts.lead":
     "ボットに Gmail と Google カレンダーを使わせるには、OAuth クライアントを登録します。アカウントはあとでボットの設定から追加します。",
-  "welcome.channels.title": "Discord から話す",
+  "welcome.channels.title": "チャットアプリから話す",
   "welcome.channels.lead":
-    "最初のボットに専用の Discord ボットを用意すると、どこからでも話しかけられます。設定はボットの作成と同時に保存されます。",
+    "チャットアプリをつなぐと、どこからでもボットに話しかけられます。ボットごとの設定（Discord ボット）はボットの作成と同時に保存され、homeserver（Matrix）の設定はすぐに保存されて全ボットで使います。",
   "welcome.bot.channels": "ボットと一緒に設定",
   "welcome.bot.channelAfter": "作成後に接続",
   "welcome.bot.title": "最初のボットを作る",

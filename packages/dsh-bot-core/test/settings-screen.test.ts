@@ -52,6 +52,7 @@ function screen(extra: SettingsSection[] = []) {
     saveBot: async () => {},
     deleteBot: () => {},
     languages: () => LANGUAGES,
+    openShared: () => {},
     channels: createChannelsHub(() => model, idleQueries),
     connectors: createConnectorsHub(() => connectors),
     connections: idleConnections(),

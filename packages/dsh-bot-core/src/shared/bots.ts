@@ -66,6 +66,7 @@ export interface BotCreateInput extends BotCreationChoices {
   readonly language: string
   readonly timezone: string
   readonly models?: BotModelsChange
+  readonly channels: readonly string[]
 }
 
 export interface BotCreationOptionOffer {

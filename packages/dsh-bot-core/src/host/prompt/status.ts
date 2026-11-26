@@ -9,6 +9,8 @@ function channelState(channel: BotStatusChannel): string {
   switch (status.state) {
     case "off":
       return "off"
+    case "unconfigured":
+      return "not set up in dsh-bots settings yet"
     case "incomplete":
       return "settings incomplete"
     case "waiting":

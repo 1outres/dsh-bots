@@ -24,6 +24,7 @@ import { LOGINS_SECTION, VAULTS_SECTION } from "../vaults/sections"
 import { VaultsSettings } from "../vaults/VaultsSettings"
 import type { WorkspacesClient } from "../workspaces"
 import type { BotActions } from "./bots-face"
+import { sharedChannelSection } from "./channels-shared"
 import { overlay } from "./dialogs"
 import type { SettingsScreens } from "./screens"
 
@@ -61,6 +62,7 @@ export function wireSettings(ctx: ClientContext, sources: SettingsSources): void
       workspaces: sources.workspaces,
       readCatalog: sources.readCatalog,
       openConnectionSettings: () => screens.openGlobalSettings(CONNECTIONS_SECTION),
+      openShared: (channelId) => screens.openGlobalSettings(sharedChannelSection(channelId)),
       text: (text) => ctx.locale.resolveText({ ...text }),
     }).map((section) => sections.register(section))
     return () => {

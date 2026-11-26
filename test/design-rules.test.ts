@@ -15,7 +15,7 @@ const biome = join(root, "node_modules", ".bin", "biome")
 const LINT_RULES = [
   1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 20, 21, 22, 23, 24, 25, 26, 29, 30, 31,
   32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 43, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58,
-  59, 60, 61, 62, 64, 65, 68, 69, 70, 71, 72,
+  59, 60, 61, 62, 64, 65, 68, 69, 70, 71, 72, 80, 81, 82, 83, 84,
 ]
 
 interface Diagnostic {
@@ -24,7 +24,13 @@ interface Diagnostic {
   location?: { path?: string; start?: { line: number } }
 }
 
-const RULE_OF_CATEGORY: Record<string, number> = { "lint/style/noRestrictedGlobals": 26 }
+const RULE_OF_GLOBAL: Record<string, number> = { setTimeout: 26, setInterval: 26, fetch: 81 }
+
+function globalRuleOf(diagnostic: Diagnostic): number | undefined {
+  if (diagnostic.category !== "lint/style/noRestrictedGlobals") return undefined
+  const name = /global variable (\w+)/.exec(diagnostic.message)?.[1]
+  return name === undefined ? undefined : RULE_OF_GLOBAL[name]
+}
 
 function filesUnder(directory: string): string[] {
   return readdirSync(directory, { recursive: true, withFileTypes: true })
@@ -41,7 +47,7 @@ function expectedFindings(file: string): readonly string[] {
 
 function ruleOf(diagnostic: Diagnostic): number | undefined {
   const number = /^Design rule (\d+):/.exec(diagnostic.message)?.[1]
-  return number === undefined ? RULE_OF_CATEGORY[diagnostic.category] : Number(number)
+  return number === undefined ? globalRuleOf(diagnostic) : Number(number)
 }
 
 let workspace: string

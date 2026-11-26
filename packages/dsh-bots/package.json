@@ -39,6 +39,7 @@
     "@1outres/dsh-bot-connector-google": "workspace:*",
     "@1outres/dsh-bot-core": "workspace:*",
     "@1outres/dsh-bot-discord": "workspace:*",
+    "@1outres/dsh-bot-matrix": "workspace:*",
     "@1outres/dsh-bot-vault-1password": "workspace:*",
     "@1outres/dsh-bot-vm": "workspace:*",
     "@1outres/dsh-bot-web": "workspace:*"

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import type { BotChannelDescriptor } from "../../shared/channels"
 import type { ChannelQueries } from "../channel-queries"
+import type { SharedChannelsFeed } from "../channels-shared/model"
 import type { ConnectionsFeed } from "../connections-model"
 import type { CreationSources } from "../creation/use-creation-form"
 import type { PendingActions } from "../face"
@@ -22,6 +23,7 @@ export interface WelcomeSources {
   readonly web: WebLookupFeed
   readonly connections: ConnectionsFeed
   readonly channelQueries: ChannelQueries
+  readonly sharedChannels: SharedChannelsFeed
   text(text: { readonly en: string; readonly ja?: string }): string
 }
 

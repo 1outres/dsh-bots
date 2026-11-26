@@ -9,14 +9,16 @@ interface FieldBase<K extends string> {
   readonly key: K
   readonly label: BotChannelText
   readonly description?: BotChannelText
-  readonly agent: BotSettingAgent
 }
 
-export interface BotChannelSecretField<K extends string = string>
-  extends Omit<FieldBase<K>, "agent"> {
+export interface BotChannelSharedSecretField<K extends string = string> extends FieldBase<K> {
   readonly kind: "secret"
   readonly required: boolean
   readonly maxLength: number
+}
+
+export interface BotChannelSecretField<K extends string = string>
+  extends BotChannelSharedSecretField<K> {
   readonly agent: BotSecretSettingAgent
 }
 
@@ -25,7 +27,7 @@ export interface BotChannelChoice {
   readonly label: BotChannelText
 }
 
-export interface BotChannelTextField<K extends string = string> extends FieldBase<K> {
+export interface BotChannelSharedTextField<K extends string = string> extends FieldBase<K> {
   readonly kind: "text"
   readonly required: boolean
   readonly maxLength: number
@@ -34,7 +36,12 @@ export interface BotChannelTextField<K extends string = string> extends FieldBas
   readonly choices?: readonly BotChannelChoice[]
 }
 
-export interface BotChannelPickField<K extends string = string> extends FieldBase<K> {
+export interface BotChannelTextField<K extends string = string>
+  extends BotChannelSharedTextField<K> {
+  readonly agent: BotSettingAgent
+}
+
+export interface BotChannelSharedPickField<K extends string = string> extends FieldBase<K> {
   readonly kind: "pick"
   readonly required: boolean
   readonly source: string
@@ -43,7 +50,12 @@ export interface BotChannelPickField<K extends string = string> extends FieldBas
   readonly clears?: readonly string[]
 }
 
-export interface BotChannelListField<K extends string = string> extends FieldBase<K> {
+export interface BotChannelPickField<K extends string = string>
+  extends BotChannelSharedPickField<K> {
+  readonly agent: BotSettingAgent
+}
+
+export interface BotChannelSharedListField<K extends string = string> extends FieldBase<K> {
   readonly kind: "list"
   readonly minItems: number
   readonly maxItems: number
@@ -55,13 +67,24 @@ export interface BotChannelListField<K extends string = string> extends FieldBas
   }
 }
 
+export interface BotChannelListField<K extends string = string>
+  extends BotChannelSharedListField<K> {
+  readonly agent: BotSettingAgent
+}
+
+export type BotChannelSharedField =
+  | BotChannelSharedSecretField
+  | BotChannelSharedTextField
+  | BotChannelSharedPickField
+  | BotChannelSharedListField
+
 export type BotChannelField =
   | BotChannelSecretField
   | BotChannelTextField
   | BotChannelPickField
   | BotChannelListField
 
-export function sourceOf(field: BotChannelField): string | undefined {
+export function sourceOf(field: BotChannelSharedField): string | undefined {
   if (field.kind === "pick") return field.source
   if (field.kind === "list") return field.item.source
   return undefined
@@ -73,6 +96,9 @@ export interface BotChannelOption {
   readonly detail?: BotChannelText
   readonly image?: string
 }
+
+export const CHANNEL_OPTION_IMAGE =
+  /^(?:https:\/\/\S+|data:image\/(?:png|jpeg|gif|webp);base64,[A-Za-z0-9+/]+=*)$/
 
 export type BotChannelOptions =
   | {
@@ -87,12 +113,19 @@ export interface BotChannelInspectionLink {
   readonly url: string
 }
 
+export interface BotChannelSnippet {
+  readonly label: BotChannelText
+  readonly language: "yaml" | "text"
+  readonly text: string
+}
+
 export type BotChannelInspection =
   | {
       readonly state: "ready"
       readonly account?: string
       readonly links: readonly BotChannelInspectionLink[]
       readonly warnings: readonly BotChannelText[]
+      readonly snippets?: readonly BotChannelSnippet[]
     }
   | { readonly state: "unavailable"; readonly reason: BotChannelText }
 
@@ -104,6 +137,12 @@ export type BotChannelSettingsRef =
   | { readonly kind: "bot"; readonly botId: string }
   | {
       readonly kind: "draft"
+      readonly values: BotChannelPublicValues
+      readonly secrets: Readonly<Record<string, string>>
+    }
+  | { readonly kind: "shared" }
+  | {
+      readonly kind: "shared-draft"
       readonly values: BotChannelPublicValues
       readonly secrets: Readonly<Record<string, string>>
     }
@@ -121,6 +160,15 @@ export interface BotChannelDescriptor {
   readonly setup?: readonly BotChannelText[]
   readonly fields: readonly BotChannelField[]
   readonly owners?: string
+  readonly shared?: true
+}
+
+export interface BotChannelSharedDescriptor {
+  readonly id: string
+  readonly name: string
+  readonly description?: BotChannelText
+  readonly fields: readonly BotChannelSharedField[]
+  readonly initial: boolean
 }
 
 export type BotChannelPublicValues = Readonly<Record<string, string | readonly string[]>>
@@ -171,6 +219,7 @@ export type BotChannelConnectionState =
 
 export type BotChannelStatus =
   | { readonly state: "off" }
+  | { readonly state: "unconfigured" }
   | { readonly state: "incomplete"; readonly missing: readonly string[] }
   | { readonly state: "waiting" }
   | BotChannelConnectionState
@@ -183,6 +232,52 @@ export interface BotChannelView {
   readonly status: BotChannelStatus
   readonly revision: number
   readonly profile?: BotChannelProfileView
+  readonly initial?: BotChannelInitialFailure
+}
+
+export interface BotChannelInitialFailure {
+  readonly state: "failed"
+  readonly reason: BotChannelText
+  readonly at: number
+}
+
+export type BotChannelInitialSummary =
+  | { readonly state: "ready"; readonly summary: BotChannelText }
+  | { readonly state: "unavailable"; readonly reason: BotChannelText }
+
+export type BotChannelSharedStatus =
+  | { readonly state: "incomplete"; readonly missing: readonly string[] }
+  | { readonly state: "ready" }
+
+export interface BotChannelSharedView {
+  readonly channel: BotChannelSharedDescriptor
+  readonly values: BotChannelPublicValues
+  readonly secrets: Readonly<Record<string, boolean>>
+  readonly newBots: boolean
+  readonly initial?: BotChannelInitialSummary
+  readonly status: BotChannelSharedStatus
+  readonly enabledBots: number
+  readonly revision: number
+}
+
+export interface BotChannelSharedSnapshot {
+  readonly channels: readonly BotChannelSharedView[]
+}
+
+export interface BotChannelSharedChange {
+  readonly values: BotChannelPublicValues
+  readonly secrets: Readonly<Record<string, BotChannelSecretChange>>
+  readonly newBots: boolean
+}
+
+export type BotChannelSharedConfigureResult =
+  | { readonly saved: true; readonly view: BotChannelSharedView }
+  | { readonly saved: false; readonly reason: BotChannelText }
+
+export interface BotChannelDefault {
+  readonly channelId: string
+  readonly name: string
+  readonly initial: BotChannelInitialSummary
 }
 
 export type BotChannelConfigureResult =
@@ -217,6 +312,12 @@ export interface BotChannelsApi {
     settings: BotChannelSettingsRef,
     signal?: AbortSignal,
   ): Promise<BotChannelCheck>
+  watchShared(signal?: AbortSignal): AsyncIterable<BotChannelSharedSnapshot>
+  configureShared(
+    channelId: string,
+    change: BotChannelSharedChange,
+  ): Promise<BotChannelSharedConfigureResult>
+  defaults(): Promise<readonly BotChannelDefault[]>
 }
 
 const CHANNEL_ID = /^[a-z][a-z0-9-]*$/
@@ -247,7 +348,7 @@ function checkLength(value: number, what: string): void {
   }
 }
 
-function checkChoices(field: BotChannelTextField, what: string): void {
+function checkChoices(field: BotChannelSharedTextField, what: string): void {
   const { choices } = field
   if (choices === undefined) return
   if (choices.length === 0) throw new Error(`${what} choices list nothing`)
@@ -283,7 +384,31 @@ function checkSource(source: string, what: string): void {
   if (!SOURCE.test(source)) throw new Error(`${what} must be letters, digits and hyphens`)
 }
 
-export function checkChannelDescriptor(channel: BotChannelDescriptor): void {
+export function checkChannelDescriptor(channel: Omit<BotChannelDescriptor, "shared">): void {
+  checkChannelIdentity(channel)
+  checkChannelFields(channel.fields, `channel "${channel.id}"`, (field) =>
+    settingAgentProblem(field.agent, field.kind === "secret"),
+  )
+  if (
+    channel.owners !== undefined &&
+    channel.fields.find((field) => field.key === channel.owners)?.kind !== "list"
+  ) {
+    throw new Error(`channel "${channel.id}": owners must name one of its list fields`)
+  }
+}
+
+export function checkSharedChannelFields(
+  channelId: string,
+  fields: readonly BotChannelSharedField[],
+): void {
+  checkChannelFields(fields, `channel "${channelId}" shared settings`, (field) =>
+    "agent" in field
+      ? "shared settings are never shown to a bot, so they take no agent"
+      : undefined,
+  )
+}
+
+function checkChannelIdentity(channel: Omit<BotChannelDescriptor, "shared">): void {
   if (!CHANNEL_ID.test(channel.id)) {
     throw new Error(`channel id "${channel.id}" must be lowercase letters, digits and hyphens`)
   }
@@ -303,16 +428,23 @@ export function checkChannelDescriptor(channel: BotChannelDescriptor): void {
       checkText(step, `channel "${channel.id}" setup step ${index + 1}`)
     }
   }
+}
+
+function checkChannelFields<F extends BotChannelSharedField>(
+  fields: readonly F[],
+  owner: string,
+  agentProblem: (field: F) => string | undefined,
+): void {
   const keys = new Set<string>()
-  for (const field of channel.fields) {
-    const what = `channel "${channel.id}" field "${field.key}"`
+  for (const field of fields) {
+    const what = `${owner} field "${field.key}"`
     if (!FIELD_KEY.test(field.key))
       throw new Error(`${what}: the key must be camelCase letters and digits`)
     if (keys.has(field.key)) throw new Error(`${what} is declared twice`)
     keys.add(field.key)
     checkText(field.label, `${what} label`)
     if (field.description !== undefined) checkText(field.description, `${what} description`)
-    const agent = settingAgentProblem(field.agent, field.kind === "secret")
+    const agent = agentProblem(field)
     if (agent !== undefined) throw new Error(`${what}: ${agent}`)
     switch (field.kind) {
       case "secret":
@@ -348,31 +480,23 @@ export function checkChannelDescriptor(channel: BotChannelDescriptor): void {
         throw new Error(`${what} has an unknown kind`)
     }
   }
-  for (const field of channel.fields) {
+  for (const field of fields) {
     if (field.kind !== "pick") continue
     for (const key of field.clears ?? []) {
-      const cleared = channel.fields.find((other) => other.key === key)
+      const cleared = fields.find((other) => other.key === key)
       if (
         cleared === undefined ||
         cleared === field ||
         (cleared.kind !== "pick" && cleared.kind !== "list")
       ) {
-        throw new Error(
-          `channel "${channel.id}" field "${field.key}": clears must name other pick or list fields`,
-        )
+        throw new Error(`${owner} field "${field.key}": clears must name other pick or list fields`)
       }
     }
-  }
-  if (
-    channel.owners !== undefined &&
-    channel.fields.find((field) => field.key === channel.owners)?.kind !== "list"
-  ) {
-    throw new Error(`channel "${channel.id}": owners must name one of its list fields`)
   }
 }
 
 export function channelValuesAfter(
-  fields: readonly BotChannelField[],
+  fields: readonly BotChannelSharedField[],
   current: BotChannelPublicValues,
   edits: Readonly<Record<string, string | readonly string[]>>,
 ): BotChannelPublicValues {
@@ -390,7 +514,9 @@ export function channelValuesAfter(
   return values
 }
 
-export function emptyChannelValues(fields: readonly BotChannelField[]): BotChannelPublicValues {
+export function emptyChannelValues(
+  fields: readonly BotChannelSharedField[],
+): BotChannelPublicValues {
   const values: Record<string, string | readonly string[]> = {}
   for (const field of fields) {
     if (field.kind === "text" || field.kind === "pick") values[field.key] = ""
@@ -400,7 +526,7 @@ export function emptyChannelValues(fields: readonly BotChannelField[]): BotChann
 }
 
 export function channelValuesOf(
-  fields: readonly BotChannelField[],
+  fields: readonly BotChannelSharedField[],
   stored: BotChannelPublicValues,
 ): BotChannelPublicValues {
   const values: Record<string, string | readonly string[]> = { ...emptyChannelValues(fields) }
@@ -413,7 +539,7 @@ export function channelValuesOf(
   return values
 }
 
-function parseTextValue(field: BotChannelTextField, value: unknown): string {
+function parseTextValue(field: BotChannelSharedTextField, value: unknown): string {
   if (typeof value !== "string") throw new Error(`${field.key} must be text`)
   const trimmed = value.trim()
   if (trimmed.length > field.maxLength)
@@ -431,7 +557,7 @@ function parseTextValue(field: BotChannelTextField, value: unknown): string {
   return trimmed
 }
 
-function parsePickValue(field: BotChannelPickField, value: unknown): string {
+function parsePickValue(field: BotChannelSharedPickField, value: unknown): string {
   if (typeof value !== "string") throw new Error(`${field.key} must be text`)
   const trimmed = value.trim()
   if (trimmed.length > field.maxLength)
@@ -446,7 +572,7 @@ function parsePickValue(field: BotChannelPickField, value: unknown): string {
   return trimmed
 }
 
-function parseListValue(field: BotChannelListField, value: unknown): readonly string[] {
+function parseListValue(field: BotChannelSharedListField, value: unknown): readonly string[] {
   if (!Array.isArray(value)) throw new Error(`${field.key} must be a list`)
   const items: string[] = []
   for (const item of value) {
@@ -466,7 +592,10 @@ function parseListValue(field: BotChannelListField, value: unknown): readonly st
   return items
 }
 
-function parseSecretChange(field: BotChannelSecretField, change: unknown): BotChannelSecretChange {
+function parseSecretChange(
+  field: BotChannelSharedSecretField,
+  change: unknown,
+): BotChannelSecretChange {
   if (typeof change !== "object" || change === null) throw new Error(`${field.key}: invalid change`)
   const value = change as Record<string, unknown>
   if (value.op === "keep" || value.op === "clear") return { op: value.op }
@@ -489,7 +618,7 @@ function recordOf(value: unknown, what: string): Record<string, unknown> {
 }
 
 export function parseChannelChange(
-  fields: readonly BotChannelField[],
+  fields: readonly BotChannelSharedField[],
   input: unknown,
 ): BotChannelChange {
   const change = recordOf(input, "the change")
@@ -529,7 +658,7 @@ export function parseChannelChange(
 }
 
 function isMissing(
-  field: BotChannelField,
+  field: BotChannelSharedField,
   values: BotChannelPublicValues,
   secretSet: (key: string) => boolean,
 ): boolean {
@@ -540,11 +669,20 @@ function isMissing(
 }
 
 export function missingChannelFields(
-  fields: readonly BotChannelField[],
+  fields: readonly BotChannelSharedField[],
   values: BotChannelPublicValues,
   secretSet: (key: string) => boolean,
 ): string[] {
   return fields.filter((field) => isMissing(field, values, secretSet)).map((field) => field.key)
+}
+
+export function sharedChannelStatus(
+  fields: readonly BotChannelSharedField[],
+  values: BotChannelPublicValues,
+  secrets: Readonly<Record<string, boolean>>,
+): BotChannelSharedStatus {
+  const missing = missingChannelFields(fields, values, (key) => secrets[key] === true)
+  return missing.length > 0 ? { state: "incomplete", missing } : { state: "ready" }
 }
 
 export interface BotChannelDraftSettings {
@@ -552,19 +690,16 @@ export interface BotChannelDraftSettings {
   readonly secrets: Readonly<Record<string, string>>
 }
 
-export function parseChannelSettingsRef(
-  fields: readonly BotChannelField[],
-  input: unknown,
-):
+export type ParsedChannelSettingsRef =
   | { readonly kind: "bot"; readonly botId: string }
-  | ({ readonly kind: "draft" } & BotChannelDraftSettings) {
-  const ref = recordOf(input, "the settings")
-  if (ref.kind === "bot") {
-    if (typeof ref.botId !== "string" || ref.botId.length === 0)
-      throw new Error("botId must be text")
-    return { kind: "bot", botId: ref.botId }
-  }
-  if (ref.kind !== "draft") throw new Error("the settings must be a bot's or a draft")
+  | ({ readonly kind: "draft" } & BotChannelDraftSettings)
+  | { readonly kind: "shared" }
+  | ({ readonly kind: "shared-draft" } & BotChannelDraftSettings)
+
+function parseDraft(
+  fields: readonly BotChannelSharedField[],
+  ref: Record<string, unknown>,
+): BotChannelDraftSettings {
   const secrets = recordOf(ref.secrets, "secrets")
   const change = parseChannelChange(fields, {
     enabled: true,
@@ -578,5 +713,92 @@ export function parseChannelSettingsRef(
   for (const [key, edit] of Object.entries(change.secrets)) {
     if (edit.op === "set") typed[key] = edit.value
   }
-  return { kind: "draft", values: change.values, secrets: typed }
+  return { values: change.values, secrets: typed }
+}
+
+export function parseChannelSettingsRef(
+  fields: readonly BotChannelSharedField[],
+  sharedFields: readonly BotChannelSharedField[] | undefined,
+  input: unknown,
+): ParsedChannelSettingsRef {
+  const ref = recordOf(input, "the settings")
+  switch (ref.kind) {
+    case "bot":
+      if (typeof ref.botId !== "string" || ref.botId.length === 0)
+        throw new Error("botId must be text")
+      return { kind: "bot", botId: ref.botId }
+    case "draft":
+      return { kind: "draft", ...parseDraft(fields, ref) }
+    case "shared":
+    case "shared-draft":
+      if (sharedFields === undefined) throw new Error("this channel has no shared settings")
+      return ref.kind === "shared"
+        ? { kind: "shared" }
+        : { kind: "shared-draft", ...parseDraft(sharedFields, ref) }
+    default:
+      throw new Error("the settings must be a bot's, a draft, or the shared ones")
+  }
+}
+
+export function parseSharedChange(
+  fields: readonly BotChannelSharedField[],
+  input: unknown,
+): BotChannelSharedChange {
+  const change = recordOf(input, "the change")
+  if (typeof change.newBots !== "boolean") throw new Error("newBots must be true or false")
+  const parsed = parseChannelChange(fields, {
+    enabled: true,
+    profileSync: false,
+    values: change.values,
+    secrets: change.secrets,
+  })
+  return { values: parsed.values, secrets: parsed.secrets, newBots: change.newBots }
+}
+
+export function withSecretValues(
+  fields: readonly BotChannelSharedField[],
+  values: BotChannelPublicValues,
+  secrets: Readonly<Record<string, string>>,
+): BotChannelPublicValues {
+  const all: Record<string, string | readonly string[]> = { ...channelValuesOf(fields, values) }
+  for (const field of fields) {
+    if (field.kind === "secret") all[field.key] = secrets[field.key] ?? ""
+  }
+  return all
+}
+
+export function secretsAfterChange(
+  fields: readonly BotChannelSharedField[],
+  stored: Readonly<Record<string, string>>,
+  changes: Readonly<Record<string, BotChannelSecretChange>>,
+): Readonly<Record<string, string>> {
+  const secrets: Record<string, string> = { ...stored }
+  for (const field of fields) {
+    if (field.kind !== "secret") continue
+    const edit = changes[field.key] ?? { op: "keep" }
+    if (edit.op === "set") secrets[field.key] = edit.value
+    if (edit.op === "clear") delete secrets[field.key]
+  }
+  return secrets
+}
+
+export function secretFlagsOf(
+  fields: readonly BotChannelSharedField[],
+  isSet: (key: string) => boolean,
+): Readonly<Record<string, boolean>> {
+  return Object.fromEntries(
+    fields.filter((field) => field.kind === "secret").map((field) => [field.key, isSet(field.key)]),
+  )
+}
+
+export function parseInitialChannels(input: unknown): readonly string[] {
+  if (!Array.isArray(input)) throw new Error("channels must be a list of channel ids")
+  const seen = new Set<string>()
+  for (const item of input) {
+    if (typeof item !== "string" || !CHANNEL_ID.test(item))
+      throw new Error("channels must list channel ids")
+    if (seen.has(item)) throw new Error(`channel "${item}" is listed twice`)
+    seen.add(item)
+  }
+  return [...seen]
 }

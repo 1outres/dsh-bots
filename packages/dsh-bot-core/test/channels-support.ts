@@ -8,12 +8,14 @@ import type {
   BotInboundMessage,
   BotMessageSender,
 } from "../src/contract"
-import type { ChannelRecord } from "../src/host/channels/domain"
+import type { ChannelRecord, SharedChannelRecord } from "../src/host/channels/domain"
 import { createMainFeed, type MainFeedDeps } from "../src/host/channels/feed"
 import { createHeldReplies } from "../src/host/channels/held-replies"
 import { createPresentedFiles } from "../src/host/channels/presented"
 import { createChannelSequence } from "../src/host/channels/sequence"
-import type { SecretVault } from "../src/host/channels/vault"
+import { createSharedChannelPanel } from "../src/host/channels/shared-panel"
+import { createSharedSettings } from "../src/host/channels/shared-settings"
+import type { SecretVault, SharedSecretVault } from "../src/host/channels/vault"
 import type { BotTable } from "../src/host/registry"
 import type { BotChannelField } from "../src/shared/channels"
 
@@ -73,6 +75,41 @@ export function memoryVault(): SecretVault & { stored: Map<string, Record<string
       else stored.set(`${botId}:${channelId}`, { ...secrets })
     },
   }
+}
+
+export function memorySharedVault(): SharedSecretVault & {
+  stored: Map<string, Record<string, string>>
+} {
+  const stored = new Map<string, Record<string, string>>()
+  return {
+    stored,
+    read: async (channelId) => ({ ...(stored.get(channelId) ?? {}) }),
+    async write(channelId, secrets) {
+      if (Object.keys(secrets).length === 0) stored.delete(channelId)
+      else stored.set(channelId, { ...secrets })
+    },
+  }
+}
+
+export function sharedChannels(
+  channels: () => readonly BotChannel[],
+  options: {
+    readonly synced?: () => void
+    readonly enabledBots?: (channelId: string) => number
+  } = {},
+) {
+  const records = memoryTable<SharedChannelRecord>()
+  const vault = memorySharedVault()
+  const settings = createSharedSettings({ shared: records, vault, now: () => 9, warn: () => {} })
+  const panel = createSharedChannelPanel({
+    channels,
+    channel: (id) => channels().find((channel) => channel.id === id),
+    shared: settings,
+    enabledBots: options.enabledBots ?? (() => 0),
+    synced: options.synced ?? (() => {}),
+    deadline: () => new AbortController().signal,
+  })
+  return { records, vault, settings, panel }
 }
 
 export type ChannelTable = ReturnType<typeof memoryTable<ChannelRecord>>

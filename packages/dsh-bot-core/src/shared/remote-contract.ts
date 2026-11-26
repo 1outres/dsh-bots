@@ -141,6 +141,9 @@ export const REMOTE_METHODS: {
     },
     inspect: { parameters: [{ name: "channelId" }, { name: "settings" }], cancellable: true },
     check: { parameters: [{ name: "channelId" }, { name: "settings" }], cancellable: true },
+    watchShared: { parameters: [], stream: true, cancellable: true },
+    configureShared: { parameters: [{ name: "channelId" }, { name: "change" }] },
+    defaults: { parameters: [] },
   },
   botInteractions: {
     watch: { parameters: [{ name: "sessionId" }], stream: true, cancellable: true },

@@ -1,4 +1,6 @@
 import type { BotChannelDescriptor } from "../../shared/channels"
+import { sharedViewOf } from "../channels-shared/model"
+import { SharedChannelGroup } from "../channels-shared/SharedChannelGroup"
 import { OAuthClientGroup } from "../global-settings/ConnectionsSettings"
 import { useObservable } from "../hooks"
 import { IconExternal } from "../icons"
@@ -83,9 +85,20 @@ export function AccountsPage(props: StepProps) {
   )
 }
 
+function sharedReady(
+  state: ReturnType<StepProps["sharedChannels"]["getSnapshot"]>,
+  channels: readonly BotChannelDescriptor[],
+): boolean {
+  return channels.some(
+    (channel) =>
+      channel.shared === true && sharedViewOf(state, channel.id)?.status.state === "ready",
+  )
+}
+
 export function ChannelsPage(props: StepProps) {
   const { t, drafts, channels } = props
   useObservable(drafts)
+  const shared = useObservable(props.sharedChannels)
   return (
     <>
       <div className="dshb-onboard-body">
@@ -104,7 +117,7 @@ export function ChannelsPage(props: StepProps) {
         <BackButton t={t} back={props.back} />
         <SkipOrNext
           t={t}
-          done={drafts.ready(channels)}
+          done={drafts.ready(channels) || sharedReady(shared, channels)}
           next={props.next}
           skip={() => drafts.clear()}
         />
@@ -113,8 +126,31 @@ export function ChannelsPage(props: StepProps) {
   )
 }
 
+function SharedChannelSetup(props: StepProps & { readonly channel: BotChannelDescriptor }) {
+  const { t, text, channel, sharedChannels } = props
+  const view = sharedViewOf(useObservable(sharedChannels), channel.id)
+  return (
+    <section className="dshb-onboard-channel" data-dshb-welcome-channel={channel.id}>
+      {view === undefined ? (
+        <Group>
+          <Row label={t("channels.loading")} />
+        </Group>
+      ) : (
+        <SharedChannelGroup
+          t={t}
+          text={text}
+          view={view}
+          configure={sharedChannels.configure}
+          ask={sharedChannels.ask(channel.id)}
+        />
+      )}
+    </section>
+  )
+}
+
 function ChannelSetup(props: StepProps & { readonly channel: BotChannelDescriptor }) {
   const { t, text, channel, drafts } = props
+  if (channel.shared === true) return <SharedChannelSetup {...props} />
   return (
     <section className="dshb-onboard-channel" data-dshb-welcome-channel={channel.id}>
       {channel.setup !== undefined && (

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Matrix for bots",
+    "description": "Talk with each bot in Matrix on your own homeserver (Synapse or Tuwunel). Connect the homeserver once in dsh-bots settings; each bot then gets its own Matrix account, at one home: a direct chat with you or a room."
+  }
+}

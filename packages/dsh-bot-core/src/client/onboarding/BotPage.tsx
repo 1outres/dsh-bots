@@ -89,7 +89,7 @@ export function BotPage(props: StepProps) {
             <Spinner size={14} /> {t("welcome.bot.loading")}
           </p>
         ) : (
-          <BotCreationFields t={t} form={form} autoFocus />
+          <BotCreationFields t={t} text={props.text} form={form} autoFocus />
         )}
         {setups.length > 0 && (
           <Group title={t("welcome.bot.channels")}>

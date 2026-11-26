@@ -3,11 +3,13 @@ import type {
   BotChannelConnectionState,
   BotChannelDescriptor,
   BotChannelField,
+  BotChannelInitialSummary,
   BotChannelInspection,
   BotChannelListField,
   BotChannelOptions,
   BotChannelProfileSupport,
   BotChannelPublicValues,
+  BotChannelSharedField,
   BotChannelText,
 } from "./shared/channels"
 import type {
@@ -27,24 +29,90 @@ import type { VaultIncidentView } from "./shared/vaults"
 
 export type * from "./shared/interactions"
 
-export type BotChannelValuesOf<F extends readonly BotChannelField[]> = {
+export type BotChannelValuesOf<F extends readonly BotChannelSharedField[]> = {
   readonly [Field in F[number] as Field["key"]]: Field extends { readonly kind: "list" }
     ? readonly string[]
     : string
 }
 
-export interface BotChannel<F extends readonly BotChannelField[] = readonly BotChannelField[]>
-  extends BotChannelDescriptor {
+export type BotChannelNoShared = Readonly<Record<string, never>>
+
+export interface BotChannel<
+  F extends readonly BotChannelField[] = readonly BotChannelField[],
+  S extends readonly BotChannelSharedField[] = readonly BotChannelSharedField[],
+> extends Omit<BotChannelDescriptor, "shared"> {
   readonly fields: F
   readonly owners?: BotChannelListKey<F>
   readonly capabilities: BotChannelCapabilities
   readonly settingsVersion?: number
   upgradeSettings?(stored: BotChannelStoredSettings): BotChannelSettingsUpgrade
-  options?(request: BotChannelOptionsRequest<BotChannelValuesOf<F>>): Promise<BotChannelOptions>
-  check?(request: BotChannelSettingsRequest<BotChannelValuesOf<F>>): Promise<BotChannelCheck>
-  inspect?(request: BotChannelSettingsRequest<BotChannelValuesOf<F>>): Promise<BotChannelInspection>
+  readonly shared?: BotChannelShared<S>
+  options?(
+    request: BotChannelOptionsRequest<BotChannelValuesOf<F>, BotChannelValuesOf<S>>,
+  ): Promise<BotChannelOptions>
+  check?(
+    request: BotChannelSettingsRequest<BotChannelValuesOf<F>, BotChannelValuesOf<S>>,
+  ): Promise<BotChannelCheck>
+  inspect?(
+    request: BotChannelSettingsRequest<BotChannelValuesOf<F>, BotChannelValuesOf<S>>,
+  ): Promise<BotChannelInspection>
+  initialSettings?(
+    request: BotChannelInitialRequest<BotChannelValuesOf<S>>,
+  ): Promise<BotChannelInitial>
+  readonly accounts?: BotChannelAccounts<BotChannelValuesOf<S>>
   readonly formatHint?: string
-  connect(link: BotChannelLink<BotChannelValuesOf<F>>): BotChannelConnection
+  connect(link: BotChannelLink<BotChannelValuesOf<F>, BotChannelValuesOf<S>>): BotChannelConnection
+}
+
+export interface BotChannelShared<
+  S extends readonly BotChannelSharedField[] = readonly BotChannelSharedField[],
+> {
+  readonly fields: S
+  readonly description?: BotChannelText
+  readonly settingsVersion?: number
+  upgradeSettings?(stored: BotChannelStoredSettings): BotChannelSettingsUpgrade
+  options?(
+    request: BotChannelSharedOptionsRequest<BotChannelValuesOf<S>>,
+  ): Promise<BotChannelOptions>
+  check?(request: BotChannelSharedRequest<BotChannelValuesOf<S>>): Promise<BotChannelCheck>
+  inspect?(request: BotChannelSharedRequest<BotChannelValuesOf<S>>): Promise<BotChannelInspection>
+  describeInitial?(shared: BotChannelValuesOf<S>): BotChannelInitialSummary
+}
+
+export interface BotChannelSharedRequest<SV = BotChannelPublicValues> {
+  readonly shared: SV
+  readonly signal: AbortSignal
+}
+
+export interface BotChannelSharedOptionsRequest<SV = BotChannelPublicValues>
+  extends BotChannelSharedRequest<SV> {
+  readonly source: string
+}
+
+export interface BotChannelInitialRequest<SV = BotChannelPublicValues> {
+  readonly bot: { readonly id: string; readonly name: string; readonly language: string }
+  readonly shared: SV
+  readonly signal: AbortSignal
+}
+
+export type BotChannelInitial =
+  | {
+      readonly state: "ready"
+      readonly values: BotChannelPublicValues
+      readonly secrets: Readonly<Record<string, string>>
+      readonly profileSync: boolean
+      readonly summary: BotChannelText
+    }
+  | { readonly state: "unavailable"; readonly reason: BotChannelText }
+
+export interface BotChannelAccountsRequest<SV = BotChannelPublicValues> {
+  listed(botId: string): boolean
+  readonly shared: SV
+  readonly signal: AbortSignal
+}
+
+export interface BotChannelAccounts<SV = BotChannelPublicValues> {
+  reconcile(request: BotChannelAccountsRequest<SV>): Promise<void>
 }
 
 export interface BotChannelStoredSettings {
@@ -57,14 +125,20 @@ export interface BotChannelSettingsUpgrade {
   readonly notes: readonly string[]
 }
 
-export interface BotChannelSettingsRequest<V = BotChannelValuesOf<readonly BotChannelField[]>> {
+export interface BotChannelSettingsRequest<
+  V = BotChannelValuesOf<readonly BotChannelField[]>,
+  SV = BotChannelPublicValues,
+> {
   readonly bot?: { readonly id: string; readonly name: string }
   readonly settings: V
+  readonly shared: SV
   readonly signal: AbortSignal
 }
 
-export interface BotChannelOptionsRequest<V = BotChannelValuesOf<readonly BotChannelField[]>>
-  extends BotChannelSettingsRequest<V> {
+export interface BotChannelOptionsRequest<
+  V = BotChannelValuesOf<readonly BotChannelField[]>,
+  SV = BotChannelPublicValues,
+> extends BotChannelSettingsRequest<V, SV> {
   readonly source: string
 }
 
@@ -245,9 +319,13 @@ export type BotPendingSenderInquiriesResult =
   | { readonly ok: true; readonly inquiries: readonly SenderInquiryView[] }
   | { readonly ok: false; readonly reason: "not-approver" | "closed" }
 
-export interface BotChannelLink<V = BotChannelValuesOf<readonly BotChannelField[]>> {
+export interface BotChannelLink<
+  V = BotChannelValuesOf<readonly BotChannelField[]>,
+  SV = BotChannelPublicValues,
+> {
   readonly bot: { readonly id: string; readonly name: string }
   readonly settings: V
+  readonly shared: SV
   readonly signal: AbortSignal
   readonly commands: readonly BotCommandSpec[]
   deliver(message: BotInboundMessage): Promise<BotDeliveryResult>

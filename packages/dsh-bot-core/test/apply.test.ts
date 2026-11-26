@@ -597,6 +597,7 @@ async function start(
       workstation: false,
       language: "en",
       timezone: "Asia/Tokyo",
+      channels: [],
     })
     return vi.waitFor(
       () => {
@@ -697,6 +698,7 @@ describe("bot-core apply", () => {
         workstation: false,
         language: "en",
         timezone: "Asia/Tokyo",
+        channels: [],
       },
       [],
     )
@@ -709,6 +711,7 @@ describe("bot-core apply", () => {
           workstation: false,
           language: "en",
           timezone: "UTC",
+          channels: [],
         },
         [],
       ),
@@ -976,6 +979,7 @@ describe("bot-core apply", () => {
         workstation: false,
         language: "en",
         timezone: "Asia/Tokyo",
+        channels: [],
         models: { main: light, delegates: [light, { kind: "profile-default" }] },
       })
       const view = await vi.waitFor(() => {
@@ -1001,6 +1005,7 @@ describe("bot-core apply", () => {
           workstation: false,
           language: "en",
           timezone: "Asia/Tokyo",
+          channels: [],
           models: { main: { kind: "fixed", provider: "q", model: "m" } },
         }),
       ).rejects.toMatchObject({ code: "bot-models/unknown-provider" })
@@ -1824,6 +1829,7 @@ describe("bot-core apply", () => {
           workstation: false,
           language: "en",
           timezone: "Asia/Tokyo",
+          channels: [],
         }),
       ).rejects.toThrow("no bot environment")
       expect(rows.size).toBe(1)
@@ -1852,6 +1858,7 @@ describe("bot-core apply", () => {
         workstation: false,
         language: "en",
         timezone: "Asia/Tokyo",
+        channels: [],
       })
       expect(rows.get(id)?.mainSessionId).toBeUndefined()
       await flush()
@@ -1916,7 +1923,7 @@ describe("bot-core apply", () => {
           },
         ],
       })
-      const input = { name: "Small", avatar, language: "en", timezone: "Asia/Tokyo" }
+      const input = { name: "Small", avatar, language: "en", timezone: "Asia/Tokyo", channels: [] }
       await expect(h.backend().lifecycle.create({ ...input, workstation: true })).rejects.toThrow(
         "Desk needs 4 GiB of memory, but this Host can give a bot's VM at most 3 GiB",
       )
@@ -2072,6 +2079,7 @@ describe("bot-core apply", () => {
           workstation: true,
           language: "en",
           timezone: "Asia/Tokyo",
+          channels: [],
         }),
       ).rejects.toThrow("no registered connector offers the workstation option")
       expect(rows.size).toBe(0)
@@ -2087,6 +2095,7 @@ describe("bot-core apply", () => {
         workstation: true,
         language: "en",
         timezone: "Asia/Tokyo",
+        channels: [],
       })
       await flush()
       expect(h.env.targets.map((target) => target.spec)).toEqual([DEFAULT_BOT_ENVIRONMENT_SPEC])
@@ -2107,6 +2116,7 @@ describe("bot-core apply", () => {
         workstation: false,
         language: "en",
         timezone: "Asia/Tokyo",
+        channels: [],
       })
       expect(
         botOf(h.ctx)
@@ -2125,6 +2135,7 @@ describe("bot-core apply", () => {
         workstation: false,
         language: "en",
         timezone: "Asia/Tokyo",
+        channels: [],
       })
       await flush()
       h.env.report(id, "booting")
@@ -2164,6 +2175,7 @@ describe("bot-core apply", () => {
         workstation: false,
         language: "en",
         timezone: "Asia/Tokyo",
+        channels: [],
       })
       await vi.waitFor(() => expect(h.pending(id)?.failure).toBeDefined())
       expect(h.pending(id)).toMatchObject({
@@ -2213,6 +2225,7 @@ describe("bot-core apply", () => {
         workstation: false,
         language: "en",
         timezone: "Asia/Tokyo",
+        channels: [],
       })
       await flush()
       unregister()
@@ -2235,6 +2248,7 @@ describe("bot-core apply", () => {
         workstation: false,
         language: "en",
         timezone: "Asia/Tokyo",
+        channels: [],
       })
       await flush()
       let finish: () => void = () => {}
@@ -2266,6 +2280,7 @@ describe("bot-core apply", () => {
         workstation: false,
         language: "en",
         timezone: "Asia/Tokyo",
+        channels: [],
       })
       await flush()
       await h.fiber.dispose()

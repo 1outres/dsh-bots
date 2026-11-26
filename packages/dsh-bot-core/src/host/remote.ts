@@ -13,9 +13,13 @@ import type {
   BotChannelChange,
   BotChannelCheck,
   BotChannelConfigureResult,
+  BotChannelDefault,
   BotChannelInspection,
   BotChannelOptions,
   BotChannelSettingsRef,
+  BotChannelSharedChange,
+  BotChannelSharedConfigureResult,
+  BotChannelSharedSnapshot,
   BotChannelsApi,
   BotChannelsSnapshot,
 } from "../shared/channels"
@@ -165,6 +169,7 @@ import type {
   BotWorkspacesSnapshot,
 } from "../shared/workspaces"
 import type { ChannelPanel } from "./channels/panel"
+import type { SharedChannelPanel } from "./channels/shared-panel"
 import type { ConnectionPanel } from "./connections/panel"
 import type { ConnectorApprovals } from "./connectors/approvals"
 import type { ConnectorPanel } from "./connectors/panel"
@@ -360,16 +365,42 @@ export class BotFilesRemoteService extends TypertRemoteService implements BotFil
 export const BOT_CHANNELS_REMOTE = "botChannels" satisfies RemoteNamespace
 
 const PANEL = Symbol("botChannelPanel")
+const SHARED_PANEL = Symbol("botSharedChannelPanel")
 const WATCHED = Symbol("botChannelChanges")
 
 export class BotChannelsRemoteService extends TypertRemoteService implements BotChannelsApi {
   [PANEL]: ChannelPanel;
+  [SHARED_PANEL]: SharedChannelPanel;
   [WATCHED]: (listener: () => void) => () => void
 
-  constructor(ctx: Context, panel: ChannelPanel, subscribe: (listener: () => void) => () => void) {
+  constructor(
+    ctx: Context,
+    panels: { readonly bots: ChannelPanel; readonly shared: SharedChannelPanel },
+    subscribe: (listener: () => void) => () => void,
+  ) {
     super(ctx, BOT_CHANNELS_REMOTE)
-    this[PANEL] = panel
+    this[PANEL] = panels.bots
+    this[SHARED_PANEL] = panels.shared
     this[WATCHED] = subscribe
+  }
+
+  @Remote({ mode: "stream" })
+  async *watchShared(signal?: AbortSignal): AsyncIterable<BotChannelSharedSnapshot> {
+    const panel = this[SHARED_PANEL]
+    yield* watchStream(() => panel.snapshot(), this[WATCHED], signal)
+  }
+
+  @Remote
+  configureShared(
+    channelId: string,
+    change: BotChannelSharedChange,
+  ): Promise<BotChannelSharedConfigureResult> {
+    return this[SHARED_PANEL].configure(channelId, change)
+  }
+
+  @Remote
+  async defaults(): Promise<readonly BotChannelDefault[]> {
+    return this[SHARED_PANEL].defaults()
   }
 
   @Remote({ mode: "stream" })

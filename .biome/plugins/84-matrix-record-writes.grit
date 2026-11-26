@@ -1,0 +1,15 @@
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or { `$receiver.put`, `$receiver.delete`, `$receiver?.put`, `$receiver?.delete` },
+  $receiver <: or {
+    `accounts`, `$_.accounts`, `$_?.accounts`,
+    `homes`, `$_.homes`, `$_?.homes`,
+    `cursors`, `$_.cursors`, `$_?.cursors`,
+    `cards`, `$_.cards`, `$_?.cards`,
+    `digests`, `$_.digests`, `$_?.digests`,
+    `incidents`, `$_.incidents`, `$_?.incidents`
+  },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 84: do not write the Matrix channel's records here; go through src/host/records/, one module per table (accounts, homes, cursors, approval cards and lists, incidents)."
+  )
+}

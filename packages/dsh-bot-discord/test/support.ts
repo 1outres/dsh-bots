@@ -180,6 +180,7 @@ export function fakeLink(settings: DiscordSettings) {
   const link: BotChannelLink<DiscordSettings> = {
     bot: { id: "b1", name: "Bot" },
     settings,
+    shared: {},
     signal: controller.signal,
     commands: [
       { id: "stop", description: { en: "Stop", ja: "停止" }, access: "anyone" },

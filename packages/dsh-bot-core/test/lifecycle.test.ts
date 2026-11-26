@@ -33,6 +33,7 @@ function setup() {
   const preparations = createSessionPreparations()
   const deps: BotLifecycleDeps = {
     preparations,
+    channels: { apply: async () => {} },
     registry: {
       list: () => [],
       creating: () => [...creating.values()],
@@ -214,6 +215,7 @@ describe("createBotLifecycle", () => {
       workstation: false,
       language: "en",
       timezone: "Asia/Tokyo",
+      channels: [],
     })
     expect(h.pending(id)).toEqual({
       id,
@@ -240,6 +242,7 @@ describe("createBotLifecycle", () => {
       workstation: false,
       language: "en",
       timezone: "Asia/Tokyo",
+      channels: [],
     })
     h.reports(id, "booting")
     h.tick(5)
@@ -263,6 +266,7 @@ describe("createBotLifecycle", () => {
       workstation: false,
       language: "en",
       timezone: "Asia/Tokyo",
+      channels: [],
     })
     h.environmentIs(id, { ready: false, problem: "no environment", pending: true })
     await settle()
@@ -277,6 +281,7 @@ describe("createBotLifecycle", () => {
       workstation: false,
       language: "en",
       timezone: "Asia/Tokyo",
+      channels: [],
     })
     h.presets.set(id, { id: `bot-${id}`, ready: false, template: "t", problem: "bad overlay" })
     h.environmentIs(id, { ready: true })
@@ -295,6 +300,7 @@ describe("createBotLifecycle", () => {
       workstation: false,
       language: "en",
       timezone: "Asia/Tokyo",
+      channels: [],
     })
     h.presets.set(id, {
       id: `bot-${id}`,
@@ -316,6 +322,7 @@ describe("createBotLifecycle", () => {
       workstation: false,
       language: "en",
       timezone: "Asia/Tokyo",
+      channels: [],
     })
     h.environmentIs(id, { ready: false, problem: "quota" })
     await settle()
@@ -339,6 +346,7 @@ describe("createBotLifecycle", () => {
       workstation: false,
       language: "en",
       timezone: "Asia/Tokyo",
+      channels: [],
     })
     h.creating.set(id, { ...(h.creating.get(id) as CreatingBot), sessionIds: ["s1"] })
     h.tick(10)
@@ -365,6 +373,7 @@ describe("createBotLifecycle", () => {
       workstation: false,
       language: "en",
       timezone: "Asia/Tokyo",
+      channels: [],
     })
     await h.lifecycle.discardCreate(id)
     await settle()
@@ -388,6 +397,7 @@ describe("createBotLifecycle", () => {
       workstation: false,
       language: "en",
       timezone: "Asia/Tokyo",
+      channels: [],
     })
     const second = await h.lifecycle.create({
       name: "Second",
@@ -395,6 +405,7 @@ describe("createBotLifecycle", () => {
       workstation: false,
       language: "en",
       timezone: "Asia/Tokyo",
+      channels: [],
     })
     h.failCleanup(new Error("session busy"))
     await h.lifecycle.discardCreate(first)
@@ -422,6 +433,7 @@ describe("createBotLifecycle", () => {
       workstation: false,
       language: "en",
       timezone: "Asia/Tokyo",
+      channels: [],
     })
     h.tick(1)
     const second = await h.lifecycle.create({
@@ -430,6 +442,7 @@ describe("createBotLifecycle", () => {
       workstation: false,
       language: "en",
       timezone: "Asia/Tokyo",
+      channels: [],
     })
     expect(h.lifecycle.snapshot().pending.map((item) => item.id)).toEqual([first, second])
     h.lifecycle.dispose()

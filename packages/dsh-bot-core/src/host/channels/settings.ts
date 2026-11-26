@@ -1,9 +1,12 @@
 import type { BotChannel } from "../../contract"
 import {
   type BotChannelChange,
+  type BotChannelInitialFailure,
   type BotChannelPublicValues,
   channelValuesOf,
   missingChannelFields,
+  secretsAfterChange,
+  withSecretValues,
 } from "../../shared/channels"
 import type { BotTable } from "../registry"
 import { settingsVersionOf } from "./catalog"
@@ -27,6 +30,7 @@ export interface ChannelSettingsView {
   readonly values: BotChannelPublicValues
   readonly secrets: Readonly<Record<string, boolean>>
   readonly profileSync: boolean
+  readonly initial?: BotChannelInitialFailure
 }
 
 export type ChannelReadiness =
@@ -45,6 +49,11 @@ export interface ChannelSettings {
     channel: SettingsChannel,
     change: BotChannelChange,
   ): Promise<BotChannelPublicValues>
+  markInitialFailed(
+    botId: string,
+    channel: SettingsChannel,
+    failure: BotChannelInitialFailure,
+  ): Promise<void>
   upgrade(channel: SettingsChannel): Promise<void>
   purge(keep: (botId: string) => boolean): Promise<void>
   subscribe(listener: (botId: string, channelId: string) => void): () => void
@@ -96,9 +105,11 @@ export function createChannelSettings(deps: ChannelSettingsDeps): ChannelSetting
   const view = (botId: string, channel: SettingsChannel): ChannelSettingsView => {
     const stored = storedOf(botId, channel)
     const secrets = new Set(stored?.record.secrets ?? [])
+    const initial = stored?.record.initial
     return {
       enabled: stored?.record.enabled ?? false,
       profileSync: stored?.record.profileSync === true,
+      ...(initial === undefined ? {} : { initial }),
       values: channelValuesOf(channel.fields, stored?.values ?? {}),
       secrets: Object.fromEntries(
         channel.fields
@@ -112,28 +123,13 @@ export function createChannelSettings(deps: ChannelSettingsDeps): ChannelSetting
     stored: Readonly<Record<string, string>>,
     channel: SettingsChannel,
     change: BotChannelChange,
-  ) => {
-    const secrets: Record<string, string> = { ...stored }
-    for (const field of channel.fields) {
-      if (field.kind !== "secret") continue
-      const edit = change.secrets[field.key] ?? { op: "keep" }
-      if (edit.op === "set") secrets[field.key] = edit.value
-      if (edit.op === "clear") delete secrets[field.key]
-    }
-    return secrets
-  }
+  ) => secretsAfterChange(channel.fields, stored, change.secrets)
 
   const withSecrets = (
     channel: SettingsChannel,
     values: BotChannelPublicValues,
     secrets: Readonly<Record<string, string>>,
-  ): BotChannelPublicValues => {
-    const all: Record<string, string | readonly string[]> = { ...values }
-    for (const field of channel.fields) {
-      if (field.kind === "secret") all[field.key] = secrets[field.key] ?? ""
-    }
-    return all
-  }
+  ) => withSecretValues(channel.fields, values, secrets)
 
   const store = async (
     botId: string,
@@ -143,6 +139,7 @@ export function createChannelSettings(deps: ChannelSettingsDeps): ChannelSetting
       readonly values: BotChannelPublicValues
       readonly secrets: readonly string[]
       readonly profileSync?: boolean
+      readonly initial?: BotChannelInitialFailure
     },
   ) => {
     await deps.records.put(channelRecordKey(botId, channel.id), {
@@ -153,6 +150,7 @@ export function createChannelSettings(deps: ChannelSettingsDeps): ChannelSetting
       secrets: [...stored.secrets].sort(),
       settingsVersion: settingsVersionOf(channel),
       profileSync: stored.profileSync === true,
+      ...(stored.initial === undefined ? {} : { initial: stored.initial }),
       updatedAt: deps.now(),
     })
   }
@@ -223,6 +221,21 @@ export function createChannelSettings(deps: ChannelSettingsDeps): ChannelSetting
     async preview(botId, channel, change) {
       const stored = await deps.vault.read(botId, channel.id)
       return withSecrets(channel, change.values, secretsAfter(stored, channel, change))
+    },
+    markInitialFailed(botId, channel, failure) {
+      return serial(async () => {
+        const current = view(botId, channel)
+        await store(botId, channel, {
+          enabled: false,
+          values: current.values,
+          secrets: Object.entries(current.secrets)
+            .filter(([, set]) => set)
+            .map(([key]) => key),
+          profileSync: current.profileSync,
+          initial: failure,
+        })
+        changed(botId, channel.id, false)
+      })
     },
     upgrade(channel) {
       return serial(async () => {

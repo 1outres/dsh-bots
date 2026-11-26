@@ -31,6 +31,36 @@
         "required": false,
         "type": "boolean"
       },
+      "initial": {
+        "required": false,
+        "type": "{ state: \"failed\"; reason: { en: string; ja?: string }; at: number }"
+      },
+      "updatedAt": {
+        "required": true,
+        "type": "number"
+      }
+    },
+    "shared": {
+      "channelId": {
+        "required": true,
+        "type": "string"
+      },
+      "values": {
+        "required": true,
+        "type": "{ [key: string]: string | string[] }"
+      },
+      "secrets": {
+        "required": true,
+        "type": "string[]"
+      },
+      "newBots": {
+        "required": true,
+        "type": "boolean"
+      },
+      "settingsVersion": {
+        "required": false,
+        "type": "number"
+      },
       "updatedAt": {
         "required": true,
         "type": "number"

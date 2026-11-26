@@ -191,7 +191,12 @@ describe("Discord settings queries", () => {
   it("offer direct messages first and the text channels the bot can use, suggesting DMs", async () => {
     const { lookup } = fakeLookup()
     const { queries: answer, tokens } = queries(lookup)
-    const options = await answer.options({ source: "home", settings: DM_SETTINGS, signal })
+    const options = await answer.options({
+      source: "home",
+      settings: DM_SETTINGS,
+      shared: {},
+      signal,
+    })
     expect(tokens).toEqual(["tok"])
     expect(options).toMatchObject({ state: "ready", suggested: ["dm"] })
     if (options.state !== "ready") throw new Error("unavailable")
@@ -210,14 +215,23 @@ describe("Discord settings queries", () => {
       }).lookup,
     )
     const empty: DiscordSettings = { ...DM_SETTINGS, token: "" }
-    expect(await answer.options({ source: "home", settings: empty, signal })).toMatchObject({
+    expect(
+      await answer.options({ source: "home", settings: empty, shared: {}, signal }),
+    ).toMatchObject({
       state: "unavailable",
       reason: { en: "Set the bot token first." },
     })
     expect(
-      await answer.options({ source: "owners", settings: { ...DM_SETTINGS, home: "" }, signal }),
+      await answer.options({
+        source: "owners",
+        settings: { ...DM_SETTINGS, home: "" },
+        shared: {},
+        signal,
+      }),
     ).toMatchObject({ state: "unavailable", reason: { en: "Choose the home first." } })
-    expect(await answer.options({ source: "home", settings: DM_SETTINGS, signal })).toMatchObject({
+    expect(
+      await answer.options({ source: "home", settings: DM_SETTINGS, shared: {}, signal }),
+    ).toMatchObject({
       state: "unavailable",
       reason: { en: expect.stringContaining("rejected the bot token") },
     })
@@ -228,6 +242,7 @@ describe("Discord settings queries", () => {
     const options = await answer.options({
       source: "owners",
       settings: { ...DM_SETTINGS, approvers: [STRANGER] },
+      shared: {},
       signal,
     })
     if (options.state !== "ready") throw new Error("unavailable")
@@ -243,13 +258,19 @@ describe("Discord settings queries", () => {
   it("offer the people who can see the home channel, the application's owner first and no bots", async () => {
     const { lookup } = fakeLookup()
     const { queries: answer } = queries(lookup)
-    const options = await answer.options({ source: "owners", settings: CHANNEL_SETTINGS, signal })
+    const options = await answer.options({
+      source: "owners",
+      settings: CHANNEL_SETTINGS,
+      shared: {},
+      signal,
+    })
     if (options.state !== "ready") throw new Error("unavailable")
     expect(options.options.map((option) => option.value)).toEqual([ALLOWED, OTHER])
     expect(options.suggested).toEqual([ALLOWED])
     const hidden = await answer.options({
       source: "owners",
       settings: { ...CHANNEL_SETTINGS, home: `${GUILD}:${HIDDEN}` },
+      shared: {},
       signal,
     })
     expect(hidden).toMatchObject({ state: "unavailable" })
@@ -259,7 +280,7 @@ describe("Discord settings queries", () => {
     const { lookup, asked } = fakeLookup({}, { members: false, messageContent: true })
     const { queries: answer } = queries(lookup)
     expect(
-      await answer.options({ source: "owners", settings: CHANNEL_SETTINGS, signal }),
+      await answer.options({ source: "owners", settings: CHANNEL_SETTINGS, shared: {}, signal }),
     ).toMatchObject({
       state: "unavailable",
       reason: { en: expect.stringContaining("Server Members Intent") },
@@ -269,9 +290,13 @@ describe("Discord settings queries", () => {
 
   it("check one owner in DMs, and owners who can see the home channel", async () => {
     const { queries: answer } = queries(fakeLookup().lookup)
-    expect(await answer.check({ settings: DM_SETTINGS, signal })).toEqual({ ok: true })
+    expect(await answer.check({ settings: DM_SETTINGS, shared: {}, signal })).toEqual({ ok: true })
     expect(
-      await answer.check({ settings: { ...DM_SETTINGS, approvers: [ALLOWED, OTHER] }, signal }),
+      await answer.check({
+        settings: { ...DM_SETTINGS, approvers: [ALLOWED, OTHER] },
+        shared: {},
+        signal,
+      }),
     ).toMatchObject({
       ok: false,
       reason: { en: expect.stringContaining("exactly one owner") },
@@ -279,17 +304,22 @@ describe("Discord settings queries", () => {
     expect(
       await answer.check({
         settings: { ...CHANNEL_SETTINGS, approvers: [ALLOWED, OTHER] },
+        shared: {},
         signal,
       }),
     ).toEqual({ ok: true })
     expect(
-      await answer.check({ settings: { ...CHANNEL_SETTINGS, approvers: [STRANGER] }, signal }),
+      await answer.check({
+        settings: { ...CHANNEL_SETTINGS, approvers: [STRANGER] },
+        shared: {},
+        signal,
+      }),
     ).toMatchObject({
       ok: false,
       reason: { en: "Carol (@carol) is not a member of the home channel's server." },
     })
     const secret = { ...CHANNEL_SETTINGS, home: `${GUILD}:${HIDDEN}`, approvers: [ALLOWED] }
-    expect(await answer.check({ settings: secret, signal })).toMatchObject({
+    expect(await answer.check({ settings: secret, shared: {}, signal })).toMatchObject({
       ok: false,
       reason: { en: expect.stringContaining("cannot see the home channel") },
     })
@@ -299,12 +329,12 @@ describe("Discord settings queries", () => {
     const { queries: answer } = queries(
       fakeLookup({}, { members: false, messageContent: false }).lookup,
     )
-    const dm = await answer.inspect({ settings: DM_SETTINGS, signal })
+    const dm = await answer.inspect({ settings: DM_SETTINGS, shared: {}, signal })
     expect(dm).toMatchObject({ state: "ready", account: "helper", warnings: [] })
     if (dm.state !== "ready") throw new Error("unavailable")
     expect(dm.links[0]?.url).toBe(inviteUrl(APP))
     expect(inviteUrl(APP)).toContain("scope=bot%20applications.commands")
-    const channel = await answer.inspect({ settings: CHANNEL_SETTINGS, signal })
+    const channel = await answer.inspect({ settings: CHANNEL_SETTINGS, shared: {}, signal })
     if (channel.state !== "ready") throw new Error("unavailable")
     expect(channel.warnings.map((warning) => warning.en.split(" ")[0])).toEqual([
       "Message",

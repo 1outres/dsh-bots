@@ -1,0 +1,62 @@
+{
+  "name": "@1outres/dsh-bot-matrix",
+  "version": "0.4.2",
+  "description": "Connects each bot of DeepSeek Harness to a Matrix account of its own on your self-hosted homeserver (Synapse or Tuwunel), at one home: a direct chat with its owner or a room. Messages there reach the bot's Main session, and its replies come back.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/1outres/dsh-bots.git",
+    "directory": "packages/dsh-bot-matrix"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "src",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg"
+  ],
+  "scripts": {
+    "prepublishOnly": "node ../../scripts/build.mjs"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "bot",
+    "matrix",
+    "deepseek-harness"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "dsh": "0.2.2-rc.5",
+    "node": ">=22"
+  },
+  "peerDependencies": {
+    "@1outres/dsh-bot-core": "workspace:^0.4.2",
+    "@deepseek-ai/cordis": "~4.1.0"
+  },
+  "devDependencies": {
+    "@1outres/dsh-bot-core": "workspace:*",
+    "@deepseek-ai/cordis": "~4.1.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": [
+        "./cordis.patch.yml"
+      ]
+    }
+  },
+  "dependencies": {
+    "markdown-it": "^15.0.3",
+    "zod": "4.4.3"
+  }
+}

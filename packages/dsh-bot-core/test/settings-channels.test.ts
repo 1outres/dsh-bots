@@ -169,6 +169,7 @@ describe("channels section", () => {
         page: { detail: null, open() {}, back() {} },
         close: () => {},
         confirm: async () => false,
+        openShared: () => {},
         channels: {
           feed: () => feed,
           ask: (_botId, channelId) =>

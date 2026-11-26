@@ -1,5 +1,9 @@
 import type { BotsApi, BotsSnapshot } from "../shared/bots"
-import type { BotChannelsApi, BotChannelsSnapshot } from "../shared/channels"
+import type {
+  BotChannelSharedSnapshot,
+  BotChannelsApi,
+  BotChannelsSnapshot,
+} from "../shared/channels"
 import type { BotConnectionsApi, BotConnectionsSnapshot } from "../shared/connections"
 import type {
   BotConnectorActionsApi,
@@ -62,8 +66,9 @@ export interface BotsRemote extends Remoted<Omit<BotsApi, "watch" | "watchModels
 
 export type BotFilesRemote = Remoted<BotFilesApi>
 
-export interface BotChannelsRemote extends Remoted<Omit<BotChannelsApi, "watch">> {
+export interface BotChannelsRemote extends Remoted<Omit<BotChannelsApi, "watch" | "watchShared">> {
   watch(botId: string): StreamHandle<BotChannelsSnapshot>
+  watchShared(): StreamHandle<BotChannelSharedSnapshot>
 }
 
 export interface BotInteractionsRemote extends Remoted<Omit<BotInteractionsApi, "watch">> {

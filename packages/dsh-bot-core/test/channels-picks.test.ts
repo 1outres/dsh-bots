@@ -13,7 +13,7 @@ import {
   parseChannelChange,
   parseChannelSettingsRef,
 } from "../src/shared/channels"
-import { CAPABILITIES, memoryTable, memoryVault, SENDER } from "./channels-support"
+import { CAPABILITIES, memoryTable, memoryVault, SENDER, sharedChannels } from "./channels-support"
 
 const PICK_FIELDS = [
   {
@@ -100,6 +100,7 @@ function setup(channel: BotChannel) {
     settings,
     hub: { state: () => undefined, sync: () => synced.push(1) },
     profiles: { status: () => undefined },
+    shared: sharedChannels(() => [channel]).panel,
     deadline: () => new AbortController().signal,
   })
   return { records, vault, settings, panel, warnings, synced }
@@ -267,13 +268,13 @@ describe("the channel panel's questions", () => {
 
   it("parses a draft reference like a change", () => {
     expect(() =>
-      parseChannelSettingsRef(PICK_FIELDS, {
+      parseChannelSettingsRef(PICK_FIELDS, undefined, {
         kind: "draft",
         values: { home: "dm", owners: [] },
         secrets: { nope: "x" },
       }),
     ).toThrow("not a secret")
-    expect(() => parseChannelSettingsRef(PICK_FIELDS, { kind: "other" })).toThrow()
+    expect(() => parseChannelSettingsRef(PICK_FIELDS, undefined, { kind: "other" })).toThrow()
   })
 })
 

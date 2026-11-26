@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "ボットの Matrix 連携",
+    "description": "自分の homeserver（Synapse か Tuwunel）の Matrix で各ボットと話せます。dsh-bots の設定で homeserver を一度つなぐと、ボットごとに専用の Matrix アカウントができ、ホームはあなたとの DM か部屋 1 つです。"
+  }
+}

@@ -1,0 +1,8 @@
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or { `$receiver.put`, `$receiver.delete`, `$receiver?.put`, `$receiver?.delete` },
+  $receiver <: or { `shared`, `$_.shared`, `$_?.shared` },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 80: do not write the shared channel settings table here; go through host/channels/shared-settings.ts, which serializes writes, bumps the channel's revision and tells its subscribers."
+  )
+}

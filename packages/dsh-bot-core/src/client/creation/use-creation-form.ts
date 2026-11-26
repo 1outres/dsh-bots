@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import type { BotAvatar } from "../../shared/avatar"
 import type { BotCreationChoices, BotCreationOffer } from "../../shared/bots"
+import type { BotChannelDefault } from "../../shared/channels"
 import type { BotCreationOption } from "../../shared/connectors"
 import {
   type BotModelCatalog,
@@ -27,7 +28,13 @@ import type { BotCreationRequest } from "./request"
 export interface CreationSources {
   creationOptions(): Promise<BotCreationOffer>
   modelCatalog(): Promise<BotModelCatalog>
+  channelDefaults(): Promise<readonly BotChannelDefault[]>
 }
+
+export type ChannelDefaultsState =
+  | { readonly status: "loading" }
+  | { readonly status: "ready"; readonly defaults: readonly BotChannelDefault[] }
+  | { readonly status: "failed"; readonly message: string }
 
 export interface BotCreationForm {
   readonly name: string
@@ -39,6 +46,9 @@ export interface BotCreationForm {
   reloadOffer(): void
   readonly choices: BotCreationChoices
   setOption(option: BotCreationOption, on: boolean): void
+  readonly defaults: ChannelDefaultsState
+  readonly channels: readonly string[]
+  setChannel(channelId: string, on: boolean): void
   readonly catalog: CatalogState
   readonly main: BotModelChoice
   setMain(choice: BotModelChoice): void
@@ -78,6 +88,36 @@ function useCreationOffer(read: CreationSources["creationOptions"]) {
   return [state, reload] as const
 }
 
+function useChannelDefaults(read: CreationSources["channelDefaults"]) {
+  const [state, setState] = useState<ChannelDefaultsState>({ status: "loading" })
+  useEffect(() => {
+    let current = true
+    read().then(
+      (defaults) => {
+        if (current) setState({ status: "ready", defaults })
+      },
+      (error: unknown) => {
+        if (current)
+          setState({
+            status: "failed",
+            message: error instanceof Error ? error.message : String(error),
+          })
+      },
+    )
+    return () => {
+      current = false
+    }
+  }, [read])
+  return state
+}
+
+const offeredChannels = (state: ChannelDefaultsState): readonly string[] =>
+  state.status === "ready"
+    ? state.defaults
+        .filter((offer) => offer.initial.state === "ready")
+        .map((offer) => offer.channelId)
+    : []
+
 export function useBotCreationForm(t: Translate, sources: CreationSources): BotCreationForm {
   const [name, setName] = useState("")
   const [avatarChoice, setAvatarChoice] = useState<AvatarChoice>(DEFAULT_AVATAR_CHOICE)
@@ -86,6 +126,11 @@ export function useBotCreationForm(t: Translate, sources: CreationSources): BotC
   useEffect(() => {
     if (offer.status === "ready") setChoices(initialChoices(offer.offer))
   }, [offer])
+  const defaults = useChannelDefaults(sources.channelDefaults)
+  const [channels, setChannels] = useState<readonly string[]>([])
+  useEffect(() => {
+    setChannels(offeredChannels(defaults))
+  }, [defaults])
   const catalog = useModelCatalog(sources.modelCatalog)
   const [main, setMain] = useState<BotModelChoice>(PROFILE_DEFAULT_MODEL)
   const [timezone, setTimezone] = useState(browserTimeZone)
@@ -105,7 +150,7 @@ export function useBotCreationForm(t: Translate, sources: CreationSources): BotC
     setBusy(true)
     setError(undefined)
     try {
-      await send({ ...choices, name: trimmed, avatar, timezone, models: { main } })
+      await send({ ...choices, name: trimmed, avatar, timezone, models: { main }, channels })
       return true
     } catch (cause) {
       setError(
@@ -128,6 +173,14 @@ export function useBotCreationForm(t: Translate, sources: CreationSources): BotC
     reloadOffer,
     choices,
     setOption: (option, on) => setChoices({ ...choices, [option]: on }),
+    defaults,
+    channels,
+    setChannel: (channelId, on) =>
+      setChannels(
+        on
+          ? [...new Set([...channels, channelId])]
+          : channels.filter((listed) => listed !== channelId),
+      ),
     catalog,
     main,
     setMain,

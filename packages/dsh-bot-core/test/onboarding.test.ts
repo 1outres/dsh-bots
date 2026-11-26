@@ -416,6 +416,7 @@ describe("onboarding panel", () => {
     workstation: false,
     language: "en",
     timezone: "UTC",
+    channels: [],
   } as const
 
   it("creates one guide bot when two pages ask at once, and follows it to done", async () => {
@@ -732,11 +733,18 @@ describe("onboarding in the browser", () => {
         creation: {
           creationOptions: () => new Promise<BotCreationOffer>(() => {}),
           modelCatalog: () => new Promise<BotModelCatalog>(() => {}),
+          channelDefaults: async () => [],
         },
         web,
         text: (text: { readonly en: string }) => text.en,
         connections,
         channelQueries: idleQueries,
+        sharedChannels: {
+          ...value({ status: "loading" as const }),
+          configure: vi.fn(),
+          ask: () => ({ options: vi.fn(), inspect: vi.fn() }),
+          dispose() {},
+        },
       }),
     )
   }

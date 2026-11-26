@@ -2,30 +2,35 @@ import { useMemo, useRef } from "react"
 import type {
   BotChannelChange,
   BotChannelChoice,
-  BotChannelField,
+  BotChannelInitialFailure,
   BotChannelInspection,
-  BotChannelListField,
   BotChannelOption,
   BotChannelOptions,
-  BotChannelPickField,
   BotChannelProfileParts,
   BotChannelProfileStatus,
+  BotChannelSharedField,
+  BotChannelSharedListField,
+  BotChannelSharedPickField,
+  BotChannelSharedTextField,
+  BotChannelSnippet,
   BotChannelText,
-  BotChannelTextField,
   BotChannelView,
 } from "../../shared/channels"
 import { profilePartsOf } from "../../shared/channels"
 import {
   type ChannelEdit,
+  type ChannelFieldEdit,
   type ChannelFieldIssue,
+  type ChannelFieldsState,
   type ChannelHeadline,
   changeWith,
   channelHeadline,
+  fieldsStateOf,
   listIssue,
   listItemsOf,
   listTextOf,
   missingFields,
-  ownersEmpty,
+  ownersEmptyIn,
   textIssue,
   textOf,
 } from "../channel-form"
@@ -65,6 +70,7 @@ import type { SettingsSectionProps } from "./sections"
 export interface ChannelsSectionDeps {
   readonly channels: ChannelsHub
   text(text: BotChannelText): string
+  openShared(channelId: string): void
 }
 
 export function ChannelsSection({
@@ -72,6 +78,7 @@ export function ChannelsSection({
   bot,
   channels,
   text,
+  openShared,
 }: SettingsSectionProps & ChannelsSectionDeps) {
   const feed = channels.feed(bot.id)
   const state = useObservable(feed)
@@ -97,6 +104,7 @@ export function ChannelsSection({
           view={view}
           configure={feed.configure}
           ask={channels.ask(bot.id, view.channel.id)}
+          openShared={() => openShared(view.channel.id)}
         />
       ))}
     </div>
@@ -105,6 +113,7 @@ export function ChannelsSection({
 
 const HEADLINE_LABEL: Readonly<Record<ChannelHeadline["state"], MessageKey>> = {
   off: "channels.status.off",
+  unconfigured: "channels.status.unconfigured",
   failed: "channels.status.failed",
   incomplete: "channels.status.incomplete",
   noOwners: "channels.status.noOwners",
@@ -137,12 +146,13 @@ export interface ChannelGroupProps {
   readonly view: BotChannelView
   readonly configure: ChannelConfigure
   readonly ask: ChannelAsk
+  openShared?(): void
 }
 
 const settingsKey = (view: BotChannelView) =>
   JSON.stringify([view.revision, view.values, view.secrets])
 
-export function ChannelGroup({ t, text, view, configure, ask }: ChannelGroupProps) {
+export function ChannelGroup({ t, text, view, configure, ask, openShared }: ChannelGroupProps) {
   const { channel } = view
   const latest = useRef(view)
   latest.current = view
@@ -190,20 +200,33 @@ export function ChannelGroup({ t, text, view, configure, ask }: ChannelGroupProp
           </>
         }
       />
-      <InspectionRows t={t} text={text} inspection={inspection} />
-      {channel.fields.map((field) => (
-        <ChannelField
-          key={field.key}
-          t={t}
-          text={text}
-          view={view}
-          field={field}
-          missing={missing.has(field.key)}
-          save={save}
-          ask={ask}
-          settingsKey={key}
+      <InitialFailureRow t={t} text={text} failure={view.initial} />
+      {view.status.state === "unconfigured" && openShared !== undefined && (
+        <Row
+          label={t("channels.unconfigured", { channel: channel.name })}
+          marks={{ "data-dshb-channel-unconfigured": id }}
+          trailing={
+            <Button
+              variant="secondary"
+              onClick={openShared}
+              marks={{ "data-dshb-channel-open-shared": id }}
+            >
+              {t("channels.unconfigured.open")}
+            </Button>
+          }
         />
-      ))}
+      )}
+      <InspectionRows t={t} text={text} inspection={inspection} />
+      <ChannelFields
+        t={t}
+        text={text}
+        state={fieldsStateOf(view)}
+        fields={channel.fields}
+        missing={missing}
+        save={save}
+        ask={ask}
+        settingsKey={key}
+      />
       <ProfileRow t={t} text={text} view={view} save={save} />
       {channel.guide !== undefined && (
         <LinkRow
@@ -213,6 +236,53 @@ export function ChannelGroup({ t, text, view, configure, ask }: ChannelGroupProp
         />
       )}
     </Group>
+  )
+}
+
+function InitialFailureRow(props: {
+  readonly t: Translate
+  text(text: BotChannelText): string
+  readonly failure: BotChannelInitialFailure | undefined
+}) {
+  if (props.failure === undefined) return null
+  return (
+    <Row
+      label={props.t("channels.initial.failed")}
+      meta={props.text(props.failure.reason)}
+      metaTone="warning"
+      marks={{ "data-dshb-channel-initial": "failed" }}
+    />
+  )
+}
+
+export interface ChannelFieldsProps {
+  readonly t: Translate
+  text(text: BotChannelText): string
+  readonly state: ChannelFieldsState
+  readonly fields: readonly BotChannelSharedField[]
+  readonly missing: ReadonlySet<string>
+  save(edit: ChannelFieldEdit): Promise<CommitResult>
+  readonly ask: ChannelAsk
+  readonly settingsKey: string
+}
+
+export function ChannelFields(props: ChannelFieldsProps) {
+  return (
+    <>
+      {props.fields.map((field) => (
+        <ChannelField
+          key={field.key}
+          t={props.t}
+          text={props.text}
+          view={props.state}
+          field={field}
+          missing={props.missing.has(field.key)}
+          save={props.save}
+          ask={props.ask}
+          settingsKey={props.settingsKey}
+        />
+      ))}
+    </>
   )
 }
 
@@ -279,10 +349,10 @@ function ProfileRow(props: {
 interface FieldProps {
   readonly t: Translate
   text(text: BotChannelText): string
-  readonly view: BotChannelView
-  readonly field: BotChannelField
+  readonly view: ChannelFieldsState
+  readonly field: BotChannelSharedField
   readonly missing: boolean
-  save(edit: ChannelEdit): Promise<CommitResult>
+  save(edit: ChannelFieldEdit): Promise<CommitResult>
   readonly ask: ChannelAsk
   readonly settingsKey: string
 }
@@ -324,6 +394,7 @@ function ChannelField(props: FieldProps) {
           view={view}
           field={field}
           choices={field.choices}
+          unset={t("channels.options.choose")}
           save={save}
         />
       )
@@ -359,10 +430,10 @@ function TextRow(props: {
   readonly t: Translate
   readonly label: string
   readonly description: string | undefined
-  readonly view: BotChannelView
-  readonly field: BotChannelTextField
+  readonly view: ChannelFieldsState
+  readonly field: BotChannelSharedTextField
   readonly missing: boolean
-  save(edit: ChannelEdit): Promise<CommitResult>
+  save(edit: ChannelFieldEdit): Promise<CommitResult>
 }) {
   const { t, label, view, field, missing, save } = props
   const draft = useTextDraft({
@@ -394,23 +465,28 @@ function ChoiceField(props: {
   text(text: BotChannelText): string
   readonly label: string
   readonly description: string | undefined
-  readonly view: BotChannelView
-  readonly field: BotChannelTextField
+  readonly view: ChannelFieldsState
+  readonly field: BotChannelSharedTextField
   readonly choices: readonly BotChannelChoice[]
-  save(edit: ChannelEdit): Promise<CommitResult>
+  readonly unset: string
+  save(edit: ChannelFieldEdit): Promise<CommitResult>
 }) {
   const { text, label, view, field, save } = props
-  const choices = props.choices.map((choice) => ({
+  const value = textOf(view, field.key)
+  const listed = props.choices.map((choice) => ({
     value: choice.value,
     label: text(choice.label),
   }))
+  const choices = listed.some((choice) => choice.value === value)
+    ? listed
+    : [{ value, label: props.unset }, ...listed]
   return (
     <Row
       label={label}
       description={props.description}
       trailing={
         <Select
-          value={textOf(view, field.key)}
+          value={value}
           choices={choices}
           label={label}
           onChange={(value) => void save({ kind: "value", key: field.key, value })}
@@ -425,10 +501,10 @@ function ListField(props: {
   readonly t: Translate
   readonly label: string
   readonly description: string | undefined
-  readonly view: BotChannelView
-  readonly field: BotChannelListField
+  readonly view: ChannelFieldsState
+  readonly field: BotChannelSharedListField
   readonly missing: boolean
-  save(edit: ChannelEdit): Promise<CommitResult>
+  save(edit: ChannelFieldEdit): Promise<CommitResult>
 }) {
   const { t, label, view, field, missing, save } = props
   const draft = useTextDraft({
@@ -437,7 +513,7 @@ function ListField(props: {
     commit: (typed) =>
       save({ kind: "value", key: field.key, value: [...new Set(listItemsOf(typed))] }),
   })
-  const noOwners = view.enabled && view.channel.owners === field.key && ownersEmpty(view)
+  const noOwners = view.enabled && view.owners === field.key && ownersEmptyIn(view)
   const meta =
     draft.error ??
     (missing ? t("channels.missing") : noOwners ? t("channels.owners.none") : undefined)
@@ -460,7 +536,7 @@ function ListField(props: {
   )
 }
 
-function InspectionRows(props: {
+export function InspectionRows(props: {
   readonly t: Translate
   text(text: BotChannelText): string
   readonly inspection: QueryState<BotChannelInspection>
@@ -504,7 +580,37 @@ function InspectionRows(props: {
           marks={{ "data-dshb-channel-link": "" }}
         />
       ))}
+      {(value.snippets ?? []).map((snippet) => (
+        <SnippetRow key={snippet.label.en} t={t} text={text} snippet={snippet} />
+      ))}
     </>
+  )
+}
+
+function SnippetRow(props: {
+  readonly t: Translate
+  text(text: BotChannelText): string
+  readonly snippet: BotChannelSnippet
+}) {
+  const { t, snippet } = props
+  return (
+    <BlockRow
+      label={props.text(snippet.label)}
+      trailing={
+        <Button
+          variant="secondary"
+          onClick={() => void navigator.clipboard.writeText(snippet.text)}
+          marks={{ "data-dshb-channel-snippet-copy": "" }}
+        >
+          {t("channels.snippet.copy")}
+        </Button>
+      }
+      marks={{ "data-dshb-channel-snippet": snippet.language }}
+    >
+      <pre className="dshb-channel-snippet">
+        <code>{snippet.text}</code>
+      </pre>
+    </BlockRow>
   )
 }
 
@@ -595,7 +701,7 @@ const unknownOption = (t: Translate) => (value: string) => ({
 
 function PickField(
   props: FieldProps & {
-    readonly field: BotChannelPickField
+    readonly field: BotChannelSharedPickField
     readonly label: string
     readonly description: string | undefined
   },
@@ -641,7 +747,7 @@ function PickField(
 
 function PickListField(
   props: FieldProps & {
-    readonly field: BotChannelListField
+    readonly field: BotChannelSharedListField
     readonly source: string
     readonly label: string
     readonly description: string | undefined
@@ -653,10 +759,7 @@ function PickListField(
   const { options, listed } = useOptions(props, props.source)
   const picked = pickMeta(props, options, selected.length === 0)
   const noOwners =
-    picked.meta === undefined &&
-    view.enabled &&
-    view.channel.owners === field.key &&
-    ownersEmpty(view)
+    picked.meta === undefined && view.enabled && view.owners === field.key && ownersEmptyIn(view)
   const pick = (values: readonly string[]) =>
     void save({ kind: "value", key: field.key, value: values })
   return (

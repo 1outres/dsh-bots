@@ -1,23 +1,50 @@
 import type { BotChannel } from "../../contract"
-import { checkChannelDescriptor, sourceOf } from "../../shared/channels"
+import { checkChannelDescriptor, checkSharedChannelFields, sourceOf } from "../../shared/channels"
 import { checkChannelCapabilities } from "./capabilities"
 
 export const settingsVersionOf = (channel: Pick<BotChannel, "settingsVersion">): number =>
   channel.settingsVersion ?? 1
 
-export function checkChannelHooks(channel: BotChannel): void {
-  const what = `channel "${channel.id}"`
-  const version = settingsVersionOf(channel)
+function checkVersion(version: number, upgrade: unknown, what: string): void {
   if (!Number.isSafeInteger(version) || version < 1) {
     throw new Error(`${what}: settingsVersion must be a positive integer`)
   }
-  if (version > 1 && channel.upgradeSettings === undefined) {
+  if (version > 1 && upgrade === undefined) {
     throw new Error(`${what}: settingsVersion ${version} needs upgradeSettings`)
   }
+}
+
+function checkSharedHooks(channel: BotChannel, what: string): void {
+  const { shared } = channel
+  if (shared === undefined) {
+    for (const hook of ["initialSettings", "accounts"] as const) {
+      if (channel[hook] !== undefined) {
+        throw new Error(`${what}: ${hook} needs the channel's shared settings`)
+      }
+    }
+    return
+  }
+  checkSharedChannelFields(channel.id, shared.fields)
+  checkVersion(shared.settingsVersion ?? 1, shared.upgradeSettings, `${what} shared settings`)
+  const sourced = shared.fields.find((field) => sourceOf(field) !== undefined)
+  if (sourced !== undefined && shared.options === undefined) {
+    throw new Error(
+      `${what}: shared field "${sourced.key}" names a source, so the shared settings need options`,
+    )
+  }
+  if ((channel.initialSettings === undefined) !== (shared.describeInitial === undefined)) {
+    throw new Error(`${what}: initialSettings and shared.describeInitial go together`)
+  }
+}
+
+export function checkChannelHooks(channel: BotChannel): void {
+  const what = `channel "${channel.id}"`
+  checkVersion(settingsVersionOf(channel), channel.upgradeSettings, what)
   const sourced = channel.fields.find((field) => sourceOf(field) !== undefined)
   if (sourced !== undefined && channel.options === undefined) {
     throw new Error(`${what}: field "${sourced.key}" names a source, so the channel needs options`)
   }
+  checkSharedHooks(channel, what)
 }
 
 export interface ChannelCatalog {

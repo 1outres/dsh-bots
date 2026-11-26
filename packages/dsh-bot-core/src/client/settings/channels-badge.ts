@@ -25,6 +25,8 @@ function kindOf(status: BotChannelStatus): BadgeKind | undefined {
   switch (status.state) {
     case "off":
       return undefined
+    case "unconfigured":
+      return "incomplete"
     case "failed":
     case "incomplete":
     case "connecting":

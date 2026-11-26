@@ -62,6 +62,10 @@ export function createOnboardingPanel(deps: OnboardingPanelDeps): OnboardingPane
     view,
     async createBot(input, channelsInput) {
       const setups = parseSetups(channelsInput)
+      const twice = setups.find((setup) => input.channels.includes(setup.channelId))
+      if (twice !== undefined) {
+        throw bad(`channel "${twice.channelId}" is both drafted and set up for new bots`)
+      }
       const record = await store.change(async (current) => {
         if (current.welcome.status !== "open") {
           throw refuse(

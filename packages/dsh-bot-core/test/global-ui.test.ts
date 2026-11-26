@@ -133,6 +133,8 @@ describe("New bot dialog", () => {
     const html = renderToStaticMarkup(
       createElement(BotDialog, {
         t,
+        text: (value: { readonly en: string }) => value.en,
+        channelDefaults: async () => [],
         creationOptions: () => new Promise<BotCreationOffer>(() => {}),
         modelCatalog: () => new Promise<BotModelCatalog>(() => {}),
         onSubmit: async () => {},

@@ -31,6 +31,7 @@ export interface BuiltinSectionDeps
   readonly connections: ConnectionsFeed
   readonly senders: SendersFeed
   openConnectionSettings(): void
+  openShared(channelId: string): void
   readonly text: ChannelsSectionDeps["text"] & ConnectorsSectionDeps["text"]
 }
 
@@ -51,7 +52,12 @@ export function builtinSettingsSections(deps: BuiltinSectionDeps): SettingsSecti
       readCatalog: deps.readCatalog,
     })
   const channels = (props: SettingsSectionProps) =>
-    createElement(ChannelsSection, { ...props, channels: deps.channels, text: deps.text })
+    createElement(ChannelsSection, {
+      ...props,
+      channels: deps.channels,
+      text: deps.text,
+      openShared: deps.openShared,
+    })
   const connectors = (props: SettingsSectionProps) =>
     createElement(ConnectorsSection, {
       ...props,

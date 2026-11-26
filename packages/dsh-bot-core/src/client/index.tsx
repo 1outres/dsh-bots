@@ -5,6 +5,7 @@ import { createBotDeletion } from "./bot-deletion"
 import { createChannelQueries } from "./channel-queries"
 import { createChannelsHub } from "./channels-hub"
 import { createChannelsModel } from "./channels-model"
+import { createSharedChannelsFeed } from "./channels-shared/model"
 import { createConnectionsFeed, createConnectionsModel } from "./connections-model"
 import { createConnectorsHub } from "./connectors-hub"
 import { createConnectorsModel } from "./connectors-model"
@@ -33,10 +34,11 @@ import { createVmHostClient } from "./vm-host/client"
 import { createWebLookupFeed } from "./web/feed"
 import { wireArchive } from "./wiring/archive"
 import { createBotActions, createBotsFace, wireBotsSection } from "./wiring/bots-face"
+import { wireSharedChannels } from "./wiring/channels-shared"
 import { wireClassification } from "./wiring/classification"
 import { wireComposerSeats } from "./wiring/composer-seats"
 import { wireConnectorPanels } from "./wiring/connector-panels"
-import { createDialogStores, creationOptions, wireDialogs } from "./wiring/dialogs"
+import { channelDefaults, createDialogStores, creationOptions, wireDialogs } from "./wiring/dialogs"
 import { wireDrawer } from "./wiring/drawer"
 import { wireDshSettings } from "./wiring/dsh-settings"
 import { wireEnvironment } from "./wiring/environment"
@@ -193,11 +195,17 @@ export function apply(ctx: ClientContext): void {
   const creation = {
     creationOptions: () => creationOptions(remote),
     modelCatalog: readModelCatalog,
+    channelDefaults: () => channelDefaults(remote),
   }
   wireDialogs(ctx, { dialogs, actions, creation })
   const connections = createConnectionsFeed(() => createConnectionsModel(remote))
   const webLookup = createWebLookupFeed(remote)
   const channelQueries = createChannelQueries(remote)
+  const sharedChannels = createSharedChannelsFeed({
+    mount: remote,
+    generation: ctx.connection.generation,
+    queries: channelQueries,
+  })
   wireSettings(ctx, {
     bots,
     screens,
@@ -228,6 +236,7 @@ export function apply(ctx: ClientContext): void {
   wireSettingChanges(ctx, { changes: createSettingChangesClient(remote), screens })
   wireEnvironment(ctx, { environment: createEnvironmentClient(remote), screens })
   wireWebLookup(ctx, webLookup, screens)
+  wireSharedChannels(ctx, sharedChannels, screens)
   wireVmHost(ctx, createVmHostClient(remote), screens)
   const onboarding = wireOnboarding(ctx, {
     remote,
@@ -238,6 +247,7 @@ export function apply(ctx: ClientContext): void {
     web: webLookup,
     connections,
     channelQueries,
+    sharedChannels,
   })
   wireGlobalSettings(ctx, screens)
   wireDshSettings(ctx, { openGlobalSettings: () => screens.openGlobalSettings() })

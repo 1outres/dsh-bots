@@ -133,6 +133,7 @@ async function created(bots: ReturnType<typeof registry>["bots"], name = "Alpha"
     workstation: false,
     language: "en",
     timezone: "Asia/Tokyo",
+    channels: [],
   })
   await bots.repairMains([id])
   const view = bots.get(id)
@@ -156,6 +157,7 @@ describe("bot registry", () => {
         workstation: false,
         language: "en",
         timezone: "Asia/Tokyo",
+        channels: [],
       }),
     ).resolves.toBe("b1")
     expect(rows.get("b1")).toMatchObject({ name: "Alpha" })
@@ -196,6 +198,7 @@ describe("bot registry", () => {
       workstation: true,
       language: "en",
       timezone: "Asia/Tokyo",
+      channels: [],
     })
     expect(enabled).toEqual([{ botId: id, ids: ["desktop", "browser"], announced: false }])
     expect(bots.creating().map((bot) => bot.id)).toEqual([id])
@@ -205,6 +208,7 @@ describe("bot registry", () => {
       workstation: false,
       language: "en",
       timezone: "Asia/Tokyo",
+      channels: [],
     })
     expect(enabled.at(-1)).toMatchObject({ ids: [] })
   })
@@ -217,6 +221,7 @@ describe("bot registry", () => {
       workstation: true,
       language: "en",
       timezone: "Europe/Paris",
+      channels: [],
     })
     expect(rows.get(id)?.timezone).toBe("Europe/Paris")
     expect(initialFor).toEqual([{ botId: id, connectors: ["desktop", "browser"] }])
@@ -226,7 +231,14 @@ describe("bot registry", () => {
   it("refuses a creation without a usable zone, or that the environment cannot give a VM, storing nothing", async () => {
     const { bots, rows } = registry()
     await expect(
-      bots.create({ name: "A", avatar, workstation: false, language: "en", timezone: "Mars/Base" }),
+      bots.create({
+        name: "A",
+        avatar,
+        workstation: false,
+        language: "en",
+        timezone: "Mars/Base",
+        channels: [],
+      }),
     ).rejects.toThrow("unknown zone Mars/Base")
     await expect(
       bots.create({ name: "A", avatar, workstation: false, language: "en" } as never),
@@ -239,6 +251,7 @@ describe("bot registry", () => {
         workstation: false,
         language: "en",
         timezone: "UTC",
+        channels: [],
       }),
     ).rejects.toThrow("cannot give a bot's VM")
     expect(rows.size).toBe(0)
@@ -255,6 +268,7 @@ describe("bot registry", () => {
         workstation: true,
         language: "en",
         timezone: "Asia/Tokyo",
+        channels: [],
       }),
     ).rejects.toThrow("no registered connector offers the workstation option")
     expect(rows.size).toBe(0)
@@ -272,6 +286,7 @@ describe("bot registry", () => {
         workstation: true,
         language: "en",
         timezone: "Asia/Tokyo",
+        channels: [],
       }),
     ).rejects.toThrow("storage refused")
     expect(rows.size).toBe(0)
@@ -286,6 +301,7 @@ describe("bot registry", () => {
       workstation: false,
       language: "en",
       timezone: "Asia/Tokyo",
+      channels: [],
     })
     const seen: unknown[] = []
     bots.subscribe(() => seen.push(bots.creating()[0]))
@@ -364,6 +380,7 @@ describe("bot registry", () => {
       workstation: false,
       language: "en",
       timezone: "Asia/Tokyo",
+      channels: [],
     })
     await bots.repairMains([id])
     expect(bots.list()).toEqual([])
@@ -396,6 +413,7 @@ describe("bot registry", () => {
       workstation: false,
       language: "en",
       timezone: "Asia/Tokyo",
+      channels: [],
     })
     await expect(
       bots.failCreation(id, { phase: "booting", message: "no vsock", at: 5 }),
@@ -423,6 +441,7 @@ describe("bot registry", () => {
       workstation: false,
       language: "en",
       timezone: "Asia/Tokyo",
+      channels: [],
     })
     await Promise.all([bots.repairMains([id]), bots.repairMains()])
     expect(mainIds).toEqual([id])
@@ -437,6 +456,7 @@ describe("bot registry", () => {
         workstation: false,
         language: "en",
         timezone: "Asia/Tokyo",
+        channels: [],
       }),
     ).rejects.toThrow("no environment")
     expect(rows.size).toBe(0)
@@ -478,6 +498,7 @@ describe("bot registry", () => {
         workstation: false,
         language: "en",
         timezone: "Asia/Tokyo",
+        channels: [],
       }),
     ).rejects.toThrow("name")
     await expect(
@@ -487,6 +508,7 @@ describe("bot registry", () => {
         workstation: false,
         language: "en",
         timezone: "Asia/Tokyo",
+        channels: [],
       }),
     ).rejects.toThrow("avatar")
   })
@@ -580,6 +602,7 @@ describe("bot registry", () => {
       workstation: false,
       language: "en",
       timezone: "Asia/Tokyo",
+      channels: [],
     })
     const listed = await created(bots, "Old")
     await expect(bots.remove(id, "listed", ignore)).rejects.toThrow("discard")
@@ -679,6 +702,7 @@ describe("bot registry: language and initial workspace files", () => {
         workstation: false,
         language: "not a tag",
         timezone: "Asia/Tokyo",
+        channels: [],
       }),
     ).rejects.toThrow("language")
     const id = await bots.create({
@@ -687,6 +711,7 @@ describe("bot registry: language and initial workspace files", () => {
       workstation: false,
       language: "ja",
       timezone: "Asia/Tokyo",
+      channels: [],
     })
     expect(rows.get(id)?.language).toBe("ja")
     await bots.repairMains([id])
@@ -721,6 +746,7 @@ describe("bot registry: language and initial workspace files", () => {
       workstation: false,
       language: "en",
       timezone: "Asia/Tokyo",
+      channels: [],
     })
     expect(bots.workspaceFilesOf(id)).toBeUndefined()
     await bots.markWorkspaceFiles(id, 1)
@@ -736,6 +762,7 @@ describe("bot registry: language and initial workspace files", () => {
       workstation: false,
       language: "en",
       timezone: "Asia/Tokyo",
+      channels: [],
     })
     await bots.markWorkspaceFiles(id, 1)
     expect(bots.hasInitialNotes(id, 1)).toBe(false)

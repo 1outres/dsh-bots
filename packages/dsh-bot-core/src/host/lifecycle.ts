@@ -6,7 +6,9 @@ import type {
   EnvironmentPhase,
   PendingBotView,
 } from "../shared/bots"
+import { parseInitialChannels } from "../shared/channels"
 import type { BotPresetState } from "../shared/preset"
+import type { InitialChannels } from "./channels/initial"
 import type { BotSessions } from "./cleanup"
 import type { EnvironmentKeeper, EnvironmentStatus } from "./environment"
 import type { SessionPreparations } from "./preparations"
@@ -34,6 +36,7 @@ export interface BotLifecycleDeps {
     registered(botId: string): boolean
   }
   readonly preparations: Pick<SessionPreparations, "ids" | "subscribe">
+  readonly channels: InitialChannels
   cleanup(bot: BotSessions): Promise<void>
   now(): number
   warn(message: string): void
@@ -243,7 +246,12 @@ export function createBotLifecycle(deps: BotLifecycleDeps): BotLifecycle {
       ].sort((left, right) => left.createdAt - right.createdAt)
       return { bots: registry.list(), pending, preparingSessionIds: deps.preparations.ids() }
     },
-    create: (input) => registry.create(input),
+    async create(input) {
+      const channels = parseInitialChannels(input.channels)
+      const id = await registry.create(input)
+      await deps.channels.apply({ id, name: input.name.trim(), language: input.language }, channels)
+      return id
+    },
     async retryCreate(id) {
       await registry.retryCreation(id)
       attempts.set(id, deps.now())

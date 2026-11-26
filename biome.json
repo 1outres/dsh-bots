@@ -257,6 +257,21 @@
       ]
     },
     {
+      "path": "./.biome/plugins/80-shared-channel-writes.grit",
+      "includes": [
+        "packages/dsh-bot-core/src/**",
+        "!packages/dsh-bot-core/src/host/channels/shared-settings.ts"
+      ]
+    },
+    {
+      "path": "./.biome/plugins/83-matrix-server-kinds.grit",
+      "includes": ["packages/dsh-bot-matrix/src/**", "!packages/dsh-bot-matrix/src/host/servers/**"]
+    },
+    {
+      "path": "./.biome/plugins/84-matrix-record-writes.grit",
+      "includes": ["packages/dsh-bot-matrix/src/**", "!packages/dsh-bot-matrix/src/host/records/**"]
+    },
+    {
       "path": "./.biome/plugins/49-event-writes.grit",
       "includes": [
         "packages/dsh-bot-core/src/**",
@@ -330,6 +345,7 @@
         "!packages/dsh-bot-core/src/plugins/compaction.ts",
         "!packages/dsh-bot-vm/src/index.ts",
         "!packages/dsh-bot-discord/src/index.ts",
+        "!packages/dsh-bot-matrix/src/index.ts",
         "!packages/dsh-bot-connector-google/src/index.ts",
         "!packages/dsh-bot-web/src/index.ts",
         "!packages/dsh-bot-connector-desktop/src/index.ts",
@@ -501,6 +517,413 @@
                       "discord-api-types/**"
                     ],
                     "message": "Design rule 33: only the discord.js adapter (src/host/discordjs/) may import discord.js and its packages; the channel's logic uses the plain contract in src/host/discord.ts, so it stays testable and the library stays replaceable."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "packages/dsh-bot-matrix/src/**",
+        "!packages/dsh-bot-matrix/src/index.ts",
+        "!packages/dsh-bot-matrix/src/host/client-server/**",
+        "!packages/dsh-bot-matrix/src/host/format/**",
+        "!packages/dsh-bot-matrix/src/host/servers/**"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@1outres/*/src",
+                      "@1outres/*/src/**",
+                      "@1outres/*/lib",
+                      "@1outres/*/lib/**",
+                      "**/dsh-bot-*/src/**",
+                      "**/dsh-bot-*/lib/**"
+                    ],
+                    "message": "Design rule 15: do not import another package's src/ or lib/; import its public entry (e.g. @1outres/dsh-bot-core), because internal paths change without notice."
+                  },
+                  {
+                    "group": [
+                      "@deepseek-ai/dsh-api-session-controller",
+                      "@deepseek-ai/dsh-api-session-controller/**",
+                      "@deepseek-ai/dsh-agent-preset-registry",
+                      "@deepseek-ai/dsh-agent-preset-registry/**",
+                      "@deepseek-ai/dsh-tools",
+                      "@deepseek-ai/dsh-tools/**",
+                      "@deepseek-ai/dsh-credentials",
+                      "@deepseek-ai/dsh-credentials/**"
+                    ],
+                    "message": "Design rule 16: channel plugins must not import DSH session, preset, tool or credential services; use the bot service (botOf(ctx)), which keeps bot sessions under their preset and isolation and a channel's secrets in its settings."
+                  },
+                  {
+                    "group": [
+                      "node:fs",
+                      "node:fs/**",
+                      "fs",
+                      "fs/**",
+                      "node:child_process",
+                      "child_process"
+                    ],
+                    "message": "Design rule 35: a channel plugin must not touch the Host's file system or processes; attachments reach the bot through deliver() (bot-core saves them in the bot's environment) and files leave as the 'file' outputs bot-core sends for what the Main session presents, because a bot's files live only in its environment."
+                  },
+                  {
+                    "group": [
+                      "node:http",
+                      "node:http/**",
+                      "node:https",
+                      "node:https/**",
+                      "http",
+                      "https",
+                      "undici",
+                      "undici/**"
+                    ],
+                    "message": "Design rule 81: only the Client-Server adapter (src/host/client-server/) and src/index.ts may reach the network; the channel's logic uses the MatrixApi contract in src/host/matrix.ts, so it stays testable with a fake fetch."
+                  },
+                  {
+                    "group": ["markdown-it", "markdown-it/**"],
+                    "message": "Design rule 82: only src/host/format/ may import markdown-it; the rest of the channel turns Markdown into Matrix HTML through matrixText(), so the renderer's options stay in one place."
+                  },
+                  {
+                    "group": ["**/servers/synapse", "**/servers/tuwunel", "./synapse", "./tuwunel"],
+                    "message": "Design rule 83: import a homeserver kind only from src/host/servers/index.ts; elsewhere take the MatrixServer from MATRIX_SERVERS, so a new kind is one file there and nothing else branches on it."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["packages/dsh-bot-matrix/src/host/client-server/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@1outres/*/src",
+                      "@1outres/*/src/**",
+                      "@1outres/*/lib",
+                      "@1outres/*/lib/**",
+                      "**/dsh-bot-*/src/**",
+                      "**/dsh-bot-*/lib/**"
+                    ],
+                    "message": "Design rule 15: do not import another package's src/ or lib/; import its public entry (e.g. @1outres/dsh-bot-core), because internal paths change without notice."
+                  },
+                  {
+                    "group": [
+                      "@deepseek-ai/dsh-api-session-controller",
+                      "@deepseek-ai/dsh-api-session-controller/**",
+                      "@deepseek-ai/dsh-agent-preset-registry",
+                      "@deepseek-ai/dsh-agent-preset-registry/**",
+                      "@deepseek-ai/dsh-tools",
+                      "@deepseek-ai/dsh-tools/**",
+                      "@deepseek-ai/dsh-credentials",
+                      "@deepseek-ai/dsh-credentials/**"
+                    ],
+                    "message": "Design rule 16: channel plugins must not import DSH session, preset, tool or credential services; use the bot service (botOf(ctx)), which keeps bot sessions under their preset and isolation and a channel's secrets in its settings."
+                  },
+                  {
+                    "group": [
+                      "node:fs",
+                      "node:fs/**",
+                      "fs",
+                      "fs/**",
+                      "node:child_process",
+                      "child_process"
+                    ],
+                    "message": "Design rule 35: a channel plugin must not touch the Host's file system or processes; attachments reach the bot through deliver() (bot-core saves them in the bot's environment) and files leave as the 'file' outputs bot-core sends for what the Main session presents, because a bot's files live only in its environment."
+                  },
+                  {
+                    "group": ["markdown-it", "markdown-it/**"],
+                    "message": "Design rule 82: only src/host/format/ may import markdown-it; the rest of the channel turns Markdown into Matrix HTML through matrixText(), so the renderer's options stay in one place."
+                  },
+                  {
+                    "group": ["**/servers/synapse", "**/servers/tuwunel", "./synapse", "./tuwunel"],
+                    "message": "Design rule 83: import a homeserver kind only from src/host/servers/index.ts; elsewhere take the MatrixServer from MATRIX_SERVERS, so a new kind is one file there and nothing else branches on it."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["packages/dsh-bot-matrix/src/host/format/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@1outres/*/src",
+                      "@1outres/*/src/**",
+                      "@1outres/*/lib",
+                      "@1outres/*/lib/**",
+                      "**/dsh-bot-*/src/**",
+                      "**/dsh-bot-*/lib/**"
+                    ],
+                    "message": "Design rule 15: do not import another package's src/ or lib/; import its public entry (e.g. @1outres/dsh-bot-core), because internal paths change without notice."
+                  },
+                  {
+                    "group": [
+                      "@deepseek-ai/dsh-api-session-controller",
+                      "@deepseek-ai/dsh-api-session-controller/**",
+                      "@deepseek-ai/dsh-agent-preset-registry",
+                      "@deepseek-ai/dsh-agent-preset-registry/**",
+                      "@deepseek-ai/dsh-tools",
+                      "@deepseek-ai/dsh-tools/**",
+                      "@deepseek-ai/dsh-credentials",
+                      "@deepseek-ai/dsh-credentials/**"
+                    ],
+                    "message": "Design rule 16: channel plugins must not import DSH session, preset, tool or credential services; use the bot service (botOf(ctx)), which keeps bot sessions under their preset and isolation and a channel's secrets in its settings."
+                  },
+                  {
+                    "group": [
+                      "node:fs",
+                      "node:fs/**",
+                      "fs",
+                      "fs/**",
+                      "node:child_process",
+                      "child_process"
+                    ],
+                    "message": "Design rule 35: a channel plugin must not touch the Host's file system or processes; attachments reach the bot through deliver() (bot-core saves them in the bot's environment) and files leave as the 'file' outputs bot-core sends for what the Main session presents, because a bot's files live only in its environment."
+                  },
+                  {
+                    "group": [
+                      "node:http",
+                      "node:http/**",
+                      "node:https",
+                      "node:https/**",
+                      "http",
+                      "https",
+                      "undici",
+                      "undici/**"
+                    ],
+                    "message": "Design rule 81: only the Client-Server adapter (src/host/client-server/) and src/index.ts may reach the network; the channel's logic uses the MatrixApi contract in src/host/matrix.ts, so it stays testable with a fake fetch."
+                  },
+                  {
+                    "group": ["**/servers/synapse", "**/servers/tuwunel", "./synapse", "./tuwunel"],
+                    "message": "Design rule 83: import a homeserver kind only from src/host/servers/index.ts; elsewhere take the MatrixServer from MATRIX_SERVERS, so a new kind is one file there and nothing else branches on it."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "packages/dsh-bot-matrix/src/host/servers/**",
+        "!packages/dsh-bot-matrix/src/host/servers/index.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@1outres/*/src",
+                      "@1outres/*/src/**",
+                      "@1outres/*/lib",
+                      "@1outres/*/lib/**",
+                      "**/dsh-bot-*/src/**",
+                      "**/dsh-bot-*/lib/**"
+                    ],
+                    "message": "Design rule 15: do not import another package's src/ or lib/; import its public entry (e.g. @1outres/dsh-bot-core), because internal paths change without notice."
+                  },
+                  {
+                    "group": [
+                      "@deepseek-ai/dsh-api-session-controller",
+                      "@deepseek-ai/dsh-api-session-controller/**",
+                      "@deepseek-ai/dsh-agent-preset-registry",
+                      "@deepseek-ai/dsh-agent-preset-registry/**",
+                      "@deepseek-ai/dsh-tools",
+                      "@deepseek-ai/dsh-tools/**",
+                      "@deepseek-ai/dsh-credentials",
+                      "@deepseek-ai/dsh-credentials/**"
+                    ],
+                    "message": "Design rule 16: channel plugins must not import DSH session, preset, tool or credential services; use the bot service (botOf(ctx)), which keeps bot sessions under their preset and isolation and a channel's secrets in its settings."
+                  },
+                  {
+                    "group": [
+                      "node:fs",
+                      "node:fs/**",
+                      "fs",
+                      "fs/**",
+                      "node:child_process",
+                      "child_process"
+                    ],
+                    "message": "Design rule 35: a channel plugin must not touch the Host's file system or processes; attachments reach the bot through deliver() (bot-core saves them in the bot's environment) and files leave as the 'file' outputs bot-core sends for what the Main session presents, because a bot's files live only in its environment."
+                  },
+                  {
+                    "group": [
+                      "node:http",
+                      "node:http/**",
+                      "node:https",
+                      "node:https/**",
+                      "http",
+                      "https",
+                      "undici",
+                      "undici/**"
+                    ],
+                    "message": "Design rule 81: only the Client-Server adapter (src/host/client-server/) and src/index.ts may reach the network; the channel's logic uses the MatrixApi contract in src/host/matrix.ts, so it stays testable with a fake fetch."
+                  },
+                  {
+                    "group": ["markdown-it", "markdown-it/**"],
+                    "message": "Design rule 82: only src/host/format/ may import markdown-it; the rest of the channel turns Markdown into Matrix HTML through matrixText(), so the renderer's options stay in one place."
+                  },
+                  {
+                    "group": ["**/servers/synapse", "**/servers/tuwunel", "./synapse", "./tuwunel"],
+                    "message": "Design rule 83: import a homeserver kind only from src/host/servers/index.ts; elsewhere take the MatrixServer from MATRIX_SERVERS, so a new kind is one file there and nothing else branches on it."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["packages/dsh-bot-matrix/src/host/servers/index.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@1outres/*/src",
+                      "@1outres/*/src/**",
+                      "@1outres/*/lib",
+                      "@1outres/*/lib/**",
+                      "**/dsh-bot-*/src/**",
+                      "**/dsh-bot-*/lib/**"
+                    ],
+                    "message": "Design rule 15: do not import another package's src/ or lib/; import its public entry (e.g. @1outres/dsh-bot-core), because internal paths change without notice."
+                  },
+                  {
+                    "group": [
+                      "@deepseek-ai/dsh-api-session-controller",
+                      "@deepseek-ai/dsh-api-session-controller/**",
+                      "@deepseek-ai/dsh-agent-preset-registry",
+                      "@deepseek-ai/dsh-agent-preset-registry/**",
+                      "@deepseek-ai/dsh-tools",
+                      "@deepseek-ai/dsh-tools/**",
+                      "@deepseek-ai/dsh-credentials",
+                      "@deepseek-ai/dsh-credentials/**"
+                    ],
+                    "message": "Design rule 16: channel plugins must not import DSH session, preset, tool or credential services; use the bot service (botOf(ctx)), which keeps bot sessions under their preset and isolation and a channel's secrets in its settings."
+                  },
+                  {
+                    "group": [
+                      "node:fs",
+                      "node:fs/**",
+                      "fs",
+                      "fs/**",
+                      "node:child_process",
+                      "child_process"
+                    ],
+                    "message": "Design rule 35: a channel plugin must not touch the Host's file system or processes; attachments reach the bot through deliver() (bot-core saves them in the bot's environment) and files leave as the 'file' outputs bot-core sends for what the Main session presents, because a bot's files live only in its environment."
+                  },
+                  {
+                    "group": [
+                      "node:http",
+                      "node:http/**",
+                      "node:https",
+                      "node:https/**",
+                      "http",
+                      "https",
+                      "undici",
+                      "undici/**"
+                    ],
+                    "message": "Design rule 81: only the Client-Server adapter (src/host/client-server/) and src/index.ts may reach the network; the channel's logic uses the MatrixApi contract in src/host/matrix.ts, so it stays testable with a fake fetch."
+                  },
+                  {
+                    "group": ["markdown-it", "markdown-it/**"],
+                    "message": "Design rule 82: only src/host/format/ may import markdown-it; the rest of the channel turns Markdown into Matrix HTML through matrixText(), so the renderer's options stay in one place."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["packages/dsh-bot-matrix/src/index.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@1outres/*/src",
+                      "@1outres/*/src/**",
+                      "@1outres/*/lib",
+                      "@1outres/*/lib/**",
+                      "**/dsh-bot-*/src/**",
+                      "**/dsh-bot-*/lib/**"
+                    ],
+                    "message": "Design rule 15: do not import another package's src/ or lib/; import its public entry (e.g. @1outres/dsh-bot-core), because internal paths change without notice."
+                  },
+                  {
+                    "group": [
+                      "@deepseek-ai/dsh-api-session-controller",
+                      "@deepseek-ai/dsh-api-session-controller/**",
+                      "@deepseek-ai/dsh-agent-preset-registry",
+                      "@deepseek-ai/dsh-agent-preset-registry/**",
+                      "@deepseek-ai/dsh-tools",
+                      "@deepseek-ai/dsh-tools/**",
+                      "@deepseek-ai/dsh-credentials",
+                      "@deepseek-ai/dsh-credentials/**"
+                    ],
+                    "message": "Design rule 16: channel plugins must not import DSH session, preset, tool or credential services; use the bot service (botOf(ctx)), which keeps bot sessions under their preset and isolation and a channel's secrets in its settings."
+                  },
+                  {
+                    "group": [
+                      "node:fs",
+                      "node:fs/**",
+                      "fs",
+                      "fs/**",
+                      "node:child_process",
+                      "child_process"
+                    ],
+                    "message": "Design rule 35: a channel plugin must not touch the Host's file system or processes; attachments reach the bot through deliver() (bot-core saves them in the bot's environment) and files leave as the 'file' outputs bot-core sends for what the Main session presents, because a bot's files live only in its environment."
+                  },
+                  {
+                    "group": ["markdown-it", "markdown-it/**"],
+                    "message": "Design rule 82: only src/host/format/ may import markdown-it; the rest of the channel turns Markdown into Matrix HTML through matrixText(), so the renderer's options stay in one place."
+                  },
+                  {
+                    "group": ["**/servers/synapse", "**/servers/tuwunel", "./synapse", "./tuwunel"],
+                    "message": "Design rule 83: import a homeserver kind only from src/host/servers/index.ts; elsewhere take the MatrixServer from MATRIX_SERVERS, so a new kind is one file there and nothing else branches on it."
                   }
                 ]
               }
@@ -812,6 +1235,28 @@
                 "deniedGlobals": {
                   "setTimeout": "Design rule 26: do not call setTimeout in a Host module; take a later()/scheduler dependency wired in src/index.ts, so the module stays deterministic under test.",
                   "setInterval": "Design rule 26: do not call setInterval in a Host module; take a later()/scheduler dependency wired in src/index.ts, so the module stays deterministic under test."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "packages/dsh-bot-matrix/src/host/**",
+        "!packages/dsh-bot-matrix/src/host/client-server/**"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedGlobals": {
+              "level": "error",
+              "options": {
+                "deniedGlobals": {
+                  "setTimeout": "Design rule 26: do not call setTimeout in a Host module; take a later()/scheduler dependency wired in src/index.ts, so the module stays deterministic under test.",
+                  "setInterval": "Design rule 26: do not call setInterval in a Host module; take a later()/scheduler dependency wired in src/index.ts, so the module stays deterministic under test.",
+                  "fetch": "Design rule 81: only the Client-Server adapter (src/host/client-server/) and src/index.ts may call fetch; the channel's logic uses the MatrixApi contract in src/host/matrix.ts, so it stays testable with a fake fetch."
                 }
               }
             }

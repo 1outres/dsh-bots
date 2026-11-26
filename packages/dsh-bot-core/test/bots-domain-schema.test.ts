@@ -226,7 +226,8 @@ export function widensLiterals(previous: string, next: string): boolean {
 export function breakingChanges(saved: DomainSnapshot, current: DomainSnapshot): string[] {
   const problems: string[] = []
   for (const [table, fields] of Object.entries(current.tables)) {
-    const before = saved.tables[table] ?? {}
+    const before = saved.tables[table]
+    if (before === undefined) continue
     for (const [field, summary] of Object.entries(fields)) {
       const old = before[field]
       if (old === undefined && summary.required)

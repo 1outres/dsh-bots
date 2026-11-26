@@ -1,6 +1,7 @@
 import type { BotsSnapshot } from "../../shared/bots"
 import type { BotWelcomeView } from "../../shared/onboarding"
 import type { ChannelQueries } from "../channel-queries"
+import type { SharedChannelsFeed } from "../channels-shared/model"
 import type { ConnectionsFeed } from "../connections-model"
 import type { CreationSources } from "../creation/use-creation-form"
 import type { PendingActions } from "../face"
@@ -25,6 +26,7 @@ export interface OnboardingSources {
   readonly web: WebLookupFeed
   readonly connections: ConnectionsFeed
   readonly channelQueries: ChannelQueries
+  readonly sharedChannels: SharedChannelsFeed
 }
 
 export type WelcomeLanding =
@@ -68,6 +70,7 @@ export function wireOnboarding(
         text,
         connections: sources.connections,
         channelQueries: sources.channelQueries,
+        sharedChannels: sources.sharedChannels,
       }) satisfies OnboardingFace,
     OnboardingLayer,
   )
