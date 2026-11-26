@@ -1,4 +1,15 @@
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { spawn } from "node:child_process"
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
@@ -8,7 +19,13 @@ import {
   parseKeyscan,
   removeAuthorizedKeyScript,
 } from "../src/host/setup/ssh-files"
-import { localShell, privilegedArgv, sshShell } from "../src/node/setup-shell"
+import {
+  localShell,
+  privilegedArgv,
+  STAGE_LOCK,
+  STAGE_PREFIX,
+  sshShell,
+} from "../src/node/setup-shell"
 
 const content = (text: string) => new TextEncoder().encode(text)
 const sha = async (text: string) => {
@@ -35,12 +52,14 @@ beforeAll(() => {
       "#!/bin/sh",
       `printf '%s\\n' "$*" >> "${dir}/ssh.log"`,
       `if [ -f "${dir}/changed" ]; then echo '@@@ WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED! @@@' >&2; echo 'Host key verification failed.' >&2; exit 255; fi`,
+      `export TMPDIR="${dir}/remote"`,
       'while [ "$1" != "--" ]; do shift; done; shift',
       'exec sh -c "$1"',
       "",
     ].join("\n"),
   )
   chmodSync(join(dir, "ssh"), 0o755)
+  mkdirSync(join(dir, "remote"))
   path = process.env.PATH
   process.env.PATH = `${dir}:${path}`
 })
@@ -132,6 +151,56 @@ describe("the commands a HostShell runs", () => {
       files: [{ ...(bundle.files[0] as HostSetupBundle["files"][number]), sha256: "0".repeat(64) }],
     }
     await expect(shell.stage(tampered)).rejects.toMatchObject({ code: "staging-failed" })
+  })
+
+  it("removes stale staged bundles left by a stopped DSH, but not fresh or locked ones", async () => {
+    const remote = join(dir, "remote")
+    const leftover = (name: string, minutesAgo: number) => {
+      const path = join(remote, `${STAGE_PREFIX}${name}`)
+      mkdirSync(path)
+      writeFileSync(join(path, STAGE_LOCK), "")
+      const at = new Date(Date.now() - minutesAgo * 60_000)
+      utimesSync(path, at, at)
+      return path
+    }
+    const stale = leftover("stale", 60)
+    const fresh = leftover("fresh", 1)
+    const busy = leftover("busy", 60)
+    const holder = spawn("flock", ["-s", join(busy, STAGE_LOCK), "sleep", "30"], {
+      stdio: "ignore",
+    })
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    const other = join(remote, "other.keep")
+    mkdirSync(other)
+    try {
+      const bundle: HostSetupBundle = {
+        sha256: "f".repeat(64),
+        files: [{ path: "a.txt", mode: 0o644, content: content("a\n"), sha256: await sha("a\n") }],
+      }
+      const shell = sshShell(join(dir, "config"), site)
+      const staged = await shell.stage(bundle)
+      expect(existsSync(stale)).toBe(false)
+      expect(existsSync(fresh)).toBe(true)
+      expect(existsSync(busy)).toBe(true)
+      expect(existsSync(other)).toBe(true)
+      const old = new Date(Date.now() - 60 * 60_000)
+      utimesSync(staged.dir, old, old)
+      const second = await shell.stage(bundle)
+      expect(existsSync(staged.dir)).toBe(true)
+      await staged.release()
+      await second.release()
+      expect(existsSync(staged.dir)).toBe(false)
+      expect(
+        readdirSync(remote)
+          .filter((name) => name.startsWith(STAGE_PREFIX))
+          .sort(),
+      ).toEqual([`${STAGE_PREFIX}busy`, `${STAGE_PREFIX}fresh`])
+    } finally {
+      holder.kill()
+      rmSync(fresh, { recursive: true, force: true })
+      rmSync(busy, { recursive: true, force: true })
+      rmSync(other, { recursive: true, force: true })
+    }
   })
 
   it("tells a changed host key from other ssh failures", async () => {

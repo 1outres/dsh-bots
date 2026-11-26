@@ -11,6 +11,7 @@ export interface TextInputProps {
   readonly disabled?: boolean
   readonly autoFocus?: boolean
   readonly width?: "fill" | "compact"
+  readonly secret?: boolean
   readonly marks?: DataMarks
 }
 
@@ -25,7 +26,8 @@ export function TextInput(props: TextInputProps) {
     >
       <input
         className="dshb-ui-field-input"
-        type="text"
+        type={props.secret === true ? "password" : "text"}
+        autoComplete={props.secret === true ? "off" : undefined}
         aria-label={props.label}
         value={value}
         placeholder={props.placeholder}

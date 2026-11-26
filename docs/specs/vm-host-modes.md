@@ -1,6 +1,6 @@
 # VM ホストの形（managed / custom、場所、backend）
 
-状態: 仕様（段階 3b まで実装）。docs/specs/incus-endpoint.md の形 1〜3 と docs/specs/installer.md の install.sh を、この文書で改める（§11 の段階で実装する）。
+状態: 仕様（段階 3b と 4 の画面まで実装）。docs/specs/incus-endpoint.md の形 1〜3 と docs/specs/installer.md の install.sh を、この文書で改める（§11 の段階で実装する）。
 
 この文書では「確認済み」は実際に動かすか、コードや型を読んで確かめたこと、「未検証」は試していないこと、「推測」は根拠が文書や一般的な知識だけのことを指す。読んだものは本文に書く。
 
@@ -395,7 +395,7 @@ type CustomConnectRequest =
 - 今の `useLocal` と `setProject` は無くす。このマシンは managed のジョブで、project は構築か接続のときに決める（変えるときは選び直す）。
 - `EnvironmentHostCheck` の `declaration` は backend ごとの判別共用体にする（Incus は今の pool / network / egressAcl、Proxmox は spike で決める）。
 - `ProblemFix` の `repair` は origin が managed のときだけ使う。managed で `unreachable` などになったら、custom 向けの「管理者に頼む」ではなく修復を出す。
-- Remote（`botEnvironmentHost`）は上のメソッドをそのまま並べ、加えて `investigateSetup(jobId): { sessionId }`（§7）を持つ。`BotEnvironmentHostState` は `EnvironmentHostSettingsView` に `setup` が増えるだけ。段階 2 の Remote は `custom` の 2 つを `previewCustom(credential)` と `connectCustom(request)` として並べ、今の `previewToken` / `pair` / `useLocal` / `setProject` を消した。`setup` の Remote は段階 4 で足す。
+- Remote（`botEnvironmentHost`）は上のメソッドをそのまま並べ、加えて `investigateSetup(jobId): { sessionId }`（§7）を持つ。`BotEnvironmentHostState` は `EnvironmentHostSettingsView` に `setup` が増えるだけ。段階 2 の Remote は `custom` の 2 つを `previewCustom(credential)` と `connectCustom(request)` として並べ、今の `previewToken` / `pair` / `useLocal` / `setProject` を消した。段階 4 で `setup` を `setupIdentity()`、`removeSetupIdentity(scope)`、`scanHostKey(target)`、`inspectSetup(request)`、`startSetup(request)`、`cancelSetup(jobId)`、`dismissSetup(jobId)` として足した（`brief` は Remote に出さず、段階 5 の `investigateSetup` だけが使う。`start` / `cancel` / `dismiss` は他の変更と同じく `BotEnvironmentHostState` を返す）。引数は `host/environment-host/input.ts` が Host に渡す前に形を確かめる（sudo のパスワードは trim せず、1 行で 1024 文字まで）。`BotEnvironmentHostState` の ready には `pluginVersion` も足した（判断: §4.1 の create-project.sh のコマンドの版。bot-core の版は `DSH_BOTS_VERSION` と同じ）。画面の判断: SSH の修復・再実行は固定済みの `hostKey` でそのまま始める（scan し直さない）。再実行の HTTPS のポートは placement の URL のポート、placement が無ければ既定の 8443（`SetupJobView` はポートを持たない）。SSH 鍵の「消す…」はまず `remote-and-local`、それが失敗したら同じ行に「ここだけ消す…」（`local`）を出す。
 - 段階 2 では `setup` の Host 側（`VmHostSetup`）は型だけで、どのメソッドも「この版では使えない」で失敗した。段階 3b で `brief` 以外を実装した（`brief` は段階 5）。段階 3b で契約を 2 つ改めた: `inspect` は `SetupInspectRequest`（site と HTTPS のポート。preflight の `port` の検査に要る。画面でポートを変えたら検査し直す）を受け、`HostSiteView` の ssh は指紋の文字列の代わりに固定した鍵 `hostKey: PinnedHostKey` を持つ。`custom` の proxmox の枝も同じ（段階 7）。setup 系の型は `shared/vm-host-setup.ts` に置いた（§5.6 の型と `SetupBrief`）。
 - 段階 2 の `EnvironmentHostDeclaration` の proxmox の枝は仮に `{ kind: "proxmox", node, pool }`。
 - 画面の問題の見出しの鍵は `problem.<scope>.<code>`（`unreachable` などが Incus と Proxmox で重なるため）。
@@ -540,7 +540,7 @@ interface ShellProcess {
 - root: `sudo -S -p '' -- env <env> <argv>`。パスワードがあれば stdin の 1 行目に書く。パスワードが要らなければ `sudo -n`。`already-root` は sudo を通さない。
 - stdin はパスワードの後は制御の行だけを運ぶ。`cancel` を書くと host-setup.sh は今のコマンドが終わったところで止まる。stdin の EOF（DSH が止まった、SSH が切れた）も取り消しとして扱う（§5.5）。根拠: 誰も見ていない root の処理を残さないため。
 - `hello` イベント（§5.5）を受けるまで stdin にパスワードの他は何も書かない。sudo がパスワードを拒むと stdin からもう一度読もうとする（推測: sudo の `-S` の振る舞い）ので、stderr の `Sorry, try again` か 10 秒以内に hello が無いことで失敗 `sudo-rejected` にしてプロセスを止める。
-- `stage`: local はプラグインの `lib/host-setup/`（読み取りだけ）をそのまま使う。ssh は `mktemp -d`（0700）に tar を stdin で送り、`sha256sum` で束を確かめ、ジョブの終わりに消す。
+- `stage`: local はプラグインの `lib/host-setup/`（読み取りだけ）をそのまま使う。ssh は `mktemp -d`（0700、接頭辞 `dsh-bots-host-setup.`）に tar を stdin で送り、`sha256sum` で束を確かめ、ジョブの終わりに消す。使っている間は別の SSH のプロセスが `flock -s <dir>/.in-use` を持ち続ける（DSH が止まれば SSH が切れて外れる）。stage のはじめに、同じ接頭辞で自分の所有の、10 分より古く、`flock -n -x` が取れる（使われていない）ものを消す（DSH が途中で止まったときの残り）。
 - 実装（段階 3b）: `src/node/setup-shell.ts`。スクリプトは実行ビットに頼らず `bash <dir>/vm/host-setup.sh` で起こす（パッケージの展開で mode が落ちても動くように）。ssh の終了コード 255 は `exit.broken` で返し、stderr の `REMOTE HOST IDENTIFICATION HAS CHANGED` / `Host key verification failed` を `host-key-changed`、それ以外を `ssh-failed` にする。取り消し以外でプロセスを止める（`sudo-rejected`、`protocol`）ときは signal で SIGTERM を送り、DSH のプラグインが止まるときは `cancel` の行だけを送る（apt を途中で切らない）。
 
 ### 5.5 host-setup.sh の構造化出力

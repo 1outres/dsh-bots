@@ -1,17 +1,21 @@
 import { useState } from "react"
 import type {
   BackendPlacementView,
+  BotEnvironmentHostState,
   EnvironmentEgressReportView,
   EnvironmentHostCheck,
   EnvironmentHostDeclaration,
   EnvironmentHostPlacement,
   EnvironmentHostProblem,
   EnvironmentHostSettingsView,
+  HostOriginView,
 } from "../../shared/environment-host"
+import type { HostSiteView } from "../../shared/vm-host-setup"
 import type { GlobalSettingsSectionProps } from "../global-settings/sections"
 import { useObservable } from "../hooks"
 import { IconServer } from "../icons"
 import { localeFormat } from "../locale-format"
+import { messageOf } from "../remote-feed"
 import type { Translate } from "../types"
 import {
   BlockRow,
@@ -21,16 +25,30 @@ import {
   EmptyState,
   ErrorText,
   Group,
+  NavRow,
+  PageTitle,
   type PillTone,
   Row,
   StatusPill,
   Tag,
 } from "../ui"
+import { BuildPage } from "./BuildPage"
 import { Command } from "./Command"
 import type { VmHostClient } from "./client"
+import { ExistingServerPage } from "./ExistingServerPage"
 import { ImageGroup } from "./ImageGroup"
 import { DEFAULT_PROJECT, fixShown, shortFingerprint } from "./model"
-import { PairingGroup } from "./PairingGroup"
+import { type SetupPage, setupPageOf } from "./pages"
+import { SetupJobGroup } from "./SetupJobGroup"
+import { SetupLogPage } from "./SetupLogPage"
+import {
+  addressText,
+  type BuildIntent,
+  jobEnded,
+  repairIntent,
+  retryIntent,
+  serverLabelOf,
+} from "./setup-model"
 
 export interface VmHostSectionDeps {
   readonly host: VmHostClient
@@ -38,7 +56,9 @@ export interface VmHostSectionDeps {
 
 type Props = GlobalSettingsSectionProps & VmHostSectionDeps
 
-const messageOf = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause))
+type Ready = Extract<BotEnvironmentHostState, { readonly status: "ready" }>
+
+type BodyProps = Props & { readonly state: Ready }
 
 export function VmHostSection(props: Props) {
   const { t, host } = props
@@ -56,63 +76,189 @@ export function VmHostSection(props: Props) {
   if (state.value.status === "none") {
     return <EmptyState icon={<IconServer size={28} />} title={t("vmHost.none")} />
   }
-  return <VmHostBody {...props} view={state.value.host} />
+  return <VmHostPages {...props} state={state.value} />
 }
 
-function VmHostBody(props: Props & { readonly view: EnvironmentHostSettingsView }) {
-  const { t, view } = props
-  const [pairing, setPairing] = useState(false)
-  const [failure, setFailure] = useState<string | null>(null)
-  const run = (work: () => Promise<unknown>) => {
-    setFailure(null)
-    void work().catch((cause: unknown) => setFailure(messageOf(cause)))
-  }
-  const placement = view.placement
-  return (
-    <div className="dshb-settings-groups" data-dshb-vm-host={placement.kind}>
-      {!pairing && (
-        <Group>
-          <PlacementRows t={t} placement={placement} />
-          {placement.kind !== "reading" && (
-            <ButtonRow
-              label={placement.kind === "placed" ? t("vmHost.pairAnother") : t("vmHost.pair")}
-              onClick={() => setPairing(true)}
-              marks={{ "data-dshb-vm-host-pair-another": "" }}
-            />
-          )}
-          {placement.kind === "placed" && (
-            <ButtonRow
-              label={t("vmHost.forget")}
-              tone="danger"
-              onClick={() =>
-                run(async () => {
-                  const url = placement.backend.url
-                  const confirmed = await props.confirm({
-                    title: t("vmHost.forget.title", { url }),
-                    description: t("vmHost.forget.description", { url }),
-                    confirm: t("vmHost.forget.accept"),
-                    tone: "danger",
-                  })
-                  if (confirmed) await props.host.forget()
-                })
-              }
-              marks={{ "data-dshb-vm-host-forget": "" }}
-            />
-          )}
-        </Group>
-      )}
-      {pairing && (
-        <PairingGroup
+function VmHostPages(props: BodyProps) {
+  const { t, page, state } = props
+  const view = state.host
+  const shown = setupPageOf(page.detail)
+  const open = (next: SetupPage) => page.open(next)
+  const build = (intent: BuildIntent, title: string) => (
+    <BuildPage
+      key={page.detail ?? ""}
+      t={t}
+      host={props.host}
+      intent={intent}
+      title={title}
+      placement={view.placement}
+      confirm={props.confirm}
+      onDone={() => page.back()}
+      onAnotherMachine={() => open("another-machine")}
+    />
+  )
+  switch (shown) {
+    case "choose":
+      return (
+        <div className="dshb-settings-groups">
+          <PageTitle>{t("setup.page.choose")}</PageTitle>
+          <ChooseGroup t={t} onOpen={open} />
+        </div>
+      )
+    case "this-machine":
+      return build({ kind: "new", site: "this-machine" }, t("setup.choice.this-machine"))
+    case "another-machine":
+      return build({ kind: "new", site: "ssh" }, t("setup.choice.another-machine"))
+    case "existing":
+      return (
+        <ExistingServerPage
           t={t}
           host={props.host}
           confirm={props.confirm}
-          project={projectOf(placement)}
-          onDone={() => setPairing(false)}
+          project={projectOf(view.placement)}
+          pluginVersion={state.pluginVersion}
+          onDone={() => page.back()}
+        />
+      )
+    case "move":
+      if (view.placement.kind !== "migration-required") break
+      return build({ kind: "move", project: view.placement.from.project }, t("setup.page.move"))
+    case "repair": {
+      const intent = repairIntent(view.placement)
+      if (intent === null) break
+      return build(intent, t("setup.page.repair"))
+    }
+    case "retry":
+      if (view.setup === undefined) break
+      return build(retryIntent(view.setup, view.placement), t("setup.page.retry"))
+    case "log":
+      if (view.setup === undefined) break
+      return <SetupLogPage t={t} job={view.setup} />
+    case null:
+      break
+  }
+  return <VmHostBody {...props} view={view} open={open} />
+}
+
+function VmHostBody(
+  props: BodyProps & {
+    readonly view: EnvironmentHostSettingsView
+    open(page: SetupPage): void
+  },
+) {
+  const { t, view, open } = props
+  const [busy, setBusy] = useState(false)
+  const [failure, setFailure] = useState<string | null>(null)
+  const run = (work: () => Promise<unknown>) => {
+    setFailure(null)
+    setBusy(true)
+    void work()
+      .catch((cause: unknown) => setFailure(messageOf(cause)))
+      .finally(() => setBusy(false))
+  }
+  const job = view.setup
+  const building = job !== undefined && !jobEnded(job)
+  const placement = view.placement
+  return (
+    <div className="dshb-settings-groups" data-dshb-vm-host={placement.kind}>
+      {job !== undefined && (
+        <SetupJobGroup
+          t={t}
+          job={job}
+          busy={busy}
+          actions={{
+            cancel: () => run(() => props.host.cancelSetup(job.id)),
+            retry: () => open("retry"),
+            dismiss: () => run(() => props.host.dismissSetup(job.id)),
+            openLog: () => open("log"),
+          }}
         />
       )}
       {failure !== null && <ErrorText>{failure}</ErrorText>}
-      {!pairing && <PlacedGroups {...props} view={view} run={run} onFailure={setFailure} />}
+      {placement.kind === "reading" && (
+        <Group>
+          <Row label={t("vmHost.reading")} />
+        </Group>
+      )}
+      {placement.kind === "unreadable" && (
+        <Group>
+          <Row
+            label={t("vmHost.stored")}
+            meta={placement.problem.message}
+            metaTone="danger"
+            marks={{ "data-dshb-vm-host-unreadable": "" }}
+          />
+        </Group>
+      )}
+      {(placement.kind === "none" || placement.kind === "unreadable") && !building && (
+        <ChooseGroup t={t} onOpen={open} />
+      )}
+      {placement.kind === "migration-required" && (
+        <MoveGroup t={t} placement={placement} building={building} open={open} />
+      )}
+      {placement.kind === "placed" && (
+        <PlacedGroups
+          {...props}
+          placement={placement}
+          building={building}
+          busy={busy}
+          run={run}
+          onFailure={setFailure}
+        />
+      )}
     </div>
+  )
+}
+
+function ChooseGroup(props: { readonly t: Translate; onOpen(page: SetupPage): void }) {
+  const { t } = props
+  const choices = [
+    { page: "this-machine", backend: t("vmHost.backend.incus") },
+    { page: "another-machine", backend: t("vmHost.backend.incus") },
+    { page: "existing", backend: t("setup.backend.any") },
+  ] as const
+  return (
+    <Group title={t("setup.choose.title")} marks={{ "data-dshb-vm-host-choices": "" }}>
+      {choices.map((choice) => (
+        <NavRow
+          key={choice.page}
+          label={t(`setup.choice.${choice.page}`)}
+          trailing={<Tag>{choice.backend}</Tag>}
+          onOpen={() => props.onOpen(choice.page)}
+          marks={{ "data-dshb-vm-host-choice": choice.page }}
+        />
+      ))}
+    </Group>
+  )
+}
+
+function MoveGroup(props: {
+  readonly t: Translate
+  readonly placement: Extract<EnvironmentHostPlacement, { readonly kind: "migration-required" }>
+  readonly building: boolean
+  open(page: SetupPage): void
+}) {
+  const { t, placement } = props
+  return (
+    <Group
+      title={t("vmHost.move")}
+      tag={<StatusPill tone="warning" label={t("vmHost.move.needed")} />}
+      marks={{ "data-dshb-vm-host-move": "" }}
+    >
+      <Row label={t("vmHost.socket")} trailing={<Code>{placement.from.socket}</Code>} />
+      <Row label={t("vmHost.project")} trailing={<Code>{placement.from.project}</Code>} />
+      <ButtonRow
+        label={t("vmHost.move.start")}
+        disabled={props.building}
+        onClick={() => props.open("move")}
+        marks={{ "data-dshb-vm-host-move-start": "" }}
+      />
+      <ButtonRow
+        label={t("vmHost.another")}
+        disabled={props.building}
+        onClick={() => props.open("choose")}
+      />
+    </Group>
   )
 }
 
@@ -127,17 +273,102 @@ function projectOf(placement: EnvironmentHostPlacement): string {
   }
 }
 
+function whereOf(t: Translate, backend: BackendPlacementView, origin: HostOriginView): string {
+  if (origin.kind === "custom") return serverLabelOf(backend)
+  return siteText(t, origin.site)
+}
+
+function siteText(t: Translate, site: HostSiteView): string {
+  return site.kind === "this-machine" ? t("setup.site.this-machine") : addressText(site)
+}
+
 function PlacedGroups(
-  props: Props & {
+  props: BodyProps & {
     readonly view: EnvironmentHostSettingsView
+    readonly placement: Extract<EnvironmentHostPlacement, { readonly kind: "placed" }>
+    readonly building: boolean
+    readonly busy: boolean
+    open(page: SetupPage): void
     run(work: () => Promise<unknown>): void
     onFailure(message: string): void
   },
 ) {
-  const { t, view } = props
+  const { t, view, placement } = props
+  const origin = placement.origin
+  const repair =
+    origin.kind === "managed" && !props.building ? () => props.open("repair") : undefined
   return (
     <>
-      <CheckGroup t={t} check={view.check} onCheck={() => props.run(() => props.host.check())} />
+      <Group marks={{ "data-dshb-vm-host-in-use": origin.kind }}>
+        <Row
+          label={t("vmHost.runsOn")}
+          meta={whereOf(t, placement.backend, origin)}
+          trailing={
+            <span className="dshb-vm-host-tags">
+              <Tag marks={{ "data-dshb-vm-host-origin": origin.kind }}>
+                {t(`vmHost.origin.${origin.kind}`)}
+              </Tag>
+              <Tag marks={{ "data-dshb-vm-host-backend": placement.backend.kind }}>
+                {t(`vmHost.backend.${placement.backend.kind}`)}
+              </Tag>
+            </span>
+          }
+        />
+        <BackendRows t={t} backend={placement.backend} />
+        {origin.kind === "managed" && (
+          <Row
+            label={t("vmHost.repair")}
+            trailing={
+              <>
+                {origin.update === "available" && (
+                  <StatusPill tone="warning" label={t("vmHost.update")} />
+                )}
+                <Button
+                  variant="row"
+                  disabled={repair === undefined}
+                  onClick={() => repair?.()}
+                  marks={{ "data-dshb-vm-host-repair-row": origin.update }}
+                >
+                  {t("vmHost.repair.run")}
+                </Button>
+              </>
+            }
+          />
+        )}
+        {origin.kind === "managed" && origin.site.kind === "ssh" && (
+          <SshKeyRow {...props} site={origin.site} />
+        )}
+        <ButtonRow
+          label={t("vmHost.another")}
+          disabled={props.building}
+          onClick={() => props.open("choose")}
+          marks={{ "data-dshb-vm-host-pair-another": "" }}
+        />
+        <ButtonRow
+          label={t("vmHost.forget")}
+          tone="danger"
+          disabled={props.building}
+          onClick={() =>
+            props.run(async () => {
+              const url = placement.backend.url
+              const confirmed = await props.confirm({
+                title: t("vmHost.forget.title", { url }),
+                description: t("vmHost.forget.description", { url }),
+                confirm: t("vmHost.forget.accept"),
+                tone: "danger",
+              })
+              if (confirmed) await props.host.forget()
+            })
+          }
+          marks={{ "data-dshb-vm-host-forget": "" }}
+        />
+      </Group>
+      <CheckGroup
+        t={t}
+        check={view.check}
+        onCheck={() => props.run(() => props.host.check())}
+        onRepair={repair}
+      />
       <EgressGroup t={t} check={view.check} reports={view.egress} />
       {view.released.length > 0 && (
         <Group title={t("released.title")} marks={{ "data-dshb-vm-host-released": "" }}>
@@ -158,63 +389,61 @@ function PlacedGroups(
   )
 }
 
-function PlacementRows(props: {
-  readonly t: Translate
-  readonly placement: EnvironmentHostPlacement
-}) {
-  const { t, placement } = props
-  switch (placement.kind) {
-    case "reading":
-      return <Row label={t("vmHost.reading")} />
-    case "none":
-      return (
-        <Row
-          label={t("vmHost.runsOn")}
-          trailing={<StatusPill tone="danger" label={t("vmHost.unchosen")} />}
-          marks={{ "data-dshb-vm-host-none": "" }}
-        />
-      )
-    case "unreadable":
-      return (
-        <Row
-          label={t("vmHost.stored")}
-          meta={placement.problem.message}
-          metaTone="danger"
-          marks={{ "data-dshb-vm-host-unreadable": "" }}
-        />
-      )
-    case "migration-required":
-      return (
-        <>
-          <Row
-            label={t("vmHost.move")}
-            trailing={<StatusPill tone="warning" label={t("vmHost.move.needed")} />}
-            marks={{ "data-dshb-vm-host-move": "" }}
-          />
-          <Row label={t("vmHost.socket")} trailing={<Code>{placement.from.socket}</Code>} />
-          <Row label={t("vmHost.project")} trailing={<Code>{placement.from.project}</Code>} />
-        </>
-      )
-    case "placed":
-      return (
-        <>
-          <Row
-            label={t("vmHost.runsOn")}
-            trailing={
-              <span className="dshb-vm-host-tags">
-                <Tag marks={{ "data-dshb-vm-host-origin": placement.origin.kind }}>
-                  {t(`vmHost.origin.${placement.origin.kind}`)}
-                </Tag>
-                <Tag marks={{ "data-dshb-vm-host-backend": placement.backend.kind }}>
-                  {t(`vmHost.backend.${placement.backend.kind}`)}
-                </Tag>
-              </span>
-            }
-          />
-          <BackendRows t={t} backend={placement.backend} />
-        </>
-      )
+function SshKeyRow(
+  props: BodyProps & {
+    readonly site: Extract<HostSiteView, { readonly kind: "ssh" }>
+    readonly building: boolean
+  },
+) {
+  const { t, site } = props
+  const [refused, setRefused] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const remove = async (scope: "remote-and-local" | "local") => {
+    const base = scope === "local" ? "vmHost.sshKey.removeLocal" : "vmHost.sshKey.remove"
+    const confirmed = await props.confirm({
+      title: t(`${base}.title`),
+      description: t(`${base}.description`, { host: site.host }),
+      confirm: t("vmHost.sshKey.remove.accept"),
+      tone: "danger",
+    })
+    if (!confirmed) return
+    setBusy(true)
+    try {
+      await props.host.removeSetupIdentity(scope)
+      setRefused(null)
+    } catch (cause) {
+      setRefused(t("vmHost.sshKey.failed", { message: messageOf(cause) }))
+    } finally {
+      setBusy(false)
+    }
   }
+  const kept = site.identity === "kept"
+  return (
+    <Row
+      label={t("vmHost.sshKey")}
+      meta={refused ?? undefined}
+      metaTone={refused === null ? undefined : "danger"}
+      trailing={
+        <>
+          <StatusPill
+            tone={kept ? "success" : "idle"}
+            label={t(kept ? "vmHost.sshKey.kept" : "vmHost.sshKey.removed")}
+          />
+          {kept && (
+            <Button
+              variant="row"
+              disabled={busy || props.building}
+              onClick={() => void remove(refused === null ? "remote-and-local" : "local")}
+              marks={{ "data-dshb-vm-host-ssh-key-remove": refused === null ? "both" : "local" }}
+            >
+              {t(refused === null ? "vmHost.sshKey.remove" : "vmHost.sshKey.removeLocal")}
+            </Button>
+          )}
+        </>
+      }
+      marks={{ "data-dshb-vm-host-ssh-key": site.identity }}
+    />
+  )
 }
 
 function BackendRows(props: { readonly t: Translate; readonly backend: BackendPlacementView }) {
@@ -282,6 +511,7 @@ function CheckGroup(props: {
   readonly t: Translate
   readonly check: EnvironmentHostCheck
   onCheck(): void
+  readonly onRepair?: () => void
 }) {
   const { t, check } = props
   const pill = checkPill(t, check)
@@ -313,7 +543,12 @@ function CheckGroup(props: {
       {check.state === "ready" && <DeclarationRows t={t} declaration={check.declaration} />}
       {check.state === "failed" &&
         check.problems.map((problem, index) => (
-          <ProblemRow key={`${problem.code}-${index}`} t={t} problem={problem} />
+          <ProblemRow
+            key={`${problem.code}-${index}`}
+            t={t}
+            problem={problem}
+            onRepair={props.onRepair}
+          />
         ))}
     </Group>
   )
@@ -345,11 +580,28 @@ function DeclarationRows(props: {
 function ProblemRow({
   t,
   problem,
+  onRepair,
 }: {
   readonly t: Translate
   readonly problem: EnvironmentHostProblem
+  readonly onRepair?: () => void
 }) {
   const fix = fixShown(problem.fix)
+  if (problem.fix.kind === "repair" && onRepair !== undefined) {
+    return (
+      <Row
+        label={t(`problem.${problem.scope}.${problem.code}`)}
+        meta={problem.message}
+        metaTone="danger"
+        trailing={
+          <Button variant="row" onClick={onRepair} marks={{ "data-dshb-vm-host-repair": "" }}>
+            {t("vmHost.repair.run")}
+          </Button>
+        }
+        marks={{ "data-dshb-vm-host-problem": problem.code }}
+      />
+    )
+  }
   return (
     <BlockRow
       label={t(`problem.${problem.scope}.${problem.code}`)}

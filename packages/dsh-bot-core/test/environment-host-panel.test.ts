@@ -62,6 +62,7 @@ function setup(host: BotEnvironmentHost | undefined) {
         return () => registrations.delete(listener)
       },
     },
+    pluginVersion: "1.2.3",
     botName: (botId) => (botId === "a" ? "Ada" : undefined),
     onBots(listener) {
       bots.add(listener)

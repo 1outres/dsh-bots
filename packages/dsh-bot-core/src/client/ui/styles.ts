@@ -96,6 +96,9 @@ export const UI_CSS = `
   text-align: left;
   cursor: pointer;
 }
+.dshb-ui-group-frame > * + .dshb-ui-button-row {
+  border-top: var(--dsh-hairline-width, 0.5px) solid var(--dsw-alias-border-l4);
+}
 .dshb-ui-button-row:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover); }
 .dshb-ui-button-row[data-tone="danger"] .dshb-ui-row-label { color: var(--dsw-alias-state-error-primary); }
 .dshb-ui-button-row[data-tone="danger"]:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover-danger); }
@@ -541,15 +544,23 @@ button.dshb-ui-picker-trigger { height: auto; min-height: 32px; padding-top: 3px
 .dshb-ui-pill[data-tone="warning"] .dshb-ui-pill-dot { background: var(--dsw-alias-state-warn-primary); }
 .dshb-ui-pill[data-tone="danger"] { color: var(--dsw-alias-state-error-primary); }
 .dshb-ui-pill[data-tone="danger"] .dshb-ui-pill-dot { background: var(--dsw-alias-state-error-primary); }
-.dshb-ui-pill[data-tone="busy"] .dshb-ui-pill-dot { animation: dshb-ui-pulse 1.2s ease-in-out infinite; }
-@keyframes dshb-ui-pulse { 50% { opacity: 0.3; } }
+.dshb-ui-pill[data-tone="busy"] .dshb-ui-pill-dot {
+  box-sizing: border-box;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--dsw-alias-state-business-primary);
+  border-right-color: transparent;
+  background: transparent;
+  animation: dshb-ui-spin 0.9s linear infinite;
+}
+@keyframes dshb-ui-spin { to { transform: rotate(360deg); } }
 @media (max-width: 640px) {
   .dshb-ui-row[data-density="compact"] .dshb-ui-row-label,
   .dshb-ui-row[data-density="compact"] .dshb-ui-row-meta { white-space: normal; overflow-wrap: anywhere; }
   .dshb-ui-segment { padding: 0 8px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .dshb-ui-pill[data-tone="busy"] .dshb-ui-pill-dot { animation: none; }
+  .dshb-ui-pill[data-tone="busy"] .dshb-ui-pill-dot { animation: none; border-right-color: var(--dsw-alias-state-business-primary); }
   .dshb-ui-switch-thumb { transition: none; }
 }
 

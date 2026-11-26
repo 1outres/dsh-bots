@@ -3690,6 +3690,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     ctx,
     createEnvironmentHostPanel({
       environment: environments,
+      pluginVersion: manifest.version,
       botName: (botId) => registry.get(botId)?.name,
       onBots: (listener) => registry.subscribe(() => listener()),
     }),

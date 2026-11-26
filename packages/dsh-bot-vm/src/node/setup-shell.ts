@@ -127,6 +127,34 @@ export function localShell(bundleDir: string): HostShell {
   }
 }
 
+export const STAGE_PREFIX = "dsh-bots-host-setup."
+export const STAGE_LOCK = ".in-use"
+export const STALE_STAGE_MINUTES = 10
+
+export function stageScript(paths: readonly string[]): string {
+  return [
+    "set -eu",
+    "umask 077",
+    `for old in "\${TMPDIR:-/tmp}"/${STAGE_PREFIX}*; do`,
+    '  [ -d "$old" ] && [ ! -L "$old" ] && [ -O "$old" ] || continue',
+    `  [ -n "$(find "$old" -maxdepth 0 -mmin +${STALE_STAGE_MINUTES})" ] || continue`,
+    `  flock -n -x "$old/${STAGE_LOCK}" rm -rf -- "$old" || true`,
+    "done",
+    `d=$(mktemp -d -t ${STAGE_PREFIX}XXXXXXXX)`,
+    'tar -xf - -C "$d"',
+    `: > "$d/${STAGE_LOCK}"`,
+    'printf "dir %s\\n" "$d"',
+    `cd "$d" && sha256sum -- ${paths.map(shellQuote).join(" ")}`,
+  ].join("\n")
+}
+
+const HELD = "held"
+
+async function firstLine(process: ShellProcess): Promise<string | undefined> {
+  for await (const line of process.stdout) return line
+  return undefined
+}
+
 const HOST_KEY_CHANGED =
   /REMOTE HOST IDENTIFICATION HAS CHANGED|Host key verification failed|host key for .* has changed/i
 
@@ -160,15 +188,7 @@ export function sshShell(config: string, site: HostSiteView): HostShell {
   return {
     site,
     async stage(bundle: HostSetupBundle, signal?: AbortSignal): Promise<StagedBundle> {
-      const paths = bundle.files.map((file) => file.path)
-      const script = [
-        "set -eu",
-        "umask 077",
-        "d=$(mktemp -d -t dsh-bots-host-setup.XXXXXXXX)",
-        'tar -xf - -C "$d"',
-        'printf "dir %s\\n" "$d"',
-        `cd "$d" && sha256sum -- ${paths.map(shellQuote).join(" ")}`,
-      ].join("\n")
+      const script = stageScript(bundle.files.map((file) => file.path))
       const run = await collect(
         start(over(["sh", "-c", script], { stdin: tarOf(bundle.files) }), signal),
       )
@@ -180,7 +200,7 @@ export function sshShell(config: string, site: HostSiteView): HostShell {
           `sending the host setup to the VM host failed: ${run.stderr.slice(-3).join(" ") || `exit code ${run.exit.code}`}`,
         )
       }
-      const release = async () => {
+      const remove = async () => {
         await collect(start(over(["rm", "-rf", "--", dir])))
       }
       const sums = new Map(
@@ -191,10 +211,35 @@ export function sshShell(config: string, site: HostSiteView): HostShell {
       )
       const changed = bundle.files.filter((file) => sums.get(file.path) !== file.sha256)
       if (changed.length > 0) {
-        await release()
+        await remove()
         throw failedStage(
           `the host setup arrived changed on the VM host: ${changed.map((file) => file.path).join(", ")}`,
         )
+      }
+      const holding = new AbortController()
+      const holder = start(
+        over([
+          "flock",
+          "-s",
+          `${dir}/${STAGE_LOCK}`,
+          "sh",
+          "-c",
+          `echo ${HELD}; exec cat >/dev/null`,
+        ]),
+        holding.signal,
+      )
+      const held = await firstLine(holder)
+      if (held !== HELD) {
+        const exit = await holder.exit
+        await remove()
+        throw failedStage(
+          `locking the host setup on the VM host failed: ${exit.broken?.message ?? `exit code ${exit.code}`}`,
+        )
+      }
+      const release = async () => {
+        holding.abort()
+        await holder.exit
+        await remove()
       }
       return { dir, release }
     },

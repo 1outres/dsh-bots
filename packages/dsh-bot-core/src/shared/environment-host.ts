@@ -1,5 +1,14 @@
 import type { BotEnvironmentImageView } from "./environment-image"
-import type { HostSiteView, SetupJobView } from "./vm-host-setup"
+import type {
+  HostKeyScan,
+  HostSiteView,
+  SetupInspection,
+  SetupInspectRequest,
+  SetupJobView,
+  SetupStartRequest,
+  SshIdentityView,
+  SshTarget,
+} from "./vm-host-setup"
 
 export type VmBackendKind = "incus" | "proxmox"
 
@@ -158,7 +167,11 @@ export interface EnvironmentHostSettingsView extends Omit<EnvironmentHostView, "
 
 export type BotEnvironmentHostState =
   | { readonly status: "none" }
-  | { readonly status: "ready"; readonly host: EnvironmentHostSettingsView }
+  | {
+      readonly status: "ready"
+      readonly host: EnvironmentHostSettingsView
+      readonly pluginVersion: string
+    }
 
 export interface TrustTokenPreview {
   readonly clientName: string
@@ -202,11 +215,22 @@ export type CustomConnectRequest =
       readonly pool: string
     }
 
+export const IDENTITY_REMOVALS = ["remote-and-local", "local"] as const
+
+export type IdentityRemoval = (typeof IDENTITY_REMOVALS)[number]
+
 export interface BotEnvironmentHostApi {
   watch(signal?: AbortSignal): AsyncIterable<BotEnvironmentHostState>
   check(): Promise<BotEnvironmentHostState>
   previewCustom(credential: CustomCredential): Promise<CustomPreview>
   connectCustom(request: CustomConnectRequest): Promise<BotEnvironmentHostState>
+  setupIdentity(): Promise<SshIdentityView>
+  removeSetupIdentity(scope: IdentityRemoval): Promise<SshIdentityView>
+  scanHostKey(target: SshTarget, signal?: AbortSignal): Promise<HostKeyScan>
+  inspectSetup(request: SetupInspectRequest, signal?: AbortSignal): Promise<SetupInspection>
+  startSetup(request: SetupStartRequest): Promise<BotEnvironmentHostState>
+  cancelSetup(jobId: string): Promise<BotEnvironmentHostState>
+  dismissSetup(jobId: string): Promise<BotEnvironmentHostState>
   forget(): Promise<BotEnvironmentHostState>
   refreshImage(): Promise<BotEnvironmentHostState>
   startImage(): Promise<BotEnvironmentHostState>

@@ -1,14 +1,21 @@
-import { RemoteError } from "@deepseek-ai/dsh-typert-protocol"
 import type { BotEnvironmentHost } from "../../contract"
 import type {
   BotEnvironmentHostState,
-  CustomConnectRequest,
-  CustomCredential,
   CustomPreview,
   EnvironmentHostView,
 } from "../../shared/environment-host"
 import type { BotEnvironmentImageHost } from "../../shared/environment-image"
+import type { HostKeyScan, SetupInspection, SshIdentityView } from "../../shared/vm-host-setup"
 import type { EnvironmentKeeper } from "../environment"
+import {
+  parseCustomConnectRequest,
+  parseCustomCredential,
+  parseIdentityRemoval,
+  parseJobId,
+  parseSetupInspectRequest,
+  parseSetupStartRequest,
+  parseSshTarget,
+} from "./input"
 
 export interface EnvironmentHostPanel {
   state(): BotEnvironmentHostState
@@ -16,6 +23,13 @@ export interface EnvironmentHostPanel {
   check(): Promise<BotEnvironmentHostState>
   previewCustom(credential: unknown): CustomPreview
   connectCustom(request: unknown): Promise<BotEnvironmentHostState>
+  setupIdentity(): Promise<SshIdentityView>
+  removeSetupIdentity(scope: unknown): Promise<SshIdentityView>
+  scanHostKey(target: unknown, signal?: AbortSignal): Promise<HostKeyScan>
+  inspectSetup(request: unknown, signal?: AbortSignal): Promise<SetupInspection>
+  startSetup(request: unknown): Promise<BotEnvironmentHostState>
+  cancelSetup(jobId: unknown): Promise<BotEnvironmentHostState>
+  dismissSetup(jobId: unknown): Promise<BotEnvironmentHostState>
   forget(): Promise<BotEnvironmentHostState>
   refreshImage(): Promise<BotEnvironmentHostState>
   startImage(): Promise<BotEnvironmentHostState>
@@ -24,73 +38,9 @@ export interface EnvironmentHostPanel {
 
 export interface EnvironmentHostPanelDeps {
   readonly environment: Pick<EnvironmentKeeper, "current" | "onRegistration">
+  readonly pluginVersion: string
   botName(botId: string): string | undefined
   onBots(listener: () => void): () => void
-}
-
-export const MAX_TRUST_TOKEN_LENGTH = 8192
-const MAX_FIELD_LENGTH = 2048
-
-const bad = (message: string) => new RemoteError("gateway/bad-request", message, {})
-
-function text(value: unknown, what: string, limit = MAX_FIELD_LENGTH): string {
-  if (typeof value !== "string") throw bad(`${what} must be text`)
-  const trimmed = value.trim()
-  if (trimmed === "") throw bad(`${what} is empty`)
-  if (trimmed.length > limit) throw bad(`${what} is longer than ${limit}`)
-  return trimmed
-}
-
-function recordOf(value: unknown, what: string): Readonly<Record<string, unknown>> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw bad(`${what} must be an object`)
-  }
-  return value as Record<string, unknown>
-}
-
-export function parseCustomCredential(value: unknown): CustomCredential {
-  const record = recordOf(value, "credential")
-  switch (record.backend) {
-    case "incus":
-      return {
-        backend: "incus",
-        trustToken: text(record.trustToken, "trustToken", MAX_TRUST_TOKEN_LENGTH),
-      }
-    case "proxmox":
-      return {
-        backend: "proxmox",
-        url: text(record.url, "url"),
-        tokenId: text(record.tokenId, "tokenId"),
-        serverFingerprint: text(record.serverFingerprint, "serverFingerprint"),
-      }
-    default:
-      throw bad("credential.backend must be incus or proxmox")
-  }
-}
-
-export function parseCustomConnectRequest(value: unknown): CustomConnectRequest {
-  const record = recordOf(value, "request")
-  switch (record.backend) {
-    case "incus":
-      return {
-        backend: "incus",
-        token: text(record.token, "token", MAX_TRUST_TOKEN_LENGTH),
-        url: text(record.url, "url"),
-        project: text(record.project, "project"),
-      }
-    case "proxmox":
-      return {
-        backend: "proxmox",
-        url: text(record.url, "url"),
-        tokenId: text(record.tokenId, "tokenId"),
-        tokenSecret: text(record.tokenSecret, "tokenSecret"),
-        serverFingerprint: text(record.serverFingerprint, "serverFingerprint"),
-        node: text(record.node, "node"),
-        pool: text(record.pool, "pool"),
-      }
-    default:
-      throw bad("request.backend must be incus or proxmox")
-  }
 }
 
 export function createEnvironmentHostPanel(deps: EnvironmentHostPanelDeps): EnvironmentHostPanel {
@@ -114,6 +64,7 @@ export function createEnvironmentHostPanel(deps: EnvironmentHostPanelDeps): Envi
         return botName === undefined ? [] : [{ ...report, botName }]
       }),
     },
+    pluginVersion: deps.pluginVersion,
   })
   const state = (): BotEnvironmentHostState => {
     const host = hostOf()
@@ -139,6 +90,28 @@ export function createEnvironmentHostPanel(deps: EnvironmentHostPanelDeps): Envi
     previewCustom: (credential) => required().custom.preview(parseCustomCredential(credential)),
     connectCustom: async (request) =>
       stateOf(await required().custom.connect(parseCustomConnectRequest(request))),
+    setupIdentity: async () => required().setup.identity(),
+    removeSetupIdentity: async (scope) =>
+      required().setup.removeIdentity(parseIdentityRemoval(scope)),
+    scanHostKey: async (target, signal) =>
+      required().setup.scanHostKey(parseSshTarget(target), signal),
+    inspectSetup: async (request, signal) =>
+      required().setup.inspect(parseSetupInspectRequest(request), signal),
+    async startSetup(request) {
+      const host = required()
+      host.setup.start(parseSetupStartRequest(request))
+      return stateOf(host.view())
+    },
+    async cancelSetup(jobId) {
+      const host = required()
+      host.setup.cancel(parseJobId(jobId))
+      return stateOf(host.view())
+    },
+    async dismissSetup(jobId) {
+      const host = required()
+      host.setup.dismiss(parseJobId(jobId))
+      return stateOf(host.view())
+    },
     forget: async () => stateOf(await required().forget()),
     async refreshImage() {
       await imageOf().refresh()

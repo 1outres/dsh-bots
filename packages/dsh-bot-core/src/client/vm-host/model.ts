@@ -6,6 +6,7 @@ import type {
   TrustTokenPreview,
 } from "../../shared/environment-host"
 import type { BotEnvironmentImageView } from "../../shared/environment-image"
+import type { SetupJobView } from "../../shared/vm-host-setup"
 import type { FeedState } from "../remote-feed"
 import type { SettingsBadge } from "../settings-frame/sections"
 
@@ -100,15 +101,27 @@ export function fixShown(fix: ProblemFix): FixShown {
 export function vmHostBadge(state: FeedState<BotEnvironmentHostState>): SettingsBadge | null {
   if (state.status !== "ready" || state.value.status !== "ready") return null
   const host = state.value.host
+  if (host.setup !== undefined && jobFailed(host.setup)) {
+    return { tone: "danger", label: (t) => t("setup.badge") }
+  }
   if (host.check.state === "failed" || placementMissing(host)) {
     return { tone: "danger", label: (t) => t("vmHost.badge") }
   }
   if (egressOpen(host)) return { tone: "warning", label: (t) => t("egress.badge") }
+  if (updateAvailable(host)) return { tone: "warning", label: (t) => t("setup.update.badge") }
   if (host.image !== undefined && imageNeedsImport(host.image)) {
     return { tone: "warning", label: (t) => t("image.badge") }
   }
   return null
 }
+
+export const jobFailed = (job: SetupJobView): boolean =>
+  job.state === "failed" || job.state === "interrupted"
+
+export const updateAvailable = (host: EnvironmentHostSettingsView): boolean =>
+  host.placement.kind === "placed" &&
+  host.placement.origin.kind === "managed" &&
+  host.placement.origin.update === "available"
 
 const placementMissing = (host: EnvironmentHostSettingsView): boolean =>
   host.placement.kind === "none" ||

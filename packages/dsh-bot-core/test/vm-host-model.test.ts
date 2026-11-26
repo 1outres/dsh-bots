@@ -37,7 +37,8 @@ const host = (change: Partial<EnvironmentHostSettingsView>): EnvironmentHostSett
 })
 
 const badgeOf = (view: EnvironmentHostSettingsView) =>
-  vmHostBadge({ status: "ready", value: { status: "ready", host: view } })?.tone ?? null
+  vmHostBadge({ status: "ready", value: { status: "ready", host: view, pluginVersion: "1.0.0" } })
+    ?.tone ?? null
 
 describe("VM host model", () => {
   it("takes project names other than default and https URLs with only host and port", () => {

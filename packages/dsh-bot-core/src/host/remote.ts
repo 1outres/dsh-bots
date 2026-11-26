@@ -58,6 +58,7 @@ import type {
   CustomConnectRequest,
   CustomCredential,
   CustomPreview,
+  IdentityRemoval,
 } from "../shared/environment-host"
 import type {
   BotByteReadOptions,
@@ -153,6 +154,14 @@ import type {
   VaultIncidentView,
   VaultItemView,
 } from "../shared/vaults"
+import type {
+  HostKeyScan,
+  SetupInspection,
+  SetupInspectRequest,
+  SetupStartRequest,
+  SshIdentityView,
+  SshTarget,
+} from "../shared/vm-host-setup"
 import type {
   BotWebApi,
   BotWebCapability,
@@ -1148,6 +1157,41 @@ export class BotEnvironmentHostRemoteService
   @Remote
   connectCustom(request: CustomConnectRequest): Promise<BotEnvironmentHostState> {
     return this[ENVIRONMENT_HOST].connectCustom(request)
+  }
+
+  @Remote
+  setupIdentity(): Promise<SshIdentityView> {
+    return this[ENVIRONMENT_HOST].setupIdentity()
+  }
+
+  @Remote
+  removeSetupIdentity(scope: IdentityRemoval): Promise<SshIdentityView> {
+    return this[ENVIRONMENT_HOST].removeSetupIdentity(scope)
+  }
+
+  @Remote
+  scanHostKey(target: SshTarget, signal?: AbortSignal): Promise<HostKeyScan> {
+    return this[ENVIRONMENT_HOST].scanHostKey(target, signal)
+  }
+
+  @Remote
+  inspectSetup(request: SetupInspectRequest, signal?: AbortSignal): Promise<SetupInspection> {
+    return this[ENVIRONMENT_HOST].inspectSetup(request, signal)
+  }
+
+  @Remote
+  startSetup(request: SetupStartRequest): Promise<BotEnvironmentHostState> {
+    return this[ENVIRONMENT_HOST].startSetup(request)
+  }
+
+  @Remote
+  cancelSetup(jobId: string): Promise<BotEnvironmentHostState> {
+    return this[ENVIRONMENT_HOST].cancelSetup(jobId)
+  }
+
+  @Remote
+  dismissSetup(jobId: string): Promise<BotEnvironmentHostState> {
+    return this[ENVIRONMENT_HOST].dismissSetup(jobId)
   }
 
   @Remote
