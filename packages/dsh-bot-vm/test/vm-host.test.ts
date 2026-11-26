@@ -6,9 +6,11 @@ import type { StoredPlacement } from "../src/host/placement/placement"
 import { createPlacementScope } from "../src/host/placement/scope"
 import type { ClientKeyStore } from "../src/host/placement/secrets"
 import type { PlacementReading, PlacementStore } from "../src/host/placement/store"
+import type { ManagedSetup, SetupHost } from "../src/host/setup/setup"
 import { createVmHost } from "../src/host/vm-host"
 import { hostKeyFingerprint } from "../src/index"
 import { certificateFingerprint, createSelfSignedIdentity } from "../src/node/client-identity"
+import { pinnedHostKey } from "../src/node/ssh-tools"
 import { incusWith } from "./support/incus"
 
 const SERVER = "ab".repeat(32)
@@ -80,6 +82,25 @@ function fakeImage(): BotEnvironmentImageHost & { readonly calls: string[] } {
   }
 }
 
+function idleSetup(): ManagedSetup {
+  const unused = () => {
+    throw new Error("unused")
+  }
+  return {
+    view: () => undefined,
+    load: async () => {},
+    close: () => {},
+    identity: unused,
+    removeIdentity: unused,
+    scanHostKey: unused,
+    inspect: unused,
+    start: unused,
+    cancel: unused,
+    dismiss: unused,
+    brief: unused,
+  }
+}
+
 function setup(options: { reading?: PlacementReading; unreadable?: boolean } = {}) {
   let reading: PlacementReading = options.reading ?? { kind: "none" }
   let key: string | undefined
@@ -128,6 +149,7 @@ function setup(options: { reading?: PlacementReading; unreadable?: boolean } = {
     },
   })
   const image = fakeImage()
+  const hosts: SetupHost[] = []
   let rehomed = 0
   const host = createVmHost({
     scope,
@@ -143,7 +165,11 @@ function setup(options: { reading?: PlacementReading; unreadable?: boolean } = {
     },
     clientName: "dsh-bots@test",
     fingerprintOf: certificateFingerprint,
-    hostKeyFingerprintOf: hostKeyFingerprint,
+    pinHostKey: pinnedHostKey,
+    setup: (setupHost) => {
+      hosts.push(setupHost)
+      return idleSetup()
+    },
     setupUpdate: (setup) => (setup.bundleSha256 === "c".repeat(64) ? "current" : "available"),
     now: () => 1_000,
     log: () => {},
@@ -160,6 +186,7 @@ function setup(options: { reading?: PlacementReading; unreadable?: boolean } = {
     key: () => key,
     setKey,
     rehomed: () => rehomed,
+    setupHost: () => hosts[0] as SetupHost,
   }
 }
 
@@ -262,7 +289,7 @@ describe("VM host", () => {
     expect(t.reading()).toEqual({ kind: "none" })
   })
 
-  it("does not connect to Proxmox yet, and has no setup yet", async () => {
+  it("does not connect to Proxmox yet", async () => {
     const t = setup()
     expect(() =>
       t.host.custom.preview({
@@ -271,9 +298,6 @@ describe("VM host", () => {
         tokenId: "u@pve!t",
         serverFingerprint: SERVER,
       }),
-    ).toThrow("not available")
-    expect(() =>
-      t.host.setup.start({ inspectionId: "i", project: "p", httpsPort: 8443, consents: [] }),
     ).toThrow("not available")
   })
 
@@ -320,7 +344,7 @@ describe("VM host", () => {
           host: "vm-host",
           port: 22,
           user: "admin",
-          hostKeyFingerprint: hostKeyFingerprint(HOST_KEY),
+          hostKey: { type: "ssh-ed25519", fingerprint: hostKeyFingerprint(HOST_KEY) },
           identity: "kept",
         },
         completedAt: 7,

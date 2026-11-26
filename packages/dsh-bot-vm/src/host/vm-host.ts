@@ -10,7 +10,6 @@ import type {
   HostOriginView,
   HostSiteView,
   VmHostCustom,
-  VmHostSetup,
 } from "@1outres/dsh-bot-core"
 import { parseProjectName } from "./backend/incus/endpoint"
 import { type PairingDeps, pair, untrustCommand } from "./backend/incus/pairing"
@@ -19,6 +18,9 @@ import type { EgressReport } from "./egress-probe"
 import type { StoredOrigin, StoredPlacement, StoredSetup, StoredSite } from "./placement/placement"
 import { type PlacementScope, problemOf } from "./placement/scope"
 import type { PlacementReading } from "./placement/store"
+import type { ManagedSetup, SetupHost } from "./setup/setup"
+import { type PinHostKey, sameSite, type TargetSite } from "./setup/site"
+import type { SshSite } from "./setup/ssh"
 
 export interface VmHostDeps {
   readonly scope: PlacementScope
@@ -27,8 +29,9 @@ export interface VmHostDeps {
   readonly pairing: PairingDeps
   readonly clientName: string
   readonly fingerprintOf: (certificate: string) => string
-  readonly hostKeyFingerprintOf: (hostKey: string) => string
+  readonly pinHostKey: PinHostKey
   readonly setupUpdate: (setup: StoredSetup) => "current" | "available"
+  readonly setup: (host: SetupHost) => ManagedSetup
   readonly now: () => number
   readonly log: (message: string) => void
 }
@@ -55,17 +58,6 @@ const notYet = (what: string) => () => {
   throw new Error(`${what} is not available in this version of @1outres/dsh-bot-vm`)
 }
 
-const UNBUILT_SETUP: VmHostSetup = {
-  identity: notYet("building a VM host"),
-  removeIdentity: notYet("building a VM host"),
-  scanHostKey: notYet("building a VM host"),
-  inspect: notYet("building a VM host"),
-  start: notYet("building a VM host"),
-  cancel: notYet("building a VM host"),
-  dismiss: notYet("building a VM host"),
-  brief: notYet("building a VM host"),
-}
-
 export function createVmHost(deps: VmHostDeps): VmHost {
   const { scope, image } = deps
   const listeners = new Set<() => void>()
@@ -79,18 +71,24 @@ export function createVmHost(deps: VmHostDeps): VmHost {
     for (const listener of [...listeners]) listener()
   }
 
-  const view = (): EnvironmentHostView => ({
-    placement,
-    check,
-    egress: [...egress].map(([botId, measure]) => ({ botId, measure })),
-    released: [...released],
-    ...(image === undefined ? {} : { image: image.view() }),
-  })
+  let setup: ManagedSetup | undefined
+
+  const view = (): EnvironmentHostView => {
+    const job = setup?.view()
+    return {
+      placement,
+      check,
+      egress: [...egress].map(([botId, measure]) => ({ botId, measure })),
+      released: [...released],
+      ...(job === undefined ? {} : { setup: job }),
+      ...(image === undefined ? {} : { image: image.view() }),
+    }
+  }
 
   function siteOf(site: StoredSite): HostSiteView {
     if (site.kind === "this-machine") return site
     const { hostKey, ...rest } = site
-    return { ...rest, hostKeyFingerprint: deps.hostKeyFingerprintOf(hostKey) }
+    return { ...rest, hostKey: deps.pinHostKey(hostKey) }
   }
 
   function originOf(origin: StoredOrigin): HostOriginView {
@@ -232,10 +230,70 @@ export function createVmHost(deps: VmHostDeps): VmHost {
     },
   }
 
+  async function managedSite(): Promise<
+    { readonly placement: StoredPlacement; readonly site: StoredSite } | undefined
+  > {
+    const reading = await scope.reading().catch(() => undefined)
+    if (reading?.kind !== "placed" || reading.placement.origin.kind !== "managed") return undefined
+    return { placement: reading.placement, site: reading.placement.origin.site }
+  }
+
+  const setupHost: SetupHost = {
+    placement: () => placement,
+    async pinnedSites() {
+      const managed = await managedSite()
+      if (managed === undefined || managed.site.kind !== "ssh") return []
+      const { identity: _, ...site } = managed.site
+      return [site satisfies SshSite]
+    },
+    async replaceableClient(site: TargetSite) {
+      const managed = await managedSite()
+      if (managed === undefined || managed.placement.backend.kind !== "incus") return undefined
+      if (!sameSite(site, managed.site)) return undefined
+      return deps.fingerprintOf(managed.placement.backend.clientCertificate)
+    },
+    async adopt(next, clientKey) {
+      const managed = await managedSite()
+      const replaced =
+        managed !== undefined &&
+        next.origin.kind === "managed" &&
+        sameSite(next.origin.site, managed.site)
+      if (!replaced) await leaving()
+      await scope.choose(next, clientKey)
+    },
+    async settle() {
+      const reading = await scope.reading()
+      const where = reading.kind === "placed" ? reading.placement.backend.url : "the VM host"
+      return (await switched(`built and paired with the VM host ${where}`)).check
+    },
+    async identityRemoved() {
+      const managed = await managedSite()
+      if (managed === undefined || managed.site.kind !== "ssh") return
+      const { backend, origin } = managed.placement
+      if (backend.kind !== "incus" || origin.kind !== "managed") return
+      await scope.rewrite({
+        version: 3,
+        backend,
+        origin: { ...origin, site: { ...managed.site, identity: "removed" } },
+      })
+      await readPlacement()
+      notify()
+    },
+    notify,
+  }
+  setup = deps.setup(setupHost)
+  const managedSetup = setup
+  void managedSetup.load().catch((error: unknown) => {
+    deps.log(`bot-vm: reading the setup jobs failed: ${messageOf(error)}`)
+  })
+
   const offImage = image?.subscribe(notify)
 
   return {
-    dispose: () => offImage?.(),
+    dispose: () => {
+      offImage?.()
+      managedSetup.close()
+    },
     view,
     subscribe(listener) {
       listeners.add(listener)
@@ -247,7 +305,7 @@ export function createVmHost(deps: VmHostDeps): VmHost {
       await readPlacement()
       return runCheck(signal)
     },
-    setup: UNBUILT_SETUP,
+    setup: managedSetup,
     custom,
     async forget() {
       await leaving()

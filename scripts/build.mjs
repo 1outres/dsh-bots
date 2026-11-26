@@ -5,6 +5,7 @@ import { basename, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { build, context } from "esbuild"
 import { clientBuildOptions, hostBuildOptions } from "./build-options.mjs"
+import { HOST_SETUP_BUNDLE_DIR, writeHostSetupBundle } from "./host-setup-bundle.mjs"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
 const packagesRoot = join(root, "packages")
@@ -278,6 +279,9 @@ const entries = (await readdir(packagesRoot, { withFileTypes: true }))
   .sort()
 
 for (const name of entries) await buildPackage(name)
+
+const bundle = await writeHostSetupBundle(root)
+console.log(`built ${HOST_SETUP_BUNDLE_DIR} (sha256 ${bundle.sha256})`)
 
 if (watch) {
   console.log("watching packages/*/src — press Ctrl+C to stop")

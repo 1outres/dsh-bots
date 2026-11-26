@@ -59,6 +59,7 @@ export interface PlacementScope {
   project(): string | undefined
   secretUsable(kind: VmBackendKind): Promise<void>
   choose(placement: StoredPlacement, secret: string): Promise<void>
+  rewrite(placement: StoredPlacement): Promise<void>
   clear(): Promise<void>
   close(): void
 }
@@ -154,6 +155,10 @@ export function createPlacementScope(deps: PlacementScopeDeps): PlacementScope {
       await deps.store.write(placement)
       drop()
       latest = projectOf(placement)
+    },
+    async rewrite(placement) {
+      await deps.store.write(placement)
+      drop()
     },
     async clear() {
       const before = await previousKind().catch(() => undefined)

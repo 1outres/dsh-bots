@@ -1,6 +1,6 @@
 # VM ホストの形（managed / custom、場所、backend）
 
-状態: 仕様（段階 2 まで実装）。docs/specs/incus-endpoint.md の形 1〜3 と docs/specs/installer.md の install.sh を、この文書で改める（§11 の段階で実装する）。
+状態: 仕様（段階 3b まで実装）。docs/specs/incus-endpoint.md の形 1〜3 と docs/specs/installer.md の install.sh を、この文書で改める（§11 の段階で実装する）。
 
 この文書では「確認済み」は実際に動かすか、コードや型を読んで確かめたこと、「未検証」は試していないこと、「推測」は根拠が文書や一般的な知識だけのことを指す。読んだものは本文に書く。
 
@@ -114,7 +114,7 @@ root を使わず、`host-setup.sh --events preflight` を VM ホストで実行
 - 冪等: host-setup.sh の各フェーズは調べてから変える（installer.md §7 と同じ）。変えるものが無ければ `changed: false` を返し、画面は skipped（済み）にする。途中で止まったら、同じ選択で「もう一度」を押せば続きから進む。
 - 取り消し: 今のコマンドが終わったところで止める（§5.4 の制御行）。パッケージの導入の途中では切らない。
 - 同時に 1 つ: 走っているジョブがあれば新しいジョブを拒む（`setup-busy`）。
-- ペアリングの後の placement の書き込みは 1 回（§5.1）。ジョブが失敗している間は今の placement を変えない。イメージのステップの失敗では placement は書いた後なので、ボットは使えるがイメージが無い状態になり、「Base image」が今と同じに直し方を出す。
+- ペアリングの後の placement の書き込みは 1 回（§5.1）。ジョブが失敗している間は今の placement を変えない。接続の段は「ペアリング → placement の書き込み → check」の順で、check が失敗すると（`check-failed`）placement は書いた後になる（判断: check は書いた placement の backend でしか行えないため。画面の Check と修復がそのまま使える）。構築後に SSH 鍵を「消す」ときは、成功の後に site の `identity` だけを書き換える。イメージのステップの失敗では placement は書いた後なので、ボットは使えるがイメージが無い状態になり、「Base image」が今と同じに直し方を出す。
 
 ### 3.7 `core.https_address` の扱い
 
@@ -224,7 +224,7 @@ type HostSiteView =
       readonly host: string
       readonly port: number
       readonly user: string
-      readonly hostKeyFingerprint: string
+      readonly hostKey: PinnedHostKey
       readonly identity: "kept" | "removed"
     }
 
@@ -344,7 +344,7 @@ interface VmHostSetup {
   identity(): Promise<SshIdentityView>
   removeIdentity(scope: "remote-and-local" | "local"): Promise<SshIdentityView>
   scanHostKey(target: SshTarget, signal?: AbortSignal): Promise<HostKeyScan>
-  inspect(site: SetupSite, signal?: AbortSignal): Promise<SetupInspection>
+  inspect(request: SetupInspectRequest, signal?: AbortSignal): Promise<SetupInspection>
   start(request: SetupStartRequest): SetupJobView
   cancel(jobId: string): SetupJobView
   dismiss(jobId: string): void
@@ -396,7 +396,7 @@ type CustomConnectRequest =
 - `EnvironmentHostCheck` の `declaration` は backend ごとの判別共用体にする（Incus は今の pool / network / egressAcl、Proxmox は spike で決める）。
 - `ProblemFix` の `repair` は origin が managed のときだけ使う。managed で `unreachable` などになったら、custom 向けの「管理者に頼む」ではなく修復を出す。
 - Remote（`botEnvironmentHost`）は上のメソッドをそのまま並べ、加えて `investigateSetup(jobId): { sessionId }`（§7）を持つ。`BotEnvironmentHostState` は `EnvironmentHostSettingsView` に `setup` が増えるだけ。段階 2 の Remote は `custom` の 2 つを `previewCustom(credential)` と `connectCustom(request)` として並べ、今の `previewToken` / `pair` / `useLocal` / `setProject` を消した。`setup` の Remote は段階 4 で足す。
-- 段階 2 では `setup` の Host 側（`VmHostSetup`）は型だけで、どのメソッドも「この版では使えない」で失敗する（段階 3b で実装）。`custom` の proxmox の枝も同じ（段階 7）。setup 系の型は `shared/vm-host-setup.ts` に置いた（§5.6 の型と `SetupBrief`）。
+- 段階 2 では `setup` の Host 側（`VmHostSetup`）は型だけで、どのメソッドも「この版では使えない」で失敗した。段階 3b で `brief` 以外を実装した（`brief` は段階 5）。段階 3b で契約を 2 つ改めた: `inspect` は `SetupInspectRequest`（site と HTTPS のポート。preflight の `port` の検査に要る。画面でポートを変えたら検査し直す）を受け、`HostSiteView` の ssh は指紋の文字列の代わりに固定した鍵 `hostKey: PinnedHostKey` を持つ。`custom` の proxmox の枝も同じ（段階 7）。setup 系の型は `shared/vm-host-setup.ts` に置いた（§5.6 の型と `SetupBrief`）。
 - 段階 2 の `EnvironmentHostDeclaration` の proxmox の枝は仮に `{ kind: "proxmox", node, pool }`。
 - 画面の問題の見出しの鍵は `problem.<scope>.<code>`（`unreachable` などが Incus と Proxmox で重なるため）。
 
@@ -528,7 +528,11 @@ interface ShellProcess {
   readonly stdout: AsyncIterable<string>
   readonly stderr: AsyncIterable<string>
   control(line: "cancel"): void
-  readonly exit: Promise<{ readonly code: number | null; readonly signal: string | null }>
+  readonly exit: Promise<{
+    readonly code: number | null
+    readonly signal: string | null
+    readonly broken?: { readonly code: "ssh-failed" | "host-key-changed"; readonly message: string }
+  }>
 }
 ```
 
@@ -537,6 +541,7 @@ interface ShellProcess {
 - stdin はパスワードの後は制御の行だけを運ぶ。`cancel` を書くと host-setup.sh は今のコマンドが終わったところで止まる。stdin の EOF（DSH が止まった、SSH が切れた）も取り消しとして扱う（§5.5）。根拠: 誰も見ていない root の処理を残さないため。
 - `hello` イベント（§5.5）を受けるまで stdin にパスワードの他は何も書かない。sudo がパスワードを拒むと stdin からもう一度読もうとする（推測: sudo の `-S` の振る舞い）ので、stderr の `Sorry, try again` か 10 秒以内に hello が無いことで失敗 `sudo-rejected` にしてプロセスを止める。
 - `stage`: local はプラグインの `lib/host-setup/`（読み取りだけ）をそのまま使う。ssh は `mktemp -d`（0700）に tar を stdin で送り、`sha256sum` で束を確かめ、ジョブの終わりに消す。
+- 実装（段階 3b）: `src/node/setup-shell.ts`。スクリプトは実行ビットに頼らず `bash <dir>/vm/host-setup.sh` で起こす（パッケージの展開で mode が落ちても動くように）。ssh の終了コード 255 は `exit.broken` で返し、stderr の `REMOTE HOST IDENTIFICATION HAS CHANGED` / `Host key verification failed` を `host-key-changed`、それ以外を `ssh-failed` にする。取り消し以外でプロセスを止める（`sudo-rejected`、`protocol`）ときは signal で SIGTERM を送り、DSH のプラグインが止まるときは `cancel` の行だけを送る（apt を途中で切らない）。
 
 ### 5.5 host-setup.sh の構造化出力
 
@@ -649,6 +654,7 @@ type HostSetupFailureCode =
 - `https` は `incus query /1.0` の `certificate_fingerprint`（64 桁）を fact `server-fingerprint` にする。読めなければ `command-failed` で止まる（空の値を返さない）。
 - 確認済み（2026-11-27、段階 3a）: 使い捨ての Debian 13 の VM（入れ子の KVM）で、一般ユーザの `--events preflight`（すべて ok、`sudo-with-password`）、`sudo -S` で 1 回だけパスワードを渡した `HTTPS_SCOPE=loopback OWNER=… --events all https token`（packages・incus・https が changed、`core.https_address=127.0.0.1:8443`、token は stderr に出ない）、2 回目で token 以外がすべて `changed: false`、その token で `incus remote add` して project `dsh-bots` だけが見えること、`REPLACE_CLIENT` で前の証明書が trust から消えること、sudo 越しの stdin の EOF で `cancelled` になること、install.sh の remote / local が今の形のまま最後まで通ること。未検証: Debian 12 / Ubuntu 24.04（Zabbly）と Fedora の実機（偽のコマンドのテストだけ）、ufw / firewalld / Docker の実機、apt の実際の途中での取り消し（偽の apt-get では確認済み）。
 - 束（`HostSetupBundle`）: `infra/vm/host-setup.sh`、`infra/vm/lib.sh`、`infra/incus/objects.sh`、`infra/release.env` を build が `packages/dsh-bot-vm/lib/host-setup/` に写し、sha256 を出す。元は infra/ だけ（写しを手で直さない）。テストで「写しと元が同じ」「束に要るファイルが揃う」を保つ。
+  - 実装（段階 3b）: `scripts/host-setup-bundle.mjs`（`pnpm build` の最後）。`infra/` の下の相対の配置のまま写し（`vm/host-setup.sh`、`vm/lib.sh`、`incus/objects.sh`、`release.env`。スクリプトが `$HERE/../incus/objects.sh` などを読むため）、`bundle.json`（`{ version: 1, sha256, files: [{ path, mode, sha256 }] }`）を書く。束の sha256 は `<mode 8 進 4 桁> <ファイルの sha256> <path>\n` を path の順に並べた文字列の sha256。プラグインは使うときに束を読み、ファイルごとと全体の sha256 を確かめる（違えば「入れ直してください」で inspect / start が失敗する）。束が読めないとき `update` は `available` を返す。
 
 ### 5.6 SetupJob
 
@@ -712,6 +718,11 @@ type SetupInspection =
       readonly verdict: "refused"
       readonly suggestion?: "another-machine"
     }
+
+interface SetupInspectRequest {
+  readonly site: SetupSite
+  readonly httpsPort: number
+}
 
 interface SetupStartRequest {
   readonly inspectionId: string
@@ -781,9 +792,11 @@ interface SetupJobView {
 
 - 状態とロジックを分ける: `reduceSetupJob(job, input): SetupJob`（純粋。入力は HostSetupEvent、プラグインの段の始まり・終わり・失敗、取り消しの要求、プロセスの終了）と、HostShell とストアをつなぐ `SetupRunner`（IO だけ）に分ける。イベントからステップへの写し（§3.6 の表）は reduce の中だけにある。
 - 永続化: `<stateDir>/setup/jobs/<id>/job.json`（SetupJobView から log.tail を除いたもの、0600）と `log.txt`（マスク済み、0600、2 MiB で頭を切る）。書くのはステップの変化ごと。リロードでは Remote の watch が今の job.json を返す。DSH の再起動で `running` / `cancelling` のまま見つかったジョブは `interrupted`（failure の step は走っていたステップ）にする。
+- 再実行か新規かは Host が決める（`SetupStartRequest` に jobId は無い）: 同じ site（このマシン、または同じ user・host・port）の最後のジョブが失敗・取り消し・中断で、project も同じなら、その続きとして同じ jobId で再実行する（手順は冪等なので）。そうでなければ新しいジョブにする。
 - 再実行: 同じ ID のジョブの `attempt` を 1 つ増やし、ステップをすべて pending に戻す。済んだフェーズは `changed: false` で skipped になる。sudo のパスワードは改めて受ける（§6.1）。事前検査は再実行の前にもう一度行い、`inspectionId` は最新のものだけを受け付ける。
 - 残すのは最後の 5 つのジョブ。`dismiss` は終わったジョブを画面から外す（ファイルは 5 つの枠で消える）。
 - 同時に 1 つ: `start` は走っているジョブがあれば `setup-busy` で拒む。
+- 実装（段階 3b）: `src/host/setup/`（`events.ts` の parse、`preflight.ts`、`job.ts` の `reduceSetupJob`、`runner.ts`、`store.ts`、`setup.ts`）。`start` の拒否は `SetupRequestError`（`code`: `setup-loading`、`setup-busy`、`inspection-stale`、`request-invalid`、`job-unknown`、`job-running`、`identity-missing`、`identity-unauthorized`）。job.json は SetupJob（view の項目に加えて、再実行に要る target（site と固定したホスト鍵、project、ポート、同意、鍵の扱い）、fact、`dismissed`）。最新の検査は 1 つだけ覚え、`start` で使い切る。ポートが検査のときと違えば `inspection-stale`。このマシンが `migration-required` のときは移行元の project でしか始められない。
 
 ### 5.7 SetupBrief（セッションの初めのメッセージ）
 

@@ -39,8 +39,8 @@ import type {
   HostKeyScan,
   SetupBrief,
   SetupInspection,
+  SetupInspectRequest,
   SetupJobView,
-  SetupSite,
   SetupStartRequest,
   SshIdentityView,
   SshTarget,
@@ -104,7 +104,7 @@ export interface VmHostSetup {
   identity(): Promise<SshIdentityView>
   removeIdentity(scope: "remote-and-local" | "local"): Promise<SshIdentityView>
   scanHostKey(target: SshTarget, signal?: AbortSignal): Promise<HostKeyScan>
-  inspect(site: SetupSite, signal?: AbortSignal): Promise<SetupInspection>
+  inspect(request: SetupInspectRequest, signal?: AbortSignal): Promise<SetupInspection>
   start(request: SetupStartRequest): SetupJobView
   cancel(jobId: string): SetupJobView
   dismiss(jobId: string): void

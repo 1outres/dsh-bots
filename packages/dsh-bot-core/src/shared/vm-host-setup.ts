@@ -54,7 +54,7 @@ export type HostSiteView =
       readonly host: string
       readonly port: number
       readonly user: string
-      readonly hostKeyFingerprint: string
+      readonly hostKey: PinnedHostKey
       readonly identity: "kept" | "removed"
     }
 
@@ -83,6 +83,11 @@ export interface SshIdentityView {
 export type SetupSite =
   | { readonly kind: "this-machine" }
   | { readonly kind: "ssh"; readonly target: SshTarget; readonly hostKey: PinnedHostKey }
+
+export interface SetupInspectRequest {
+  readonly site: SetupSite
+  readonly httpsPort: number
+}
 
 export interface PreflightCheck {
   readonly id: PreflightCheckId

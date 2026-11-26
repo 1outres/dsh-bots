@@ -12,6 +12,7 @@ import type { ImageBackend } from "./host/backend/contract"
 import { createIncusBackend } from "./host/backend/incus/backend"
 import { createIncusClient } from "./host/backend/incus/client"
 import { type IncusEndpoint, parseProjectName } from "./host/backend/incus/endpoint"
+import { type PairingDeps, pair } from "./host/backend/incus/pairing"
 import {
   type CommandResult,
   createVmEnvironment,
@@ -24,7 +25,7 @@ import { createImageManager, type ImageManager } from "./host/image/manager"
 import { releaseOf } from "./host/image/release"
 import { DSH_VERSION } from "./host/image/release-env"
 import { decideOwner, OWNER_FILE } from "./host/owner"
-import type { StoredPlacement } from "./host/placement/placement"
+import type { StoredPlacement, StoredSetup } from "./host/placement/placement"
 import { type BackendConnection, createPlacementScope } from "./host/placement/scope"
 import {
   type ClientKeyStore,
@@ -33,12 +34,22 @@ import {
   type SecretRecords,
 } from "./host/placement/secrets"
 import { filePlacementStore, type StoreFiles } from "./host/placement/store"
+import { readHostSetupBundle } from "./host/setup/bundle"
+import { createVmHostSetup } from "./host/setup/setup"
+import type { HostSetupBundle } from "./host/setup/shell"
+import { createSetupSsh } from "./host/setup/ssh"
+import { setupSshPaths } from "./host/setup/ssh-files"
+import { fileSetupJobStore } from "./host/setup/store"
 import { createVmHost, type VmHost } from "./host/vm-host"
 import { certificateFingerprint, createSelfSignedIdentity } from "./node/client-identity"
 import { startGuestRelay } from "./node/guest-relay"
 import { nodeImageFiles, nodeImageHttp, sha256 } from "./node/image-io"
 import { createIncusTransport } from "./node/incus-transport"
+import { tcpReachable } from "./node/reachable"
+import { nodeSetupFiles } from "./node/setup-files"
+import { localShell, sshShell } from "./node/setup-shell"
 import { SSH_CONNECTION_DEFAULTS } from "./node/ssh/connection"
+import { generateSetupKey, pinnedHostKey, scanHostKeys } from "./node/ssh-tools"
 
 export const name = "bot-vm"
 const BOT = "bot"
@@ -454,20 +465,70 @@ export function apply(ctx: Context, config: Config): void {
     now: Date.now,
     log: (message) => ctx.logger.info(message),
   })
+  const clientName = `dsh-bots@${hostname()}`
+  const pairingDeps: PairingDeps = {
+    createIdentity: async (commonName) =>
+      createSelfSignedIdentity({ commonName, now: new Date(), usage: "client" }),
+    connect: clientOf,
+    now: Date.now,
+  }
+  const sshPaths = setupSshPaths(stateDir)
+  const hostSetup = hostSetupOf(fileURLToPath(new URL("./host-setup", import.meta.url)), log)
   host = createVmHost({
     scope,
     image: images,
     rehome: () => environment.rehome(),
-    pairing: {
-      createIdentity: async (commonName) =>
-        createSelfSignedIdentity({ commonName, now: new Date(), usage: "client" }),
-      connect: clientOf,
-      now: Date.now,
-    },
-    clientName: `dsh-bots@${hostname()}`,
+    pairing: pairingDeps,
+    clientName,
     fingerprintOf: certificateFingerprint,
-    hostKeyFingerprintOf: hostKeyFingerprint,
-    setupUpdate: () => "current",
+    pinHostKey: pinnedHostKey,
+    setupUpdate: (setup: StoredSetup) => setupUpdateOf(hostSetup, setup),
+    setup: (vmHost) =>
+      createVmHostSetup(
+        {
+          store: fileSetupJobStore(join(stateDir, "setup", "jobs"), nodeSetupFiles, log),
+          ssh: createSetupSsh({
+            paths: sshPaths,
+            files: nodeSetupFiles,
+            comment: clientName,
+            keygen: generateSetupKey,
+            keyscan: scanHostKeys,
+            pin: pinnedHostKey,
+          }),
+          shells: {
+            local: () => localShell(hostSetup.dir),
+            ssh: (site) => sshShell(sshPaths.config, site),
+          },
+          bundle: hostSetup.bundle,
+          pin: pinnedHostKey,
+          owner: settings.owner,
+          clientName,
+          newId: () => randomBytes(16).toString("hex"),
+          now: Date.now,
+          later: (ms, run) => {
+            const timer = setTimeout(run, ms)
+            timer.unref()
+            return () => clearTimeout(timer)
+          },
+          reachable: tcpReachable,
+          pair: (request, signal) => pair({ ...request, name: clientName }, pairingDeps, signal),
+          importImage: async (signal) => {
+            let imported = false
+            const stop = () => images.cancel()
+            signal.addEventListener("abort", stop, { once: true })
+            try {
+              await images.ready(signal, () => {
+                imported = true
+              })
+            } finally {
+              signal.removeEventListener("abort", stop)
+            }
+            return imported ? "imported" : "present"
+          },
+          log,
+        },
+        vmHost,
+      ),
     now: Date.now,
     log: (message) => ctx.logger.info(message),
   })
@@ -543,9 +604,45 @@ export function apply(ctx: Context, config: Config): void {
   }
 }
 
-export function hostKeyFingerprint(hostKey: string): string {
-  const body = hostKey.trim().split(/\s+/)[1]
-  if (body === undefined) throw new Error(`"${hostKey}" is not "<type> <base64>"`)
-  const digest = createHash("sha256").update(Buffer.from(body, "base64")).digest("base64")
-  return `SHA256:${digest.replace(/=+$/, "")}`
+export { hostKeyFingerprint } from "./node/ssh-tools"
+
+interface HostSetupSource {
+  readonly dir: string
+  bundle(): HostSetupBundle
+}
+
+export function hostSetupOf(dir: string, log: (message: string) => void): HostSetupSource {
+  let read: { readonly bundle: HostSetupBundle } | { readonly error: Error } | undefined
+  return {
+    dir,
+    bundle() {
+      read ??= (() => {
+        try {
+          return {
+            bundle: readHostSetupBundle(dir, {
+              read: (path) => readFileSync(path),
+              sha256: (content) => createHash("sha256").update(content).digest("hex"),
+            }),
+          }
+        } catch (error) {
+          const failure = error instanceof Error ? error : new Error(String(error))
+          log(failure.message)
+          return { error: failure }
+        }
+      })()
+      if ("error" in read) throw read.error
+      return read.bundle
+    },
+  }
+}
+
+export function setupUpdateOf(
+  source: HostSetupSource,
+  setup: StoredSetup,
+): "current" | "available" {
+  try {
+    return source.bundle().sha256 === setup.bundleSha256 ? "current" : "available"
+  } catch {
+    return "available"
+  }
 }
