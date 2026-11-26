@@ -33,12 +33,14 @@ import {
   CALL_NOTE_TOOL,
   CALL_SCHEDULE_TOOL,
   CALL_SESSION_TOOL,
+  CALL_SETTINGS_TOOL,
   CALL_SKILL_TOOL,
   type CallConnectorTool,
   type CallConversationTool,
   type CallNoteTool,
   type CallScheduleTool,
   type CallSessionTool,
+  type CallSettingsTool,
   type CallSkillTool,
   type ChannelSilenceRequest,
   type ChannelSilenceResult,
@@ -80,9 +82,12 @@ import {
   type ScheduleToolRequest,
   type ScheduleToolResponse,
   SESSION_TOOLS_AVAILABLE,
+  SETTINGS_TOOL_AVAILABLE,
   type SessionToolRequest,
   type SessionToolResponse,
   type SessionToolsAvailable,
+  type SettingsToolAvailable,
+  type SettingsToolCall,
   SKILL_TOOL_AVAILABLE,
   type SkillToolAvailable,
   type SkillToolRequest,
@@ -99,6 +104,7 @@ import {
   type WebReady,
 } from "./internal"
 import type { MainPreparation } from "./mains-contract"
+import type { BotSettingsArea } from "./settings-contract"
 import type { BotView } from "./shared/bots"
 import type { BotChannelField } from "./shared/channels"
 import type {
@@ -151,6 +157,14 @@ export interface BotBackend {
   readonly skills: BotSkillsBackend
   readonly conversations: BotConversationsBackend
   readonly vaults: BotVaultsBackend
+  readonly settings: BotSettingsBackend
+}
+
+export interface BotSettingsBackend {
+  register(area: BotSettingsArea): () => void
+  list(): readonly BotSettingsArea[]
+  readonly available: SettingsToolAvailable
+  readonly call: CallSettingsTool
 }
 
 export interface BotVaultsBackend {
@@ -547,6 +561,27 @@ export class BotService extends Service implements Bot {
 
   [LIST_CREDENTIALS](botId: string, token: string, agentId: string, signal: AbortSignal) {
     return this[BACKEND].vaults.listCredentials(botId, token, agentId, signal)
+  }
+
+  registerSettingsArea(area: BotSettingsArea): () => void {
+    return this[BACKEND].settings.register(area)
+  }
+
+  settingsAreas(): readonly BotSettingsArea[] {
+    return this[BACKEND].settings.list()
+  }
+
+  [SETTINGS_TOOL_AVAILABLE](botId: string, token: string, agentId: string) {
+    return this[BACKEND].settings.available(botId, token, agentId)
+  }
+
+  [CALL_SETTINGS_TOOL](
+    botId: string,
+    token: string,
+    request: SettingsToolCall,
+    signal: AbortSignal,
+  ) {
+    return this[BACKEND].settings.call(botId, token, request, signal)
   }
 
   environment(): BotEnvironmentInfo | undefined {

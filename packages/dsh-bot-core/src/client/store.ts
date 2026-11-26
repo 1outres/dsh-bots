@@ -38,6 +38,7 @@ export async function mountBotCoreRemote(ctx: ClientContext): Promise<RemoteMoun
       botMains: faceOf(ctx, "botMains"),
       botMainView: faceOf(ctx, "botMainView"),
       botSkills: faceOf(ctx, "botSkills"),
+      botSettings: faceOf(ctx, "botSettings"),
       botNotes: faceOf(ctx, "botNotes"),
       botEnvironment: faceOf(ctx, "botEnvironment"),
       botEnvironmentHost: faceOf(ctx, "botEnvironmentHost"),

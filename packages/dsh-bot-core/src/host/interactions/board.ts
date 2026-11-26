@@ -20,7 +20,7 @@ export type InteractionScope =
   | { readonly kind: "session"; readonly sessionId: string }
 
 export interface InteractionResponder {
-  answer(answer: BotInteractionAnswer): Promise<BotAnswerResult>
+  answer(answer: BotInteractionAnswer, origin: BotAnswerOrigin): Promise<BotAnswerResult>
   hold?(): void
 }
 
@@ -166,7 +166,7 @@ export function createInteractionBoard(deps: InteractionBoardDeps): InteractionB
       entry.delivering = true
       let result: BotAnswerResult
       try {
-        result = await entry.responder.answer(answer)
+        result = await entry.responder.answer(answer, origin)
       } catch (error) {
         result = {
           accepted: false,

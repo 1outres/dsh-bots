@@ -1,4 +1,7 @@
 export const SKILLS_CSS = `
+.dshb-setting-change-items { margin: 0; padding: 0 0 0 18px; font-size: 13px; color: var(--dsw-alias-label-secondary); }
+.dshb-setting-change-items li { margin: 2px 0; overflow-wrap: anywhere; }
+.dshb-setting-change-label { color: var(--dsw-alias-label-primary); }
 .dshb-skills-usage { color: var(--dsw-alias-label-tertiary); font-size: 12px; white-space: nowrap; }
 .dshb-skills-diff {
   margin: 0;

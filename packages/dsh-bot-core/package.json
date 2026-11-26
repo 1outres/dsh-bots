@@ -23,6 +23,7 @@
     "./notes": "./lib/notes.js",
     "./skills": "./lib/skills.js",
     "./conversations": "./lib/conversations.js",
+    "./settings": "./lib/settings.js",
     "./web": "./lib/web.js",
     "./vaults": "./lib/vaults.js",
     "./vault-guard": "./lib/vault-guard.js",

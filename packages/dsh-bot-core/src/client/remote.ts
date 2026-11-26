@@ -25,6 +25,7 @@ import {
   REMOTE_PACKAGE,
   type RemoteEndpoint,
 } from "../shared/remote-contract"
+import type { BotSettingsApi, BotSettingsHistoryView } from "../shared/settings"
 import type { BotSkillsApi, BotSkillsView } from "../shared/skills"
 import type { BotVaultsApi, BotVaultsSnapshot, BotVaultView } from "../shared/vaults"
 import type { BotWebApi, BotWebView } from "../shared/web"
@@ -108,6 +109,10 @@ export interface BotSkillsRemote extends Remoted<Omit<BotSkillsApi, "watch">> {
   watch(botId: string): StreamHandle<BotSkillsView>
 }
 
+export interface BotSettingsRemote extends Remoted<Omit<BotSettingsApi, "watch">> {
+  watch(botId: string): StreamHandle<BotSettingsHistoryView>
+}
+
 export interface BotNotesRemote extends Remoted<Omit<BotNotesApi, "watch">> {
   watch(sessionId: string): StreamHandle<BotNotesStatus>
 }
@@ -144,6 +149,7 @@ export interface BotCoreRemote {
   readonly botMains: BotMainsRemote
   readonly botMainView: BotMainViewRemote
   readonly botSkills: BotSkillsRemote
+  readonly botSettings: BotSettingsRemote
   readonly botNotes: BotNotesRemote
   readonly botEnvironment: BotEnvironmentRemote
   readonly botEnvironmentHost: BotEnvironmentHostRemote

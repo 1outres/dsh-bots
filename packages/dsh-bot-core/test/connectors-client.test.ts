@@ -50,6 +50,7 @@ function mounted(botConnectors: Partial<BotConnectorsRemote>): Promise<RemoteMou
       botMains: {} as never,
       botMainView: {} as never,
       botSkills: {} as never,
+      botSettings: {} as never,
       botNotes: {} as never,
       botEnvironment: {} as never,
       botEnvironmentHost: {} as never,

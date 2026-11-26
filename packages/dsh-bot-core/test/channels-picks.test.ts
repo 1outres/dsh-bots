@@ -16,9 +16,17 @@ import {
 import { CAPABILITIES, memoryTable, memoryVault, SENDER } from "./channels-support"
 
 const PICK_FIELDS = [
-  { kind: "secret", key: "token", label: { en: "Token" }, required: true, maxLength: 64 },
+  {
+    kind: "secret",
+    agent: { note: "Test secret." },
+    key: "token",
+    label: { en: "Token" },
+    required: true,
+    maxLength: 64,
+  },
   {
     kind: "pick",
+    agent: { note: "Test setting.", change: "free" },
     key: "home",
     label: { en: "Home" },
     required: true,
@@ -29,6 +37,7 @@ const PICK_FIELDS = [
   },
   {
     kind: "list",
+    agent: { note: "Test setting.", change: "free" },
     key: "owners",
     label: { en: "Owners" },
     minItems: 1,

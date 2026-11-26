@@ -383,6 +383,28 @@ export type CallConversationTool = (
   request: ConversationToolRequest,
   signal: AbortSignal,
 ) => Promise<ConversationToolResponse>
+export const SETTINGS_TOOL_AVAILABLE: unique symbol = Symbol.for(
+  "@1outres/dsh-bot-core#settingsToolAvailable",
+) as never
+
+export type SettingsToolAvailable = (botId: string, token: string, agentId: string) => boolean
+
+export const CALL_SETTINGS_TOOL: unique symbol = Symbol.for(
+  "@1outres/dsh-bot-core#callSettingsTool",
+) as never
+
+export interface SettingsToolCall {
+  readonly agentId: string
+  readonly args: unknown
+}
+
+export type CallSettingsTool = (
+  botId: string,
+  token: string,
+  request: SettingsToolCall,
+  signal: AbortSignal,
+) => Promise<{ readonly text: string }>
+
 export const GUARD_TOOL_ARGUMENTS: unique symbol = Symbol.for(
   "@1outres/dsh-bot-core#guardToolArguments",
 ) as never

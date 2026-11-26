@@ -313,6 +313,7 @@ function fakeContext(options: FakeOptions = {}) {
       botMains: { watch: vi.fn(), watchDefaults: vi.fn() },
       botMainView: { watch: vi.fn() },
       botSkills: { watch: vi.fn() },
+      botSettings: { watch: vi.fn() },
       botNotes: { watch: vi.fn() },
       botEnvironment: { watch: vi.fn() },
       botEnvironmentHost: { watch: vi.fn() },
@@ -941,6 +942,7 @@ describe("client apply(): bot-core's Remote", () => {
         "botMains",
         "botMainView",
         "botSkills",
+        "botSettings",
         "botNotes",
         "botEnvironment",
         "botEnvironmentHost",
@@ -988,6 +990,7 @@ describe("client apply(): bot-core's Remote", () => {
       SETTINGS_SECTION.connectors,
       "bot-core.logins",
       "bot-core.skills",
+      "bot-core.setting-changes",
     ])
     expect(face.flow.target.getSnapshot()).toBeNull()
 

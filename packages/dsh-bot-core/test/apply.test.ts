@@ -20,8 +20,10 @@ import {
   type AttachEnvironmentServices,
   CALL_SCHEDULE_TOOL,
   CALL_SESSION_TOOL,
+  CALL_SETTINGS_TOOL,
   type CallScheduleTool,
   type CallSessionTool,
+  type CallSettingsTool,
   SCHEDULE_TOOL_AVAILABLE,
   type ScheduleToolAvailable,
   SESSION_TOOLS_AVAILABLE,
@@ -73,6 +75,7 @@ vi.mock("../src/host/remote", () => ({
       mainPanels.push(panel)
     }
   },
+  BotSettingsRemoteService: class {},
   BotSkillsRemoteService: class {
     constructor(_ctx: unknown, panel: SkillPanel) {
       skillPanels.push(panel)
@@ -1227,6 +1230,60 @@ describe("bot-core apply", () => {
         args: { session_id: "ws-1" },
       }),
     ).rejects.toThrow("someone other than your owner")
+  })
+
+  it("serves the settings row: the Main changes a free setting its owner asked for, and the history keeps it", async () => {
+    const h = await start(new Map([["a", bot()]]))
+    await flush()
+    const group = h.presets.get("bot-a")?.plugins[0] as unknown as { config: PluginRowLike[] }
+    const token = group.config.find((entry) => entry.id === "env-bot-core-settings")?.config?.token
+    await h.announce(h.agent("m", "bot-a", "bot-a"))
+    const service = botOf(h.ctx) as unknown as Record<symbol, unknown>
+    const call = (service[CALL_SETTINGS_TOOL] as CallSettingsTool).bind(service)
+    const signal = new AbortController().signal
+    const change = () =>
+      call(
+        "a",
+        token ?? "",
+        {
+          agentId: "m",
+          args: {
+            action: "change",
+            area: "general",
+            changes: [{ key: "timezone", value: "Europe/Paris" }],
+            reason: "moved",
+          },
+        },
+        signal,
+      )
+    expect(
+      (await call("a", token ?? "", { agentId: "m", args: { action: "describe" } }, signal)).text,
+    ).toContain("general — ")
+    await expect(change()).rejects.toThrow("saw start")
+    h.ctx.emit(
+      "session/event" as never,
+      { id: "m" } as never,
+      { type: "turn/start", data: { turn: 1 } } as never,
+    )
+    h.ctx.emit(
+      "session/event" as never,
+      { id: "m" } as never,
+      {
+        type: "user/message",
+        data: { content: [{ type: "text", text: "move me" }], source: { kind: "user" } },
+      } as never,
+    )
+    expect((await change()).text).toContain("Changed general")
+    expect(
+      botOf(h.ctx)
+        .bots()
+        .find((entry) => entry.id === "a")?.timezone,
+    ).toBe("Europe/Paris")
+    expect(
+      botOf(h.ctx)
+        .settingsAreas()
+        .map((area) => area.id),
+    ).toContain("general")
   })
 
   it("marks a Main that predates bot presets, and locks it down", async () => {

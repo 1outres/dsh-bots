@@ -1,0 +1,8 @@
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or { `$receiver.put`, `$receiver.delete`, `$receiver?.put`, `$receiver?.delete` },
+  $receiver <: or { `settingChanges`, `$_.settingChanges`, `$_?.settingChanges` },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 76: do not write the setting changes table here; go through the setting change store (host/settings/store.ts), which serializes writes, keeps each bot's latest changes and tells its subscribers."
+  )
+}

@@ -12,12 +12,34 @@ export const probeDescriptor: ConnectorDescriptor = {
   description: { en: "Drives the VM.", ja: "VM を操作する" },
   sessions: "bot",
   settings: [
-    { key: "greeting", kind: "text", label: { en: "Greeting" }, default: "hello", maxLength: 5 },
-    { key: "slow", kind: "toggle", label: { en: "Slow" }, default: false },
-    { key: "depth", kind: "integer", label: { en: "Depth" }, min: 1, max: 9, default: 3 },
+    {
+      key: "greeting",
+      kind: "text",
+      agent: { note: "Test setting.", change: "free" },
+      label: { en: "Greeting" },
+      default: "hello",
+      maxLength: 5,
+    },
+    {
+      key: "slow",
+      kind: "toggle",
+      agent: { note: "Test setting.", change: "free" },
+      label: { en: "Slow" },
+      default: false,
+    },
+    {
+      key: "depth",
+      kind: "integer",
+      agent: { note: "Test setting.", change: "free" },
+      label: { en: "Depth" },
+      min: 1,
+      max: 9,
+      default: 3,
+    },
     {
       key: "mode",
       kind: "choice",
+      agent: { note: "Test setting.", change: "free" },
       label: { en: "Mode" },
       options: [
         { value: "a", label: { en: "A" } },

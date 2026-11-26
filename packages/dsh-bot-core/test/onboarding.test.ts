@@ -55,10 +55,18 @@ const CHAT: BotChannelDescriptor = {
   id: "chat",
   name: "Chat",
   fields: [
-    { key: "token", kind: "secret", label: { en: "Token" }, required: true, maxLength: 100 },
+    {
+      key: "token",
+      kind: "secret",
+      agent: { note: "Test secret." },
+      label: { en: "Token" },
+      required: true,
+      maxLength: 100,
+    },
     {
       key: "owners",
       kind: "list",
+      agent: { note: "Test setting.", change: "free" },
       label: { en: "Owners" },
       minItems: 1,
       maxItems: 5,

@@ -102,6 +102,7 @@
         "!packages/dsh-bot-core/src/plugins/notes.ts",
         "!packages/dsh-bot-core/src/plugins/skills.ts",
         "!packages/dsh-bot-core/src/plugins/conversations.ts",
+        "!packages/dsh-bot-core/src/plugins/settings.ts",
         "!packages/dsh-bot-core/src/plugins/vaults.ts"
       ]
     },
@@ -124,6 +125,10 @@
     {
       "path": "./.biome/plugins/54-skill-store-writes.grit",
       "includes": ["packages/*/src/**", "!packages/dsh-bot-core/src/host/skills/store.ts"]
+    },
+    {
+      "path": "./.biome/plugins/76-setting-change-writes.grit",
+      "includes": ["packages/*/src/**", "!packages/dsh-bot-core/src/host/settings/store.ts"]
     },
     {
       "path": "./.biome/plugins/52-main-store-writes.grit",

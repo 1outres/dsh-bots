@@ -1,0 +1,52 @@
+{
+  "name": "dsh_bot_settings",
+  "version": 1,
+  "tables": {
+    "changes": {
+      "id": {
+        "required": true,
+        "type": "string"
+      },
+      "botId": {
+        "required": true,
+        "type": "string"
+      },
+      "at": {
+        "required": true,
+        "type": "number"
+      },
+      "area": {
+        "required": true,
+        "type": "string"
+      },
+      "areaLabel": {
+        "required": true,
+        "type": "{ en: string; ja?: string }"
+      },
+      "location": {
+        "required": true,
+        "type": "{ en: string; ja?: string }"
+      },
+      "items": {
+        "required": true,
+        "type": "({ key: string; label: { en: string; ja?: string }; before: { raw: null | boolean | number | string | string[]; shown: { en: string; ja?: string } }; after: { raw: null | boolean | number | string | string[]; shown: { en: string; ja?: string } } })[]"
+      },
+      "reason": {
+        "required": true,
+        "type": "string"
+      },
+      "approvedBy": {
+        "required": false,
+        "type": "{ kind: \"web\" } | { kind: \"channel\"; channelId: string; channelName: string }"
+      },
+      "sessionId": {
+        "required": true,
+        "type": "string"
+      },
+      "revertedAt": {
+        "required": false,
+        "type": "number"
+      }
+    }
+  }
+}

@@ -582,6 +582,11 @@ describe("createPresetRealizer", () => {
             config: { botId: "a", token: realizer.registration("a")?.revisionToken },
           },
           {
+            id: "env-bot-core-settings",
+            name: "@1outres/dsh-bot-core/settings",
+            config: { botId: "a", token: realizer.registration("a")?.revisionToken },
+          },
+          {
             id: "env-bot-core-web",
             name: "@deepseek-ai/dsh-web",
             config: { searchProvider: "bot-core", fetchProvider: "bot-core" },

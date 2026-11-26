@@ -5,6 +5,7 @@ import { VAULT_PROMPT } from "../vaults/texts"
 import { renderStatus } from "./status"
 import {
   ENVIRONMENT,
+  ENVIRONMENT_CONVERSING,
   MANAGED_SESSIONS,
   MANAGEMENT_ANSWERS_MAIN,
   MANAGEMENT_ANSWERS_OWNER,
@@ -51,7 +52,11 @@ function messages(channels: readonly BotPromptChannel[]): string {
 
 export const BOT_PROMPT_SECTIONS: readonly BotPromptPart[] = [
   { name: "bot:principles", order: 100, text: () => PRINCIPLES },
-  { name: "bot:environment", order: 4000, text: () => ENVIRONMENT },
+  {
+    name: "bot:environment",
+    order: 4000,
+    text: (facts) => (conversing(facts.session) ? ENVIRONMENT_CONVERSING : ENVIRONMENT),
+  },
   { name: "bot:session", order: 4100, text: (facts) => SESSION_TEXT[facts.session] },
   {
     name: "bot:managed-sessions",

@@ -86,6 +86,7 @@
   "packages/dsh-bot-core/src/host/bad-service-private.ts": ["4:20"],
   "packages/dsh-bot-core/src/host/bad-session-create.ts": ["2:1", "5:1", "8:1", "11:1"],
   "packages/dsh-bot-core/src/host/bad-session-query.ts": ["1:55", "2:55"],
+  "packages/dsh-bot-core/src/host/bad-setting-change-writes.ts": ["9:76", "10:76"],
   "packages/dsh-bot-core/src/host/bad-skill-writes.ts": [
     "10:54",
     "11:54",
@@ -134,6 +135,7 @@
   "packages/dsh-bot-core/src/host/registry.ts": [],
   "packages/dsh-bot-core/src/host/remote.ts": [],
   "packages/dsh-bot-core/src/host/schedule/store.ts": [],
+  "packages/dsh-bot-core/src/host/settings/store.ts": [],
   "packages/dsh-bot-core/src/host/skills/store.ts": [],
   "packages/dsh-bot-core/src/host/vaults/access.ts": [],
   "packages/dsh-bot-core/src/host/vaults/bad-secret-strings.ts": [
@@ -164,6 +166,7 @@
   "packages/dsh-bot-core/src/plugins/prompt.ts": [],
   "packages/dsh-bot-core/src/plugins/schedule.ts": [],
   "packages/dsh-bot-core/src/plugins/sessions.ts": [],
+  "packages/dsh-bot-core/src/plugins/settings.ts": [],
   "packages/dsh-bot-core/src/plugins/skills.ts": [],
   "packages/dsh-bot-core/src/plugins/vault-guard.ts": [],
   "packages/dsh-bot-core/src/plugins/vaults.ts": [],

@@ -2,6 +2,7 @@ import type { Context } from "@deepseek-ai/cordis"
 import type { BotChannel } from "./channel-contract"
 import type { BotConnectionProvider, BotConnector } from "./connector-contract"
 import type { MainPreparation } from "./mains-contract"
+import type { BotSettingsArea } from "./settings-contract"
 import type { BotView, EnvironmentPhase } from "./shared/bots"
 import type { BotChannelField } from "./shared/channels"
 import type {
@@ -41,6 +42,7 @@ export type * from "./channel-contract"
 export * from "./connector-contract"
 export type * from "./connector-panel-contract"
 export type * from "./mains-contract"
+export type * from "./settings-contract"
 export * from "./vault-bytes"
 export * from "./vault-contract"
 export type * from "./web-contract"
@@ -162,6 +164,9 @@ export interface Bot {
   registerVaultProvider(provider: BotVaultProvider): () => void
   vaultProviders(): readonly BotVaultProvider[]
   vaultKit(): VaultKit
+
+  registerSettingsArea(area: BotSettingsArea): () => void
+  settingsAreas(): readonly BotSettingsArea[]
 }
 
 export function watchBotPresets(ctx: Context, listener: (botId: string) => void): void {

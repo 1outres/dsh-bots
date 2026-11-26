@@ -130,6 +130,7 @@ describe("channels section", () => {
                 ...FIELDS,
                 {
                   kind: "text",
+                  agent: { note: "Test setting.", change: "free" },
                   key: "language",
                   label: { en: "Language" },
                   required: false,

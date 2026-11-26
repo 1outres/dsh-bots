@@ -20,6 +20,7 @@ const desk: BotConnector = {
   settings: [
     {
       kind: "choice",
+      agent: { note: "Test setting.", change: "free" },
       key: "size",
       label: { en: "Size" },
       options: [

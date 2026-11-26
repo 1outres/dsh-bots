@@ -107,6 +107,11 @@ import type {
   BotWelcomeChannelSetup,
 } from "../shared/onboarding"
 import type { RemoteNamespace } from "../shared/remote-contract"
+import type {
+  BotSettingRevertResult,
+  BotSettingsApi,
+  BotSettingsHistoryView,
+} from "../shared/settings"
 import type { BotSkillHistory, BotSkillsApi, BotSkillsView, SkillVersion } from "../shared/skills"
 import type {
   BotVaultsApi,
@@ -153,6 +158,7 @@ import { type ModelPanel, remoteModelsError } from "./models/panel"
 import type { NotesPanel } from "./notes/panel"
 import type { OnboardingPanel } from "./onboarding/panel"
 import type { BotRegistry } from "./registry"
+import type { SettingsPanel } from "./settings/panel"
 import type { SkillPanel } from "./skills/panel"
 import { watchStream } from "./stream"
 import type { VaultPanel } from "./vaults/panel"
@@ -891,6 +897,43 @@ export class BotSkillsRemoteService extends TypertRemoteService implements BotSk
   }
 }
 
+export const BOT_SETTINGS_REMOTE = "botSettings" satisfies RemoteNamespace
+
+const SETTINGS = Symbol("botSettingsPanel")
+
+export class BotSettingsRemoteService extends TypertRemoteService implements BotSettingsApi {
+  [SETTINGS]: SettingsPanel
+
+  constructor(ctx: Context, panel: SettingsPanel) {
+    super(ctx, BOT_SETTINGS_REMOTE)
+    this[SETTINGS] = panel
+  }
+
+  @Remote({ mode: "stream" })
+  async *watch(botId: string, signal?: AbortSignal): AsyncIterable<BotSettingsHistoryView> {
+    const panel = this[SETTINGS]
+    panel.view(botId)
+    const unfollow = panel.follow(botId)
+    try {
+      yield* watchStream(
+        () => panel.view(botId),
+        (listener) =>
+          panel.subscribe((changed) => {
+            if (changed === botId) listener()
+          }),
+        signal,
+      )
+    } finally {
+      unfollow()
+    }
+  }
+
+  @Remote
+  revert(botId: string, changeId: string): Promise<BotSettingRevertResult> {
+    return this[SETTINGS].revert(botId, changeId)
+  }
+}
+
 export const BOT_NOTES_REMOTE = "botNotes" satisfies RemoteNamespace
 
 const NOTES = Symbol("botNotesPanel")
@@ -1185,6 +1228,7 @@ export const REMOTE_SERVICES = {
   botMains: BotMainsRemoteService,
   botMainView: BotMainViewRemoteService,
   botSkills: BotSkillsRemoteService,
+  botSettings: BotSettingsRemoteService,
   botNotes: BotNotesRemoteService,
   botEnvironment: BotEnvironmentRemoteService,
   botEnvironmentHost: BotEnvironmentHostRemoteService,

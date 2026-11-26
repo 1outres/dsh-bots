@@ -75,6 +75,7 @@ describe("checkChannelDescriptor", () => {
 describe("enumerated text fields", () => {
   const language = {
     kind: "text",
+    agent: { note: "Test setting.", change: "free" },
     key: "language",
     label: { en: "Language" },
     required: false,

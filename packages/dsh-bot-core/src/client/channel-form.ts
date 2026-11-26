@@ -1,8 +1,9 @@
-import type {
-  BotChannelChange,
-  BotChannelListField,
-  BotChannelTextField,
-  BotChannelView,
+import {
+  type BotChannelChange,
+  type BotChannelListField,
+  type BotChannelTextField,
+  type BotChannelView,
+  channelValuesAfter,
 } from "../shared/channels"
 import type { PillTone } from "./ui/StatusPill"
 
@@ -12,23 +13,11 @@ export type ChannelEdit =
   | { readonly kind: "secret"; readonly key: string; readonly secret: string | null }
 
 export function changeWith(view: BotChannelView, edit: ChannelEdit): BotChannelChange {
-  const values: Record<string, string | readonly string[]> = {}
-  for (const field of view.channel.fields) {
-    const stored = view.values[field.key]
-    if (field.kind === "text" || field.kind === "pick")
-      values[field.key] = typeof stored === "string" ? stored : ""
-    if (field.kind === "list") values[field.key] = Array.isArray(stored) ? stored : []
-  }
-  if (edit.kind === "value") {
-    const field = view.channel.fields.find((known) => known.key === edit.key)
-    if (field?.kind === "pick" && values[edit.key] !== edit.value) {
-      for (const key of field.clears ?? []) {
-        const cleared = view.channel.fields.find((known) => known.key === key)
-        values[key] = cleared?.kind === "list" ? [] : ""
-      }
-    }
-    values[edit.key] = edit.value
-  }
+  const values = channelValuesAfter(
+    view.channel.fields,
+    view.values,
+    edit.kind === "value" ? { [edit.key]: edit.value } : {},
+  )
   return {
     enabled: edit.kind === "enabled" ? edit.enabled : view.enabled,
     values,

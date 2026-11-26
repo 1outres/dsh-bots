@@ -60,6 +60,7 @@ describe("connector settings", () => {
     const text = {
       key: "code",
       kind: "text",
+      agent: { note: "Test setting.", change: "free" },
       label: { en: "Code" },
       maxLength: 8,
       pattern: "[a-z]+",

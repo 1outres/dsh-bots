@@ -213,6 +213,7 @@ import {
   BotManagedSessionsRemoteService,
   BotNotesRemoteService,
   BotOnboardingRemoteService,
+  BotSettingsRemoteService,
   BotSkillsRemoteService,
   BotsRemoteService,
   BotVaultsRemoteService,
@@ -229,6 +230,27 @@ import { createScheduler } from "./host/schedule/scheduler"
 import { createScheduleStore } from "./host/schedule/store"
 import { canonicalTimezone } from "./host/schedule/timing"
 import { createScheduleTools, type ScheduleCaller } from "./host/schedule/tools"
+import { createSettingsApprovals } from "./host/settings/approval"
+import { channelAreas } from "./host/settings/areas/channels"
+import { BOT_SETTINGS_PLACE, placeIn } from "./host/settings/areas/common"
+import { connectorAreas } from "./host/settings/areas/connectors"
+import { createGeneralArea } from "./host/settings/areas/general"
+import { createModelsArea } from "./host/settings/areas/models"
+import {
+  createEnvironmentArea,
+  createLoginsArea,
+  createMainsArea,
+  createWebArea,
+  createWorkspacesArea,
+} from "./host/settings/areas/read-only"
+import { createSkillsArea } from "./host/settings/areas/skills"
+import { createSettingsTurns } from "./host/settings/authority"
+import { createSettingsCatalog } from "./host/settings/catalog"
+import { SETTINGS_DOMAIN } from "./host/settings/domain"
+import { createSettingsPanel } from "./host/settings/panel"
+import { createSettingChangeStore } from "./host/settings/store"
+import { SETTING_CHANGES_LABEL } from "./host/settings/texts"
+import { createSettingsTool } from "./host/settings/tool"
 import { createBotSkills } from "./host/skills/bot-skills"
 import { createSkillCuration } from "./host/skills/curation"
 import {
@@ -299,6 +321,7 @@ import type { BotManagedSession } from "./shared/managed-sessions"
 import type { BotModelSelection } from "./shared/models"
 import type { ApprovalPolicy, SandboxMode } from "./shared/permission"
 import { type BotOverlay, type BotPresetState, botPresetId } from "./shared/preset"
+import { type BotSettingChangeRecord, SETTING_CHANGES_KEPT } from "./shared/settings"
 import type { BotWebSettings } from "./shared/web"
 import type { DshWorkspace } from "./shared/workspaces"
 
@@ -586,6 +609,11 @@ interface WebDomain {
   close(): Promise<void>
 }
 
+interface SettingsDomain {
+  table(name: "changes"): BotTable<BotSettingChangeRecord>
+  close(): Promise<void>
+}
+
 interface OnboardingDomain {
   table(name: "state"): BotTable<OnboardingRecord>
   close(): Promise<void>
@@ -740,6 +768,7 @@ interface HostServices {
     open(spec: typeof MANAGED_SESSIONS_DOMAIN): Promise<ManagedSessionsDomain>
     open(spec: typeof ENVIRONMENT_SPECS_DOMAIN): Promise<EnvironmentSpecsDomain>
     open(spec: typeof ONBOARDING_DOMAIN): Promise<OnboardingDomain>
+    open(spec: typeof SETTINGS_DOMAIN): Promise<SettingsDomain>
   }
   workspaceRegistry: {
     readonly archivedSessionIds: readonly string[]
@@ -946,6 +975,7 @@ const SKILL_REVIEW_LIMIT_MS = 5 * 60_000
 const SKILL_CURATION_LIMIT_MS = 10 * 60_000
 const SKILL_SWEEP_LIMIT_MS = 2 * 60_000
 const SKILL_READ_LIMIT_MS = 60_000
+const SETTINGS_READ_MS = 20_000
 const NOTES_READ_LIMIT_MS = 60_000
 
 const ENVIRONMENT_WAIT_MS = 3 * 60_000
@@ -3325,6 +3355,89 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     "bot-core: connector actions in channels",
   )
 
+  const settingsCatalog = createSettingsCatalog()
+  settingsCatalog.include(100, () => [
+    createGeneralArea({
+      bot: (botId) => registry.get(botId),
+      update: (botId, input) => registry.update(botId, input),
+    }),
+    createModelsArea({
+      view: (botId) => botModels.view(botId),
+      configure: (botId, change) => botModels.configure(botId, change),
+      catalog: () => modelCatalog.read(),
+    }),
+  ])
+  settingsCatalog.include(
+    300,
+    connectorAreas({ connectors: () => connectorCatalog.list(), panel: connectorPanel }),
+  )
+  settingsCatalog.include(400, () => [
+    createSkillsArea({
+      view: (botId) => skillPanel.view(botId),
+      setReview: (botId, enabled) => skillPanel.setReview(botId, enabled),
+      setCurator: (botId, enabled) => skillPanel.setCurator(botId, enabled),
+    }),
+    createLoginsArea({ logins: (botId) => vaultStore.grants(botId) }),
+    createEnvironmentArea({ spec: (botId) => specStore.get(botId) }),
+    createWorkspacesArea({
+      workspaces: (botId) => grants.granted(botId).map(({ workspace }) => workspace.title),
+    }),
+    createMainsArea({ effective: (botId) => mainPanel.view(botId).effective }),
+    createWebArea({ status: () => webState.status() }),
+  ])
+  const settingsDomain = await services.storageDomain.open(SETTINGS_DOMAIN)
+  ctx.effect(() => () => void settingsDomain.close(), "bot-core: settings storage domain")
+  const settingChanges = createSettingChangeStore({
+    settingChanges: settingsDomain.table("changes"),
+    kept: SETTING_CHANGES_KEPT,
+  })
+  const forgetSettingChanges = () =>
+    settingChanges
+      .forget((botId) => table.get(botId) !== undefined)
+      .catch((error: unknown) => {
+        warn(`bot-core: could not forget the setting changes of deleted bots: ${String(error)}`)
+      })
+  ctx.effect(
+    () => registry.subscribe(() => void forgetSettingChanges()),
+    "bot-core: setting changes of bots",
+  )
+  void forgetSettingChanges()
+  const settingsTurns = createSettingsTurns({
+    tracked: (sessionId) => registry.botOfSession(sessionId) !== undefined,
+  })
+  events.on("session/event", (session: { id: string }, event: SessionEventLike) =>
+    settingsTurns.sessionEvent(session.id, event),
+  )
+  const settingsTool = createSettingsTool({
+    sealed: (botId, token) => revisionTokens.get(botId)?.has(token) === true,
+    session(botId, agentId) {
+      const agent = host.agents.get(agentId)
+      if (agent === undefined || sessionBotOf(agent) !== botId) return undefined
+      return { sessionId: agentId, kind: sessionKindOf(sessionKinds, botId, agent) }
+    },
+    language: (botId) => registry.get(botId)?.language,
+    catalog: settingsCatalog,
+    turns: settingsTurns,
+    approvals: createSettingsApprovals({
+      board: interactions,
+      channelName: (channelId) => channelCatalog.get(channelId)?.name,
+    }),
+    store: settingChanges,
+    historyPlace: placeIn(BOT_SETTINGS_PLACE, SETTING_CHANGES_LABEL),
+    deadline: () => AbortSignal.timeout(SETTINGS_READ_MS),
+    newId: () => uuidv7(Date.now(), randomBytes(10)),
+    now: Date.now,
+  })
+  const settingsPanel = createSettingsPanel({
+    store: settingChanges,
+    catalog: settingsCatalog,
+    exists: (botId) => table.get(botId) !== undefined,
+    deadline: () => AbortSignal.timeout(SETTINGS_READ_MS),
+    now: Date.now,
+    warn,
+  })
+  new BotSettingsRemoteService(ctx, settingsPanel)
+
   const describePrompt = createPromptFacts<LiveAgent>({
     sealed: (botId, token) => revisionTokens.get(botId)?.has(token) === true,
     agent: (agentId) => host.agents.get(agentId),
@@ -3417,6 +3530,12 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
 
   new BotService(ctx, {
     describePrompt,
+    settings: {
+      register: (area) => settingsCatalog.register(area),
+      list: () => settingsCatalog.list(),
+      available: (botId, token, agentId) => settingsTool.available(botId, token, agentId),
+      call: (botId, token, request, signal) => settingsTool.call(botId, token, request, signal),
+    },
     conversations: {
       available: (botId, token, agentId) => botConversations.available(botId, token, agentId),
       call: (botId, token, request, signal) => botConversations.call(botId, token, request, signal),
@@ -3760,6 +3879,14 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
         channelStatus = () => []
       }
     }, "bot-core: channels in the bots' status")
+    channelsCtx.effect(
+      () =>
+        settingsCatalog.include(
+          200,
+          channelAreas({ channels: () => channelCatalog.list(), panel }),
+        ),
+      "bot-core: settings of the channels",
+    )
     channelsCtx.effect(
       () =>
         welcomeChannels.attach(async (botId, channelId, change) => {

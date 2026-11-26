@@ -17,7 +17,15 @@ function screen(log: string[], status: { current: ConnectorStatus }) {
     name: "Screen",
     sessions: "bot",
     minimumSpec: { memoryMiB: 4096 },
-    settings: [{ key: "big", kind: "toggle", label: { en: "Big" }, default: false }],
+    settings: [
+      {
+        key: "big",
+        kind: "toggle",
+        agent: { note: "Test setting.", change: "free" },
+        label: { en: "Big" },
+        default: false,
+      },
+    ],
     preparation: {
       async prepare() {
         log.push("prepare screen")

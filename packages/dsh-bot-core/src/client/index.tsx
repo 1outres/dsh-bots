@@ -20,6 +20,7 @@ import { derive } from "./observable"
 import { createSessionArchive } from "./session-archive"
 import { snapshotOf } from "./session-classification"
 import { createSessionMenuOpener } from "./session-menu"
+import { createSettingChangesClient } from "./setting-changes/client"
 import { createLockdownStatus } from "./sidebar/lockdown-status"
 import { createSkillsClient } from "./skills/client"
 import { mountBotCoreRemote, watchBots } from "./store"
@@ -48,6 +49,7 @@ import { wirePanels } from "./wiring/panels"
 import { NAMESPACE } from "./wiring/plugin"
 import { wireRightbar } from "./wiring/rightbar"
 import { createSettingsScreens } from "./wiring/screens"
+import { wireSettingChanges } from "./wiring/setting-changes"
 import { wireSettings } from "./wiring/settings"
 import { wireShell } from "./wiring/shell"
 import { wireSkills } from "./wiring/skills"
@@ -205,6 +207,7 @@ export function apply(ctx: ClientContext): void {
     },
   })
   wireSkills(ctx, { skills: createSkillsClient(remote), screens })
+  wireSettingChanges(ctx, { changes: createSettingChangesClient(remote), screens })
   wireEnvironment(ctx, { environment: createEnvironmentClient(remote), screens })
   wireWebLookup(ctx, webLookup, screens)
   wireVmHost(ctx, createVmHostClient(remote), screens)

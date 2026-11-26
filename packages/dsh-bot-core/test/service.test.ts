@@ -41,6 +41,15 @@ function fakeBackend(): FakeBackend {
       prepare: async () => undefined,
       pinned: () => "",
     },
+    settings: {
+      register: () => () => {},
+      list: () => [],
+      available: () => true,
+      call: async (botId, token, request) => {
+        calls.push(`settings ${botId} ${token} ${request.agentId}`)
+        return { text: "ok" }
+      },
+    },
     skills: {
       available: () => true,
       call: async (botId, token, request) => {
@@ -238,6 +247,7 @@ const environment: BotEnvironment = {
 const fields = [
   {
     kind: "secret",
+    agent: { note: "Test secret." },
     key: "token",
     label: { en: "Token" },
     required: true,

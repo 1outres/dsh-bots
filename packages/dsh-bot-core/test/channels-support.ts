@@ -20,6 +20,7 @@ import type { BotChannelField } from "../src/shared/channels"
 export const FIELDS = [
   {
     kind: "secret",
+    agent: { note: "Test secret." },
     key: "token",
     label: { en: "Token", ja: "トークン" },
     required: true,
@@ -27,6 +28,7 @@ export const FIELDS = [
   },
   {
     kind: "text",
+    agent: { note: "Test setting.", change: "free" },
     key: "server",
     label: { en: "Server" },
     required: false,
@@ -35,6 +37,7 @@ export const FIELDS = [
   },
   {
     kind: "list",
+    agent: { note: "Test setting.", change: "free" },
     key: "users",
     label: { en: "Users" },
     minItems: 1,

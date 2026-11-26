@@ -14,6 +14,9 @@ export const DISCORD_FIELDS = [
     },
     required: true,
     maxLength: 200,
+    agent: {
+      note: "The token of your own Discord bot; set only by your owner, and you never see it.",
+    },
   },
   {
     kind: "pick",
@@ -28,6 +31,10 @@ export const DISCORD_FIELDS = [
     clears: ["approvers"],
     maxLength: 41,
     pattern: "dm|[0-9]{17,20}:[0-9]{17,20}",
+    agent: {
+      note: 'Where you live in Discord: "dm" for direct messages with your one owner, or "<server id>:<channel id>" for a server channel where everyone who sees it talks with you and sees what you post. Changing it empties the owners, so pass the new owners in the same change.',
+      change: "approve",
+    },
   },
   {
     kind: "list",
@@ -40,6 +47,10 @@ export const DISCORD_FIELDS = [
     minItems: 1,
     maxItems: 10,
     item: { maxLength: 20, pattern: "[0-9]{17,20}", source: OWNERS_SOURCE },
+    agent: {
+      note: "Your owners in Discord, by Discord user id: only their messages carry the owner mark, and only they can approve and decide your actions there. Exactly one in direct messages.",
+      change: "approve",
+    },
   },
   {
     kind: "text",
@@ -56,6 +67,10 @@ export const DISCORD_FIELDS = [
       { value: "en", label: { en: "English", ja: "English" } },
       { value: "ja", label: { en: "日本語", ja: "日本語" } },
     ],
+    agent: {
+      note: "The language of your own notices and cards in Discord (failed replies, approvals, questions, connector actions); your replies follow the person you answer.",
+      change: "free",
+    },
   },
 ] as const satisfies readonly BotChannelField[]
 

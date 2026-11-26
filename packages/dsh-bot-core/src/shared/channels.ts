@@ -1,3 +1,5 @@
+import { type BotSecretSettingAgent, type BotSettingAgent, settingAgentProblem } from "./settings"
+
 export type BotChannelText = {
   readonly en: string
   readonly ja?: string
@@ -7,12 +9,15 @@ interface FieldBase<K extends string> {
   readonly key: K
   readonly label: BotChannelText
   readonly description?: BotChannelText
+  readonly agent: BotSettingAgent
 }
 
-export interface BotChannelSecretField<K extends string = string> extends FieldBase<K> {
+export interface BotChannelSecretField<K extends string = string>
+  extends Omit<FieldBase<K>, "agent"> {
   readonly kind: "secret"
   readonly required: boolean
   readonly maxLength: number
+  readonly agent: BotSecretSettingAgent
 }
 
 export interface BotChannelChoice {
@@ -282,6 +287,8 @@ export function checkChannelDescriptor(channel: BotChannelDescriptor): void {
     keys.add(field.key)
     checkText(field.label, `${what} label`)
     if (field.description !== undefined) checkText(field.description, `${what} description`)
+    const agent = settingAgentProblem(field.agent, field.kind === "secret")
+    if (agent !== undefined) throw new Error(`${what}: ${agent}`)
     switch (field.kind) {
       case "secret":
         checkLength(field.maxLength, `${what} maxLength`)
@@ -337,6 +344,25 @@ export function checkChannelDescriptor(channel: BotChannelDescriptor): void {
   ) {
     throw new Error(`channel "${channel.id}": owners must name one of its list fields`)
   }
+}
+
+export function channelValuesAfter(
+  fields: readonly BotChannelField[],
+  current: BotChannelPublicValues,
+  edits: Readonly<Record<string, string | readonly string[]>>,
+): BotChannelPublicValues {
+  const values: Record<string, string | readonly string[]> = { ...channelValuesOf(fields, current) }
+  for (const field of fields) {
+    const edited = edits[field.key]
+    if (field.kind !== "pick" || edited === undefined || edited === values[field.key]) continue
+    for (const key of field.clears ?? []) {
+      if (edits[key] !== undefined) continue
+      const cleared = fields.find((known) => known.key === key)
+      values[key] = cleared?.kind === "list" ? [] : ""
+    }
+  }
+  for (const [key, value] of Object.entries(edits)) values[key] = value
+  return values
 }
 
 export function emptyChannelValues(fields: readonly BotChannelField[]): BotChannelPublicValues {

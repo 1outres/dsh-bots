@@ -21,6 +21,7 @@ const FIELDS = [
   {
     key: "mode",
     kind: "choice",
+    agent: { note: "Test setting.", change: "free" },
     label: { en: "Mode" },
     default: "a",
     options: [
@@ -28,11 +29,26 @@ const FIELDS = [
       { value: "b", label: { en: "B" } },
     ],
   },
-  { key: "shots", kind: "toggle", label: { en: "Shots" }, default: false },
-  { key: "width", kind: "integer", label: { en: "Width" }, default: 1280, min: 640, max: 3840 },
+  {
+    key: "shots",
+    kind: "toggle",
+    agent: { note: "Test setting.", change: "free" },
+    label: { en: "Shots" },
+    default: false,
+  },
+  {
+    key: "width",
+    kind: "integer",
+    agent: { note: "Test setting.", change: "free" },
+    label: { en: "Width" },
+    default: 1280,
+    min: 640,
+    max: 3840,
+  },
   {
     key: "home",
     kind: "text",
+    agent: { note: "Test setting.", change: "free" },
     label: { en: "Home" },
     default: "",
     maxLength: 100,

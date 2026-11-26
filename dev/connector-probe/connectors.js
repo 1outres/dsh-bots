@@ -46,9 +46,28 @@ const probe = (record, minMemoryMiB) => ({
   },
   sessions: "bot",
   settings: [
-    { key: "greeting", kind: "text", label: { en: "Greeting" }, default: "hello", maxLength: 40 },
-    { key: "slow", kind: "toggle", label: { en: "Slow preparation" }, default: false },
-    { key: "fail", kind: "toggle", label: { en: "Fail preparation" }, default: false },
+    {
+      key: "greeting",
+      kind: "text",
+      label: { en: "Greeting" },
+      default: "hello",
+      maxLength: 40,
+      agent: { note: "The text the probe writes into its marker file.", change: "approve" },
+    },
+    {
+      key: "slow",
+      kind: "toggle",
+      label: { en: "Slow preparation" },
+      default: false,
+      agent: { note: "Whether the probe's preparation waits a few seconds.", change: "approve" },
+    },
+    {
+      key: "fail",
+      kind: "toggle",
+      label: { en: "Fail preparation" },
+      default: false,
+      agent: { note: "Whether the probe's preparation fails on purpose.", change: "approve" },
+    },
   ],
   ...(minMemoryMiB === undefined ? {} : { minimumSpec: { memoryMiB: minMemoryMiB } }),
   preparation: {
@@ -289,6 +308,7 @@ const probewide = (record) => ({
         { value: "firefox", label: { en: "Firefox" } },
       ],
       default: "chromium",
+      agent: { note: "The engine the wide probe pretends to drive.", change: "approve" },
     },
     {
       key: "timeoutSeconds",
@@ -298,6 +318,7 @@ const probewide = (record) => ({
       min: 1,
       max: 600,
       default: 30,
+      agent: { note: "How long one step of the wide probe may take.", change: "approve" },
     },
   ],
   tools: WIDE_TOOLS.map((name) => ({

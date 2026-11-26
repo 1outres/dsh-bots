@@ -27,7 +27,7 @@ The bot base image (`infra/vm/build-base-image.sh`) installs the same `debian-pa
 | ------------ | ------ | ----------- | ----------------------- |
 | `resolution` | choice | `1280x1024` | `1280x1024`, `1280x800` |
 
-Changing it restarts the desktop session (open applications close).
+Changing it restarts the desktop session (open applications close). The bot reads it with `bot_settings` and changes it only with its owner's approval.
 
 ## Tools
 

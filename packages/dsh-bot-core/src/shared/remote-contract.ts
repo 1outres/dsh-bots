@@ -11,6 +11,7 @@ import type { BotMainsApi } from "./mains"
 import type { BotManagedSessionsApi } from "./managed-sessions"
 import type { BotNotesApi } from "./notes"
 import type { BotOnboardingApi } from "./onboarding"
+import type { BotSettingsApi } from "./settings"
 import type { BotSkillsApi } from "./skills"
 import type { BotVaultsApi } from "./vaults"
 import type { BotWebApi } from "./web"
@@ -35,6 +36,7 @@ export interface BotCoreApi {
   readonly botMains: BotMainsApi
   readonly botMainView: BotMainViewApi
   readonly botSkills: BotSkillsApi
+  readonly botSettings: BotSettingsApi
   readonly botNotes: BotNotesApi
   readonly botEnvironment: BotEnvironmentApi
   readonly botEnvironmentHost: BotEnvironmentHostApi
@@ -59,6 +61,7 @@ export const REMOTE_NAMESPACES = [
   "botMains",
   "botMainView",
   "botSkills",
+  "botSettings",
   "botNotes",
   "botEnvironment",
   "botEnvironmentHost",
@@ -210,6 +213,10 @@ export const REMOTE_METHODS: {
     setReview: { parameters: [{ name: "botId" }, { name: "enabled" }] },
     setCurator: { parameters: [{ name: "botId" }, { name: "enabled" }] },
     setKeep: { parameters: [{ name: "botId" }, { name: "name" }, { name: "keep" }] },
+  },
+  botSettings: {
+    watch: { parameters: [{ name: "botId" }], stream: true, cancellable: true },
+    revert: { parameters: [{ name: "botId" }, { name: "changeId" }] },
   },
   botNotes: {
     watch: { parameters: [{ name: "sessionId" }], stream: true, cancellable: true },

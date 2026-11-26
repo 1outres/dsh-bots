@@ -10,6 +10,7 @@ import {
   environmentShortfall,
   environmentShortfallText,
 } from "./environment"
+import { type BotSettingAgent, settingAgentProblem } from "./settings"
 
 export type ConnectorJson =
   | null
@@ -227,6 +228,7 @@ interface SettingFieldBase<K extends string> {
   readonly key: K
   readonly label: ConnectorText
   readonly description?: ConnectorText
+  readonly agent: BotSettingAgent
 }
 
 export interface ConnectorToggleField<K extends string = string> extends SettingFieldBase<K> {
@@ -611,6 +613,8 @@ export function connectorSettingsProblem(fields: unknown): string | undefined {
       const description = textProblem(field.description, `${what} description`)
       if (description !== undefined) return description
     }
+    const agent = settingAgentProblem(field.agent, false)
+    if (agent !== undefined) return `${what}: ${agent}`
     const problem = fieldProblem(field, what)
     if (problem !== undefined) return problem
   }
