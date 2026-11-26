@@ -105,3 +105,110 @@ describe("stay_silent", () => {
     ).toEqual(["turn", "early", "turn", "turn", "next"])
   })
 })
+
+describe("a reply sent with stay_silent", () => {
+  function setup() {
+    const silence = createTurnSilence()
+    const silencer = createSilencer({ refusal: () => undefined, silence })
+    const published: string[] = []
+    const feed = mainFeed({
+      botOfMainSession: () => "a",
+      isSilent: (sessionId) => silence.isSilent(sessionId),
+      publish: (_botId, output) =>
+        published.push(output.kind === "reply" ? output.reply.text : output.kind),
+    })
+    let turn = 0
+    const event = (type: string, data: unknown) => {
+      const value = { type, data }
+      const boundary = turnBoundaryOf(value)
+      if (boundary !== undefined) silence.follow("main-a", boundary)
+      feed.sessionEvent("main-a", value)
+    }
+    const start = () => {
+      turn += 1
+      event("turn/start", { turn })
+    }
+    const end = (kind = "completed") => event("turn/end", { turn, reason: { kind } })
+    const say = (id: string, text: string, ...calls: readonly string[]) =>
+      event("assistant/message", {
+        turn,
+        message: {
+          id,
+          content: [
+            { type: "text", text },
+            ...calls.map((call) => ({ type: "tool-call", id: call, name: "stay_silent" })),
+          ],
+        },
+      })
+    const result = (callId: string, isError: boolean, of = turn) =>
+      event("tool/result", { turn: of, message: { toolCallId: callId, isError } })
+    const staySilent = (callId: string) => {
+      silencer.staySilent("a", "t", { agentId: "main-a" })
+      result(callId, false)
+    }
+    return { published, start, end, say, result, staySilent }
+  }
+
+  it("is not delivered once the call succeeds", () => {
+    const { published, start, end, say, staySilent } = setup()
+    start()
+    say("a1", "Routine direct debit confirmation; nothing to tell.", "s1")
+    expect(published).toEqual(["turn"])
+    staySilent("s1")
+    say("a2", "after")
+    end()
+    expect(published).toEqual(["turn", "turn"])
+  })
+
+  it("is delivered when the call fails, in its place", () => {
+    const { published, start, end, say, result } = setup()
+    start()
+    say("a1", "kept", "s1")
+    say("a2", "later")
+    expect(published).toEqual(["turn"])
+    result("s1", true)
+    say("a3", "last")
+    end()
+    expect(published).toEqual(["turn", "kept", "later", "last", "turn"])
+  })
+
+  it("leaves what earlier messages of the turn said delivered", () => {
+    const { published, start, end, say, staySilent } = setup()
+    start()
+    say("a0", "earlier")
+    say("a1", "same", "s1")
+    staySilent("s1")
+    end()
+    expect(published).toEqual(["turn", "earlier", "turn"])
+  })
+
+  it("is not delivered when one of its calls succeeds and another fails", () => {
+    const { published, start, end, say, result, staySilent } = setup()
+    start()
+    say("a1", "same", "s1", "s2")
+    result("s1", true)
+    expect(published).toEqual(["turn"])
+    staySilent("s2")
+    end()
+    expect(published).toEqual(["turn", "turn"])
+  })
+
+  it("is delivered before the turn's end when the call never returned", () => {
+    const { published, start, end, say } = setup()
+    start()
+    say("a1", "pending", "s1")
+    end("max-tokens")
+    expect(published).toEqual(["turn", "pending", "turn"])
+  })
+
+  it("is forgotten by the next turn", () => {
+    const { published, start, end, say, result } = setup()
+    start()
+    say("a1", "stale", "s1")
+    start()
+    result("s1", true, 1)
+    say("b1", "fresh")
+    end()
+    expect(published).toEqual(["turn", "turn", "fresh", "turn"])
+  })
+})

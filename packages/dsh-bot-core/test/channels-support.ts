@@ -10,6 +10,7 @@ import type {
 } from "../src/contract"
 import type { ChannelRecord } from "../src/host/channels/domain"
 import { createMainFeed, type MainFeedDeps } from "../src/host/channels/feed"
+import { createHeldReplies } from "../src/host/channels/held-replies"
 import { createPresentedFiles } from "../src/host/channels/presented"
 import { createChannelSequence } from "../src/host/channels/sequence"
 import type { SecretVault } from "../src/host/channels/vault"
@@ -150,6 +151,7 @@ export function mainFeed(
     isSilent: deps.isSilent,
     isMaintenance: deps.isMaintenance ?? (() => false),
     presented: createPresentedFiles(),
+    held: createHeldReplies(),
     sequence: createChannelSequence({ publish: deps.publish, warn: () => {} }),
     deliverFiles: deps.deliverFiles ?? (async () => {}),
   })

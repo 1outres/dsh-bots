@@ -69,9 +69,9 @@ export function createMainView(deps: MainViewDeps): MainView {
     if (event.seq <= live.cursor) return
     live.cursor = event.seq
     const folded = foldEvent(live.fold, event)
-    const changed = folded.item !== undefined || replyingOf(folded.fold) !== replyingOf(live.fold)
+    const changed = folded.items.length > 0 || replyingOf(folded.fold) !== replyingOf(live.fold)
     live.fold = folded.fold
-    if (folded.item !== undefined) live.items.push(folded.item)
+    live.items.push(...folded.items)
     if (changed) for (const listener of [...live.listeners]) listener()
   }
 

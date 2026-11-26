@@ -1,15 +1,30 @@
 import type { BotChannelOutput, BotReply, BotTurnState } from "../../channel-contract"
+import type { HeldReplies } from "./held-replies"
 import { type PresentedFile, type PresentedFiles, presentationOf } from "./presented"
 import type { ChannelSequence } from "./sequence"
+import { silencerCallsOf } from "./stay-silent"
 
 export interface AssistantBlock {
   readonly type: string
   readonly text?: string
+  readonly id?: string
+  readonly name?: string
+}
+
+export interface AssistantMessage {
+  readonly id: string
+  readonly content: readonly AssistantBlock[]
 }
 
 export interface AssistantMessageData {
-  readonly message: { readonly id: string; readonly content: readonly AssistantBlock[] }
+  readonly turn: number
+  readonly message: AssistantMessage
   readonly interrupted?: true
+}
+
+export interface ToolResultData {
+  readonly turn: number
+  readonly message: { readonly toolCallId: string; readonly isError: boolean }
 }
 
 export type TurnEndReason =
@@ -21,12 +36,19 @@ export type TurnEndReason =
   | { readonly kind: "interrupted" }
   | { readonly kind: "forked" }
 
+export interface TurnEndData {
+  readonly turn: number
+  readonly reason: TurnEndReason
+}
+
 export interface SessionEventLike {
   readonly type: string
   readonly data: unknown
 }
 
-export function replyOf(data: AssistantMessageData): BotReply | undefined {
+export function replyOf(
+  data: Pick<AssistantMessageData, "message" | "interrupted">,
+): BotReply | undefined {
   const text = data.message.content
     .filter((block) => block.type === "text" && typeof block.text === "string")
     .map((block) => (block.text as string).trim())
@@ -62,32 +84,12 @@ export function endedTurnOf(reason: TurnEndReason): BotTurnState | undefined {
   }
 }
 
-export function outputOf(event: SessionEventLike): BotChannelOutput | undefined {
-  switch (event.type) {
-    case "assistant/message": {
-      const reply = replyOf(event.data as AssistantMessageData)
-      return reply === undefined ? undefined : { kind: "reply", reply }
-    }
-    case "turn/start":
-      return { kind: "turn", turn: { phase: "started" } }
-    case "turn/end": {
-      const turn = endedTurnOf((event.data as { readonly reason: TurnEndReason }).reason)
-      return turn === undefined ? undefined : { kind: "turn", turn }
-    }
-    default:
-      return undefined
-  }
-}
-
-export function withheld(output: BotChannelOutput, silent: boolean): boolean {
-  return silent && output.kind === "reply"
-}
-
 export interface MainFeedDeps {
   botOfMainSession(sessionId: string): string | undefined
   isSilent(sessionId: string): boolean
   isMaintenance(sessionId: string, event: SessionEventLike): boolean
   presented: PresentedFiles
+  held: HeldReplies
   sequence: ChannelSequence
   deliverFiles(botId: string, files: readonly PresentedFile[]): Promise<void>
 }
@@ -95,6 +97,40 @@ export interface MainFeedDeps {
 export function createMainFeed(deps: MainFeedDeps): {
   sessionEvent(sessionId: string, event: SessionEventLike): void
 } {
+  const publish = (botId: string, output: BotChannelOutput) => deps.sequence.publish(botId, output)
+  const publishReplies = (botId: string, replies: readonly BotReply[]) => {
+    for (const reply of replies) publish(botId, { kind: "reply", reply })
+  }
+
+  const assistantMessage = (sessionId: string, botId: string, data: AssistantMessageData) => {
+    if (deps.isSilent(sessionId)) return
+    const reply = replyOf(data)
+    if (reply === undefined) return
+    const silencers = silencerCallsOf(data.message.content)
+    publishReplies(botId, deps.held.offer(sessionId, data.turn, reply, silencers))
+  }
+
+  const toolResult = (sessionId: string, botId: string, data: ToolResultData) => {
+    const outcome = { callId: data.message.toolCallId, silenced: !data.message.isError }
+    publishReplies(botId, deps.held.settle(sessionId, data.turn, outcome))
+  }
+
+  const turnStart = (sessionId: string, botId: string) => {
+    deps.presented.forget(sessionId)
+    deps.held.forget(sessionId)
+    publish(botId, { kind: "turn", turn: { phase: "started" } })
+  }
+
+  const turnEnd = (sessionId: string, botId: string, data: TurnEndData) => {
+    const files = deps.presented.take(sessionId, data.turn)
+    const replies = deps.held.flush(sessionId, data.turn)
+    const turn = endedTurnOf(data.reason)
+    if (turn === undefined) return
+    publishReplies(botId, replies)
+    if (files.length > 0) deps.sequence.run(botId, () => deps.deliverFiles(botId, files))
+    publish(botId, { kind: "turn", turn })
+  }
+
   return {
     sessionEvent(sessionId, event) {
       const botId = deps.botOfMainSession(sessionId)
@@ -104,16 +140,16 @@ export function createMainFeed(deps: MainFeedDeps): {
         if (!deps.isSilent(sessionId)) deps.presented.record(sessionId, presentation)
         return
       }
-      const output = outputOf(event)
-      if (event.type === "turn/start") deps.presented.forget(sessionId)
-      if (event.type === "turn/end") {
-        const files = deps.presented.take(sessionId, (event.data as { readonly turn: number }).turn)
-        if (output !== undefined && files.length > 0) {
-          deps.sequence.run(botId, () => deps.deliverFiles(botId, files))
-        }
+      switch (event.type) {
+        case "assistant/message":
+          return assistantMessage(sessionId, botId, event.data as AssistantMessageData)
+        case "tool/result":
+          return toolResult(sessionId, botId, event.data as ToolResultData)
+        case "turn/start":
+          return turnStart(sessionId, botId)
+        case "turn/end":
+          return turnEnd(sessionId, botId, event.data as TurnEndData)
       }
-      if (output === undefined || withheld(output, deps.isSilent(sessionId))) return
-      deps.sequence.publish(botId, output)
     },
   }
 }

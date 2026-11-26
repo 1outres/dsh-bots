@@ -7,12 +7,7 @@ import type {
 } from "../src/contract"
 import { busyModeOf } from "../src/host/channels/composer"
 import { type ConversationDeps, openMainConversation } from "../src/host/channels/conversation"
-import {
-  type AssistantMessageData,
-  endedTurnOf,
-  replyOf,
-  withheld,
-} from "../src/host/channels/feed"
+import { type AssistantMessageData, endedTurnOf, replyOf } from "../src/host/channels/feed"
 import type { ComposedPrompt, PromptPart } from "../src/host/channels/inbound"
 import { createInteractionBoard } from "../src/host/interactions/board"
 import { CAPABILITIES, inboundMessage, mainFeed } from "./channels-support"
@@ -307,17 +302,6 @@ describe("Main feed", () => {
       ["a", { kind: "reply", reply: { id: "before", text: "sent", interrupted: false } }],
       ["a", { kind: "turn", turn: { phase: "completed" } }],
     ])
-  })
-
-  it("withholds only replies", () => {
-    const reply: BotChannelOutput = {
-      kind: "reply",
-      reply: { id: "x", text: "t", interrupted: false },
-    }
-    const turn: BotChannelOutput = { kind: "turn", turn: { phase: "completed" } }
-    expect(withheld(reply, true)).toBe(true)
-    expect(withheld(reply, false)).toBe(false)
-    expect(withheld(turn, true)).toBe(false)
   })
 })
 

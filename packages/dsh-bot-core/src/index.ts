@@ -17,6 +17,7 @@ import {
   createMainFeed,
   type SessionEventLike,
 } from "./host/channels/feed"
+import { createHeldReplies } from "./host/channels/held-replies"
 import { createChannelHub } from "./host/channels/hub"
 import { composePrompt, type ImageLimits, type PromptPart } from "./host/channels/inbound"
 import { INBOX_DIRECTORY } from "./host/channels/inbox"
@@ -3673,6 +3674,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
       isSilent: (sessionId) => turnSilence.isSilent(sessionId),
       isMaintenance: (sessionId, event) => maintenanceTurns.belongs(sessionId, event),
       presented: createPresentedFiles(),
+      held: createHeldReplies(),
       sequence: createChannelSequence({
         publish: (botId, output) => outlets.publish(botId, output),
         warn,

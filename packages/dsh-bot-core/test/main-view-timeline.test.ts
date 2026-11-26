@@ -194,8 +194,9 @@ describe("timelineOf", () => {
     const log = logBuilder()
     log.turnStart(1)
     log.user("n", [{ type: "text", text: "event" }], "bot-connector-event")
+    log.assistant("a0", [{ type: "text", text: "before" }])
     log.assistant("a1", [
-      { type: "text", text: "before" },
+      { type: "text", text: "Routine direct debit confirmation; nothing to tell." },
       { type: "tool-call", id: "s1", name: "stay_silent", arguments: "{}" },
     ])
     log.result("s1")
@@ -212,6 +213,52 @@ describe("timelineOf", () => {
       "reply:before",
       "person:again",
       "reply:spoken",
+    ])
+  })
+
+  it("shows the text sent with a failed stay_silent once it fails, in its place", () => {
+    const log = logBuilder()
+    log.turnStart(1)
+    log.user("u", [{ type: "text", text: "go" }])
+    log.assistant("a1", [
+      { type: "text", text: "kept" },
+      { type: "tool-call", id: "s1", name: "stay_silent", arguments: "{}" },
+    ])
+    log.assistant("a2", [{ type: "text", text: "later" }])
+    const pending = timelineOf("s", log.log())
+    expect(kinds(pending.items)).toEqual(["person:go"])
+    log.result("s1", true)
+    log.assistant("a3", [{ type: "text", text: "last" }])
+    log.turnEnd(1)
+    expect(kinds(timelineOf("s", log.log()).items)).toEqual([
+      "person:go",
+      "reply:kept",
+      "reply:later",
+      "reply:last",
+    ])
+  })
+
+  it("shows the text sent with an unanswered stay_silent before the turn's outcome", () => {
+    const log = logBuilder()
+    log.turnStart(1)
+    log.user("u", [{ type: "text", text: "go" }])
+    log.assistant("a1", [
+      { type: "text", text: "pending" },
+      { type: "tool-call", id: "s1", name: "stay_silent", arguments: "{}" },
+    ])
+    log.turnEnd(1, { kind: "max-tokens" })
+    log.turnStart(2)
+    log.user("v", [{ type: "text", text: "again" }])
+    log.assistant("b1", [
+      { type: "text", text: "cut off" },
+      { type: "tool-call", id: "s2", name: "stay_silent", arguments: "{}" },
+    ])
+    log.turnEnd(2, { kind: "interrupted" })
+    expect(kinds(timelineOf("s", log.log()).items)).toEqual([
+      "person:go",
+      "reply:pending",
+      "turn",
+      "person:again",
     ])
   })
 

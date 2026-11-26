@@ -1,4 +1,14 @@
+import type { AssistantBlock } from "./feed"
 import type { TurnSilence } from "./silence"
+
+export const STAY_SILENT_TOOL = "stay_silent"
+
+export const silencerCallsOf = (blocks: readonly AssistantBlock[]): readonly string[] =>
+  blocks.flatMap((block) =>
+    block.type === "tool-call" && block.name === STAY_SILENT_TOOL && block.id !== undefined
+      ? [block.id]
+      : [],
+  )
 
 export interface StaySilentRequest {
   readonly agentId: string

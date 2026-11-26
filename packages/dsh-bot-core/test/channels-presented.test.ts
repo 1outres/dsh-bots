@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import type { BotChannelCapabilities, BotChannelOutput } from "../src/contract"
 import { createMainFeed } from "../src/host/channels/feed"
+import { createHeldReplies } from "../src/host/channels/held-replies"
 import { createChannelOutlets } from "../src/host/channels/outlets"
 import { createPresentedFiles, presentationOf } from "../src/host/channels/presented"
 import { createPresentedDelivery } from "../src/host/channels/presented-delivery"
@@ -165,6 +166,7 @@ describe("the Main feed's presented files", () => {
       isSilent: (sessionId) => silence.isSilent(sessionId),
       isMaintenance: () => false,
       presented: createPresentedFiles(),
+      held: createHeldReplies(),
       sequence: createChannelSequence({
         publish: (_botId, output) =>
           log.push(
@@ -423,6 +425,7 @@ describe("createPresentedDelivery", () => {
       isSilent: () => false,
       isMaintenance: () => false,
       presented: createPresentedFiles(),
+      held: createHeldReplies(),
       sequence: createChannelSequence({
         publish: (botId, output) => outlets.publish(botId, output),
         warn: () => {},

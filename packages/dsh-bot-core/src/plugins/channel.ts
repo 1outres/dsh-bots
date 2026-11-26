@@ -11,9 +11,9 @@ export interface Config {
 
 const STAY_SILENT_DESCRIPTION =
   "Keep the rest of this turn off the chat channels connected to you (such as Discord): " +
-  "what you write or present after this call stays in your session and is not sent to the user. " +
-  "Works only in your Main session. When you decide there is nothing to tell the user, call it before writing any reply text: " +
-  "text you wrote before the call has already been delivered and cannot be taken back. " +
+  "text in the same message as this call, and what you write or present after it, stays in your session and is not sent to the user. " +
+  "Works only in your Main session. " +
+  "Text from your earlier messages of the turn has already been delivered and cannot be taken back. " +
   "The next turn is sent as usual."
 
 function internalMethod<T>(bot: Bot, key: symbol, what: string): T {

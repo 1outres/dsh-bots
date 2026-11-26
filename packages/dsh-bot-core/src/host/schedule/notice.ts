@@ -24,7 +24,7 @@ export interface ScheduleNotice {
 }
 
 const REPLY =
-  "Reply to the user as usual; if there is nothing worth telling them, call stay_silent before writing anything."
+  "Reply to the user as usual; if there is nothing worth telling them, call stay_silent (text in the same message is not delivered; earlier text already was)."
 
 function header(run: NoticeRun): string {
   const local = (ms: number) => formatLocal(ms, run.timezone)
