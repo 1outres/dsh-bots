@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest"
 import { WORKSPACE_FILES_VERSION, type WorkspaceFilesVersion } from "../src/host/domain"
-import { createPromptFacts } from "../src/host/prompt/facts"
-import { BOT_PROMPT_SECTIONS } from "../src/host/prompt/sections"
+import type { PeerMembership } from "../src/host/peers/groups"
+import { peerMachineOf } from "../src/host/peers/machine"
+import { createPromptFacts, type PromptPeerDeps, peerFactsOf } from "../src/host/prompt/facts"
+import { renderPeerGroup } from "../src/host/prompt/peers"
+import { BOT_PEER_GROUP_CONTEXT, BOT_PROMPT_SECTIONS } from "../src/host/prompt/sections"
 import { sessionKindOf } from "../src/host/prompt/session-kind"
 import { renderStatus } from "../src/host/prompt/status"
 import type { WritableFileSystem } from "../src/host/workspace-files"
 import { AGENTS_MD, createWorkspaceFiles, HEARTBEAT_MD, SOUL_MD } from "../src/host/workspace-files"
-import type { BotPromptFacts } from "../src/internal"
+import type { BotPeerFacts, BotPromptFacts } from "../src/internal"
 import type { BotConnectorView } from "../src/shared/connectors"
 
 const agent = (id: string, parentSession?: string) => ({
@@ -61,8 +64,33 @@ const connector = (
     ...(accounts === undefined ? {} : { accounts }),
   }) as unknown as BotConnectorView
 
+const RESEARCH: PeerMembership = {
+  groupId: "grp-1",
+  group: { name: "Research", purpose: "Papers", createdAt: 1 },
+  member: { groupId: "grp-1", role: "search", joinedAt: 1 },
+  peers: [
+    { botId: "nova", member: { groupId: "grp-1", role: "drafts", joinedAt: 2 } },
+    { botId: "gone", member: { groupId: "grp-1", role: "old", joinedAt: 3 } },
+    { botId: "pico", member: { groupId: "grp-1", role: "", joinedAt: 4 } },
+  ],
+}
+
+const peerDeps = (membership: PeerMembership | undefined): PromptPeerDeps => ({
+  membership: (botId) => (botId === "a" ? membership : undefined),
+  bot: (botId) =>
+    botId === "nova"
+      ? { state: "listed", name: "Nova" }
+      : botId === "pico"
+        ? { state: "listed", name: "Pico" }
+        : { state: "missing" },
+  machine: (botId) => (botId === "nova" ? "ready" : "starting"),
+  pausedUntil: (botId, peerId) => (botId === "a" && peerId === "pico" ? 100 : undefined),
+  timezone: () => "UTC",
+})
+
 describe("createPromptFacts", () => {
   const facts = createPromptFacts({
+    peers: peerDeps(undefined),
     sealed: (botId, token) => botId === "a" && token === "t",
     agent: (agentId) => (agentId === "ghost" ? undefined : agent(agentId)),
     botOf: (live) => (live.id === "other" ? "b" : "a"),
@@ -123,6 +151,89 @@ describe("createPromptFacts", () => {
     expect(() => facts("a", "old", "side")).toThrow("was not registered")
     expect(() => facts("a", "t", "other")).toThrow("does not run a session")
     expect(() => facts("a", "t", "ghost")).toThrow("does not run a session")
+  })
+})
+
+describe("peerMachineOf", () => {
+  it("reads a ready environment as ready, one being prepared as starting and any other as stopped", () => {
+    expect(peerMachineOf({ ready: true })).toBe("ready")
+    expect(peerMachineOf({ ready: false, problem: "preparing", pending: true })).toBe("starting")
+    expect(peerMachineOf({ ready: false, problem: "could not be prepared" })).toBe("stopped")
+  })
+})
+
+describe("peerFactsOf", () => {
+  it("tells the group, the bot's role and each listed peer with its machine and pause", () => {
+    expect(peerFactsOf(peerDeps(RESEARCH), "a")).toEqual({
+      group: "Research",
+      purpose: "Papers",
+      role: "search",
+      peers: [
+        { botId: "nova", name: "Nova", role: "drafts", machine: "ready" },
+        { botId: "pico", name: "Pico", role: "", machine: "starting", pausedUntil: 100 },
+      ],
+      timezone: "UTC",
+    })
+  })
+
+  it("tells a group's pause and nothing for a bot in no group", () => {
+    const paused: PeerMembership = {
+      ...RESEARCH,
+      group: { ...RESEARCH.group, paused: { reason: "limit", at: 1, detail: "group" } },
+    }
+    expect(peerFactsOf(peerDeps(paused), "a")?.paused).toBe("limit")
+    expect(peerFactsOf(peerDeps(RESEARCH), "b")).toBeUndefined()
+  })
+})
+
+describe("renderPeerGroup", () => {
+  const facts: BotPeerFacts = {
+    group: "Re[search]",
+    purpose: "Collect papers.\nSummarize them.",
+    role: "literature search.",
+    peers: [
+      { botId: "nova-id", name: "Nova", role: "drafts", machine: "ready" },
+      {
+        botId: "pico-id",
+        name: "Pico",
+        role: "",
+        machine: "stopped",
+        pausedUntil: Date.UTC(2026, 0, 1, 5, 30),
+      },
+      { botId: "kai-id", name: "Kai", role: "maps", machine: "starting" },
+    ],
+    timezone: "Asia/Tokyo",
+  }
+
+  it("lists each peer with its id, role and machine, and the pauses in the bot's time zone", () => {
+    expect(renderPeerGroup(facts, { mainSession: true })).toBe(
+      [
+        'Peer bots (group "Research"):',
+        "- Purpose: Collect papers. Summarize them.",
+        "- Your role: literature search.",
+        "- Nova (bot nova-id): drafts. Ready.",
+        "- Pico (bot pico-id): no role given. Its machine is stopped; messages wait for it for up to 24 hours.",
+        "- Kai (bot kai-id): maps. Its machine is starting.",
+        "- Messages between you and Pico are paused until 14:30.",
+      ].join("\n"),
+    )
+  })
+
+  it("says when nobody else is in the group, how the group is paused, and that a side session cannot send", () => {
+    const alone = { ...facts, purpose: "", role: "", peers: [] }
+    expect(renderPeerGroup({ ...alone, paused: "owner" }, { mainSession: false })).toBe(
+      [
+        'Peer bots (group "Research"):',
+        "- Purpose: none given.",
+        "- Your role: none given.",
+        "- No other bots are in this group yet.",
+        "- Messages in this group are paused by your owner.",
+        "- You can message them only from your Main session.",
+      ].join("\n"),
+    )
+    expect(renderPeerGroup({ ...alone, paused: "limit" }, { mainSession: true })).toContain(
+      "- Messages in this group are paused after too many messages; your owner can resume them.",
+    )
   })
 })
 
@@ -194,8 +305,47 @@ describe("BOT_PROMPT_SECTIONS", () => {
       web: { search: { state: "disabled" }, fetch: { state: "disabled" } },
     },
   }
+  const peerGroup: BotPeerFacts = {
+    group: "Lab",
+    purpose: "",
+    role: "",
+    peers: [{ botId: "n", name: "Nova", role: "", machine: "ready" }],
+    timezone: "UTC",
+  }
   const textOf = (name: string, facts: BotPromptFacts) =>
     BOT_PROMPT_SECTIONS.find((part) => part.name === name)?.text(facts)
+
+  it("gives the peer bots section to the Main session only, with the same text in or out of a group", () => {
+    expect(textOf("bot:peers", base)).toContain("## Peer bots")
+    for (const session of ["web", "delegated", "schedule", "subagent", "curator"] as const) {
+      expect(textOf("bot:peers", { ...base, session })).toBe("")
+    }
+    const grouped = { ...base, peers: { ...peerGroup, peers: [] } }
+    for (const part of BOT_PROMPT_SECTIONS) {
+      for (const session of ["main", "web", "delegated"] as const) {
+        expect(part.text({ ...grouped, session })).toBe(part.text({ ...base, session }))
+      }
+    }
+  })
+
+  it("names other bots in the environment of every session but subagents and the curator", () => {
+    for (const session of ["main", "web", "delegated", "schedule"] as const) {
+      expect(textOf("bot:environment", { ...base, session })).toContain("other bots")
+    }
+    for (const session of ["subagent", "curator"] as const) {
+      expect(textOf("bot:environment", { ...base, session })).not.toContain("other bots")
+    }
+  })
+
+  it("lists the group in the context of the Main and Web sessions only", () => {
+    const grouped = { ...base, peers: peerGroup }
+    expect(BOT_PEER_GROUP_CONTEXT.text(grouped)).toContain('Peer bots (group "Lab")')
+    expect(BOT_PEER_GROUP_CONTEXT.text({ ...grouped, session: "web" })).toContain(
+      "only from your Main session",
+    )
+    expect(BOT_PEER_GROUP_CONTEXT.text({ ...grouped, session: "delegated" })).toBe("")
+    expect(BOT_PEER_GROUP_CONTEXT.text(base)).toBe("")
+  })
 
   it("ends the messages section with each channel's formatting line", () => {
     expect(textOf("bot:messages", base)?.endsWith("\n- Discord: tables do not render.")).toBe(true)

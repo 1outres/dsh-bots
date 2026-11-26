@@ -1,6 +1,6 @@
 # ボット同士の協働（グループと仲間へのメッセージ）
 
-2026-11-26 に決めたこと。オーナーが作る **グループ** に入ったボットどうしが、bot-core の中の経路で Main から Main へメッセージを送り合う。チャネル（Discord・Matrix の同じ部屋でボットどうしが人に見える形で話すこと）は後の段階で、この仕様では接続点だけを書く（§13）。第1段階（グループの土台）を実装した（§16）。
+2026-11-26 に決めたこと。オーナーが作る **グループ** に入ったボットどうしが、bot-core の中の経路で Main から Main へメッセージを送り合う。チャネル（Discord・Matrix の同じ部屋でボットどうしが人に見える形で話すこと）は後の段階で、この仕様では接続点だけを書く（§13）。第1段階（グループの土台）を実装した（§16）。第2段階（プロンプト）を実装した（§18）。
 
 この文書の印:
 
@@ -571,6 +571,20 @@ Peer bots (group "Research"):
 - **子への持ち越し**: `session_start` / `session_send`（target `bot`）は、仲間由来のターンなら source `bot-peer-relay`（`peerMessages` つき）で送る。仲間の名前はそのターンの最後の仲間のメッセージの送り手。分からなければ「Your Main session sent a message for a peer bot:」。`session_read` では `bot-peer-relay` も `main` に分類する。子のターンの終わりと質問の notice は、そのターンが仲間由来（または不明）なら topic `peer-session`。
 - **`peer_send` の行** は `env-bot-core-sessions` の後に置いた。既にいるボットの preset の版（digest）は変わる（revision token は変わらない）。
 - **確かめていないこと**: 実際の DSH でサブエージェントのセッションが `turn/start` を出すか（出さなくても根のセッションで見るので振る舞いは変わらない）。
+
+## 18. 第2段階で確定したこと（プロンプト）
+
+- **事実**: `BotPromptFacts.peers?: BotPeerFacts`（`src/internal.ts`）。グループの名前・目的、自分の役割、グループの停止（`owner` / `limit`）、仲間ごとの id・名前・役割・機械の状態（`BotPeerMachine`: `ready` / `starting` / `stopped`）・ボット対の止めの終わりの時刻、ボットのタイムゾーン。`host/prompt/facts.ts` の `peerFactsOf` が `PeerGroups.membership` から作る。どのグループにもいなければ `peers` は無い。事実はセッションの種類によらず集め、入れるかどうかはコンテキストの側（`sections.ts`）で決める。
+- **仲間の一覧に出すもの**: ボットの記録がある（`listed`）仲間だけ。削除の途中で `forgetBots` がまだメンバーを消していないボットは出さない（もう話せないため）。
+- **機械の状態**（`host/peers/machine.ts` の `peerMachineOf`）: 環境の状態が `ready` なら `ready`、準備中（`pending`）なら `starting`、それ以外（準備の失敗、環境が無い）は `stopped`。`peer_send` の結果と 24 時間の取り下げが見る「止まっている」（`index.ts` の `peerMachineStopped`）もこれで決める（1 か所）。
+- **ボット対の止め**: メモリの `PeerPairPauses`（`host/peers/pair-pauses.ts`、送受信の担当と同じもの。`index.ts` の `peerPairPauses`）の `until(a, b)` を読む。時刻は `HH:mm`（24 時間）をボットのタイムゾーンで。
+- **書式**（`host/prompt/peers.ts` の `renderPeerGroup`）: 名前・役割・目的は `headerName` で 1 行に整え、末尾の `.` を除いてから文に入れる（`..` にならないように）。目的が空なら `- Purpose: none given.`、自分の役割が空なら `- Your role: none given.`（仕様の例に無い場合の文面）。並びは 目的、自分の役割、仲間（参加順）、ボット対の止め、グループの停止、Web の末尾の行。
+- **Your environment の 1 行**: Main・Web（`ENVIRONMENT_CONVERSING`）と、delegated・スケジュール（`ENVIRONMENT`）に入れ、サブエージェントと整理（新しい `ENVIRONMENT_HELPER`、今までの `ENVIRONMENT` と同じ文面）には入れない（§9.1 の表の「サブエージェントと整理以外」）。
+- **子の `bot:management`**: §9.4 の 1 行は `MANAGEMENT_HEAD` の 2 行目として、Main が管理するすべてのセッション（delegated と、オーナーが任せた Web セッション）に入る。
+- **§9.4 の `session_read` の分類**（`bot-peer-relay` を `main` にする）は §17 のとおり送受信の側で入った。
+- **ツールとの突き合わせ**: `bot:peers` の文面のツール名と引数名（`peer_send`、`to`、`message`、`reply_to`、`expects_reply`）とコンテキストの見出し `Peer bots` は、`plugins/peers.ts` のツールの説明と引数の説明が指すものと同じ。
+- **heartbeat との関係**: heartbeat は Main のターンなので、`bot:peers` と `bot:peer-group` は heartbeat のターンにもそのまま入る（セッションの種類は増えていない）。
+- セクションの文面はグループの有無で変わらないことを `test/prompt-scope.test.ts`（グループにいる Main と Web を足した）と `test/bot-prompt-parts.test.ts` で確かめている。
 
 ## 19. 第2段階（Web UI）で確定したこと
 

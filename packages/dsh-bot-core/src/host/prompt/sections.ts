@@ -2,16 +2,19 @@ import type { BotPromptChannel, BotPromptFacts, BotSessionKind } from "../../int
 import { CONVERSATIONS_SECTION } from "../conversations/texts"
 import { SKILLS_SECTION } from "../skills/texts"
 import { VAULT_PROMPT } from "../vaults/texts"
+import { renderPeerGroup } from "./peers"
 import { renderStatus } from "./status"
 import {
   ENVIRONMENT,
   ENVIRONMENT_CONVERSING,
+  ENVIRONMENT_HELPER,
   MANAGED_SESSIONS,
   MANAGEMENT_ANSWERS_MAIN,
   MANAGEMENT_ANSWERS_OWNER,
   MANAGEMENT_HEAD,
   MEMORY,
   MESSAGES,
+  PEERS,
   PRINCIPLES,
   SESSION_CURATOR,
   SESSION_DELEGATED,
@@ -55,13 +58,23 @@ export const BOT_PROMPT_SECTIONS: readonly BotPromptPart[] = [
   {
     name: "bot:environment",
     order: 4000,
-    text: (facts) => (conversing(facts.session) ? ENVIRONMENT_CONVERSING : ENVIRONMENT),
+    text: (facts) =>
+      conversing(facts.session)
+        ? ENVIRONMENT_CONVERSING
+        : working(facts.session)
+          ? ENVIRONMENT
+          : ENVIRONMENT_HELPER,
   },
   { name: "bot:session", order: 4100, text: (facts) => SESSION_TEXT[facts.session] },
   {
     name: "bot:managed-sessions",
     order: 4150,
     text: (facts) => (facts.session === "main" ? MANAGED_SESSIONS : ""),
+  },
+  {
+    name: "bot:peers",
+    order: 4160,
+    text: (facts) => (facts.session === "main" ? PEERS : ""),
   },
   {
     name: "bot:messages",
@@ -105,6 +118,15 @@ export const BOT_MANAGEMENT_CONTEXT: BotPromptPart = {
           MANAGEMENT_HEAD,
           management.answerer === "main" ? MANAGEMENT_ANSWERS_MAIN : MANAGEMENT_ANSWERS_OWNER,
         ].join("\n"),
+}
+
+export const BOT_PEER_GROUP_CONTEXT: BotPromptPart = {
+  name: "bot:peer-group",
+  order: 340,
+  text: ({ session, peers }) =>
+    peers === undefined || !conversing(session)
+      ? ""
+      : renderPeerGroup(peers, { mainSession: session === "main" }),
 }
 
 export const BOT_LOGINS_CONTEXT: BotPromptPart = {

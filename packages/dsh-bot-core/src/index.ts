@@ -214,6 +214,7 @@ import {
   type PeerMessageRecord,
 } from "./host/peers/domain"
 import { createPeerGroups, type PeerBot } from "./host/peers/groups"
+import { peerMachineOf } from "./host/peers/machine"
 import { peerOriginOf } from "./host/peers/origin"
 import { createPeerPairPauses } from "./host/peers/pair-pauses"
 import { createPeerPanel } from "./host/peers/panel"
@@ -1744,10 +1745,8 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     if (listed === undefined) throw new Error(`bot "${botId}" is not listed`)
     return listed.name
   }
-  const peerMachineStopped = (botId: string) => {
-    const status = environments.status(botId)
-    return !status.ready && status.pending !== true
-  }
+  const peerMachineStopped = (botId: string) =>
+    peerMachineOf(environments.status(botId)) === "stopped"
 
   const isolation = createIsolation<LiveAgent>({
     presetOf,
@@ -3879,6 +3878,13 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     connectors: (botId) => connectors.states(botId),
     web: () => webState.status(),
     logins: (botId) => vaultStore.grants(botId).length > 0,
+    peers: {
+      membership: (botId) => peerGroups.membership(botId),
+      bot: peerBot,
+      machine: (botId) => peerMachineOf(environments.status(botId)),
+      pausedUntil: (botId, peerId) => peerPairPauses.until(botId, peerId),
+      timezone: (botId) => registry.timezoneOf(botId),
+    },
   })
 
   let sessionLogs: SessionLogReader | undefined

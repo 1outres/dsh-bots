@@ -1,5 +1,8 @@
 import type {
   BotManagementFacts,
+  BotPeerFact,
+  BotPeerFacts,
+  BotPeerMachine,
   BotPromptChannel,
   BotPromptFacts,
   BotStatusChannel,
@@ -7,7 +10,16 @@ import type {
 } from "../../internal"
 import type { BotConnectorView } from "../../shared/connectors"
 import type { BotWebStatus } from "../../shared/web"
+import type { PeerBot, PeerMembership } from "../peers/groups"
 import { type KindAgent, type SessionKindDeps, sessionKindOf } from "./session-kind"
+
+export interface PromptPeerDeps {
+  membership(botId: string): PeerMembership | undefined
+  bot(botId: string): PeerBot
+  machine(botId: string): BotPeerMachine
+  pausedUntil(botId: string, peerId: string): number | undefined
+  timezone(botId: string): string
+}
 
 export interface PromptFactsDeps<A extends KindAgent> {
   sealed(botId: string, token: string): boolean
@@ -21,6 +33,7 @@ export interface PromptFactsDeps<A extends KindAgent> {
   connectors(botId: string): readonly BotConnectorView[]
   web(): BotWebStatus
   logins(botId: string): boolean
+  peers: PromptPeerDeps
 }
 
 function connectorOf(view: BotConnectorView): BotStatusConnector {
@@ -28,6 +41,34 @@ function connectorOf(view: BotConnectorView): BotStatusConnector {
     .filter((account) => account.status === "active" && account.granted)
     .map((account) => account.email ?? account.label)
   return { name: view.connector.name, readiness: view.readiness, accounts }
+}
+
+export function peerFactsOf(deps: PromptPeerDeps, botId: string): BotPeerFacts | undefined {
+  const membership = deps.membership(botId)
+  if (membership === undefined) return undefined
+  const peers = membership.peers.flatMap(({ botId: peerId, member }): BotPeerFact[] => {
+    const bot = deps.bot(peerId)
+    if (bot.state !== "listed") return []
+    const pausedUntil = deps.pausedUntil(botId, peerId)
+    return [
+      {
+        botId: peerId,
+        name: bot.name,
+        role: member.role,
+        machine: deps.machine(peerId),
+        ...(pausedUntil === undefined ? {} : { pausedUntil }),
+      },
+    ]
+  })
+  const { group, member } = membership
+  return {
+    group: group.name,
+    purpose: group.purpose,
+    role: member.role,
+    ...(group.paused === undefined ? {} : { paused: group.paused.reason }),
+    peers,
+    timezone: deps.timezone(botId),
+  }
 }
 
 export function createPromptFacts<A extends KindAgent>(deps: PromptFactsDeps<A>) {
@@ -48,10 +89,12 @@ export function createPromptFacts<A extends KindAgent>(deps: PromptFactsDeps<A>)
       session === "main" || session === "subagent" || session === "curator"
         ? undefined
         : deps.management(botId, agent.id)
+    const peers = peerFactsOf(deps.peers, botId)
     return {
       botName,
       session,
       ...(management === undefined ? {} : { management }),
+      ...(peers === undefined ? {} : { peers }),
       channels: deps.channels(),
       logins: deps.logins(botId),
       status: {

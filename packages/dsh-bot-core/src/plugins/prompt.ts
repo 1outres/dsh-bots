@@ -8,6 +8,7 @@ import {
   BOT_LOGINS_CONTEXT,
   BOT_MANAGEMENT_CONTEXT,
   BOT_NAME_VARIABLE,
+  BOT_PEER_GROUP_CONTEXT,
   BOT_PROMPT_SECTIONS,
   BOT_STATUS_CONTEXT,
   type BotPromptPart,
@@ -54,7 +55,12 @@ export default class BotPrompt {
         text: textOf(part),
       })
     }
-    for (const part of [BOT_STATUS_CONTEXT, BOT_MANAGEMENT_CONTEXT, BOT_LOGINS_CONTEXT]) {
+    for (const part of [
+      BOT_STATUS_CONTEXT,
+      BOT_MANAGEMENT_CONTEXT,
+      BOT_LOGINS_CONTEXT,
+      BOT_PEER_GROUP_CONTEXT,
+    ]) {
       ctx.systemPrompt.context({
         name: part.name,
         order: part.order,

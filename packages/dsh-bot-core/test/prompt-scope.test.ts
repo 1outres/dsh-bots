@@ -18,6 +18,7 @@ import { composeBotPreset } from "../src/host/preset/compose"
 import { DEFAULT_PERSONA } from "../src/host/preset/default-template"
 import {
   type BotManagementFacts,
+  type BotPeerFacts,
   type BotPromptFacts,
   type BotSessionKind,
   type BotStatusFacts,
@@ -65,7 +66,9 @@ const DISCORD_HINT =
 
 const SESSIONS: Readonly<Record<string, BotSessionKind>> = {
   "session-main": "main",
+  "session-main-grouped": "main",
   "session-web": "web",
+  "session-web-grouped": "web",
   "session-entrusted": "web",
   "session-delegated": "delegated",
   "session-schedule": "schedule",
@@ -76,6 +79,33 @@ const SESSIONS: Readonly<Record<string, BotSessionKind>> = {
 const MANAGED: Readonly<Record<string, BotManagementFacts>> = {
   "session-delegated": { answerer: "main" },
   "session-entrusted": { answerer: "owner" },
+}
+
+const RESEARCH: BotPeerFacts = {
+  group: "Research",
+  purpose: "Collect and summarize papers\nfor the lab.",
+  role: "literature search and summaries",
+  peers: [
+    {
+      botId: "8c2e3f40-5b1d-4c6e-9a7f-2d3b4c5e6f70",
+      name: "Nova",
+      role: "drafts and proofreading",
+      machine: "ready",
+    },
+    {
+      botId: "1a9b77d2-0c4e-4f8a-b6d1-3e5f7a9c1b2d",
+      name: "Pico",
+      role: "",
+      machine: "stopped",
+      pausedUntil: Date.UTC(2026, 10, 27, 5, 30),
+    },
+  ],
+  timezone: "Asia/Tokyo",
+}
+
+const GROUPED: Readonly<Record<string, BotPeerFacts>> = {
+  "session-main-grouped": RESEARCH,
+  "session-web-grouped": RESEARCH,
 }
 
 const liveAgent = (id: string) => ({
@@ -95,7 +125,7 @@ function botNotes() {
     agent: (agentId) => (SESSIONS[agentId] === undefined ? undefined : liveAgent(agentId)),
     botOf: () => "a",
     kind: {
-      isMain: (_botId, sessionId) => sessionId === "session-main",
+      isMain: (_botId, sessionId) => SESSIONS[sessionId] === "main",
       isScheduleRun: (_botId, sessionId) => sessionId === "session-schedule",
       isRecorded: (_botId, sessionId) =>
         sessionId !== "session-helper" && sessionId !== "session-curator",
@@ -142,10 +172,12 @@ class FakeBot extends Service {
       throw new Error(`not an Agent of bot "${botId}"`)
     }
     const management = MANAGED[agentId]
+    const peers = GROUPED[agentId]
     return {
       botName: "Mia",
       session,
       ...(management === undefined ? {} : { management }),
+      ...(peers === undefined ? {} : { peers }),
       channels: [{ name: "Discord", formatHint: DISCORD_HINT }],
       logins: false,
       status: this.status,
@@ -337,6 +369,7 @@ describe("@1outres/dsh-bot-core/prompt in a bot preset", () => {
         "bot:environment",
         "bot:session",
         "bot:managed-sessions",
+        "bot:peers",
         "bot:messages",
         "bot:workspace-files",
         "bot:memory",
@@ -350,6 +383,7 @@ describe("@1outres/dsh-bot-core/prompt in a bot preset", () => {
         "bot:pinned-notes",
         "bot:management",
         "bot:logins",
+        "bot:peer-group",
       ])
     }
 
@@ -448,6 +482,21 @@ describe("@1outres/dsh-bot-core/prompt in a bot preset", () => {
         expect(renderPrompt(own)).toMatchSnapshot("system prompt")
         expect(renderContextSnapshot(own)).toMatchSnapshot("runtime context")
       })
+    }
+  })
+
+  it("keeps the system prompt of a Main or Web session whether its bot is in a group, and lists the group in the context", async () => {
+    const h = await host()
+    const bot = await h.mount(botRows())
+    for (const [alone, grouped] of [
+      ["session-main", "session-main-grouped"],
+      ["session-web", "session-web-grouped"],
+    ] as const) {
+      const without = await h.assemble(h.agentOf(alone, bot))
+      const within = await h.assemble(h.agentOf(grouped, bot))
+      expect(renderPrompt(within)).toBe(renderPrompt(without))
+      expect(renderContextSnapshot(without)).not.toContain("Peer bots (group")
+      expect(renderContextSnapshot(within)).toContain('Peer bots (group "Research"):')
     }
   })
 

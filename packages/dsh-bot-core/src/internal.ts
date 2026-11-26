@@ -255,10 +255,30 @@ export interface BotManagementFacts {
   readonly answerer: "main" | "owner"
 }
 
+export type BotPeerMachine = "ready" | "starting" | "stopped"
+
+export interface BotPeerFact {
+  readonly botId: string
+  readonly name: string
+  readonly role: string
+  readonly machine: BotPeerMachine
+  readonly pausedUntil?: number
+}
+
+export interface BotPeerFacts {
+  readonly group: string
+  readonly purpose: string
+  readonly role: string
+  readonly paused?: "owner" | "limit"
+  readonly peers: readonly BotPeerFact[]
+  readonly timezone: string
+}
+
 export interface BotPromptFacts {
   readonly botName: string
   readonly session: BotSessionKind
   readonly management?: BotManagementFacts
+  readonly peers?: BotPeerFacts
   readonly channels: readonly BotPromptChannel[]
   readonly logins: boolean
   readonly status: BotStatusFacts

@@ -16,21 +16,26 @@
 
 DSH の system メッセージ（セクション、order 順）と、毎ターン user ロールで添えるコンテキストに分ける。セッションの途中で変わるものはコンテキストに置き、セクションはセッションの間ずっと同じ文面にする（プロンプトキャッシュのため）。
 
-| 種類             | order     | 名前                  | 中身                                                                   | 持ち主                    |
-| ---------------- | --------- | --------------------- | ---------------------------------------------------------------------- | ------------------------- |
-| セクション       | -1000     | harness identity      | `You are an AI agent powered by DeepSeek Harness.`（今のまま）         | DSH                       |
-| セクション       | 0         | persona prefix        | §2.1 Identity（default テンプレートの `DEFAULT_PERSONA` を置き換える） | テンプレート              |
-| セクション       | 100       | `bot:principles`      | §2.2 Operating principles                                              | bot-core                  |
-| セクション       | 1000–3100 | 各ツール              | 今のまま                                                               | 各プラグイン              |
-| セクション       | 4000      | `bot:environment`     | §2.3 Your environment                                                  | bot-core                  |
-| セクション       | 4100      | `bot:session`         | §2.4 This session（セッションの種類ごとに文面を選ぶ）                  | bot-core                  |
-| セクション       | 4200      | `bot:messages`        | §2.5 Messages and channels（Main と Web セッションだけ）               | bot-core                  |
-| セクション       | 4300      | `bot:workspace-files` | §2.6 AGENTS.md and SOUL.md                                             | bot-core                  |
-| セクション       | 4400      | `bot:memory`          | Memory（`bot-notes.md` §8）                                            | bot-core                  |
-| セクション       | 4450      | `bot:conversations`   | Past conversations（`bot-session-search.md` §7。Main と Web だけ）     | bot-core                  |
-| コンテキスト     | 300       | `bot:status`          | §3 チャネルとコネクターの状態                                          | bot-core                  |
-| コンテキスト     | 310       | `bot:pinned-notes`    | ピン留めノート（`bot-notes.md` §6）                                    | bot-core（notes 行）      |
-| 最初のメッセージ | —         | agent-instructions    | workspace の AGENTS.md と SOUL.md の本文（§4）                         | DSH の agent-instructions |
+| 種類             | order     | 名前                   | 中身                                                                    | 持ち主                    |
+| ---------------- | --------- | ---------------------- | ----------------------------------------------------------------------- | ------------------------- |
+| セクション       | -1000     | harness identity       | `You are an AI agent powered by DeepSeek Harness.`（今のまま）          | DSH                       |
+| セクション       | 0         | persona prefix         | §2.1 Identity（default テンプレートの `DEFAULT_PERSONA` を置き換える）  | テンプレート              |
+| セクション       | 100       | `bot:principles`       | §2.2 Operating principles                                               | bot-core                  |
+| セクション       | 1000–3100 | 各ツール               | 今のまま                                                                | 各プラグイン              |
+| セクション       | 4000      | `bot:environment`      | §2.3 Your environment                                                   | bot-core                  |
+| セクション       | 4100      | `bot:session`          | §2.4 This session（セッションの種類ごとに文面を選ぶ）                   | bot-core                  |
+| セクション       | 4150      | `bot:managed-sessions` | Sessions you manage（`bot-managed-sessions.md`。Main だけ）             | bot-core                  |
+| セクション       | 4160      | `bot:peers`            | Peer bots（`bot-collab.md` §9.2。Main だけ。グループの有無で変えない）  | bot-core                  |
+| セクション       | 4200      | `bot:messages`         | §2.5 Messages and channels（Main と Web セッションだけ）                | bot-core                  |
+| セクション       | 4300      | `bot:workspace-files`  | §2.6 AGENTS.md and SOUL.md                                              | bot-core                  |
+| セクション       | 4400      | `bot:memory`           | Memory（`bot-notes.md` §8）                                             | bot-core                  |
+| セクション       | 4450      | `bot:conversations`    | Past conversations（`bot-session-search.md` §7。Main と Web だけ）      | bot-core                  |
+| コンテキスト     | 300       | `bot:status`           | §3 チャネルとコネクターの状態                                           | bot-core                  |
+| コンテキスト     | 310       | `bot:pinned-notes`     | ピン留めノート（`bot-notes.md` §6）                                     | bot-core（notes 行）      |
+| コンテキスト     | 320       | `bot:management`       | Main が管理するセッションの説明（`bot-managed-sessions.md`）            | bot-core                  |
+| コンテキスト     | 330       | `bot:logins`           | ログイン（`bot-vaults.md`）                                             | bot-core                  |
+| コンテキスト     | 340       | `bot:peer-group`       | 仲間の一覧（`bot-collab.md` §9.2。Main と Web、グループにいるときだけ） | bot-core                  |
+| 最初のメッセージ | —         | agent-instructions     | workspace の AGENTS.md と SOUL.md の本文（§4）                          | DSH の agent-instructions |
 
 bot-core の節は、今のプロンプト用の行 `env-bot-core-prompt`（`plugins/prompt.ts`、どのテンプレートでも必ず入る）に置く。テンプレートや overlay が担うのは、1 行目のペルソナとツールの構成だけ。
 
@@ -77,7 +82,7 @@ You are {{bot_name}}, an autonomous bot powered by the {{model}} model. You keep
 - Some connector actions wait for your owner's approval before they run; the tool result tells you when one does. Waiting for approval is not a failure: tell the user what is waiting, and do not retry it another way.
 ```
 
-仲間のボット（④）は docs/specs/bot-collab.md §9 で決めた（この節に 1 行足し、仲間の一覧はコンテキスト `bot:peer-group`、作法はセクション `bot:peers`）。
+仲間のボット（④）は docs/specs/bot-collab.md §9 で決めた（この節に 1 行足し、仲間の一覧はコンテキスト `bot:peer-group`、作法はセクション `bot:peers`）。足した 1 行（`- Your owner may also run other bots, …`）は機械の行の後にあり、サブエージェントと整理のセッション（`ENVIRONMENT_HELPER`）には入れない（実装は bot-collab.md §18）。
 
 ### 2.4 This session（セッションの種類で 1 つ選ぶ）
 
