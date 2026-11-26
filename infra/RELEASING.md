@@ -73,20 +73,21 @@ tag is released.
    DSH, `dsh plugin --profile <profile> add @1outres/dsh-bots@<version>`, pairing with that VM
    host and importing the image.
 
-## A version npm will not publish
+## A version npm is slow to serve
 
-npm sometimes accepts an upload and then never serves it: the publish waits until
-`--publish-wait-timeout` and fails, and a retry fails with `409 Cannot publish over previously
-staged version` although nothing was staged (npm/cli#9889; seen with 0.4.0's
-`dsh-bot-connector-desktop`). The failed run's summary lists what npm serves.
+npm can take more than ten minutes to serve a version after it accepted the upload
+(0.4.0's and 0.4.1's `dsh-bot-connector-desktop`, the largest package). The publish step waits
+up to 30 minutes for each package; past that it fails, and the run's summary lists what npm
+serves. Until npm serves it, a retry fails with `409 Cannot publish over previously staged
+version`.
 
-1. Look under **Staged Packages** on npmjs.com. If the version is listed, approve it and run the
-   failed jobs again.
-2. If it is not listed, that version can never be published. Release the next patch version
-   (every `version`, the bot-core peers and `DSH_BOTS_VERSION`), merge it and push its tag.
-   Packages are published one at a time in dependency order, so the bundle of the wedged version
-   was never published and no install picks it up; deprecate the versions it did publish
-   (`npm deprecate @1outres/<package>@<version> "use <next>"`).
+1. Wait, and check `npm view @1outres/<package>@<version> version` until it answers.
+2. Run the failed jobs again: packages on npm are skipped.
+3. Only if it is still not served after a few hours: look under **Staged Packages** on npmjs.com
+   (npm/cli#9889) and approve it if it is listed. If it is not, release the next patch version
+   and deprecate the versions the stuck release did publish (`npm deprecate @1outres/<package>@<version> "use <next>"`).
+   Packages are published one at a time in dependency order, so the bundle of a stuck release is
+   never published and no install picks it up.
 
 ## 1Password CLI
 

@@ -19,9 +19,9 @@ export function publishReport(states) {
   return {
     lines,
     advice: [
-      "Run the failed jobs again once the cause is fixed: packages on npm are skipped.",
-      `If the log shows npm accepted the upload of ${missing[0].name}@${missing[0].version} but it never became available, or the retry fails with 409 "Cannot publish over previously staged version", npm holds it as a staged version (npm/cli#9889).`,
-      'Look under Staged Packages on npmjs.com: approve it there if it is listed. If it is not, npm will never publish that version: release the next patch version (infra/RELEASING.md, "A version npm will not publish").',
+      "Packages on npm are skipped when the failed jobs run again.",
+      `If npm accepted the upload of ${missing[0].name}@${missing[0].version} and the wait timed out, npm may still be processing it (0.4.1's dsh-bot-connector-desktop took over 10 minutes): wait, check that it is on npm, then run the failed jobs again. A retry before then can fail with 409 "Cannot publish over previously staged version".`,
+      'If it is still not on npm after a few hours, look under Staged Packages on npmjs.com (npm/cli#9889): approve it if it is listed; if not, release the next patch version (infra/RELEASING.md, "A version npm is slow to serve").',
     ],
   }
 }
