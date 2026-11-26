@@ -20,6 +20,7 @@ export interface TurnInput {
 const SOURCE_PARTIES: ReadonlyMap<string, TurnParty> = new Map<string, TurnParty>([
   [NOTICE_SOURCES.event, "other"],
   [NOTICE_SOURCES.heartbeat, "other"],
+  [NOTICE_SOURCES.space, "other"],
   [NOTICE_SOURCES.peer, "peer"],
   [NOTICE_SOURCES["peer-session"], "peer"],
   [PEER_RELAY_SOURCE, "peer"],

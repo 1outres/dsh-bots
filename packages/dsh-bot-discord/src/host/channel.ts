@@ -10,7 +10,7 @@ import { createDiscordConnection } from "./connection"
 import type { OpenDiscordClient, OpenDiscordLookup } from "./discord"
 import type { FetchUrl } from "./download"
 import { DISCORD_FIELDS, DISCORD_SETTINGS_VERSION } from "./fields"
-import { gatewayModeOf, homeOf } from "./home"
+import { audienceOf, gatewayModeOf, homeOf } from "./home"
 import type { IncidentNoticeRecord } from "./incidents/domain"
 import { adoptIncidentNotices, openIncidentNotices } from "./incidents/records"
 import { createPresence, ownerNames } from "./people"
@@ -90,6 +90,7 @@ export function createDiscordChannel(deps: DiscordChannelDeps): BotChannel<typeo
     inspect: (request) => queries.inspect(request),
     formatHint:
       "Markdown renders, tables do not; wrap a link in <> to keep it from expanding into a preview.",
+    audience: audienceOf,
     connect(link) {
       const home = homeOf(link.settings)
       const presence = createPresence((state) => link.report(state))

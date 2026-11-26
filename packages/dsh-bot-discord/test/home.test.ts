@@ -9,7 +9,7 @@ import {
   type DiscordUserInfo,
 } from "../src/host/discord"
 import type { DiscordSettings } from "../src/host/fields"
-import { atHome, homeOf, homePlaceOf } from "../src/host/home"
+import { atHome, audienceOf, homeOf, homePlaceOf } from "../src/host/home"
 import { createPresence, ownerNames } from "../src/host/people"
 import { HOME_PERMISSIONS, has, PERMISSION, permissionsIn } from "../src/host/permissions"
 import { createDiscordSettingsQueries, inviteUrl } from "../src/host/settings/queries"
@@ -361,5 +361,13 @@ describe("owners' names", () => {
       { state: "connecting" },
       { state: "connected", account: "helper", people },
     ])
+  })
+})
+
+describe("the audience of a Discord home", () => {
+  it("is the owners in direct messages and shared in a server channel", () => {
+    expect(audienceOf({ home: "dm" })).toBe("owners")
+    expect(audienceOf({ home: "123456789012345678:223456789012345678" })).toBe("shared")
+    expect(() => audienceOf({ home: "somewhere" })).toThrow("no valid home")
   })
 })

@@ -1,4 +1,5 @@
 import type { BotView, PendingBotView } from "../shared/bots"
+import type { BotSpaceView } from "../shared/spaces"
 import type { BotFlags } from "./bot-flags"
 import { type SessionOverflow, type Windows, windowRows } from "./session-window"
 import type { SessionListState, SessionSummary, WorkspaceSnapshot } from "./types"
@@ -10,12 +11,27 @@ export const botKey = (botId: string) => `bot:${botId}`
 export const pendingKey = (botId: string) => `pending:${botId}`
 export const sessionKey = (sessionId: string) => `session:${sessionId}`
 export const overflowKey = (botId: string) => `overflow:${botId}`
+export const spacesKey = (botId: string) => `spaces:${botId}`
+export const spaceKey = (spaceId: string) => `space:${spaceId}`
 
 export interface SessionRow {
   readonly id: string
   readonly archived: boolean
   readonly selected: boolean
   readonly running: boolean
+}
+
+export interface SpaceTreeRow {
+  readonly space: BotSpaceView
+  readonly key: string
+  readonly selected: boolean
+}
+
+export interface SpacesNode {
+  readonly key: string
+  readonly expanded: boolean
+  readonly rows: readonly SpaceTreeRow[]
+  readonly childSelected: boolean
 }
 
 export interface BotNode {
@@ -29,6 +45,7 @@ export interface BotNode {
   readonly mainSelected: boolean
   readonly childSelected: boolean
   readonly running: boolean
+  readonly spaces: SpacesNode | undefined
 }
 
 export interface PendingNode {
@@ -50,21 +67,39 @@ export type TreeActivation =
       readonly overflow: SessionOverflow
       readonly window: number
     }
+  | { readonly kind: "spaces"; readonly botId: string; readonly expanded: boolean }
+  | { readonly kind: "space"; readonly spaceId: string }
   | { readonly kind: "none" }
 
-export interface TreeItem {
+export type TreeExpansion = "bot" | "spaces"
+
+interface TreeItemBase {
   readonly key: string
-  readonly level: 1 | 2
+  readonly level: 1 | 2 | 3
   readonly botId: string
   readonly activates: TreeActivation
-  readonly expanded?: boolean
   readonly parentKey?: string
 }
+
+export type TreeItem = TreeItemBase &
+  (
+    | { readonly expanded?: undefined; readonly expands?: undefined }
+    | { readonly expanded: boolean; readonly expands: TreeExpansion }
+  )
+
+export interface SpacesTreeView {
+  readonly byBot: Readonly<Record<string, readonly BotSpaceView[]>>
+  readonly expansion: BotFlags
+  readonly active: string | undefined
+}
+
+export const NO_SPACES: SpacesTreeView = { byBot: {}, expansion: {}, active: undefined }
 
 export interface TreeView {
   readonly expansion: BotFlags
   readonly archivedShown: BotFlags
   readonly windows: Windows
+  readonly spaces: SpacesTreeView
 }
 
 export function botSessionRows(
@@ -101,6 +136,23 @@ export function sessionLabel(
   return { kind: "untitled", ordinal }
 }
 
+function spacesNode(bot: BotView, view: SpacesTreeView): SpacesNode | undefined {
+  const spaces = view.byBot[bot.id] ?? []
+  if (spaces.length === 0) return undefined
+  const rows = spaces.map((space) => ({
+    space,
+    key: spaceKey(space.id),
+    selected: space.id === view.active,
+  }))
+  const childSelected = rows.some((row) => row.selected)
+  return {
+    key: spacesKey(bot.id),
+    expanded: view.expansion[bot.id] ?? childSelected,
+    rows,
+    childSelected,
+  }
+}
+
 export function deriveBotNodes(
   bots: readonly BotView[],
   list: SessionListState,
@@ -110,18 +162,23 @@ export function deriveBotNodes(
   return [...bots].reverse().map((bot): BotNode => {
     const rows = botSessionRows(bot, list, snapshot, view.archivedShown[bot.id] ?? false)
     const windowed = windowRows(rows, view.windows[bot.id])
-    const childSelected = rows.some((row) => row.selected)
+    const spaces = spacesNode(bot, view.spaces)
+    const sessionsShown = view.spaces.active === undefined
+    const childSelected = sessionsShown && rows.some((row) => row.selected)
     return {
       kind: "bot",
       bot,
       key: botKey(bot.id),
-      expanded: view.expansion[bot.id] ?? childSelected,
-      sessions: windowed.rows,
+      expanded: view.expansion[bot.id] ?? (childSelected || spaces?.childSelected === true),
+      sessions: sessionsShown
+        ? windowed.rows
+        : windowed.rows.map((row) => (row.selected ? { ...row, selected: false } : row)),
       overflow: windowed.overflow,
       window: windowed.limit,
-      mainSelected: isSelected(list, bot.mainSessionId),
+      mainSelected: sessionsShown && isSelected(list, bot.mainSessionId),
       childSelected,
       running: list.byId[bot.mainSessionId]?.running === true || rows.some((row) => row.running),
+      spaces,
     }
   })
 }
@@ -177,6 +234,30 @@ export function sessionActivation(row: SessionRow): TreeActivation {
     : { kind: "session", sessionId: row.id }
 }
 
+export function spaceChildren(botId: string, spaces: SpacesNode): TreeItem[] {
+  return spaces.rows.map((row) => ({
+    key: row.key,
+    level: 3,
+    botId,
+    activates: { kind: "space", spaceId: row.space.id },
+    parentKey: spaces.key,
+  }))
+}
+
+function spaceItems(botId: string, parentKey: string, spaces: SpacesNode | undefined): TreeItem[] {
+  if (spaces === undefined) return []
+  const row: TreeItem = {
+    key: spaces.key,
+    level: 2,
+    botId,
+    activates: { kind: "spaces", botId, expanded: spaces.expanded },
+    parentKey,
+    expanded: spaces.expanded,
+    expands: "spaces",
+  }
+  return spaces.expanded ? [row, ...spaceChildren(botId, spaces)] : [row]
+}
+
 export function botChildren(node: BotNode): TreeItem[] {
   const { bot, key } = node
   const child = (itemKey: string, activates: TreeActivation): TreeItem => ({
@@ -199,6 +280,7 @@ export function botChildren(node: BotNode): TreeItem[] {
             window: node.window,
           }),
         ]),
+    ...spaceItems(bot.id, key, node.spaces),
   ]
 }
 
@@ -221,6 +303,7 @@ export function flattenTree(nodes: readonly TreeNode[]): TreeItem[] {
       botId: bot.id,
       activates: { kind: "session", sessionId: bot.mainSessionId },
       expanded,
+      expands: "bot",
     }
     return expanded ? [row, ...botChildren(node)] : [row]
   })
@@ -231,6 +314,13 @@ export function selectedKey(nodes: readonly TreeNode[]): string | undefined {
     if (node.kind === "pending") {
       if (node.selected) return node.key
       continue
+    }
+    const spaces = node.spaces
+    if (spaces?.childSelected === true) {
+      if (!node.expanded) return node.key
+      if (!spaces.expanded) return spaces.key
+      const row = spaces.rows.find((space) => space.selected)
+      if (row !== undefined) return row.key
     }
     if (!node.mainSelected && !node.childSelected) continue
     if (!node.expanded) return node.key
@@ -277,12 +367,14 @@ export function treeKeyAction(
     case "End":
       return focus(items[items.length - 1])
     case "ArrowRight":
-      if (item.level === 2 || item.expanded === undefined) return undefined
+      if (item.expanded === undefined) return undefined
       if (!item.expanded) return { kind: "expand", item }
       return items[index + 1]?.parentKey === item.key ? focus(items[index + 1]) : undefined
     case "ArrowLeft":
-      if (item.level === 1) return item.expanded ? { kind: "collapse", item } : undefined
-      return focus(items.find((other) => other.key === item.parentKey))
+      if (item.expanded === true) return { kind: "collapse", item }
+      return item.parentKey === undefined
+        ? undefined
+        : focus(items.find((other) => other.key === item.parentKey))
     case "Enter":
     case " ":
       return { kind: "activate", item }

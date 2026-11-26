@@ -1,10 +1,21 @@
+import type { BotChannelAudience, BotChannelPublicValues } from "@1outres/dsh-bot-core"
 import { DM_HOME } from "./fields"
+import { ROOM_ID_PATTERN } from "./ids"
 import { isMatrixError, type MatrixApi } from "./matrix"
 import type { HomeRecords } from "./records/homes"
 
 export type MatrixHome =
   | { readonly kind: "dm"; readonly owner: string }
   | { readonly kind: "room"; readonly roomId: string }
+
+const ROOM_ID = new RegExp(`^${ROOM_ID_PATTERN}$`)
+
+export function audienceOf(values: BotChannelPublicValues): BotChannelAudience {
+  const { home } = values
+  if (home === DM_HOME) return "owners"
+  if (typeof home === "string" && ROOM_ID.test(home)) return "shared"
+  throw new Error("the Matrix settings have no valid home")
+}
 
 export function homeOf(settings: {
   readonly home: string

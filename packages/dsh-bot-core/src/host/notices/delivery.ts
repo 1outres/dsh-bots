@@ -11,6 +11,7 @@ export const NOTICE_SOURCES = {
   peer: "bot-peer",
   "peer-status": "bot-peer-status",
   "peer-session": "bot-peer-session",
+  space: "bot-space",
 } as const satisfies Record<NoticeTopic, string>
 
 export type NoticeSourceKind = (typeof NOTICE_SOURCES)[NoticeTopic]
@@ -29,6 +30,7 @@ export const NOTICE_DELIVERY = {
   peer: "next-turn",
   "peer-status": "next-turn",
   "peer-session": "next-turn",
+  space: "next-turn",
 } as const satisfies Record<NoticeTopic, NoticeTiming>
 
 export function handOffOf(
@@ -78,6 +80,7 @@ export interface NoticeDelivery {
   start(): void
   recorded(messageId: string): void
   withdraw(noticeId: string): Promise<NoticeWithdrawal>
+  withdrawWhere(matches: (entry: NoticeEntry) => boolean): Promise<readonly NoticeEntry[]>
   idle(sessionId: string): void
   mainChanged(botId: string): void
   dispose(): void
@@ -211,6 +214,25 @@ export function createNoticeDelivery(deps: NoticeDeliveryDeps): NoticeDelivery {
       })
   }
 
+  const withdraw = async (noticeId: string): Promise<NoticeWithdrawal> => {
+    const entry = deps.outbox.entry(noticeId)
+    if (entry === undefined) return "gone"
+    const state = states.get(entry.botId)
+    const handed = state?.handed.get(noticeId)
+    if (handed !== undefined) {
+      const agent = await deps.resolve(handed.sessionId)
+      if (deps.outbox.entry(noticeId) === undefined) return "gone"
+      if (agent.recorded(entry.messageId)) {
+        state?.handed.delete(noticeId)
+        await deps.outbox.delivered(noticeId)
+        return "recorded"
+      }
+      if (agent.queued(entry.messageId)) agent.unqueue(entry.messageId)
+      state?.handed.delete(noticeId)
+    }
+    return (await deps.outbox.withdraw(noticeId)) ? "withdrawn" : "gone"
+  }
+
   const offOutbox = deps.outbox.subscribe((botId) => kick(botId))
 
   return {
@@ -225,23 +247,15 @@ export function createNoticeDelivery(deps: NoticeDeliveryDeps): NoticeDelivery {
         deps.warn(`bot-core: could not mark notice "${entry.id}" delivered: ${messageOf(error)}`)
       })
     },
-    async withdraw(noticeId) {
-      const entry = deps.outbox.entry(noticeId)
-      if (entry === undefined) return "gone"
-      const state = states.get(entry.botId)
-      const handed = state?.handed.get(noticeId)
-      if (handed !== undefined) {
-        const agent = await deps.resolve(handed.sessionId)
-        if (deps.outbox.entry(noticeId) === undefined) return "gone"
-        if (agent.recorded(entry.messageId)) {
-          state?.handed.delete(noticeId)
-          await deps.outbox.delivered(noticeId)
-          return "recorded"
+    withdraw,
+    async withdrawWhere(matches) {
+      const withdrawn: NoticeEntry[] = []
+      for (const botId of deps.outbox.bots()) {
+        for (const entry of deps.outbox.pending(botId)) {
+          if (matches(entry) && (await withdraw(entry.id)) === "withdrawn") withdrawn.push(entry)
         }
-        if (agent.queued(entry.messageId)) agent.unqueue(entry.messageId)
-        state?.handed.delete(noticeId)
       }
-      return (await deps.outbox.withdraw(noticeId)) ? "withdrawn" : "gone"
+      return withdrawn
     },
     idle(sessionId) {
       for (const [botId, state] of states) {

@@ -54,6 +54,7 @@ function pickChannel(overrides: Partial<BotChannel> = {}) {
     id: "chat",
     name: "Chat",
     fields: PICK_FIELDS,
+    audience: () => "owners",
     owners: "owners",
     capabilities: CAPABILITIES,
     settingsVersion: 2,

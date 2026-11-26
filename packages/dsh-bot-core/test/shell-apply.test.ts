@@ -369,6 +369,7 @@ function fakeContext(options: FakeOptions = {}) {
           },
         })),
       },
+      botSpaces: {},
     },
     options.mountFailure,
   )
@@ -474,7 +475,11 @@ function fakeContext(options: FakeOptions = {}) {
       unarchiveSession: async () => {},
     },
     uiSession: { adapter: { current }, registerPendingInteraction },
-    layout: { toggleSidebar: layoutToggles },
+    layout: {
+      toggleSidebar: layoutToggles,
+      panelInfo: value({ activePanelId: null }),
+      selectPanel() {},
+    },
   } satisfies ClientContext
   const named = (name: string) =>
     registrations.filter((registration) => registration.options.name === name)
@@ -985,6 +990,7 @@ describe("client apply(): bot-core's Remote", () => {
         "botVaults",
         "botSenders",
         "botGroups",
+        "botSpaces",
       ]),
     )
 
@@ -1029,6 +1035,7 @@ describe("client apply(): bot-core's Remote", () => {
       "bot-core.logins",
       "bot-core.skills",
       "bot-core.setting-changes",
+      "bot-core.spaces",
     ])
     expect(face.flow.target.getSnapshot()).toBeNull()
 
@@ -1081,6 +1088,7 @@ describe("client apply(): bot-core's Remote", () => {
       "bot-core.connections",
       "bot-core.vaults",
       "bot-core.groups",
+      "bot-core.spaces",
     ])
     expect(global.flow.target.getSnapshot()).toBeNull()
 

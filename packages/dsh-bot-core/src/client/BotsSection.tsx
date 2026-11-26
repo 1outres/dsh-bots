@@ -8,6 +8,7 @@ import {
 } from "react"
 import { createPortal } from "react-dom"
 import type { BotsSnapshot } from "../shared/bots"
+import type { BotSpaceView } from "../shared/spaces"
 import { BotGroup } from "./BotGroup"
 import type { ActionProps } from "./face"
 import { useObservable } from "./hooks"
@@ -22,6 +23,8 @@ import {
   type Registrations,
   type RegistrationTarget,
 } from "./slot-registration"
+import { spacesViewOf } from "./spaces/feed"
+import { activeSpaceId, findSpace, spacesByBot } from "./spaces/model"
 import {
   deriveTreeNodes,
   flattenTree,
@@ -188,6 +191,8 @@ function RegistrationNotice(props: {
   )
 }
 
+const NO_SPACE_VIEWS: readonly BotSpaceView[] = []
+
 function BotsTree(props: ActionProps & { snapshot: BotsSnapshot }) {
   const { snapshot: bots, ...face } = props
   const { t, setExpanded, windows } = face
@@ -197,6 +202,10 @@ function BotsTree(props: ActionProps & { snapshot: BotsSnapshot }) {
   const archivedShown = useObservable(props.archivedView)
   const windowed = useObservable(windows)
   const progress = useObservable(props.progress)
+  const spacesState = useObservable(face.spaces.feed)
+  const spacesExpansion = useObservable(face.spaces.spacesExpansion)
+  const panel = useObservable(face.spaces.panel)
+  const spaceList = spacesViewOf(spacesState)?.spaces ?? NO_SPACE_VIEWS
   const [focused, setFocused] = useState<string | undefined>(undefined)
   const treeRef = useRef<HTMLDivElement>(null)
 
@@ -205,7 +214,16 @@ function BotsTree(props: ActionProps & { snapshot: BotsSnapshot }) {
     bots.pending,
     list,
     snapshot,
-    { expansion, archivedShown, windows: windowed },
+    {
+      expansion,
+      archivedShown,
+      windows: windowed,
+      spaces: {
+        byBot: spacesByBot(spaceList),
+        expansion: spacesExpansion,
+        active: activeSpaceId(panel.activePanelId, spaceList),
+      },
+    },
     progress,
   )
   useEffect(() => {
@@ -228,6 +246,14 @@ function BotsTree(props: ActionProps & { snapshot: BotsSnapshot }) {
       case "overflow":
         windows.toggle(target.botId, target.overflow, target.window)
         break
+      case "spaces":
+        face.spaces.spacesExpansion.set(target.botId, !target.expanded)
+        break
+      case "space": {
+        const space = findSpace(spaceList, target.spaceId)
+        if (space !== undefined) face.spaces.openSpace(space)
+        break
+      }
       case "none":
         break
     }
@@ -253,7 +279,11 @@ function BotsTree(props: ActionProps & { snapshot: BotsSnapshot }) {
         break
       case "expand":
       case "collapse":
-        setExpanded(action.item.botId, action.kind === "expand")
+        if (action.item.expands === "spaces") {
+          face.spaces.spacesExpansion.set(action.item.botId, action.kind === "expand")
+        } else {
+          setExpanded(action.item.botId, action.kind === "expand")
+        }
         break
       case "activate":
         activate(action.item.activates)

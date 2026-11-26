@@ -29,6 +29,12 @@ function fakeBackend(): FakeBackend {
   return {
     calls,
     registry: { list: () => [] },
+    spaces: {
+      list: () => [],
+      subscribe: () => () => {},
+      available: () => false,
+      call: async () => ({ text: "" }),
+    },
     describePrompt: (botId, token, agentId) => {
       calls.push(`describe ${botId} ${token} ${agentId}`)
       throw new Error("not a bot Agent")
@@ -270,6 +276,7 @@ function channel(id: string): BotChannel<typeof fields> {
     id,
     name: "Example",
     fields,
+    audience: () => "owners",
     capabilities: { turns: false, interactions: [], commands: [] },
     connect: () => ({ receive: async () => {}, close: async () => {} }),
   }

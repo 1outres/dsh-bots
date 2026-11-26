@@ -18,6 +18,7 @@ import { SCHEDULES_DOMAIN } from "../src/host/schedule/domain"
 import { SENDERS_DOMAIN } from "../src/host/senders/domain"
 import { SETTINGS_DOMAIN } from "../src/host/settings/domain"
 import { SKILLS_DOMAIN } from "../src/host/skills/domain"
+import { SPACES_DOMAIN } from "../src/host/spaces/domain"
 import { VAULTS_DOMAIN } from "../src/host/vaults/domain"
 import { WEB_DOMAIN } from "../src/host/web/domain"
 
@@ -115,6 +116,12 @@ const DOMAINS = [
     source: "src/host/vaults/domain.ts",
     domain: VAULTS_DOMAIN,
     file: "vaults-domain",
+  },
+  {
+    label: "SPACES_DOMAIN",
+    source: "src/host/spaces/domain.ts",
+    domain: SPACES_DOMAIN,
+    file: "spaces-domain",
   },
   {
     label: "SKILLS_DOMAIN",

@@ -1,0 +1,10 @@
+or {
+  JsStringLiteralExpression() as $match where { $match <: r"(?s).*(?:Content-Security-Policy|Access-Control-Allow-).*" },
+  JsTemplateExpression() as $match where { $match <: r"(?s).*(?:Content-Security-Policy|Access-Control-Allow-).*" },
+  JsLiteralMemberName() as $match where { $match <: r"(?s).*(?:Content-Security-Policy|Access-Control-Allow-).*" }
+} where {
+  register_diagnostic(
+    span = $match,
+    message = "Design rule 87: do not write isolation or CORS headers here; build them in host/spaces/headers.ts, the one place that decides how a Space is isolated."
+  )
+}

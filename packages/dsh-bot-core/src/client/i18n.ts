@@ -2,6 +2,7 @@ import { CONNECTIONS_EN, CONNECTIONS_JA } from "./i18n-connections"
 import { GROUPS_EN, GROUPS_JA } from "./i18n-groups"
 import { ONBOARDING_EN, ONBOARDING_JA } from "./i18n-onboarding"
 import { SENDERS_EN, SENDERS_JA } from "./i18n-senders"
+import { SPACES_EN, SPACES_JA } from "./i18n-spaces"
 import { VAULTS_EN, VAULTS_JA } from "./i18n-vaults"
 import { VM_HOST_EN, VM_HOST_JA } from "./i18n-vm-host"
 
@@ -751,6 +752,7 @@ const EN = {
   ...VAULTS_EN,
   ...VM_HOST_EN,
   ...GROUPS_EN,
+  ...SPACES_EN,
 } as const satisfies Record<string, string>
 
 export type MessageKey = keyof typeof EN
@@ -1507,6 +1509,7 @@ const JA: { readonly [Key in MessageKey]: string } = {
   ...VAULTS_JA,
   ...VM_HOST_JA,
   ...GROUPS_JA,
+  ...SPACES_JA,
 }
 
 export const en: Readonly<Record<string, string>> = EN

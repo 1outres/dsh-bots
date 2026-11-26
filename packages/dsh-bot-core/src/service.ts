@@ -36,6 +36,7 @@ import {
   CALL_SESSION_TOOL,
   CALL_SETTINGS_TOOL,
   CALL_SKILL_TOOL,
+  CALL_SPACE_TOOL,
   type CallConnectorTool,
   type CallConversationTool,
   type CallNoteTool,
@@ -44,6 +45,7 @@ import {
   type CallSessionTool,
   type CallSettingsTool,
   type CallSkillTool,
+  type CallSpaceTool,
   type ChannelSilenceRequest,
   type ChannelSilenceResult,
   CONNECTOR_TOOL_AVAILABLE,
@@ -97,6 +99,9 @@ import {
   SKILL_TOOL_AVAILABLE,
   type SkillToolAvailable,
   type SkillToolRequest,
+  SPACE_TOOLS_AVAILABLE,
+  type SpaceToolCall,
+  type SpaceToolsAvailable,
   STAY_CHANNEL_SILENT,
   type StayChannelSilent,
   WATCH_CONNECTOR_TOOLS,
@@ -129,6 +134,7 @@ import type {
   BotModelsView,
 } from "./shared/models"
 import type { BotPresetPreview, BotPresetState, BotTemplate } from "./shared/preset"
+import type { SpaceRecord } from "./shared/spaces"
 import type { BotWebStatus } from "./shared/web"
 import { VAULT_KIT } from "./vault-bytes"
 import type { BotVaultProvider, VaultKit } from "./vault-contract"
@@ -165,6 +171,14 @@ export interface BotBackend {
   readonly conversations: BotConversationsBackend
   readonly vaults: BotVaultsBackend
   readonly settings: BotSettingsBackend
+  readonly spaces: BotSpacesBackend
+}
+
+export interface BotSpacesBackend {
+  list(botId: string): readonly SpaceRecord[]
+  subscribe(listener: (botId: string) => void): () => void
+  readonly available: SpaceToolsAvailable
+  readonly call: CallSpaceTool
 }
 
 export interface BotSettingsBackend {
@@ -609,6 +623,22 @@ export class BotService extends Service implements Bot {
     signal: AbortSignal,
   ) {
     return this[BACKEND].settings.call(botId, token, request, signal)
+  }
+
+  spaces(botId: string): readonly SpaceRecord[] {
+    return this[BACKEND].spaces.list(botId)
+  }
+
+  onSpacesChange(listener: (botId: string) => void): () => void {
+    return this[BACKEND].spaces.subscribe(listener)
+  }
+
+  [SPACE_TOOLS_AVAILABLE](botId: string, token: string, agentId: string) {
+    return this[BACKEND].spaces.available(botId, token, agentId)
+  }
+
+  [CALL_SPACE_TOOL](botId: string, token: string, request: SpaceToolCall, signal: AbortSignal) {
+    return this[BACKEND].spaces.call(botId, token, request, signal)
   }
 
   environment(): BotEnvironmentInfo | undefined {

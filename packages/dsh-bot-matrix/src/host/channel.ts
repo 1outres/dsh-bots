@@ -2,6 +2,7 @@ import type { BotChannel, BotChannelCapabilities } from "@1outres/dsh-bot-core"
 import { createAccountCleaner } from "./accounts"
 import { createMatrixBridge } from "./bridge"
 import { MATRIX_FIELDS } from "./fields"
+import { audienceOf } from "./home"
 import type { OpenMatrixApi } from "./matrix"
 import type { Scheduler } from "./ports"
 import { openAccountRecords } from "./records/accounts"
@@ -72,6 +73,7 @@ export function createMatrixChannel(
     initialSettings: (request) => queries.initialSettings(request),
     accounts: { reconcile: (request) => cleaner.reconcile(request) },
     formatHint: "Markdown renders, tables included; no raw HTML.",
+    audience: audienceOf,
     connect: (link) =>
       createMatrixBridge({
         link,

@@ -2,9 +2,14 @@ import type { ComponentType } from "react"
 import {
   IconArchive,
   IconArchiveOff,
+  IconExternal,
+  IconGlobe,
+  IconLink,
   IconManaged,
   IconManagedOff,
   IconNewChat,
+  IconPin,
+  IconPinOff,
   IconRefresh,
   IconSettings,
   IconTrash,
@@ -26,6 +31,12 @@ export const MENU_ICON = {
   release: "bot-core.release",
   answerOwner: "bot-core.answer-owner",
   answerMain: "bot-core.answer-main",
+  pin: "bot-core.pin",
+  unpin: "bot-core.unpin",
+  openTab: "bot-core.open-tab",
+  link: "bot-core.link",
+  makePublic: "bot-core.make-public",
+  makePrivate: "bot-core.make-private",
 } as const
 
 const GLYPHS: {
@@ -43,6 +54,12 @@ const GLYPHS: {
   "bot-core.release": IconManagedOff,
   "bot-core.answer-owner": IconUser,
   "bot-core.answer-main": IconManaged,
+  "bot-core.pin": IconPin,
+  "bot-core.unpin": IconPinOff,
+  "bot-core.open-tab": IconExternal,
+  "bot-core.link": IconLink,
+  "bot-core.make-public": IconGlobe,
+  "bot-core.make-private": IconUser,
 }
 
 export function registerMenuIcons(ctx: ClientContext): void {

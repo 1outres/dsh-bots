@@ -159,6 +159,7 @@ export function recordingChannel(
     fields: FIELDS,
     ...(owners === undefined ? {} : { owners }),
     capabilities,
+    audience: () => "owners",
     connect(link): BotChannelConnection {
       links.push(link as BotChannelLink)
       return {

@@ -513,3 +513,26 @@ export type ListCredentials = (
   agentId: string,
   signal: AbortSignal,
 ) => Promise<{ readonly text: string; readonly data: unknown }>
+
+export const SPACE_TOOLS_AVAILABLE: unique symbol = Symbol.for(
+  "@1outres/dsh-bot-core#spaceToolsAvailable",
+) as never
+
+export type SpaceToolsAvailable = (botId: string, token: string, agentId: string) => boolean
+
+export const CALL_SPACE_TOOL: unique symbol = Symbol.for(
+  "@1outres/dsh-bot-core#callSpaceTool",
+) as never
+
+export interface SpaceToolCall {
+  readonly agentId: string
+  readonly tool: string
+  readonly args: unknown
+}
+
+export type CallSpaceTool = (
+  botId: string,
+  token: string,
+  request: SpaceToolCall,
+  signal: AbortSignal,
+) => Promise<{ readonly text: string }>

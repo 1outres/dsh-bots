@@ -1,0 +1,7 @@
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or { `mintSpaceToken`, `$_.mintSpaceToken`, `$_?.mintSpaceToken` },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 86: do not mint a Space token here; issue it through host/spaces/access.ts, which stores only its hash with its kind and expiry."
+  )
+}

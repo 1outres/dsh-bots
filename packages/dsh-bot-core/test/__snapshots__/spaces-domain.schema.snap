@@ -1,0 +1,116 @@
+{
+  "name": "dsh_bot_spaces",
+  "version": 1,
+  "tables": {
+    "spaces": {
+      "botId": {
+        "required": true,
+        "type": "string"
+      },
+      "slug": {
+        "required": true,
+        "type": "string"
+      },
+      "title": {
+        "required": true,
+        "type": "string"
+      },
+      "description": {
+        "required": true,
+        "type": "string"
+      },
+      "pinned": {
+        "required": true,
+        "type": "boolean"
+      },
+      "visibility": {
+        "required": true,
+        "type": "\"owner\" | \"public\""
+      },
+      "visitorWrites": {
+        "required": true,
+        "type": "boolean"
+      },
+      "source": {
+        "required": true,
+        "type": "{ kind: \"snapshot\"; revision: number | null }"
+      },
+      "createdAt": {
+        "required": true,
+        "type": "number"
+      },
+      "updatedAt": {
+        "required": true,
+        "type": "number"
+      }
+    },
+    "revisions": {
+      "number": {
+        "required": true,
+        "type": "number"
+      },
+      "publishedAt": {
+        "required": true,
+        "type": "number"
+      },
+      "files": {
+        "required": true,
+        "type": "{ [key: string]: { blob: string; bytes: number; type: string } }"
+      }
+    },
+    "access": {
+      "spaceId": {
+        "required": true,
+        "type": "string"
+      },
+      "kind": {
+        "required": true,
+        "type": "\"link\" | \"public\""
+      },
+      "label": {
+        "required": true,
+        "type": "string"
+      },
+      "reason": {
+        "required": true,
+        "type": "string | null"
+      },
+      "issuedBy": {
+        "required": true,
+        "type": "\"owner\" | \"bot\""
+      },
+      "createdAt": {
+        "required": true,
+        "type": "number"
+      },
+      "expiresAt": {
+        "required": true,
+        "type": "number | null"
+      },
+      "revokedAt": {
+        "required": true,
+        "type": "number | null"
+      },
+      "token": {
+        "required": true,
+        "type": "string | null"
+      }
+    },
+    "kv": {
+      "value": {
+        "required": true,
+        "type": "null | boolean | number | string | json[] | { [key: string]: json }"
+      },
+      "updatedAt": {
+        "required": true,
+        "type": "number"
+      }
+    },
+    "settings": {
+      "publicBaseUrl": {
+        "required": true,
+        "type": "string | null"
+      }
+    }
+  }
+}

@@ -1,0 +1,14 @@
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or { `$receiver.put`, `$receiver.delete`, `$receiver?.put`, `$receiver?.delete` },
+  $receiver <: or {
+    `spaces`, `$_.spaces`, `$_?.spaces`,
+    `revisions`, `$_.revisions`, `$_?.revisions`,
+    `access`, `$_.access`, `$_?.access`,
+    `kv`, `$_.kv`, `$_?.kv`,
+    `spaceSettings`, `$_.spaceSettings`, `$_?.spaceSettings`
+  },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 85: do not write the Spaces tables here; go through the space store (host/spaces/store.ts), which serializes writes and removes a Space with its revisions, tokens and store together."
+  )
+}

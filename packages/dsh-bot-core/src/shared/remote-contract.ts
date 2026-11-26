@@ -16,6 +16,7 @@ import type { BotGroupsApi } from "./peers"
 import type { BotSendersApi } from "./senders"
 import type { BotSettingsApi } from "./settings"
 import type { BotSkillsApi } from "./skills"
+import type { BotSpacesApi } from "./spaces"
 import type { BotVaultsApi } from "./vaults"
 import type { BotWebApi } from "./web"
 import type { BotWorkspacesApi } from "./workspaces"
@@ -48,6 +49,7 @@ export interface BotCoreApi {
   readonly botVaults: BotVaultsApi
   readonly botSenders: BotSendersApi
   readonly botGroups: BotGroupsApi
+  readonly botSpaces: BotSpacesApi
 }
 
 export type RemoteNamespace = keyof BotCoreApi
@@ -76,6 +78,7 @@ export const REMOTE_NAMESPACES = [
   "botVaults",
   "botSenders",
   "botGroups",
+  "botSpaces",
 ] as const satisfies readonly RemoteNamespace[]
 
 export const REMOTE_CONTRACT_CODES = [
@@ -314,6 +317,17 @@ export const REMOTE_METHODS: {
     leave: { parameters: [{ name: "botId" }] },
     setRole: { parameters: [{ name: "botId" }, { name: "role" }] },
     setPaused: { parameters: [{ name: "groupId" }, { name: "paused" }] },
+  },
+  botSpaces: {
+    watch: { parameters: [], stream: true, cancellable: true },
+    frame: { parameters: [{ name: "spaceId" }] },
+    setPinned: { parameters: [{ name: "spaceId" }, { name: "pinned" }] },
+    setVisibility: { parameters: [{ name: "spaceId" }, { name: "visibility" }] },
+    setVisitorWrites: { parameters: [{ name: "spaceId" }, { name: "allowed" }] },
+    createLink: { parameters: [{ name: "spaceId" }, { name: "request" }] },
+    revokeLink: { parameters: [{ name: "spaceId" }, { name: "linkId" }] },
+    discard: { parameters: [{ name: "spaceId" }] },
+    setPublicBaseUrl: { parameters: [{ name: "url" }] },
   },
 }
 

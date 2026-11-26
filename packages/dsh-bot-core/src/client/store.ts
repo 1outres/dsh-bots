@@ -47,6 +47,7 @@ export async function mountBotCoreRemote(ctx: ClientContext): Promise<RemoteMoun
       botVaults: faceOf(ctx, "botVaults"),
       botSenders: faceOf(ctx, "botSenders"),
       botGroups: faceOf(ctx, "botGroups"),
+      botSpaces: faceOf(ctx, "botSpaces"),
     }
     return { status: "mounted", remote }
   } catch (error) {

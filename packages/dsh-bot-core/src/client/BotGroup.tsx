@@ -7,6 +7,7 @@ import { IconEllipsis, IconNewChat, IconStar, IconTriangleRight } from "./icons"
 import { localeFormat } from "./locale-format"
 import { rowMenuOpener } from "./menu"
 import { RowError } from "./RowError"
+import { BotSpacesRows } from "./spaces/SpaceTreeRows"
 import { type BotNode, sessionKey } from "./tree"
 
 interface GroupProps extends ActionProps {
@@ -21,7 +22,9 @@ const rowRect = (element: Element) => element.getBoundingClientRect()
 export function BotGroup({ node, tabKey, index, count, ...props }: GroupProps) {
   const { t, status, openSession, newSession, clearError, setExpanded, windows } = props
   const { bot, key, expanded, sessions, overflow, mainSelected, childSelected, running } = node
-  const size = 1 + sessions.length + (overflow === undefined ? 0 : 1)
+  const spaces = node.spaces
+  const listed = 1 + sessions.length + (overflow === undefined ? 0 : 1)
+  const size = listed + (spaces === undefined ? 0 : 1)
   const botStatus = useObservable(status)[bot.id]
   const waiting = useObservable(props.waiting)[bot.id]
   const incidents = useObservable(props.incidents)[bot.id]
@@ -33,7 +36,8 @@ export function BotGroup({ node, tabKey, index, count, ...props }: GroupProps) {
   const menuOpen = useObservable(props.menuBot) === bot.id
   const opener = rowMenuOpener(bot.id)
   const buttonExpanded = useObservable(props.menuOpener) === opener
-  const rowSelected = !expanded && (mainSelected || childSelected)
+  const rowSelected =
+    !expanded && (mainSelected || childSelected || node.spaces?.childSelected === true)
 
   const openMenuFromKeyboard = (event: KeyboardEvent<HTMLElement>) => {
     if (event.target !== event.currentTarget || event.repeat) return
@@ -183,6 +187,15 @@ export function BotGroup({ node, tabKey, index, count, ...props }: GroupProps) {
               botId={bot.id}
               overflow={overflow}
               onToggle={() => windows.toggle(bot.id, overflow, node.window)}
+              place={{ position: listed, size, tabKey }}
+            />
+          )}
+          {spaces !== undefined && (
+            <BotSpacesRows
+              t={t}
+              botId={bot.id}
+              node={spaces}
+              spaces={props.spaces}
               place={{ position: size, size, tabKey }}
             />
           )}

@@ -17,6 +17,7 @@ import type { SessionArchive } from "../session-archive"
 import type { SessionMenuOpener } from "../session-menu"
 import { createSessionWindows, type SessionWindows } from "../session-window"
 import type { Registrations } from "../slot-registration"
+import type { SpacesFace } from "../spaces/face"
 import { createStatusStore, type StatusStore } from "../status"
 import type { BotsStore } from "../store"
 import type { ClientContext, RemoteResult } from "../types"
@@ -154,6 +155,7 @@ export interface BotsFaceSources {
   readonly incidents: BotsFace["incidents"]
   readonly deletion: Pick<BotDeletion, "ask">
   readonly managed: ManagedSessionsStore
+  readonly spaces: SpacesFace
 }
 
 export function createBotsFace(ctx: ClientContext, sources: BotsFaceSources): BotsFace {
@@ -196,6 +198,7 @@ export function createBotsFace(ctx: ClientContext, sources: BotsFaceSources): Bo
     openBotMenu: menu.openBotMenu,
     menuSession: sessionMenu.menuSession,
     openSessionMenu: sessionMenu.openSessionMenu,
+    spaces: sources.spaces,
   }
 }
 

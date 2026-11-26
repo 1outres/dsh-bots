@@ -23,6 +23,7 @@ describe("where an input comes from", () => {
     expect(inputPartyOf(input("user", "hi", { principal: { kind: "peer" } }))).toBe("other")
     expect(inputPartyOf(input("bot-connector-event"))).toBe("other")
     expect(inputPartyOf(input("bot-heartbeat"))).toBe("other")
+    expect(inputPartyOf(input("bot-space"))).toBe("other")
     for (const kind of ["bot-peer", "bot-peer-session", "bot-peer-relay"]) {
       expect(inputPartyOf(input(kind))).toBe("peer")
     }

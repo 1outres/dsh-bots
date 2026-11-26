@@ -39,6 +39,7 @@ import type {
 } from "../shared/senders"
 import type { BotSettingsApi, BotSettingsHistoryView } from "../shared/settings"
 import type { BotSkillsApi, BotSkillsView } from "../shared/skills"
+import type { BotSpacesApi, BotSpacesView } from "../shared/spaces"
 import type { BotVaultsApi, BotVaultsSnapshot, BotVaultView } from "../shared/vaults"
 import type { BotWebApi, BotWebView } from "../shared/web"
 import type { BotWorkspacesApi, BotWorkspacesSnapshot } from "../shared/workspaces"
@@ -162,6 +163,10 @@ export interface BotGroupsRemote extends Remoted<Omit<BotGroupsApi, "watch">> {
   watch(): StreamHandle<BotGroupsSnapshot>
 }
 
+export interface BotSpacesRemote extends Remoted<Omit<BotSpacesApi, "watch">> {
+  watch(): StreamHandle<BotSpacesView>
+}
+
 export interface BotCoreRemote {
   readonly bots: BotsRemote
   readonly botFiles: BotFilesRemote
@@ -186,6 +191,7 @@ export interface BotCoreRemote {
   readonly botVaults: BotVaultsRemote
   readonly botSenders: BotSendersRemote
   readonly botGroups: BotGroupsRemote
+  readonly botSpaces: BotSpacesRemote
 }
 
 export type RemoteMount =

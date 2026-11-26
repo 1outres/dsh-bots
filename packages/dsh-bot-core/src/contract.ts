@@ -35,6 +35,7 @@ import type {
   BotTemplate,
   PluginRow,
 } from "./shared/preset"
+import type { SpaceRecord } from "./shared/spaces"
 import type {
   HostKeyScan,
   SetupBrief,
@@ -54,6 +55,7 @@ export * from "./connector-contract"
 export type * from "./connector-panel-contract"
 export type * from "./mains-contract"
 export type * from "./settings-contract"
+export type * from "./spaces-contract"
 export * from "./vault-bytes"
 export * from "./vault-contract"
 export type * from "./web-contract"
@@ -195,6 +197,9 @@ export interface Bot {
 
   registerSettingsArea(area: BotSettingsArea): () => void
   settingsAreas(): readonly BotSettingsArea[]
+
+  spaces(botId: string): readonly SpaceRecord[]
+  onSpacesChange(listener: (botId: string) => void): () => void
 }
 
 export function watchBotPresets(ctx: Context, listener: (botId: string) => void): void {

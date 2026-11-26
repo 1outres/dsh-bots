@@ -5,6 +5,7 @@ import {
   deriveBotNodes,
   deriveTreeNodes,
   flattenTree,
+  NO_SPACES,
   rovingKey,
   selectedKey,
   sessionLabel,
@@ -49,6 +50,7 @@ const view = (overrides: Partial<TreeView> = {}): TreeView => ({
   expansion: {},
   archivedShown: {},
   windows: {},
+  spaces: NO_SPACES,
   ...overrides,
 })
 
@@ -294,6 +296,7 @@ describe("rovingKey", () => {
       botId: "a",
       activates: { kind: "session", sessionId: "m-a" },
       expanded: false,
+      expands: "bot",
     },
     {
       key: "bot:b",
@@ -301,6 +304,7 @@ describe("rovingKey", () => {
       botId: "b",
       activates: { kind: "session", sessionId: "m-b" },
       expanded: false,
+      expands: "bot",
     },
   ]
   it("prefers the focused row, then the selected row, then the first row", () => {
@@ -318,6 +322,7 @@ describe("treeKeyAction", () => {
     botId: "a",
     activates: { kind: "session", sessionId: "m-a" },
     expanded: true,
+    expands: "bot",
   }
   const main: TreeItem = {
     key: "session:m-a",
@@ -346,6 +351,7 @@ describe("treeKeyAction", () => {
     botId: "b",
     activates: { kind: "session", sessionId: "m-b" },
     expanded: false,
+    expands: "bot",
   }
   const items = [a, main, a1, more, b]
 

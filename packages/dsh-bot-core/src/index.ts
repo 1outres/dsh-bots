@@ -1,4 +1,9 @@
 import { createHash, createHmac, hkdfSync, randomBytes, randomUUID, scrypt } from "node:crypto"
+import { createReadStream } from "node:fs"
+import { mkdir, readdir, rename, rm, writeFile } from "node:fs/promises"
+import type { IncomingMessage, ServerResponse } from "node:http"
+import { join } from "node:path"
+import { Readable } from "node:stream"
 import type { Context } from "@deepseek-ai/cordis"
 import { installModelSelection } from "@deepseek-ai/dsh-agent"
 import { createUserMessage, type UserMessage } from "@deepseek-ai/dsh-llm"
@@ -6,6 +11,7 @@ import { setSandboxMode } from "@deepseek-ai/dsh-sandbox-policy"
 import { setApprovalPolicy } from "@deepseek-ai/dsh-user-approval"
 import z from "@deepseek-ai/schemastery"
 import manifest from "../package.json"
+import type { BotChannelAudience } from "./channel-contract"
 import type { BotPresetChange } from "./contract"
 import { createAccountReconciler } from "./host/channels/accounts"
 import { createChannelCatalog } from "./host/channels/catalog"
@@ -145,6 +151,7 @@ import type {
   DshQuestionAnswer,
   DshQuestionRequest,
 } from "./host/interactions/dsh"
+import { createOwnerApprovals } from "./host/interactions/owner-approval"
 import { createInteractionPanel } from "./host/interactions/panel"
 import { createBotLifecycle } from "./host/lifecycle"
 import { createMainGuard, greetingText, waitForEnvironment } from "./host/main"
@@ -196,7 +203,7 @@ import { createNotesPanel } from "./host/notes/panel"
 import { createNoteTools } from "./host/notes/tools"
 import { createNoticeDelivery, type NoticeAgent, type NoticeMessage } from "./host/notices/delivery"
 import { NOTICES_DOMAIN, type NoticeRecord } from "./host/notices/domain"
-import { createNoticeOutbox, type NoticeOrigin } from "./host/notices/outbox"
+import { createNoticeOutbox, type PeerNoticeOrigin } from "./host/notices/outbox"
 import { createWelcomeChannels } from "./host/onboarding/channels"
 import { ONBOARDING_DOMAIN, type OnboardingRecord } from "./host/onboarding/domain"
 import { followWelcomeBot } from "./host/onboarding/follow"
@@ -254,6 +261,7 @@ import {
   BotSendersRemoteService,
   BotSettingsRemoteService,
   BotSkillsRemoteService,
+  BotSpacesRemoteService,
   BotsRemoteService,
   BotVaultsRemoteService,
   BotWebRemoteService,
@@ -328,6 +336,19 @@ import {
 } from "./host/skills/review-run"
 import { createSkillStore } from "./host/skills/store"
 import { CURATION_REFUSAL, REVIEW_REFUSAL } from "./host/skills/texts"
+import { createSpaceAvatars } from "./host/spaces/avatar"
+import { SPACES_DOMAIN } from "./host/spaces/domain"
+import type { SpaceWorkspaceFs } from "./host/spaces/manage"
+import { spaceRequestOf, writeSpaceResponse } from "./host/spaces/node-http"
+import { type BotSpaces, openBotSpaces } from "./host/spaces/system"
+import {
+  ALLOW_WRITES_LABEL,
+  LINK_LABEL,
+  PUBLISH_LABEL,
+  SPACE_TOOL_NAMES,
+  type SpaceToolName,
+} from "./host/spaces/texts"
+import { WRAPPER_SCRIPT } from "./host/spaces/wrapper"
 import type { TranscriptMessage } from "./host/spoken-messages"
 import { createTurnParties, peerDerived } from "./host/turns/parties"
 import { createVaultAccess } from "./host/vaults/access"
@@ -373,6 +394,14 @@ import type { BotModelSelection } from "./shared/models"
 import type { ApprovalPolicy, SandboxMode } from "./shared/permission"
 import { type BotOverlay, type BotPresetState, botPresetId } from "./shared/preset"
 import { type BotSettingChangeRecord, SETTING_CHANGES_KEPT } from "./shared/settings"
+import type {
+  SpaceAccessRecord,
+  SpaceKvRecord,
+  SpaceRecord,
+  SpaceRevision,
+  SpaceSettingsRecord,
+} from "./shared/spaces"
+import { parseSpaceId, SPACE_ROUTE } from "./shared/spaces"
 import type { BotWebSettings } from "./shared/web"
 import type { DshWorkspace } from "./shared/workspaces"
 
@@ -423,6 +452,8 @@ export type * from "./shared/preset"
 export { BOT_PRESET_PREFIX, botPresetId, DEFAULT_TEMPLATE_ID } from "./shared/preset"
 export type * from "./shared/prompt"
 export { BOT_PROMPT_EXCLUSIONS } from "./shared/prompt"
+export type * from "./shared/spaces"
+export { parsePublicBaseUrl, SPACE_LIMITS } from "./shared/spaces"
 export type * from "./shared/vm-host-setup"
 export {
   HOST_SETUP_FAILURE_CODES,
@@ -466,6 +497,7 @@ declare module "@deepseek-ai/dsh-llm" {
     "bot-file": { kind: "bot-file"; form: "notice"; summary: string }
     "bot-session": { kind: "bot-session"; form: "notice"; summary: string }
     "bot-heartbeat": { kind: "bot-heartbeat"; form: "notice"; summary: string }
+    "bot-space": { kind: "bot-space"; form: "notice"; summary: string }
     "bot-main-relay": { kind: "bot-main-relay"; form: "relay" }
     "bot-peer": {
       kind: "bot-peer"
@@ -785,12 +817,37 @@ interface EventsDomain {
 
 interface WebServerServices {
   webServer: {
-    register(route: {
-      readonly kind: "exact"
-      readonly path: string
-      resource(request: Request): Promise<Response>
-    }): () => void
+    register(
+      route:
+        | {
+            readonly kind: "exact"
+            readonly path: string
+            resource(request: Request): Promise<Response>
+          }
+        | {
+            readonly kind: "prefix"
+            readonly path: string
+            handler(request: IncomingMessage, response: ServerResponse): Promise<void>
+          },
+    ): () => void
   }
+}
+
+interface SpacesDomain {
+  table(name: "spaces"): BotTable<SpaceRecord>
+  table(name: "revisions"): BotTable<SpaceRevision>
+  table(name: "access"): BotTable<SpaceAccessRecord>
+  table(name: "kv"): BotTable<SpaceKvRecord>
+  table(name: "settings"): BotTable<SpaceSettingsRecord>
+  close(): Promise<void>
+}
+
+interface DshHomeServices {
+  dshHomePath(...segments: string[]): string
+}
+
+interface WebAppServices {
+  webApp: { getAdvertisedUrl(): string }
 }
 
 interface SkillsDomain {
@@ -874,6 +931,7 @@ interface HostServices {
     open(spec: typeof ONBOARDING_DOMAIN): Promise<OnboardingDomain>
     open(spec: typeof SETTINGS_DOMAIN): Promise<SettingsDomain>
     open(spec: typeof HEARTBEATS_DOMAIN): Promise<HeartbeatsDomain>
+    open(spec: typeof SPACES_DOMAIN): Promise<SpacesDomain>
   }
   workspaceRegistry: {
     readonly archivedSessionIds: readonly string[]
@@ -3242,7 +3300,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
   const tellManaged = (
     session: BotManagedSession,
     event: SessionNoticeEvent,
-    origin?: NoticeOrigin,
+    origin?: PeerNoticeOrigin,
   ) =>
     (origin === undefined
       ? outbox.enqueue(session.botId, "session", sessionNotice(session, event))
@@ -3251,7 +3309,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
   const tellManagedLater = (
     session: BotManagedSession,
     event: SessionNoticeEvent,
-    origin: NoticeOrigin | undefined,
+    origin: PeerNoticeOrigin | undefined,
   ) => {
     tellManaged(session, event, origin).catch((error: unknown) => {
       warn(
@@ -3970,7 +4028,182 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     }),
   })
 
+  let botSpaces: BotSpaces | undefined
+  const spaceListeners = new Set<(botId: string) => void>()
+  let advertisedUrl: () => string | undefined = () => undefined
+  ctx.inject(["webApp"], (appCtx) => {
+    const { webApp } = appCtx as unknown as WebAppServices
+    appCtx.effect(() => {
+      advertisedUrl = () => webApp.getAdvertisedUrl()
+      return () => {
+        advertisedUrl = () => undefined
+      }
+    }, "bot-core: the advertised URL for Spaces")
+  })
+  const spacesDomain = await services.storageDomain.open(SPACES_DOMAIN)
+  ctx.effect(() => () => void spacesDomain.close(), "bot-core: spaces storage domain")
+  const spaceApprovals = (subject: string, allowLabel: { en: string; ja?: string }) =>
+    createOwnerApprovals({
+      board: interactions,
+      channelName: (channelId) => channelCatalog.get(channelId)?.name,
+      kind: {
+        subject,
+        allowLabel,
+        ownerOnly: "A Space's access is approved by the bot's owner only.",
+      },
+    })
+  const sha256Hex = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex")
+  const spaceAvatar = createSpaceAvatars({
+    rasterize: createSharpRasterizer(),
+    avatarOf: (botId) => registry.get(botId)?.avatar,
+    encodeBase64: (bytes) => Buffer.from(bytes).toString("base64"),
+  })
+  ctx.inject(["dshHomePath"], async (homeCtx) => {
+    const { dshHomePath } = homeCtx as unknown as DshHomeServices
+    const blobDirectory = dshHomePath("bot-core", "spaces", "blobs")
+    await mkdir(blobDirectory, { recursive: true })
+    const blobPath = (hash: string) => join(blobDirectory, hash)
+    const opened = await openBotSpaces({
+      tables: {
+        spaces: spacesDomain.table("spaces"),
+        revisions: spacesDomain.table("revisions"),
+        access: spacesDomain.table("access"),
+        kv: spacesDomain.table("kv"),
+        spaceSettings: spacesDomain.table("settings"),
+      },
+      blobIo: {
+        read: (hash) =>
+          Readable.toWeb(createReadStream(blobPath(hash))) as ReadableStream<Uint8Array>,
+        async write(hash, bytes) {
+          const staging = join(blobDirectory, `.${hash}.${randomUUID()}`)
+          await writeFile(staging, bytes)
+          await rename(staging, blobPath(hash))
+        },
+        delete: (hash) => rm(blobPath(hash), { force: true }),
+        list: () => readdir(blobDirectory),
+      },
+      sha256Hex,
+      randomToken: () => randomBytes(32).toString("base64url"),
+      wrapperScriptHash: createHash("sha256").update(WRAPPER_SCRIPT).digest("base64"),
+      place(botId) {
+        const fs = environmentOf(botId)?.fs
+        const workspace = environments.current()?.workspace
+        return fs === undefined || workspace === undefined
+          ? undefined
+          : { fs: fs as SpaceWorkspaceFs, workspace }
+      },
+      exists: (botId) => table.get(botId) !== undefined,
+      bot(botId) {
+        const record = table.get(botId)
+        return record === undefined ? undefined : { name: record.name }
+      },
+      avatar: spaceAvatar,
+      advertisedUrl: () => advertisedUrl(),
+      notices: {
+        async enqueue(botId, notice, space) {
+          await outbox.enqueue(botId, "space", notice, { space })
+        },
+        async withdraw(matches) {
+          const withdrawn = await delivery.withdrawWhere(
+            (entry) => entry.space !== undefined && matches(entry.space),
+          )
+          return withdrawn.reduce((sum, entry) => sum + (entry.space?.events ?? 0), 0)
+        },
+        pending(spaceId) {
+          const botId = parseSpaceId(spaceId)?.botId
+          if (botId === undefined) return 0
+          return outbox
+            .pending(botId)
+            .reduce(
+              (sum, entry) => sum + (entry.space?.spaceId === spaceId ? entry.space.events : 0),
+              0,
+            )
+        },
+      },
+      tool: {
+        sealed: (botId, token) => revisionTokens.get(botId)?.has(token) === true,
+        session(botId, agentId) {
+          const agent = host.agents.get(agentId)
+          if (agent === undefined || sessionBotOf(agent) !== botId) return undefined
+          return { sessionId: agentId, kind: sessionKindOf(sessionKinds, botId, agent) }
+        },
+        turn: (sessionId) => settingsTurns.of(sessionId),
+        homeShared: (botId) => channelAudiences(botId).includes("shared"),
+      },
+      approvals: {
+        visibility: spaceApprovals("space_visibility", PUBLISH_LABEL),
+        visitorWrites: spaceApprovals("space_visitor_writes", ALLOW_WRITES_LABEL),
+        link: spaceApprovals("space_link", LINK_LABEL),
+      },
+      newNonce: () => randomBytes(8).toString("hex"),
+      now: Date.now,
+      later: (ms, work) => later(work, Math.min(ms, MAX_TIMER_MS)),
+      warn,
+    })
+    homeCtx.effect(() => {
+      botSpaces = opened
+      const offChange = opened.onChange((botId) => {
+        for (const listener of [...spaceListeners]) listener(botId)
+      })
+      const offRegistry = registry.subscribe(() => {
+        opened.manager
+          .forget((botId) => table.get(botId) !== undefined)
+          .catch((error: unknown) => {
+            warn(`bot-core: could not forget the Spaces of deleted bots: ${String(error)}`)
+          })
+      })
+      return () => {
+        offRegistry()
+        offChange()
+        if (botSpaces === opened) botSpaces = undefined
+        opened.dispose()
+      }
+    }, "bot-core: Spaces")
+    new BotSpacesRemoteService(homeCtx, opened.panel)
+    homeCtx.inject(["webServer"], (webCtx) => {
+      const { webServer } = webCtx as unknown as WebServerServices
+      webCtx.effect(
+        () =>
+          webServer.register({
+            kind: "prefix",
+            path: SPACE_ROUTE,
+            async handler(request, response) {
+              const aborted = new AbortController()
+              response.on("close", () => aborted.abort())
+              try {
+                const result = await opened.handle(spaceRequestOf(request, aborted.signal))
+                await writeSpaceResponse(request, response, result)
+              } catch (error) {
+                warn(`bot-core: a Space request failed: ${String(error)}`)
+                if (!response.headersSent) response.writeHead(500, { "Cache-Control": "no-store" })
+                response.end()
+              }
+            },
+          }),
+        "bot-core: Spaces route",
+      )
+    })
+  })
+  const isSpaceTool = (name: string): name is SpaceToolName =>
+    (SPACE_TOOL_NAMES as readonly string[]).includes(name)
+
   new BotService(ctx, {
+    spaces: {
+      list: (botId) => botSpaces?.spaces(botId) ?? [],
+      subscribe(listener) {
+        spaceListeners.add(listener)
+        return () => {
+          spaceListeners.delete(listener)
+        }
+      },
+      available: (botId, token, agentId) =>
+        botSpaces?.tools.available(botId, token, agentId) === true,
+      async call(botId, token, request, signal) {
+        if (botSpaces === undefined) throw new Error("Spaces are not available on this Host")
+        if (!isSpaceTool(request.tool)) throw new Error(`there is no Space tool "${request.tool}"`)
+        return botSpaces.tools.call(botId, token, { ...request, tool: request.tool }, signal)
+      },
+    },
     describePrompt,
     settings: {
       register: (area) => settingsCatalog.register(area),
@@ -4109,6 +4342,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
   )
 
   let channelStatus: (botId: string) => readonly BotStatusChannel[] = () => []
+  let channelAudiences: (botId: string) => readonly BotChannelAudience[] = () => []
 
   ctx.inject(["credentials"], async (channelsCtx) => {
     const credentials = (channelsCtx as unknown as CredentialServices).credentials
@@ -4413,6 +4647,16 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
         channelStatus = () => []
       }
     }, "bot-core: channels in the bots' status")
+    channelsCtx.effect(() => {
+      channelAudiences = (botId) =>
+        channelCatalog
+          .list()
+          .filter((channel) => settings.readiness(botId, channel).state === "ready")
+          .map((channel) => channel.audience(settings.view(botId, channel).values))
+      return () => {
+        channelAudiences = () => []
+      }
+    }, "bot-core: who sees the bots' homes")
     channelsCtx.effect(
       () =>
         settingsCatalog.include(

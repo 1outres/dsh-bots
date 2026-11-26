@@ -1,3 +1,4 @@
+import type { BotChannelAudience, BotChannelPublicValues } from "@1outres/dsh-bot-core"
 import type { DiscordGatewayMode } from "./discord"
 
 export const DM_HOME = "dm"
@@ -17,6 +18,13 @@ export function homePlaceOf(value: string): DiscordHomePlace | undefined {
   const match = CHANNEL_HOME.exec(value)
   if (match === null) return undefined
   return { kind: "channel", guildId: match[1] as string, channelId: match[2] as string }
+}
+
+export function audienceOf(values: BotChannelPublicValues): BotChannelAudience {
+  const home = values.home
+  const place = typeof home === "string" ? homePlaceOf(home) : undefined
+  if (place === undefined) throw new Error("the Discord settings have no valid home")
+  return place.kind === "dm" ? "owners" : "shared"
 }
 
 export const channelHomeValue = (guildId: string, channelId: string) => `${guildId}:${channelId}`

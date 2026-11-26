@@ -1,7 +1,7 @@
 import { z } from "zod"
 import type { PeerToolRequest, PeerToolResponse } from "../../internal"
 import type { NoticeWithdrawal } from "../notices/delivery"
-import type { NoticeContent, NoticeOrigin } from "../notices/outbox"
+import type { NoticeContent, PeerNoticeOrigin } from "../notices/outbox"
 import type { PartyTurn } from "../turns/parties"
 import type { PeerMessageRecord } from "./domain"
 import { membersOf, type PeerGroups, requireGroup, sharedGroupOf } from "./groups"
@@ -18,7 +18,7 @@ export interface PeerNotices {
     botId: string,
     topic: PeerStatusTopic,
     notice: NoticeContent,
-    origin?: NoticeOrigin,
+    origin?: PeerNoticeOrigin,
   ): Promise<{ readonly id: string }>
   withdraw(noticeId: string): Promise<NoticeWithdrawal>
 }

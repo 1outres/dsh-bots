@@ -1,6 +1,7 @@
 import type { BotPromptChannel, BotPromptFacts, BotSessionKind } from "../../internal"
 import { CONVERSATIONS_SECTION } from "../conversations/texts"
 import { SKILLS_SECTION } from "../skills/texts"
+import { SPACES_SECTION } from "../spaces/texts"
 import { VAULT_PROMPT } from "../vaults/texts"
 import { renderPeerGroup } from "./peers"
 import { renderStatus } from "./status"
@@ -100,6 +101,11 @@ export const BOT_PROMPT_SECTIONS: readonly BotPromptPart[] = [
     name: "bot:skills",
     order: 4500,
     text: (facts) => (conversing(facts.session) ? SKILLS_SECTION : ""),
+  },
+  {
+    name: "bot:spaces",
+    order: 4600,
+    text: (facts) => (conversing(facts.session) ? SPACES_SECTION : ""),
   },
 ]
 

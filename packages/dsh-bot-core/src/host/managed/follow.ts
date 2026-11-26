@@ -1,16 +1,16 @@
 import type { BotInteraction } from "../../shared/interactions"
 import type { BotManagedSession } from "../../shared/managed-sessions"
 import { endedTurnOf, type SessionEventLike, type TurnEndReason } from "../channels/feed"
-import type { NoticeOrigin } from "../notices/outbox"
+import type { PeerNoticeOrigin } from "../notices/outbox"
 import type { SessionNoticeEvent } from "./notice"
 
 export interface ManagedFollowDeps {
   managed(sessionId: string): BotManagedSession | undefined
-  peerOrigin(sessionId: string): NoticeOrigin | undefined
+  peerOrigin(sessionId: string): PeerNoticeOrigin | undefined
   tell(
     session: BotManagedSession,
     event: SessionNoticeEvent,
-    origin: NoticeOrigin | undefined,
+    origin: PeerNoticeOrigin | undefined,
   ): void
 }
 

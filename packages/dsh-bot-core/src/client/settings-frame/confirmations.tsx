@@ -5,7 +5,7 @@ import { useLayer } from "../ui/layers"
 import type { DataMarks } from "../ui/marks"
 import type { FrameConfirmation, FrameLeave } from "./flow"
 
-interface ConfirmDialogProps {
+export interface ConfirmDialogProps {
   readonly title: string
   readonly description: string
   readonly cancel: string
@@ -16,7 +16,7 @@ interface ConfirmDialogProps {
   readonly acceptMarks: DataMarks
 }
 
-function ConfirmDialog(props: ConfirmDialogProps): ReactNode {
+export function ConfirmDialog(props: ConfirmDialogProps): ReactNode {
   const id = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
   useLayer(dialogRef, { active: true, trap: true, onEscape: () => props.onAnswer(false) })

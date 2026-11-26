@@ -454,6 +454,10 @@ export const SETTINGS_ROW_ID = "env-bot-core-settings"
 
 export const SETTINGS_ROW_PLUGIN = "@1outres/dsh-bot-core/settings"
 
+export const SPACES_ROW_ID = "env-bot-core-spaces"
+
+export const SPACES_ROW_PLUGIN = "@1outres/dsh-bot-core/spaces"
+
 export const SKILL_ROW_ID = "env-bot-core-skill"
 
 export const SKILL_ROW_PLUGIN = "@deepseek-ai/dsh-skill"
@@ -528,6 +532,7 @@ const BOT_CORE_ROWS = [
   { id: SKILLS_ROW_ID, plugin: SKILLS_ROW_PLUGIN },
   { id: CONVERSATIONS_ROW_ID, plugin: CONVERSATIONS_ROW_PLUGIN },
   { id: SETTINGS_ROW_ID, plugin: SETTINGS_ROW_PLUGIN },
+  { id: SPACES_ROW_ID, plugin: SPACES_ROW_PLUGIN },
   { id: WEB_BRIDGE_ROW_ID, plugin: WEB_BRIDGE_ROW_PLUGIN },
 ] as const
 

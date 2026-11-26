@@ -143,6 +143,17 @@ import type {
 } from "../shared/settings"
 import type { BotSkillHistory, BotSkillsApi, BotSkillsView, SkillVersion } from "../shared/skills"
 import type {
+  BotSpaceDiscarded,
+  BotSpaceFrame,
+  BotSpaceLinkCreated,
+  BotSpaceLinkRequest,
+  BotSpacesApi,
+  BotSpacesSettings,
+  BotSpacesView,
+  BotSpaceView,
+  SpaceVisibility,
+} from "../shared/spaces"
+import type {
   BotVaultsApi,
   BotVaultsSnapshot,
   BotVaultView,
@@ -203,6 +214,7 @@ import type { SenderAnswers } from "./senders/answers"
 import type { SenderPanel } from "./senders/panel"
 import type { SettingsPanel } from "./settings/panel"
 import type { SkillPanel } from "./skills/panel"
+import type { SpacesPanel } from "./spaces/panel"
 import { watchStream } from "./stream"
 import type { VaultPanel } from "./vaults/panel"
 import type { WebPanel } from "./web/panel"
@@ -1507,6 +1519,71 @@ export class BotGroupsRemoteService extends TypertRemoteService implements BotGr
   }
 }
 
+export const BOT_SPACES_REMOTE = "botSpaces" satisfies RemoteNamespace
+
+const SPACES = Symbol("botSpacesPanel")
+
+export class BotSpacesRemoteService extends TypertRemoteService implements BotSpacesApi {
+  [SPACES]: SpacesPanel
+
+  constructor(ctx: Context, panel: SpacesPanel) {
+    super(ctx, BOT_SPACES_REMOTE)
+    this[SPACES] = panel
+  }
+
+  @Remote({ mode: "stream" })
+  async *watch(signal?: AbortSignal): AsyncIterable<BotSpacesView> {
+    const panel = this[SPACES]
+    const caller = this.ctx.invocation?.peer.principal
+    panel.view(caller)
+    yield* watchStream(
+      () => panel.view(caller),
+      (listener) => panel.subscribe(listener),
+      signal,
+    )
+  }
+
+  @Remote
+  frame(spaceId: string): Promise<BotSpaceFrame> {
+    return this[SPACES].frame(this.ctx.invocation?.peer.principal, spaceId)
+  }
+
+  @Remote
+  setPinned(spaceId: string, pinned: boolean): Promise<BotSpaceView> {
+    return this[SPACES].setPinned(this.ctx.invocation?.peer.principal, spaceId, pinned)
+  }
+
+  @Remote
+  setVisibility(spaceId: string, visibility: SpaceVisibility): Promise<BotSpaceView> {
+    return this[SPACES].setVisibility(this.ctx.invocation?.peer.principal, spaceId, visibility)
+  }
+
+  @Remote
+  setVisitorWrites(spaceId: string, allowed: boolean): Promise<BotSpaceView> {
+    return this[SPACES].setVisitorWrites(this.ctx.invocation?.peer.principal, spaceId, allowed)
+  }
+
+  @Remote
+  createLink(spaceId: string, request: BotSpaceLinkRequest): Promise<BotSpaceLinkCreated> {
+    return this[SPACES].createLink(this.ctx.invocation?.peer.principal, spaceId, request)
+  }
+
+  @Remote
+  revokeLink(spaceId: string, linkId: string): Promise<BotSpaceView> {
+    return this[SPACES].revokeLink(this.ctx.invocation?.peer.principal, spaceId, linkId)
+  }
+
+  @Remote
+  discard(spaceId: string): Promise<BotSpaceDiscarded> {
+    return this[SPACES].discard(this.ctx.invocation?.peer.principal, spaceId)
+  }
+
+  @Remote
+  setPublicBaseUrl(url: string | null): Promise<BotSpacesSettings> {
+    return this[SPACES].setPublicBaseUrl(this.ctx.invocation?.peer.principal, url)
+  }
+}
+
 export const REMOTE_SERVICES = {
   bots: BotsRemoteService,
   botFiles: BotFilesRemoteService,
@@ -1531,6 +1608,7 @@ export const REMOTE_SERVICES = {
   botVaults: BotVaultsRemoteService,
   botSenders: BotSendersRemoteService,
   botGroups: BotGroupsRemoteService,
+  botSpaces: BotSpacesRemoteService,
 } as const satisfies {
   readonly [Namespace in RemoteNamespace]: new (
     ...args: never[]

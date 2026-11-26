@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { NoticeWithdrawal } from "../src/host/notices/delivery"
-import type { NoticeContent, NoticeOrigin } from "../src/host/notices/outbox"
+import type { NoticeContent, PeerNoticeOrigin } from "../src/host/notices/outbox"
 import { createPeerDelivery } from "../src/host/peers/delivery"
 import type { PeerGroupRecord, PeerMemberRecord, PeerMessageRecord } from "../src/host/peers/domain"
 import { createPeerGroups, type PeerBot } from "../src/host/peers/groups"
@@ -19,7 +19,7 @@ interface Enqueued {
   readonly botId: string
   readonly topic: string
   readonly notice: NoticeContent
-  readonly origin?: NoticeOrigin
+  readonly origin?: PeerNoticeOrigin
   readonly id: string
 }
 
@@ -54,7 +54,7 @@ async function setup() {
   const withdrawals = new Map<string, NoticeWithdrawal>()
   const withdrawn: string[] = []
   const notices = {
-    async enqueue(botId: string, topic: string, notice: NoticeContent, origin?: NoticeOrigin) {
+    async enqueue(botId: string, topic: string, notice: NoticeContent, origin?: PeerNoticeOrigin) {
       const id = `n${enqueued.length + 1}`
       enqueued.push({ botId, topic, notice, ...(origin === undefined ? {} : { origin }), id })
       return { id }

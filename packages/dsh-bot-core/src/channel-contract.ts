@@ -61,8 +61,11 @@ export interface BotChannel<
   ): Promise<BotChannelInitial>
   readonly accounts?: BotChannelAccounts<BotChannelValuesOf<S>>
   readonly formatHint?: string
+  audience(values: BotChannelPublicValues): BotChannelAudience
   connect(link: BotChannelLink<BotChannelValuesOf<F>, BotChannelValuesOf<S>>): BotChannelConnection
 }
+
+export type BotChannelAudience = "owners" | "shared"
 
 export interface BotChannelShared<
   S extends readonly BotChannelSharedField[] = readonly BotChannelSharedField[],

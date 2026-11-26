@@ -61,6 +61,7 @@ import { wireSettingChanges } from "./wiring/setting-changes"
 import { wireSettings } from "./wiring/settings"
 import { wireShell } from "./wiring/shell"
 import { wireSkills } from "./wiring/skills"
+import { wireSpaces } from "./wiring/spaces"
 import { wireStyles } from "./wiring/styles"
 import { wireVmHost } from "./wiring/vm-host"
 import { wireWebLookup } from "./wiring/web"
@@ -174,6 +175,7 @@ export function apply(ctx: ClientContext): void {
     mainView: wireMainView(ctx, { remote, bots, binding: classification.binding }),
   })
 
+  const spaces = wireSpaces(ctx, { remote, bots, screens })
   const face = createBotsFace(ctx, {
     bots,
     registrations: { shell, rightbar, ...wireComposerSeats(ctx, classification.occupies) },
@@ -189,6 +191,7 @@ export function apply(ctx: ClientContext): void {
     incidents,
     deletion,
     managed,
+    spaces: spaces.face,
   })
   registerMenuIcons(ctx)
   registerBotMenu(ctx, face, ctx.locale.bind(NAMESPACE))
@@ -262,6 +265,7 @@ export function apply(ctx: ClientContext): void {
     dialogs.globalSettings,
     archive.confirming,
     deletion.asking,
+    spaces.asking,
     onboarding,
   ])
 }

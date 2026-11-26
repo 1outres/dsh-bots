@@ -1,5 +1,5 @@
 import type { BotTable } from "../registry"
-import { type NoticeRecord, type NoticeTopic, PEER_ORIGIN_TOPICS } from "./domain"
+import { type NoticeRecord, type NoticeSpace, type NoticeTopic, PEER_ORIGIN_TOPICS } from "./domain"
 
 export interface NoticeOutboxDeps {
   notices: BotTable<NoticeRecord>
@@ -20,9 +20,15 @@ export interface NoticeContent {
   readonly summary: string
 }
 
-export interface NoticeOrigin {
+export interface PeerNoticeOrigin {
   readonly peerMessages: readonly string[]
 }
+
+export interface SpaceNoticeOrigin {
+  readonly space: NoticeSpace
+}
+
+export type NoticeOrigin = PeerNoticeOrigin | SpaceNoticeOrigin
 
 export interface NoticeOutbox {
   enqueue(
@@ -43,6 +49,12 @@ export interface NoticeOutbox {
 }
 
 function originProblem(topic: NoticeTopic, origin: NoticeOrigin | undefined): string | undefined {
+  if (topic === "space") {
+    return origin !== undefined && "space" in origin
+      ? undefined
+      : 'a "space" notice carries the Space it comes from'
+  }
+  if (origin !== undefined && "space" in origin) return `a "${topic}" notice comes from no Space`
   if (origin !== undefined && !PEER_ORIGIN_TOPICS.includes(topic)) {
     return `a "${topic}" notice carries no peer messages`
   }
@@ -50,6 +62,13 @@ function originProblem(topic: NoticeTopic, origin: NoticeOrigin | undefined): st
     return 'a "peer" notice carries exactly the peer message it delivers'
   }
   return undefined
+}
+
+const originFields = (origin: NoticeOrigin | undefined) => {
+  if (origin === undefined) return {}
+  return "space" in origin
+    ? { space: { ...origin.space } }
+    : { peerMessages: [...origin.peerMessages] }
 }
 
 export function createNoticeOutbox(deps: NoticeOutboxDeps): NoticeOutbox {
@@ -83,7 +102,7 @@ export function createNoticeOutbox(deps: NoticeOutboxDeps): NoticeOutbox {
         messageId: deps.newId(),
         text: notice.text,
         summary: notice.summary,
-        ...(origin === undefined ? {} : { peerMessages: [...origin.peerMessages] }),
+        ...originFields(origin),
         createdAt: deps.now(),
       }
       await serial(() => deps.notices.put(id, record))

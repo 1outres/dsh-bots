@@ -8,6 +8,7 @@ import type { BotsState, RegistrationStatus } from "../src/client/session-classi
 import { createSessionWindows } from "../src/client/session-window"
 import type { SessionListState, SessionSummary, WorkspaceSnapshot } from "../src/client/types"
 import { bot, t, value } from "./support/client"
+import { fakeSpacesFace } from "./support/spaces-client"
 
 const IDLE: RegistrationStatus = { state: "idle" }
 
@@ -17,6 +18,7 @@ interface Scene {
   readonly expansion?: Record<string, boolean>
   readonly archivedShown?: Record<string, boolean>
   readonly menuSession?: string
+  readonly spaces?: ActionProps["spaces"]
 }
 
 function props(state: BotsState, shell = IDLE, rightbar = IDLE, scene: Scene = {}): ActionProps {
@@ -68,6 +70,7 @@ function props(state: BotsState, shell = IDLE, rightbar = IDLE, scene: Scene = {
     openBotMenu() {},
     menuSession: value(scene.menuSession),
     openSessionMenu() {},
+    spaces: scene.spaces ?? fakeSpacesFace(),
   }
 }
 

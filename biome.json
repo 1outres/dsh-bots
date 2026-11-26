@@ -104,6 +104,7 @@
         "!packages/dsh-bot-core/src/plugins/skills.ts",
         "!packages/dsh-bot-core/src/plugins/conversations.ts",
         "!packages/dsh-bot-core/src/plugins/settings.ts",
+        "!packages/dsh-bot-core/src/plugins/spaces.ts",
         "!packages/dsh-bot-core/src/plugins/vaults.ts"
       ]
     },
@@ -142,6 +143,27 @@
     {
       "path": "./.biome/plugins/76-setting-change-writes.grit",
       "includes": ["packages/*/src/**", "!packages/dsh-bot-core/src/host/settings/store.ts"]
+    },
+    {
+      "path": "./.biome/plugins/85-space-store-writes.grit",
+      "includes": [
+        "packages/dsh-bot-core/src/**",
+        "!packages/dsh-bot-core/src/host/spaces/store.ts"
+      ]
+    },
+    {
+      "path": "./.biome/plugins/86-space-tokens.grit",
+      "includes": [
+        "packages/dsh-bot-core/src/**",
+        "!packages/dsh-bot-core/src/host/spaces/access.ts"
+      ]
+    },
+    {
+      "path": "./.biome/plugins/87-space-headers.grit",
+      "includes": [
+        "packages/dsh-bot-core/src/**",
+        "!packages/dsh-bot-core/src/host/spaces/headers.ts"
+      ]
     },
     {
       "path": "./.biome/plugins/52-main-store-writes.grit",

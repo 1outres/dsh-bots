@@ -375,6 +375,7 @@ describe("@1outres/dsh-bot-core/prompt in a bot preset", () => {
         "bot:memory",
         "bot:conversations",
         "bot:skills",
+        "bot:spaces",
         "deployment:persona-suffix",
       ])
       expect(assembly.contexts).toEqual([

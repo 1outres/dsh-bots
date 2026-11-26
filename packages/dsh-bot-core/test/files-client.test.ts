@@ -35,6 +35,7 @@ const mounted = (botFiles: Partial<BotFilesRemote>): Promise<RemoteMount> =>
       botVaults: {} as never,
       botSenders: {} as never,
       botGroups: {} as never,
+      botSpaces: {} as never,
     },
   })
 

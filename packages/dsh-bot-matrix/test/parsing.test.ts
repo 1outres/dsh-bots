@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { imageTypeOf } from "../src/host/bridge"
 import { replyAnswer } from "../src/host/cards/answers"
 import { splitMarkdown } from "../src/host/format/split"
+import { audienceOf } from "../src/host/home"
 import { botLocalpart, botUserId, inNamespace } from "../src/host/ids"
 import { commandOf, messageOf, stripReplyFallback } from "../src/host/inbound"
 import { registrationFile } from "../src/host/settings/queries"
@@ -160,5 +161,13 @@ describe("Matrix text handling", () => {
       canSend({ users: { "@b:x": 100 }, state_default: 50 }, "@b:x", "m.room.pinned_events"),
     ).toBe(true)
     expect(canSend(undefined, "@b:x", "m.room.pinned_events")).toBe(true)
+  })
+})
+
+describe("the audience of a Matrix home", () => {
+  it("is the owners in a direct chat and shared in a room", () => {
+    expect(audienceOf({ home: "dm" })).toBe("owners")
+    expect(audienceOf({ home: "!room:example.org" })).toBe("shared")
+    expect(() => audienceOf({ home: "somewhere" })).toThrow("no valid home")
   })
 })

@@ -1,4 +1,12 @@
+import type { Observable } from "../observable"
+
+export interface PanelInfo {
+  readonly activePanelId: string | null
+}
+
 export interface LayoutFace {
+  readonly panelInfo: Observable<PanelInfo>
+  selectPanel(panelId: string | null): void
   toggleSidebar(): void
 }
 

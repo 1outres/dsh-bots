@@ -1,4 +1,6 @@
-import { readFileSync } from "node:fs"
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { Context, Service } from "@deepseek-ai/cordis"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -79,6 +81,7 @@ vi.mock("../src/host/remote", () => ({
   },
   BotSettingsRemoteService: class {},
   BotHeartbeatRemoteService: class {},
+  BotSpacesRemoteService: class {},
   BotSkillsRemoteService: class {
     constructor(_ctx: unknown, panel: SkillPanel) {
       skillPanels.push(panel)
@@ -1307,6 +1310,41 @@ describe("bot-core apply", () => {
         .settingsAreas()
         .map((area) => area.id),
     ).toContain("general")
+  })
+
+  it("opens Spaces under DSH's home and serves them on the webServer once both are there", async () => {
+    const routes: {
+      kind: string
+      path: string
+      handler(request: unknown, response: unknown): Promise<void>
+    }[] = []
+    const h = await start(new Map([["a", bot()]]), [], {
+      before: (harness) => {
+        Object.assign(harness.services, {
+          webServer: {
+            register(route: (typeof routes)[number]) {
+              routes.push(route)
+              return () => {}
+            },
+          },
+        })
+      },
+    })
+    const spaceRoutes = () =>
+      routes.filter((route) => route.kind === "prefix").map((route) => [route.kind, route.path])
+    expect(spaceRoutes()).toEqual([])
+    const home = mkdtempSync(join(tmpdir(), "bot-core-spaces-"))
+    try {
+      h.ctx.provide("dshHomePath", (...segments: string[]) => join(home, ...segments))
+      await vi.waitFor(() => expect(spaceRoutes()).toEqual([["prefix", "/bot-spaces"]]), {
+        timeout: 2_000,
+        interval: 10,
+      })
+      expect(existsSync(join(home, "bot-core", "spaces", "blobs"))).toBe(true)
+      expect(botOf(h.ctx).spaces("a")).toEqual([])
+    } finally {
+      rmSync(home, { recursive: true, force: true })
+    }
   })
 
   it("marks a Main that predates bot presets, and locks it down", async () => {

@@ -12,6 +12,8 @@ export const SLOT = {
   rightbarSession: "rightbar.session",
   sidebarRightTab: "sidebar.right.pane.tab",
   settingsSection: "settings.section",
+  panelList: "sidebar.panellist",
+  main: "main",
 } as const
 
 export type SlotName = (typeof SLOT)[keyof typeof SLOT]

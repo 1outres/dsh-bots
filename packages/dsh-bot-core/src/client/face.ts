@@ -8,6 +8,7 @@ import type { BotsState } from "./session-classification"
 import type { SessionWindows } from "./session-window"
 import type { SettingsBadge } from "./settings-frame/sections"
 import type { Registrations } from "./slot-registration"
+import type { SpacesFace } from "./spaces/face"
 import type { BotStatus } from "./status"
 import type { Observable, SessionListState, Translate, WorkspaceSnapshot } from "./types"
 
@@ -54,6 +55,7 @@ export interface BotsFace {
   openBotMenu(bot: BotView, point: MenuPoint, opener: string | undefined): void
   readonly menuSession: Observable<string | undefined>
   openSessionMenu(session: BotSessionRef, point: MenuPoint): void
+  readonly spaces: SpacesFace
 }
 
 export interface ActionProps extends BotsFace {
