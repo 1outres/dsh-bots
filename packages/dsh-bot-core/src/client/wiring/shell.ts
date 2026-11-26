@@ -36,6 +36,7 @@ export interface ShellSources {
   readonly settingsStack: ShellFace["settingsStack"]
   readonly connectorPanels: ConnectorPanelsFace
   readonly incidents: ShellFace["incidents"]
+  readonly mainView: ShellFace["mainView"]
 }
 
 /**
@@ -90,6 +91,7 @@ export function wireShell(
     popoverHost,
     connectorPanels: sources.connectorPanels,
     incidents: sources.incidents,
+    mainView: sources.mainView,
   }
 
   const status = createStore<RegistrationStatus>({ state: "idle" })

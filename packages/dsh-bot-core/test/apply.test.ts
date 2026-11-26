@@ -76,6 +76,7 @@ vi.mock("../src/host/remote", () => ({
   BotManagedSessionsRemoteService: class {},
   BotWorkspacesRemoteService: class {},
   BotVaultsRemoteService: class {},
+  BotMainViewRemoteService: class {},
   BotMainsRemoteService: class {
     constructor(_ctx: unknown, panel: MainPanel) {
       mainPanels.push(panel)

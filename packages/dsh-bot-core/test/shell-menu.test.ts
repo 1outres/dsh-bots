@@ -69,6 +69,7 @@ describe("shell menu", () => {
       "bot-core.files",
       "bot-core.notes",
       "bot-core.actions",
+      "bot-core.session-log",
     ])
     expect(entries.map((item) => item.label(t, target))).toEqual(["shell.files(Bot x)"])
     const context = { bot: target, sessionId: "m1" }
@@ -96,6 +97,7 @@ describe("shell menu", () => {
       "bot-core.files",
       "bot-core.notes",
       "bot-core.actions",
+      "bot-core.session-log",
     ])
     expect(entries.every((item) => item.disabled === undefined)).toBe(true)
   })

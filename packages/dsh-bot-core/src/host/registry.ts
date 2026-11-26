@@ -192,6 +192,8 @@ export interface BotRegistry {
   startedByMain(sessionId: string): boolean
   /** Whether the session was the bot's Main and a new Main took its place. */
   pastMain(sessionId: string): boolean
+  /** The stored bot's Mains, oldest first: its former Mains, when each ended, then its Main. */
+  mainsOf(botId: string): readonly BotMainRecord[] | undefined
   /**
    * Version 1 records: record the sessions of the bot's former Workspace and
    * drop `path` / `workspaceId` from its record. `retire` drops the Workspace
@@ -225,6 +227,12 @@ export interface BotRegistry {
 function timezoneOf(id: string, record: BotRecord): string {
   if (record.timezone === undefined) throw new Error(`bot "${id}" has no time zone yet`)
   return record.timezone
+}
+
+/** One of a bot's Mains: `endedAt` once a new Main took its place. */
+export interface BotMainRecord {
+  readonly sessionId: string
+  readonly endedAt?: number
 }
 
 /** One recorded session of a bot, with its id. */
@@ -607,6 +615,16 @@ export function createBotRegistry(deps: BotRegistryDeps): BotRegistry {
     },
     startedByMain: (sessionId) => sessionRecord(sessionId)?.startedBy === "main",
     pastMain: (sessionId) => sessionRecord(sessionId)?.retiredMain !== undefined,
+    mainsOf(botId) {
+      const main = deps.table.get(botId)?.mainSessionId
+      if (main === undefined) return undefined
+      const former = recordedOf(botId).flatMap((session) =>
+        session.sessionId === main || session.retiredMain === undefined
+          ? []
+          : [{ sessionId: session.sessionId, endedAt: session.retiredMain.endedAt }],
+      )
+      return [...former.sort((left, right) => left.endedAt - right.endedAt), { sessionId: main }]
+    },
     migrateLegacy(sessionsOfWorkspace, retire) {
       return serial(async () => {
         let changed = false

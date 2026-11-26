@@ -63,6 +63,7 @@ function remote() {
       botManagedSessions: {} as never,
       botWorkspaces: {} as never,
       botMains: {} as never,
+      botMainView: {} as never,
       botSkills: {} as never,
       botNotes: {} as never,
       botEnvironment: {} as never,

@@ -13,6 +13,7 @@ import type { BotEnvironmentApi, BotEnvironmentView } from "../shared/environmen
 import type { BotEnvironmentHostApi, BotEnvironmentHostState } from "../shared/environment-host"
 import type { BotFilesApi } from "../shared/files-api"
 import type { BotInteractionsApi, BotInteractionsSnapshot } from "../shared/interactions"
+import type { BotMainViewApi, MainTimelineFrame } from "../shared/main-view"
 import type { BotMainsApi, BotMainsView, MainRotationSettings } from "../shared/mains"
 import type { BotManagedSessionsApi, BotManagedSessionsSnapshot } from "../shared/managed-sessions"
 import type { BotModelsView } from "../shared/models"
@@ -112,6 +113,11 @@ export interface BotMainsRemote extends Remoted<Omit<BotMainsApi, "watch" | "wat
   watch(botId: string): StreamHandle<BotMainsView>
 }
 
+/** The mounted `remote.botMainView`; `watch` streams instead of resolving once. */
+export interface BotMainViewRemote extends Remoted<Omit<BotMainViewApi, "watch">> {
+  watch(botId: string): StreamHandle<MainTimelineFrame>
+}
+
 /** The mounted `remote.botSkills`; `watch` streams instead of resolving once. */
 export interface BotSkillsRemote extends Remoted<Omit<BotSkillsApi, "watch">> {
   watch(botId: string): StreamHandle<BotSkillsView>
@@ -156,6 +162,7 @@ export interface BotCoreRemote {
   readonly botManagedSessions: BotManagedSessionsRemote
   readonly botWorkspaces: BotWorkspacesRemote
   readonly botMains: BotMainsRemote
+  readonly botMainView: BotMainViewRemote
   readonly botSkills: BotSkillsRemote
   readonly botNotes: BotNotesRemote
   readonly botEnvironment: BotEnvironmentRemote

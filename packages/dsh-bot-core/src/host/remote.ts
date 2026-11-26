@@ -72,6 +72,13 @@ import type {
   BotInteractionsSnapshot,
 } from "../shared/interactions"
 import type {
+  BotMainViewApi,
+  MainTimelineCursor,
+  MainTimelineFrame,
+  MainTimelineImageData,
+  MainTimelinePage,
+} from "../shared/main-view"
+import type {
   BotMainsApi,
   BotMainsView,
   MainRotationOutcome,
@@ -138,6 +145,7 @@ import type { EnvironmentPanel } from "./environment-spec/panel"
 import type { BotFiles } from "./files"
 import type { InteractionPanel } from "./interactions/panel"
 import type { BotLifecycle } from "./lifecycle"
+import type { MainView } from "./main-view/panel"
 import type { MainPanel } from "./mains/panel"
 import type { ManagedPanel } from "./managed/panel"
 import type { WorkspacesPanel } from "./managed/workspaces-panel"
@@ -789,6 +797,42 @@ export class BotMainsRemoteService extends TypertRemoteService implements BotMai
   }
 }
 
+export const BOT_MAIN_VIEW_REMOTE = "botMainView" satisfies RemoteNamespace
+
+const MAIN_VIEW = Symbol("botMainView")
+
+const unaborted = (signal: AbortSignal | undefined) => signal ?? new AbortController().signal
+
+/** Each bot's Main as its channels see it, across its Mains (docs/specs/bot-main-view.md). */
+export class BotMainViewRemoteService extends TypertRemoteService implements BotMainViewApi {
+  [MAIN_VIEW]: MainView
+
+  constructor(ctx: Context, view: MainView) {
+    super(ctx, BOT_MAIN_VIEW_REMOTE)
+    this[MAIN_VIEW] = view
+  }
+
+  @Remote({ mode: "stream" })
+  async *watch(botId: string, signal?: AbortSignal): AsyncIterable<MainTimelineFrame> {
+    yield* this[MAIN_VIEW].watch(botId, unaborted(signal))
+  }
+
+  @Remote
+  page(botId: string, before: MainTimelineCursor, signal?: AbortSignal): Promise<MainTimelinePage> {
+    return this[MAIN_VIEW].page(botId, before, unaborted(signal))
+  }
+
+  @Remote
+  image(
+    botId: string,
+    sessionId: string,
+    attachmentId: string,
+    signal?: AbortSignal,
+  ): Promise<MainTimelineImageData> {
+    return this[MAIN_VIEW].image(botId, sessionId, attachmentId, unaborted(signal))
+  }
+}
+
 export const BOT_SKILLS_REMOTE = "botSkills" satisfies RemoteNamespace
 
 const SKILLS = Symbol("botSkillPanel")
@@ -1155,6 +1199,7 @@ export const REMOTE_SERVICES = {
   botManagedSessions: BotManagedSessionsRemoteService,
   botWorkspaces: BotWorkspacesRemoteService,
   botMains: BotMainsRemoteService,
+  botMainView: BotMainViewRemoteService,
   botSkills: BotSkillsRemoteService,
   botNotes: BotNotesRemoteService,
   botEnvironment: BotEnvironmentRemoteService,

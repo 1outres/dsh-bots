@@ -21,6 +21,8 @@ export type Block =
   | {
       readonly kind: "list"
       readonly ordered: boolean
+      /** An ordered list's first number, when it is not 1. */
+      readonly start?: number
       readonly items: readonly (readonly Inline[])[]
     }
   | { readonly kind: "quote"; readonly blocks: readonly Block[] }
@@ -185,7 +187,7 @@ const FENCE = /^ {0,3}(`{3,}|~{3,})\s*([^\s`]*)/
 const HEADING = /^ {0,3}(#{1,6})(?:[ \t]+|$)/
 const RULE = /^ {0,3}([-*_])(?:\s*\1){2,}\s*$/
 const BULLET = /^ {0,3}[-*+]\s+(.*)$/
-const ORDERED = /^ {0,3}\d{1,9}[.)]\s+(.*)$/
+const ORDERED = /^ {0,3}(\d{1,9})[.)]\s+(.*)$/
 const QUOTE = /^ {0,3}>\s?(.*)$/
 
 /** A heading's text without its closing `#` sequence (one preceded by a space), trimmed. */
@@ -254,7 +256,8 @@ export function parseMarkdown(source: string, options: MarkdownOptions = {}, dep
       blocks.push({ kind: "quote", blocks: parseMarkdown(body.join("\n"), options, depth + 1) })
       continue
     }
-    const ordered = ORDERED.test(line)
+    const first = ORDERED.exec(line)
+    const ordered = first !== null
     if (ordered || BULLET.test(line)) {
       const pattern = ordered ? ORDERED : BULLET
       const items: Inline[][] = []
@@ -264,7 +267,7 @@ export function parseMarkdown(source: string, options: MarkdownOptions = {}, dep
         const item = pattern.exec(text)
         if (item !== null) {
           if (current.length > 0) items.push(inline(current.join(" ")))
-          current = [item[1] ?? ""]
+          current = [(ordered ? item[2] : item[1]) ?? ""]
         } else if (text.trim() !== "" && /^\s+/.test(text)) {
           current.push(text.trim())
         } else {
@@ -273,7 +276,8 @@ export function parseMarkdown(source: string, options: MarkdownOptions = {}, dep
         i += 1
       }
       if (current.length > 0) items.push(inline(current.join(" ")))
-      blocks.push({ kind: "list", ordered, items })
+      const start = first === null ? 1 : Number(first[1])
+      blocks.push({ kind: "list", ordered, ...(start === 1 ? {} : { start }), items })
       continue
     }
     const body: string[] = []

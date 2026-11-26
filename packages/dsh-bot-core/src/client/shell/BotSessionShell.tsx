@@ -8,6 +8,12 @@ import type { ConversationContentInput, ConversationViewsProps } from "../dsh/co
 import { FACTORY, SLOT } from "../dsh/slots"
 import { FilesPanel } from "../files/FilesPanel"
 import { useObservable } from "../hooks"
+import {
+  MainConversationView,
+  MainViewContext,
+  type MainViewScope,
+} from "../main-view/MainConversationView"
+import { SessionLogPanel } from "../main-view/SessionLogPanel"
 import { NotesPanel } from "../notes/NotesPanel"
 import { derive, type Observable } from "../observable"
 import { ShellWidthControls } from "../ShellWidthControls"
@@ -16,8 +22,10 @@ import { SETTINGS_SECTION } from "../settings/builtin"
 import {
   ACTIONS_ENTRY_ID,
   byOrder,
+  entryShown,
   FILES_ENTRY_ID,
   NOTES_ENTRY_ID,
+  SESSION_LOG_ENTRY_ID,
   type ShellMenuContext,
   type ShellMenuEntry,
 } from "../shell-menu"
@@ -47,19 +55,23 @@ function ChatOnlyView(props: ConversationViewsProps) {
 
 const CONTENT_SLOTS = { views: ChatOnlyView, widthControls: ShellWidthControls }
 
+/** The Main's `views` position: what its channels see (docs/specs/bot-main-view.md). */
+const MAIN_CONTENT_SLOTS = { views: MainConversationView, widthControls: ShellWidthControls }
+
 export interface BotSessionShellProps extends Omit<ShellSlotProps, "sessionId" | "classification"> {
   readonly sessionId: string
   readonly bot: ShellBot
 }
 
-/** The menu's entries for a known bot: bot-core's, then the panels of the connectors it has on. */
-function useKnownEntries(props: KnownProps, bot: BotView) {
+/** The menu's entries for a known bot's session: bot-core's it has, then the panels of the connectors it has on. */
+function useKnownEntries(props: KnownProps, context: ShellMenuContext) {
   const { menu, connectorPanels } = props
-  const feed = connectorPanels.connectors.feed(bot.id)
+  const feed = connectorPanels.connectors.feed(context.bot.id)
   return useMemo(
     () =>
-      derive([menu, feed], (builtins, state) =>
-        state.status === "ready"
+      derive([menu, feed], (registered, state) => {
+        const builtins = registered.filter((entry) => entryShown(entry, context))
+        return state.status === "ready"
           ? [
               ...builtins,
               ...connectorEntries(
@@ -68,9 +80,9 @@ function useKnownEntries(props: KnownProps, bot: BotView) {
                 connectorPanels.text,
               ),
             ].sort(byOrder)
-          : builtins,
-      ),
-    [menu, feed, connectorPanels.places, connectorPanels.text],
+          : builtins
+      }),
+    [menu, feed, connectorPanels.places, connectorPanels.text, context],
   )
 }
 
@@ -168,15 +180,7 @@ export function BotSessionShell(props: BotSessionShellProps) {
             }
           />
         ) : (
-          renderFactorySlot(
-            FACTORY.conversationContent,
-            {
-              variant: "main",
-              phase: view.phase,
-              hero: view.hero,
-            } satisfies ConversationContentInput,
-            { slots: CONTENT_SLOTS },
-          )
+          <ConversationContent {...props} phase={view.phase} hero={view.hero} known={known} />
         )}
       </div>
       <FilesPanel
@@ -200,6 +204,41 @@ export function BotSessionShell(props: BotSessionShellProps) {
   )
 }
 
+/** DSH's conversation content: on the bot's Main its timeline, on its other sessions DSH's Chat. */
+function ConversationContent(
+  props: BotSessionShellProps & {
+    readonly phase: ConversationContentInput["phase"]
+    readonly hero: boolean
+    readonly known: BotView | undefined
+  },
+) {
+  const { t, sessionId, known: bot, mainView } = props
+  const { viewer } = props.files
+  const scope: MainViewScope | undefined = useMemo(
+    () =>
+      bot === undefined || bot.mainSessionId !== sessionId
+        ? undefined
+        : {
+            t,
+            bot,
+            sessionId,
+            face: mainView,
+            openFile: (path: string) => viewer.openFile(sessionId, path),
+          },
+    [t, bot, sessionId, mainView, viewer],
+  )
+  const content = props.renderFactorySlot(
+    FACTORY.conversationContent,
+    { variant: "main", phase: props.phase, hero: props.hero } satisfies ConversationContentInput,
+    { slots: scope === undefined ? CONTENT_SLOTS : MAIN_CONTENT_SLOTS },
+  )
+  return scope === undefined ? (
+    content
+  ) : (
+    <MainViewContext.Provider value={scope}>{content}</MainViewContext.Provider>
+  )
+}
+
 /** The shell's props for parts drawn only once the bot is known. */
 type KnownProps = Omit<BotSessionShellProps, "bot">
 
@@ -211,8 +250,8 @@ interface HeaderInput {
 
 function useKnownMenus(props: KnownProps, bot: BotView, compact: boolean): ShellMenus {
   const { t, sessionId } = props
-  const entries = useKnownEntries(props, bot)
   const context: ShellMenuContext = useMemo(() => ({ bot, sessionId }), [bot, sessionId])
+  const entries = useKnownEntries(props, context)
   return menusOf(
     t,
     compact,
@@ -314,6 +353,19 @@ function OpenSidePanel(
           close={() => {
             panels.close(sessionId)
             props.returnFocus(NOTES_ENTRY_ID)
+          }}
+        />
+      )
+    case "session-log":
+      return (
+        <SessionLogPanel
+          t={t}
+          sessionId={sessionId}
+          face={props.mainView}
+          containerRef={props.containerRef}
+          close={() => {
+            panels.close(sessionId)
+            props.returnFocus(SESSION_LOG_ENTRY_ID)
           }}
         />
       )

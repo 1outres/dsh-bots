@@ -8,6 +8,7 @@ import { DIALOG_CSS } from "./styles-dialog"
 import { FILES_CSS } from "./styles-files"
 import { INTERACTIONS_CSS } from "./styles-interactions"
 import { LIFECYCLE_CSS } from "./styles-lifecycle"
+import { MAIN_VIEW_CSS } from "./styles-main-view"
 import { NOTES_CSS } from "./styles-notes"
 import { ONBOARDING_CSS } from "./styles-onboarding"
 import { OVERLAY_CSS } from "./styles-overlay"
@@ -26,6 +27,7 @@ export const BOTS_CSS =
   DIALOG_CSS +
   ACTIONS_CSS +
   SHELL_CSS +
+  MAIN_VIEW_CSS +
   FILES_CSS +
   NOTES_CSS +
   CONNECTOR_PANELS_CSS +

@@ -5,6 +5,7 @@ import type { MainConversationSlotProps } from "../dsh/conversation"
 import type { PendingActions } from "../face"
 import type { FilesFace } from "../files/files-face"
 import type { PanelWidth } from "../files/panel-width"
+import type { MainViewFace } from "../main-view/face"
 import type { NotesFace } from "../notes/face"
 import type { Observable } from "../observable"
 import type { BotsState, RegistrationStatus, SessionClass } from "../session-classification"
@@ -49,6 +50,8 @@ export interface ShellFace {
   readonly popoverHost: Observable<HTMLElement | null>
   /** Connectors' panels beside the chat. */
   readonly connectorPanels: ConnectorPanelsFace
+  /** The Main's timeline and its Session log panel (docs/specs/bot-main-view.md). */
+  readonly mainView: MainViewFace
   /** Unacknowledged credential incidents per bot (docs/specs/bot-vaults.md §7.3). */
   readonly incidents: Observable<Readonly<Record<string, number>>>
 }

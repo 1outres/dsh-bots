@@ -40,6 +40,7 @@ import { wireFiles } from "./wiring/files"
 import { wireGlobalSettings } from "./wiring/global-settings"
 import { wireInteractions } from "./wiring/interactions"
 import { createProgressView, wireLifecycle } from "./wiring/lifecycle"
+import { wireMainView } from "./wiring/main-view"
 import { wireMains } from "./wiring/mains"
 import { wireNotes } from "./wiring/notes"
 import { wireOnboarding } from "./wiring/onboarding"
@@ -149,6 +150,7 @@ export function apply(ctx: ClientContext): void {
     settingsStack: screens.stack,
     connectorPanels: wireConnectorPanels(ctx, { remote, connectors, surfaces }),
     incidents,
+    mainView: wireMainView(ctx, { remote, bots, binding: classification.binding }),
   })
 
   const face = createBotsFace(ctx, {

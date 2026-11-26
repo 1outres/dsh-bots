@@ -79,7 +79,7 @@ import { createConnectorStatuses } from "./host/connectors/statuses"
 import { createConnectorStreams } from "./host/connectors/streams"
 import { createConnectorToolSurface } from "./host/connectors/tools"
 import { createBotConversations } from "./host/conversations/bot-conversations"
-import type { SessionLog } from "./host/conversations/history"
+import type { SessionLog, LoggedEvent as SessionLogEvent } from "./host/conversations/history"
 import { ownerConversations } from "./host/conversations/sources"
 import { createConversationTools, type SessionLogReader } from "./host/conversations/tools"
 import {
@@ -125,6 +125,7 @@ import type {
 import { createInteractionPanel } from "./host/interactions/panel"
 import { createBotLifecycle } from "./host/lifecycle"
 import { createMainGuard, greetingText, waitForEnvironment } from "./host/main"
+import { createMainView, type MainImageRef } from "./host/main-view/panel"
 import { createCompactorKeeper } from "./host/mains/compactors"
 import { createMainController } from "./host/mains/controller"
 import {
@@ -207,6 +208,7 @@ import {
   BotFilesRemoteService,
   BotInteractionsRemoteService,
   BotMainsRemoteService,
+  BotMainViewRemoteService,
   BotManagedSessionsRemoteService,
   BotNotesRemoteService,
   BotOnboardingRemoteService,
@@ -761,6 +763,13 @@ interface SessionQueryServices {
 }
 
 const SESSION_NOT_FOUND = "SESSION_QUERY_SESSION_NOT_FOUND"
+
+/** DSH's `attachments` service, as the Main view reads people's images. */
+interface AttachmentReads {
+  readonly attachments: {
+    readImage(ref: MainImageRef, signal?: AbortSignal): Promise<{ readonly data: Uint8Array }>
+  }
+}
 
 interface ChannelsDomain {
   table(name: "channels"): BotTable<ChannelRecord>
@@ -2338,6 +2347,16 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
   const noticesDomain = await services.storageDomain.open(NOTICES_DOMAIN)
   ctx.effect(() => () => void noticesDomain.close(), "bot-core: notices storage domain")
   let imageServices: () => ImageServices | undefined = () => undefined
+  let imageReads: AttachmentReads["attachments"] | undefined
+  ctx.inject(["attachments"], (readsCtx) => {
+    const { attachments } = readsCtx as unknown as AttachmentReads
+    readsCtx.effect(() => {
+      imageReads = attachments
+      return () => {
+        imageReads = undefined
+      }
+    }, "bot-core: images of the Main view")
+  })
   ctx.inject(["attachments", "llm"], (imagesCtx) => {
     const dsh = imagesCtx as unknown as ImageServices
     imagesCtx.effect(() => {
@@ -3628,6 +3647,27 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
       }
     }, "bot-core: session history of past conversations")
   })
+  // The Main as its channels see it, across its Mains (docs/specs/bot-main-view.md).
+  const mainView = createMainView({
+    mainsOf: (botId) => registry.mainsOf(botId),
+    async read(sessionId, signal) {
+      if (sessionLogs === undefined) throw new Error("DSH's session history is not available")
+      return sessionLogs(sessionId, signal)
+    },
+    async readImage(ref, signal) {
+      if (imageReads === undefined) throw new Error("DSH's attachment store is not available")
+      return (await imageReads.readImage(ref, signal)).data
+    },
+    encodeBase64: (data) =>
+      Buffer.from(data.buffer, data.byteOffset, data.byteLength).toString("base64"),
+    subscribe: (listener) => registry.subscribe(listener),
+    signal: unload.signal,
+  })
+  events.on("session/event", (session: { id: string }, event: SessionLogEvent) =>
+    mainView.sessionEvent(session.id, event),
+  )
+  new BotMainViewRemoteService(ctx, mainView)
+
   const botConversations = createBotConversations<LiveAgent>({
     sealed: (botId, token) => revisionTokens.get(botId)?.has(token) === true,
     agent: (agentId) => host.agents.get(agentId),

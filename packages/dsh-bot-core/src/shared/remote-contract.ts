@@ -6,6 +6,7 @@ import type { BotEnvironmentApi } from "./environment"
 import type { BotEnvironmentHostApi } from "./environment-host"
 import type { BotFilesApi } from "./files-api"
 import type { BotInteractionsApi } from "./interactions"
+import type { BotMainViewApi } from "./main-view"
 import type { BotMainsApi } from "./mains"
 import type { BotManagedSessionsApi } from "./managed-sessions"
 import type { BotNotesApi } from "./notes"
@@ -35,6 +36,7 @@ export interface BotCoreApi {
   readonly botManagedSessions: BotManagedSessionsApi
   readonly botWorkspaces: BotWorkspacesApi
   readonly botMains: BotMainsApi
+  readonly botMainView: BotMainViewApi
   readonly botSkills: BotSkillsApi
   readonly botNotes: BotNotesApi
   readonly botEnvironment: BotEnvironmentApi
@@ -58,6 +60,7 @@ export const REMOTE_NAMESPACES = [
   "botManagedSessions",
   "botWorkspaces",
   "botMains",
+  "botMainView",
   "botSkills",
   "botNotes",
   "botEnvironment",
@@ -201,6 +204,14 @@ export const REMOTE_METHODS: {
     watch: { parameters: [{ name: "botId" }], stream: true, cancellable: true },
     configure: { parameters: [{ name: "botId" }, { name: "override" }] },
     startNew: { parameters: [{ name: "botId" }] },
+  },
+  botMainView: {
+    watch: { parameters: [{ name: "botId" }], stream: true, cancellable: true },
+    page: { parameters: [{ name: "botId" }, { name: "before" }], cancellable: true },
+    image: {
+      parameters: [{ name: "botId" }, { name: "sessionId" }, { name: "attachmentId" }],
+      cancellable: true,
+    },
   },
   botSkills: {
     watch: { parameters: [{ name: "botId" }], stream: true, cancellable: true },

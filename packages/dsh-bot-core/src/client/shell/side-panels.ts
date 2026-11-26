@@ -1,10 +1,11 @@
 import { createStore, type Observable } from "../observable"
 import type { Viewer } from "../viewer"
 
-/** A panel of the bot session shell besides the file viewer: the bot's notes or actions, or a connector's panel. */
+/** A panel of the bot session shell besides the file viewer: the bot's notes or actions, the Main's session log, or a connector's panel. */
 export type SidePanel =
   | { readonly kind: "notes" }
   | { readonly kind: "actions" }
+  | { readonly kind: "session-log" }
   | { readonly kind: "connector"; readonly connectorId: string }
 
 /** Which panel each bot session shows, by session id. */
@@ -13,6 +14,8 @@ export type OpenPanels = Readonly<Record<string, SidePanel>>
 export const NOTES_PANEL: SidePanel = { kind: "notes" }
 
 export const ACTIONS_PANEL: SidePanel = { kind: "actions" }
+
+export const SESSION_LOG_PANEL: SidePanel = { kind: "session-log" }
 
 export const connectorPanel = (connectorId: string): SidePanel => ({
   kind: "connector",

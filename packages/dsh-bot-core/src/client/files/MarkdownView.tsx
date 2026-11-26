@@ -47,7 +47,13 @@ function renderBlock(block: Block, key: number, noteLink: NoteLinkRenderer | und
       const items = block.items.map((item, index) => (
         <li key={index}>{renderInline(item, noteLink)}</li>
       ))
-      return block.ordered ? <ol key={key}>{items}</ol> : <ul key={key}>{items}</ul>
+      return block.ordered ? (
+        <ol key={key} start={block.start}>
+          {items}
+        </ol>
+      ) : (
+        <ul key={key}>{items}</ul>
+      )
     }
     case "quote":
       return (

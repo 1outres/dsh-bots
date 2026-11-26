@@ -18,8 +18,8 @@ export function browserTimeZone(): string {
   return new Intl.DateTimeFormat().resolvedOptions().timeZone
 }
 
-/** `dateTime`: the day and the minute; `time`: the second, for instants within the day. */
-export type InstantStyle = "dateTime" | "time"
+/** `dateTime`: the day and the minute; `time`: the second, for instants within the day; `clock`: the minute. */
+export type InstantStyle = "dateTime" | "time" | "clock"
 
 /** `largestUnit`: the largest whole unit from minutes to days; `seconds`: always seconds, for countdowns. */
 export type RelativeStyle = "largestUnit" | "seconds"
@@ -45,6 +45,8 @@ export interface LocaleFormat {
   day(date: string): string
   /** The short name of a weekday, 0 for Sunday. */
   weekday(index: number): string
+  /** The calendar day (`YYYY-MM-DD`) an instant falls on. */
+  dayOf(at: number): string
 }
 
 /** Parameters of a plural message besides its `{count}`, which `count` fills in. */
@@ -53,6 +55,7 @@ export type CountParams = Readonly<Record<string, unknown>> & { readonly count?:
 const INSTANT_OPTIONS: { readonly [Style in InstantStyle]: Intl.DateTimeFormatOptions } = {
   dateTime: { dateStyle: "medium", timeStyle: "short" },
   time: { timeStyle: "medium" },
+  clock: { timeStyle: "short" },
 }
 
 /** Calendar labels name a date, not an instant: they are formatted in UTC from the date's own fields. */
@@ -72,6 +75,12 @@ interface Formatters {
 
 const formatters = new Map<string, Formatters>()
 
+const DAY_PARTS = new Intl.DateTimeFormat("en-CA", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+})
+
 function formattersOf(locale: string): Formatters {
   const known = formatters.get(locale)
   if (known !== undefined) return known
@@ -79,6 +88,7 @@ function formattersOf(locale: string): Formatters {
     instants: {
       dateTime: new Intl.DateTimeFormat(locale, INSTANT_OPTIONS.dateTime),
       time: new Intl.DateTimeFormat(locale, INSTANT_OPTIONS.time),
+      clock: new Intl.DateTimeFormat(locale, INSTANT_OPTIONS.clock),
     },
     calendar: {
       month: new Intl.DateTimeFormat(locale, CALENDAR_OPTIONS.month),
@@ -142,5 +152,6 @@ export function localeFormat(t: Translate): LocaleFormat {
     month: (month) => intl.calendar.month.format(calendarInstant(month)),
     day: (date) => intl.calendar.day.format(calendarInstant(date)),
     weekday: (index) => intl.calendar.weekday.format(SUNDAY_MS + index * DAY_MS),
+    dayOf: (at) => DAY_PARTS.format(at),
   }
 }

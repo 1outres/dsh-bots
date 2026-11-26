@@ -3,6 +3,10 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it, vi } from "vitest"
 import type { BotFilesClient } from "../src/client/files"
 import { createSessionModels, type FilesFace } from "../src/client/files/files-face"
+import type { MainViewFace } from "../src/client/main-view/face"
+import { MainConversationView } from "../src/client/main-view/MainConversationView"
+import { createSessionLogSeats } from "../src/client/main-view/seats"
+import type { TimelineState } from "../src/client/main-view/state"
 import type {
   BotsState,
   RegistrationStatus,
@@ -32,6 +36,17 @@ function filesFace(viewer: Viewer = createViewer()): FilesFace {
     treeOf: models.treeOf,
     searchOf: models.searchOf,
     previewOf: models.previewOf,
+  }
+}
+
+function mainViewFace(): MainViewFace {
+  return {
+    timelines: {
+      feed: () => ({ ...value<TimelineState>({ status: "loading" }), loadEarlier() {} }),
+    },
+    images: { load: () => new Promise(() => {}), dispose() {} },
+    seats: createSessionLogSeats(),
+    width: { ...value(640), resize: () => {} },
   }
 }
 
@@ -103,6 +118,7 @@ function props(overrides: Partial<ShellSlotProps> = {}) {
     renderSlot: () => null,
     files: filesFace(viewer),
     notes: notesFace(),
+    mainView: mainViewFace(),
     ...overrides,
   }
   return { shellProps, renderFactorySlot }
@@ -189,6 +205,32 @@ describe("ShellRoot", () => {
         }),
       },
     )
+    const calls = renderFactorySlot.mock.calls as unknown as [
+      string,
+      object,
+      { slots: { views: unknown } },
+    ][]
+    expect(calls[0]?.[2].slots.views).toBe(MainConversationView)
+    expect(html).toContain('data-dshb-shell-entry="bot-core.session-log"')
+  })
+
+  it("keeps DSH's Chat in the other sessions of the bot, without a session log", () => {
+    const { shellProps, renderFactorySlot } = props({
+      sessionId: "w1",
+      bots: value<BotsState>({
+        status: "ready",
+        snapshot: { bots: [bot("x", "m1", ["w1"])], pending: [], preparingSessionIds: [] },
+      }),
+      classification: value<SessionClass>({
+        kind: "bot",
+        botId: "x",
+        bot: bot("x", "m1", ["w1"]),
+        source: "bots",
+      }),
+      useSessions: (selector) => selector(list(["m1", "w1"])),
+    })
+    const html = render(shellProps)
+    expect(html).not.toContain('data-dshb-shell-entry="bot-core.session-log"')
     const calls = renderFactorySlot.mock.calls as unknown as [
       string,
       object,

@@ -77,6 +77,11 @@ export const NOTES_PANEL_WIDTH: PanelWidthOptions = {
   initial: 480,
 }
 
+export const SESSION_LOG_PANEL_WIDTH: PanelWidthOptions = {
+  key: "dsh-bots:session-log-width",
+  initial: 640,
+}
+
 export const ACTIONS_PANEL_WIDTH: PanelWidthOptions = {
   key: "dsh-bots:actions-width",
   initial: DEFAULT_WIDTH,
