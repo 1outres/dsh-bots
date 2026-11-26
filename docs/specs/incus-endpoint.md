@@ -2,6 +2,8 @@
 
 状態: 段階 1〜6 を実装（§11）。spike のコードと生の数値は `dev/incus-endpoint-spike/`。
 
+改めた（docs/specs/vm-host-modes.md）: 3 つの形は「誰が用意するか（managed / custom）」「どこ（このマシン / SSH）」「何で（Incus / Proxmox）」の軸に置き換える。形 1 も loopback の HTTPS と制限付き証明書にし、Unix ソケットの transport と install.sh は無くす。該当する節（§2、§3、§5.1、§6.1、§7、§10 の 6）に注記した。
+
 この文書では「確認済み」は 2026-11-25 にこのホスト（Debian 13、Incus 6.0.4）で実際に動かして確かめたこと、「未検証」は試していないこと、「推測」は根拠が文書や読んだコードだけのことを指す。
 
 ## 1. 目的
@@ -21,7 +23,11 @@
 
 2 と 3 はプラグインから見て同じ（remote）。違いは誰が VM ホストを用意したかだけで、ACL の責任は 3 では管理者にある（§6.4）。
 
+改めた: この表は docs/specs/vm-host-modes.md §2 の 3 つの選択肢（このマシンに構築 / 別のマシンに構築 / 既存のサーバを使う）に置き換える。形 1 の行（Unix ソケット、incus-admin）は無くなる。
+
 ## 3. セットアップの流れ
+
+改めた: install.sh で VM ホストを準備する流れ（§3.1、§3.2）は、設定画面から host-setup.sh を送って実行する managed のジョブ（docs/specs/vm-host-modes.md §3）に置き換える。形 3（§3.3）は custom の Incus として残り、create-project.sh の入口だけが変わる（同 §4.1、§9.2）。§3.4 の project の中身は変えない。
 
 ### 3.1 形 1（local）
 
@@ -107,6 +113,7 @@ interface EndpointCheck {
 }
 ```
 
+- 改めた: `IncusEndpoint` の `local`（Unix ソケット）は無くし、保存形式は version 3（backend と origin、docs/specs/vm-host-modes.md §5.1）にする。
 - `createIncusTransport(endpoint)` は local / remote で実装が違うだけで、その上の `IncusClient`（今の `src/host/incus.ts`）は 1 つ。IncusClient に足すもの: `exec`（§5.2）、custom volume（作成・取得・拡張・削除）、イメージ（取り込み・別名・取得・削除）、`server()`（`GET /1.0` の `auth`、`api_extensions`、`environment.server_version`）。
 - `check(scope)`: 認証が `trusted`、project がある、`restricted=true`（local では任意。§6.1）、`user.dsh-bots.pool` / `network` が読めてプールとネットワークが使える、Incus 6.0.4 以上、VM が作れる（qemu ドライバ）。足りなければ `problems` を返し、ensure は失敗のまま（fail closed）。代わりの経路は使わない。
 - local でも `default` project は使わない。今の本番の VM（default）は扱わない（§9）。
@@ -215,6 +222,7 @@ interface ImageRelease {
 
 今のコードが使っていて禁止されるのは `raw.idmap` と Host パスの disk（共有フォルダ）だけで、どちらも custom volume で要らなくなる。`volatile.vsock_id` は読むだけ（vsock の経路をやめるので読まなくなる）。
 
+- 改めた（docs/specs/vm-host-modes.md §6.4）: 形 1 も loopback の HTTPS と制限付き証明書にする。次の段落は改める前の記録。
 - 形 1: Unix ソケットはサーバ全体の権限（root 相当）のまま。プラグインは project を必ず指定し、`default` を拒む。ソケットを使う限り Incus 側では縛れない。形 1 でも loopback の HTTPS と制限付き証明書を使えば同じ縛りになるが、`core.https_address` を開ける必要がある（§10 の 6）。
 
 ### 6.2 鍵と証明書の置き場所
@@ -244,6 +252,8 @@ ProxyCommand は DSH のプロセスの中で中継する（§5.2）ので、Inc
 - 形 1・2 はインストーラの ACL（今の `dsh-bot-egress`）をそのまま使う。
 
 ## 7. 今のスクリプト・文書の扱い
+
+改めた: install.sh は廃止する。host-setup.sh はイベントの出力（`--events`）とフェーズの分割（`https` / `token`、`local` の削除）で使い続ける。影響の一覧は docs/specs/vm-host-modes.md §9.3。
 
 | もの                                                  | これから                                                                                                                                                                                                                                                                                                                         |
 | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -324,7 +334,7 @@ ProxyCommand は DSH のプロセスの中で中継する（§5.2）ので、Inc
 3. incusd の再起動での後退は受け入れる。使っていない接続を閉じて影響を小さくし、形 3 の管理者向け文書に書く。
 4. ボットを消したとき、ワークスペースのボリュームは VM と同じく orphan の猶予（7 日）の後に消す。
 5. ACL は宣言と VM の中からの実測で調べ、警告だけにする。
-6. 形 1 は Unix ソケットのまま。project への限定はコードで守る。
+6. 形 1 は Unix ソケットのまま。project への限定はコードで守る。→ 改めた（docs/specs/vm-host-modes.md §6.4）: 形 1 も loopback の HTTPS（`127.0.0.1:8443`）と project に限った制限付き証明書にし、Unix ソケットの transport を無くす。今の利用者は画面で明示的に移行する（同 §8）。
 7. ワークスペースの mount は当面 cloud-init で入れ、次のイメージで unit に移す。
 8. プロファイルを使わず、インスタンスに直接書く。
 

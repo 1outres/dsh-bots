@@ -1,0 +1,964 @@
+# VM ホストの形（managed / custom、場所、backend）
+
+状態: 仕様（未実装）。docs/specs/incus-endpoint.md の形 1〜3 と docs/specs/installer.md の install.sh を、この文書で改める（§11 の段階で実装する）。
+
+この文書では「確認済み」は実際に動かすか、コードや型を読んで確かめたこと、「未検証」は試していないこと、「推測」は根拠が文書や一般的な知識だけのことを指す。読んだものは本文に書く。
+
+## 1. 目的
+
+- DSH にプラグインを入れるだけでインストールが終わる。VM ホストの準備（パッケージ、Incus、ファイアウォール、接続）は設定画面から行い、シェルで install.sh を実行させない。
+- 「誰が用意するか」「どこ」「何で」を別の軸にする。今のコードの local / remote は接続の方式（Unix ソケットか HTTPS か）の区別にすぎず、用意した人と場所を表していない。
+- 接続の方式を 1 つ（HTTPS と制限付きの資格）にする。このマシンでも別のマシンでも権限は project に閉じる。
+- Incus 以外の backend（Proxmox）を入れられる形にする。
+
+## 2. 3 つの軸と 3 つの選択肢
+
+| 軸      | 値                             | 意味                                                                                        |
+| ------- | ------------------------------ | ------------------------------------------------------------------------------------------- |
+| origin  | managed / custom               | managed: プラグインが VM ホストを構築し、修復・更新できる。custom: 既にあるサーバを使うだけ |
+| site    | このマシン / 別のマシン（SSH） | managed のときだけ意味がある。プラグインが root の手順を実行する場所                        |
+| backend | Incus / Proxmox                | VM を動かす仕組み。managed は Incus だけ                                                    |
+
+画面の選択肢は 3 つ:
+
+| 選択肢             | origin  | site       | backend                                    | 利用者がすること                                                        |
+| ------------------ | ------- | ---------- | ------------------------------------------ | ----------------------------------------------------------------------- |
+| このマシンに構築   | managed | このマシン | Incus                                      | sudo のパスワードを入れる                                               |
+| 別のマシンに構築   | managed | SSH        | Incus                                      | プラグインの公開鍵を VM ホストの authorized_keys に足し、指紋を確かめる |
+| 既存のサーバを使う | custom  | —          | Incus（trust token）/ Proxmox（API token） | サーバの管理者から受けた token を貼る                                   |
+
+今の形との対応:
+
+| 今                                                   | これから                                                                                          |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| 形 1（local、install.sh、Unix ソケット）             | このマシンに構築（managed）。loopback の HTTPS と制限付き証明書（§6.4）。既存の利用者は移行（§8） |
+| 形 2（remote、VM ホストで install.sh、token を貼る） | 別のマシンに構築（managed、SSH）。token はプラグインが発行させて自分で使う                        |
+| 形 3（既存の Incus、create-project.sh）              | 既存のサーバを使う（custom、Incus）                                                               |
+| —                                                    | 既存のサーバを使う（custom、Proxmox）。§10                                                        |
+
+Incus の project の中身（incus-endpoint.md §3.4）、ペアリングの仕組み（§4）、exec 越しの SSH（§5.2）、ワークスペースのボリューム（§5.4）、イメージの取り込み（§5.5）、ACL の宣言と実測（§6.4）は変えない。
+
+## 3. managed のフロー
+
+### 3.1 全体
+
+1. 利用者は DSH にプラグインを入れる（Plugins 画面か `dsh plugin add`）。ほかに何もしない。
+2. 「dsh-bots の設定 → VM host」で場所を選ぶ（§2 の 3 つ）。
+3. 事前検査（§3.4）。root を使わない。
+4. 確認（§3.5）。sudo のパスワード、第三者リポジトリの同意、SSH のホスト鍵の指紋（SSH のときは事前検査より前、§3.3）。
+5. 実行（§3.6）。ステップごとの進捗を画面に出す。trust token の発行とペアリングまでプラグインが行い、利用者は token を見ない。
+6. 終わると画面は今の「Check」「Network isolation」「Base image」に戻る。
+
+VM ホストを選ぶまで、ボットの ensure は問題 `placement-none`（直し方: 設定画面で VM ホストを選ぶ）で失敗する。今の「何も選ばなければこのマシンのソケット」という既定は無くす（§8.5）。
+
+### 3.2 このマシンに構築
+
+1. 「このマシンに構築」を選ぶ。project 名（既定 `dsh-bots`）と HTTPS のポート（既定 8443）は詳細の欄で変えられる。
+2. 事前検査を DSH のユーザで実行する（§3.4）。NixOS / Arch / WSL / RHEL 系などで VM ホストになれなければ、理由と「別のマシンに構築」への行を出して止まる。
+3. 確認: sudo のパスワード（不要なら出さない）、Zabbly の同意（Debian 12 / Ubuntu 24.04 だけ）、変えるものの一覧（入れるパッケージ、作る Incus の資源、ファイアウォール、`core.https_address` の決め方（§3.7。今の値は root の段でしか読めないので、決めた値は実行の後に示す））。
+4. 実行: packages → incus → firewall → 接続 → イメージ（§3.6）。
+
+### 3.3 別のマシンに構築（SSH）
+
+1. 「別のマシンに構築」を選び、`user@host`（ポートは任意）を入れる。user は root でも sudo できる一般ユーザでもよい。
+2. プラグインが専用の ed25519 鍵を作り（無いときだけ）、authorized_keys に足す 1 行を示す（Copy）:
+   `restrict ssh-ed25519 AAAA… dsh-bots@<DSH ホスト名>`
+   `restrict` で転送・pty・agent を塞ぐ。コマンドの実行はできる（OpenSSH 7.2 以上、推測: 対象の OS はすべて満たす）。
+3. 利用者が「つなぐ」を押すと、プラグインは `ssh-keyscan` でホスト鍵を取り、指紋（`SHA256:…`）を示す。VM ホストで確かめるコマンド（`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`）を meta に出す。利用者が一致を確かめて「この鍵を信頼する」を押すと固定する（§6.3）。
+   - 順番の理由: 信頼していないホストでコマンド（事前検査）を実行しないため、ホスト鍵の確認を事前検査の前に置く。
+4. 固定した鍵で SSH がつながるか（`BatchMode=yes`）を確かめる。公開鍵が足されていなければ「authorized_keys に足してください」で止まる。
+5. 事前検査を SSH 越しに実行する（§3.4）。
+6. 確認: sudo のパスワード（不要なら出さない）、Zabbly の同意、変えるもの、構築後の SSH 鍵を「残す（修復・更新に使う）」か「消す」か（既定は残す）。
+7. 実行（§3.6）。接続の段では、DSH ホストから `https://<host>:<port>` に届くかを確かめる。届かなければ失敗 `endpoint-unreachable`（直し方: VM ホストの外のファイアウォール、クラウドのセキュリティグループでポートを開ける）。
+8. 「消す」を選んでいたら、成功の後に authorized_keys から自分の行を消し（§6.2）、手元の鍵を消す。
+
+### 3.4 事前検査
+
+root を使わず、`host-setup.sh --events preflight` を VM ホストで実行して結果を受ける（§5.5）。
+
+| id            | 見るもの                                                                                           | だめなとき                                                                           |
+| ------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `arch`        | `uname -m` が x86_64                                                                               | 止まる                                                                               |
+| `os`          | `/etc/os-release`、WSL（`detect_os`、installer.md §3）                                             | 止まる。NixOS / Arch / WSL / RHEL 系は「別のマシンに構築」へ誘導（このマシンのとき） |
+| `kvm`         | `/dev/kvm` がある                                                                                  | 止まる。ファームウェアの VT-x / AMD-V か入れ子の仮想化を示す                         |
+| `init`        | systemd が PID 1                                                                                   | 止まる                                                                               |
+| `disk`        | `/var/lib` の空き（20 GiB 以上）                                                                   | 止まる                                                                               |
+| `privilege`   | root か、`sudo` があるか、`sudo -n true` でパスワードが要るか                                      | sudo が無い一般ユーザなら止まる                                                      |
+| `incus`       | Incus が既に入っているか、その版（`incus --version` はクライアントの版。サーバの版は root の段で） | 警告だけ（既存の Incus を使う。§3.6 の incus で project の衝突を見る）               |
+| `third-party` | Zabbly が要る OS か                                                                                | 同意を求める（§3.5）                                                                 |
+| `port`        | HTTPS のポートを他のプロセスが listen していないか（`ss -ltnH`）                                   | 止まる。Incus 自身が listen しているときは問題にしない（§3.7）                       |
+
+- 結果は SetupInspection（§5.6）。画面は id ごとに 1 行を出す。
+- `core.https_address` の今の値は一般ユーザから読めない（Incus のソケットは root:incus-admin、推測）。読めるのは root の段（§3.7）。
+
+### 3.5 確認
+
+- sudo のパスワード: 事前検査で要るとわかったときだけ欄を出す。実行の要求に一度だけ載せる（§6.1）。
+- 第三者リポジトリ: Debian 12 / Ubuntu 24.04 で Zabbly（`pkgs.zabbly.com`、署名鍵の指紋 `4EFC5906…C838DCFD`）を足すことに同意するスイッチ。同意が無ければ実行できない。
+- SSH のホスト鍵: §3.3 の 3 で固定済み。確認画面では固定した指紋を表示する。
+- 既存の project: project が既にあり、他の owner のインスタンスかボリュームがあれば、incus の段が失敗 `project-in-use` で止まる。同じ owner のもの（修復・移行）は続ける。
+
+### 3.6 実行とステップ
+
+画面のステップは 5 つ。host-setup.sh のフェーズとプラグインの処理を次のように束ねる。
+
+| ステップ | 中身                                                                                                                                                  | root | どこで    |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | --------- |
+| packages | host-setup.sh `packages`（OS ごとのパッケージ、Zabbly、`vhost_vsock`、Incus 6.0.4 以上と qemu）                                                       | ✓    | VM ホスト |
+| incus    | host-setup.sh `incus`（プール、ブリッジ、ACL、project、§3.5 の衝突の検査、`core.shutdown_timeout` は変えない）                                        | ✓    | VM ホスト |
+| firewall | host-setup.sh `firewall`（installer.md §4）                                                                                                           | ✓    | VM ホスト |
+| 接続     | host-setup.sh `https`（§3.7）と `token`（制限付き token、古い自分の証明書の削除）→ DSH でペアリング（incus-endpoint.md §4）→ `check`（§5.1 の check） | ✓    | 両方      |
+| イメージ | プラグインのイメージの取り込み（incus-endpoint.md §5.5）。既に別名があれば skipped                                                                    | –    | DSH       |
+
+- root のフェーズ（packages〜token）は 1 回の sudo で 1 つのプロセスとして順に実行する（§6.1）。フェーズの開始・完了・失敗は JSON lines で受ける（§5.5）。
+- 冪等: host-setup.sh の各フェーズは調べてから変える（installer.md §7 と同じ）。変えるものが無ければ `changed: false` を返し、画面は skipped（済み）にする。途中で止まったら、同じ選択で「もう一度」を押せば続きから進む。
+- 取り消し: 今のコマンドが終わったところで止める（§5.4 の制御行）。パッケージの導入の途中では切らない。
+- 同時に 1 つ: 走っているジョブがあれば新しいジョブを拒む（`setup-busy`）。
+- ペアリングの後の placement の書き込みは 1 回（§5.1）。ジョブが失敗している間は今の placement を変えない。イメージのステップの失敗では placement は書いた後なので、ボットは使えるがイメージが無い状態になり、「Base image」が今と同じに直し方を出す。
+
+### 3.7 `core.https_address` の扱い
+
+host-setup.sh の `https` フェーズ（root）が今の値を読み、次のように決める。決めた値は fact（§5.5）で返し、接続のステップの注記と完了の画面に出す。今の値は一般ユーザから読めない（§3.4）ので、確認画面では決め方（下の表）だけを示す。
+
+| 今の値                                                                 | このマシン                                            | 別のマシン                                                                   |
+| ---------------------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------- |
+| 未設定                                                                 | `127.0.0.1:<port>` に設定。ufw / firewalld は触らない | `:<port>` に設定し、ufw / firewalld でポートを開ける（今の `remote` と同じ） |
+| loopback を含む（`:8443`、`0.0.0.0:8443`、`[::]:8443`、`127.0.0.1:N`） | 変えない。`https://127.0.0.1:<そのポート>` を使う     | 変えない。`https://<host>:<そのポート>` を使う                               |
+| 特定のアドレスだけ（`10.0.0.5:8443` など）                             | 変えない。`https://<そのアドレス>` を使う             | 変えない。そのアドレスが DSH から届かなければ接続の段で失敗する              |
+
+- 既に設定されている値は他の利用者が使っているかもしれないので変えない（今の `phase_remote` と同じ考え）。
+- このマシンで既に `:8443`（全アドレス）で公開されていても、それは今の管理者の設定として残す。プラグインはポートを閉じない。
+
+## 4. custom のフロー
+
+### 4.1 Incus（trust token）
+
+今の形 3 と同じ（incus-endpoint.md §3.3、§4）。画面は「既存のサーバを使う → Incus」で token を貼り、指紋・期限・アドレス・project を確かめてペアリングする。
+
+管理者が project と token を作るスクリプトは `infra/incus/create-project.sh` のまま。入口は install.sh の `incus-project` をやめ、リリースのタグのソースから取る（§9.2）。画面の「既存のサーバを使う → Incus」に、プラグインの版に合わせたコマンドを Copy で出す:
+
+```sh
+curl -fsSL https://codeload.github.com/1outres/dsh-bots/tar.gz/v<版> | tar -xz --strip-components=1 dsh-bots-<版>/infra
+infra/incus/create-project.sh --help
+```
+
+### 4.2 Proxmox（API token）
+
+custom だけ。画面は URL、API token の id と secret、サーバ証明書の指紋、使う node / pool などを受ける。詳細（どの値が要るか、権限の閉じ込め）は spike の結果で決める（§10）。
+
+### 4.3 managed との違い
+
+- custom の VM ホストは修復・更新できない。check の問題の直し方は管理者に渡すコマンドか文（§5.2 の `ProblemFix`）。
+- managed は問題の直し方に「修復を実行」（同じ site でジョブをもう一度）を出せる。
+
+## 5. コントラクト
+
+型は実装の指針。名前は実装時に詰めてよいが、判別の形（どの union をどのフィールドで分けるか）は変えない。
+
+### 5.1 保存形式 v3（dsh-bot-vm の `<stateDir>/endpoint.json`）
+
+```ts
+type StoredPlacement =
+  | { readonly version: 3; readonly backend: StoredIncus; readonly origin: StoredOrigin }
+  | {
+      readonly version: 3
+      readonly backend: StoredProxmox
+      readonly origin: { readonly kind: "custom" }
+    }
+
+interface StoredIncus {
+  readonly kind: "incus"
+  readonly url: string
+  readonly serverCertificateSha256: string
+  readonly clientCertificate: string
+  readonly project: string
+}
+
+interface StoredProxmox {
+  readonly kind: "proxmox"
+  readonly url: string
+  readonly serverCertificateSha256: string
+  readonly tokenId: string
+  readonly node: string
+  readonly pool: string
+}
+
+type StoredOrigin =
+  | { readonly kind: "custom" }
+  | {
+      readonly kind: "managed"
+      readonly site: StoredSite
+      readonly setup: {
+        readonly jobId: string
+        readonly completedAt: number
+        readonly bundleSha256: string
+      }
+    }
+
+type StoredSite =
+  | { readonly kind: "this-machine" }
+  | {
+      readonly kind: "ssh"
+      readonly host: string
+      readonly port: number
+      readonly user: string
+      readonly hostKey: string
+      readonly identity: "kept" | "removed"
+    }
+```
+
+- `StoredProxmox` のフィールドは spike で増減する（§10）。
+- 秘密は入れない。Incus の秘密鍵は今の credential store の `<scope>/incus-client`、Proxmox の token の secret は `<scope>/proxmox-token`（§6.5）。
+- `hostKey` は known_hosts の 1 行（`<type> <base64>`）。`bundleSha256` は構築に使った host-setup の束の sha256（§5.5）で、プラグインの束と違えば画面が「更新があります」を出す（自動で root の処理はしない）。
+- 読み書きは今の `EndpointStore` を `PlacementStore` に置き換える。version 2 の読み方は移行のモジュール（§8）だけが持つ。
+
+### 5.2 bot-core の契約（`shared/environment-host.ts`、`contract.ts`）
+
+```ts
+type VmBackendKind = "incus" | "proxmox"
+
+type HostSiteView =
+  | { readonly kind: "this-machine" }
+  | {
+      readonly kind: "ssh"
+      readonly host: string
+      readonly port: number
+      readonly user: string
+      readonly hostKeyFingerprint: string
+      readonly identity: "kept" | "removed"
+    }
+
+type HostOriginView =
+  | { readonly kind: "custom" }
+  | {
+      readonly kind: "managed"
+      readonly site: HostSiteView
+      readonly completedAt: number
+      readonly update: "current" | "available"
+    }
+
+type BackendPlacementView =
+  | {
+      readonly kind: "incus"
+      readonly url: string
+      readonly project: string
+      readonly serverFingerprint: string
+      readonly clientFingerprint: string
+    }
+  | {
+      readonly kind: "proxmox"
+      readonly url: string
+      readonly node: string
+      readonly pool: string
+      readonly tokenId: string
+      readonly serverFingerprint: string
+    }
+
+type LegacyPlacementView = {
+  readonly kind: "incus-socket"
+  readonly socket: string
+  readonly project: string
+}
+
+type EnvironmentHostPlacement =
+  | { readonly kind: "reading" }
+  | { readonly kind: "none" }
+  | { readonly kind: "migration-required"; readonly from: LegacyPlacementView }
+  | {
+      readonly kind: "placed"
+      readonly backend: BackendPlacementView
+      readonly origin: HostOriginView
+    }
+  | { readonly kind: "unreadable"; readonly problem: EnvironmentHostProblem }
+
+const PLACEMENT_PROBLEM_CODES = [
+  "stored-unreadable",
+  "placement-none",
+  "migration-required",
+  "secret-missing",
+] as const
+
+const INCUS_PROBLEM_CODES = [
+  "project-default",
+  "unreachable",
+  "untrusted",
+  "incus-too-old",
+  "no-vm-driver",
+  "project-missing",
+  "project-unrestricted",
+  "pool-undeclared",
+  "pool-unusable",
+  "network-undeclared",
+  "network-unusable",
+  "profile-foreign-device",
+] as const
+
+const PROXMOX_PROBLEM_CODES = ["unreachable", "untrusted", "token-rejected"] as const
+
+type ProblemFix =
+  | { readonly kind: "command"; readonly text: string }
+  | { readonly kind: "text"; readonly text: string }
+  | { readonly kind: "repair" }
+  | { readonly kind: "choose-host" }
+
+type EnvironmentHostProblem =
+  | {
+      readonly scope: "placement"
+      readonly code: (typeof PLACEMENT_PROBLEM_CODES)[number]
+      readonly message: string
+      readonly fix: ProblemFix
+    }
+  | {
+      readonly scope: "incus"
+      readonly code: (typeof INCUS_PROBLEM_CODES)[number]
+      readonly message: string
+      readonly fix: ProblemFix
+    }
+  | {
+      readonly scope: "proxmox"
+      readonly code: (typeof PROXMOX_PROBLEM_CODES)[number]
+      readonly message: string
+      readonly fix: ProblemFix
+    }
+
+interface EnvironmentHostView {
+  readonly placement: EnvironmentHostPlacement
+  readonly check: EnvironmentHostCheck
+  readonly egress: readonly EnvironmentEgressReport[]
+  readonly released: readonly EnvironmentHostRelease[]
+  readonly setup?: SetupJobView
+  readonly image?: BotEnvironmentImageView
+}
+
+interface BotEnvironmentHost {
+  view(): EnvironmentHostView
+  subscribe(listener: () => void): () => void
+  check(signal?: AbortSignal): Promise<EnvironmentHostView>
+  readonly setup: VmHostSetup
+  readonly custom: VmHostCustom
+  forget(): Promise<EnvironmentHostView>
+  readonly image?: BotEnvironmentImageHost
+}
+
+interface VmHostSetup {
+  identity(): Promise<SshIdentityView>
+  removeIdentity(scope: "remote-and-local" | "local"): Promise<SshIdentityView>
+  scanHostKey(target: SshTarget, signal?: AbortSignal): Promise<HostKeyScan>
+  inspect(site: SetupSite, signal?: AbortSignal): Promise<SetupInspection>
+  start(request: SetupStartRequest): SetupJobView
+  cancel(jobId: string): SetupJobView
+  dismiss(jobId: string): void
+  brief(jobId: string): SetupBrief
+}
+
+interface VmHostCustom {
+  preview(credential: CustomCredential): CustomPreview
+  connect(request: CustomConnectRequest, signal?: AbortSignal): Promise<EnvironmentHostView>
+}
+
+type CustomCredential =
+  | { readonly backend: "incus"; readonly trustToken: string }
+  | {
+      readonly backend: "proxmox"
+      readonly url: string
+      readonly tokenId: string
+      readonly serverFingerprint: string
+    }
+
+type CustomPreview =
+  | ({ readonly backend: "incus" } & TrustTokenPreview)
+  | {
+      readonly backend: "proxmox"
+      readonly url: string
+      readonly tokenId: string
+      readonly serverFingerprint: string
+    }
+
+type CustomConnectRequest =
+  | {
+      readonly backend: "incus"
+      readonly token: string
+      readonly url: string
+      readonly project: string
+    }
+  | {
+      readonly backend: "proxmox"
+      readonly url: string
+      readonly tokenId: string
+      readonly tokenSecret: string
+      readonly serverFingerprint: string
+      readonly node: string
+      readonly pool: string
+    }
+```
+
+- 今の `useLocal` と `setProject` は無くす。このマシンは managed のジョブで、project は構築か接続のときに決める（変えるときは選び直す）。
+- `EnvironmentHostCheck` の `declaration` は backend ごとの判別共用体にする（Incus は今の pool / network / egressAcl、Proxmox は spike で決める）。
+- `ProblemFix` の `repair` は origin が managed のときだけ使う。managed で `unreachable` などになったら、custom 向けの「管理者に頼む」ではなく修復を出す。
+- Remote（`botEnvironmentHost`）は上のメソッドをそのまま並べ、加えて `investigateSetup(jobId): { sessionId }`（§7）を持つ。`BotEnvironmentHostState` は `EnvironmentHostSettingsView` に `setup` が増えるだけ。
+
+### 5.3 VmBackend（dsh-bot-vm の中の境界）
+
+今の `IncusClient` を直に呼んでいる環境の処理（`environment.ts`、`capacity.ts`、`workspace-volume.ts`、`image/`、`guest-transport.ts`、`egress-probe.ts`）を、backend ごとの実装の上に載せる。
+
+```ts
+interface VmBackend {
+  readonly kind: VmBackendKind
+  check(signal?: AbortSignal): Promise<BackendCheck>
+  capacity(signal?: AbortSignal): Promise<BackendCapacity>
+  readonly instances: InstanceBackend
+  readonly workspaces: WorkspaceBackend
+  readonly images: ImageBackend
+  readonly guest: GuestRoute
+  readonly egress: EgressBackend
+}
+
+interface InstanceBackend {
+  list(owner: string, signal?: AbortSignal): Promise<readonly InstanceRecord[]>
+  get(name: string, signal?: AbortSignal): Promise<InstanceRecord | undefined>
+  create(spec: InstanceSpec, signal?: AbortSignal): Promise<void>
+  start(name: string, signal?: AbortSignal): Promise<void>
+  stop(name: string, signal?: AbortSignal): Promise<void>
+  remove(name: string, signal?: AbortSignal): Promise<void>
+  resize(name: string, resources: InstanceResources, signal?: AbortSignal): Promise<void>
+}
+
+interface InstanceSpec {
+  readonly name: string
+  readonly owner: string
+  readonly botId: string
+  readonly resources: InstanceResources
+  readonly image: ImageRef
+  readonly workspace: WorkspaceRef
+  readonly userData: string
+}
+
+interface InstanceResources {
+  readonly cpus: number
+  readonly memoryMiB: number
+  readonly rootDiskGiB: number
+}
+
+interface WorkspaceBackend {
+  create(ref: WorkspaceRef, sizeGiB: number, signal?: AbortSignal): Promise<void>
+  get(ref: WorkspaceRef, signal?: AbortSignal): Promise<WorkspaceRecord | undefined>
+  grow(ref: WorkspaceRef, sizeGiB: number, signal?: AbortSignal): Promise<void>
+  markOrphaned(ref: WorkspaceRef, at: number, signal?: AbortSignal): Promise<void>
+  remove(ref: WorkspaceRef, signal?: AbortSignal): Promise<void>
+  orphaned(owner: string, signal?: AbortSignal): Promise<readonly WorkspaceRecord[]>
+}
+
+interface ImageBackend {
+  presence(release: ImageRelease, signal?: AbortSignal): Promise<ImagePresence>
+  import(
+    release: ImageRelease,
+    source: ImageSource,
+    progress: (bytes: number) => void,
+    signal?: AbortSignal,
+  ): Promise<void>
+}
+
+interface GuestRoute {
+  open(instance: string, signal?: AbortSignal): Promise<ByteChannel>
+}
+
+interface EgressBackend {
+  probe(
+    instance: string,
+    targets: readonly EgressTarget[],
+    signal?: AbortSignal,
+  ): Promise<EgressReport>
+}
+
+type BackendCheck =
+  | { readonly ok: true; readonly declaration: BackendDeclaration }
+  | { readonly ok: false; readonly problems: readonly EnvironmentHostProblem[] }
+```
+
+- `GuestRoute.open` はゲストの `sshd -i` につながる双方向のバイト列。Incus は今の exec の websocket（incus-endpoint.md §5.2）。DSH のプロセスの中の中継（`run/guest.sock`）と ProxyCommand は backend に依らず 1 つ。
+- `userData` は cloud-init の user-data。Incus は `cloud-init.user-data`。Proxmox での渡し方は spike（§10）。
+- `EgressBackend.probe` はゲストで短いコマンドを 1 つ実行して結果を受けるだけでよい（ストリームは要らない）。
+- Incus の実装は `src/host/backend/incus/` に、今の `IncusClient` をそのまま使って作る。最初の実装は Incus だけ。
+
+### 5.4 HostShell（VM ホストでコマンドを実行する）
+
+```ts
+interface HostShell {
+  readonly site: HostSiteView
+  stage(bundle: HostSetupBundle, signal?: AbortSignal): Promise<StagedBundle>
+  run(request: ShellRun, signal?: AbortSignal): ShellProcess
+  dispose(): Promise<void>
+}
+
+interface HostSetupBundle {
+  readonly sha256: string
+  readonly files: readonly {
+    readonly path: string
+    readonly mode: number
+    readonly content: Uint8Array
+  }[]
+}
+
+interface StagedBundle {
+  readonly dir: string
+  release(): Promise<void>
+}
+
+interface ShellRun {
+  readonly argv: readonly string[]
+  readonly env: Readonly<Record<string, string>>
+  readonly privilege: ShellPrivilege
+}
+
+type ShellPrivilege =
+  | { readonly kind: "user" }
+  | { readonly kind: "root"; readonly via: "already-root" }
+  | { readonly kind: "root"; readonly via: "sudo"; readonly password: string | undefined }
+
+interface ShellProcess {
+  readonly stdout: AsyncIterable<string>
+  readonly stderr: AsyncIterable<string>
+  control(line: "cancel"): void
+  readonly exit: Promise<{ readonly code: number | null; readonly signal: string | null }>
+}
+```
+
+- 実装は 2 つ: `localShell`（`child_process.spawn`、シェルを通さない）と `sshShell`（`ssh -F <stateDir>/setup/ssh/config -T dsh-bots-vm-host -- <argv をシェル用に引用した 1 行>`）。手順（`SetupRunner`）は HostShell しか知らず、local と remote で同じ。
+- root: `sudo -S -p '' -- env <env> <argv>`。パスワードがあれば stdin の 1 行目に書く。パスワードが要らなければ `sudo -n`。`already-root` は sudo を通さない。
+- stdin はパスワードの後は制御の行だけを運ぶ。`cancel` を書くと host-setup.sh は今のコマンドが終わったところで止まる。stdin の EOF（DSH が止まった、SSH が切れた）も取り消しとして扱う（§5.5）。根拠: 誰も見ていない root の処理を残さないため。
+- `hello` イベント（§5.5）を受けるまで stdin にパスワードの他は何も書かない。sudo がパスワードを拒むと stdin からもう一度読もうとする（推測: sudo の `-S` の振る舞い）ので、stderr の `Sorry, try again` か 10 秒以内に hello が無いことで失敗 `sudo-rejected` にしてプロセスを止める。
+- `stage`: local はプラグインの `lib/host-setup/`（読み取りだけ）をそのまま使う。ssh は `mktemp -d`（0700）に tar を stdin で送り、`sha256sum` で束を確かめ、ジョブの終わりに消す。
+
+### 5.5 host-setup.sh の構造化出力
+
+host-setup.sh は今のとおり root で非対話・冪等に動く単体のスクリプトで、人が直接使ってもよい（出力は今と同じ）。`--events` を付けると次の契約で動く。
+
+- 呼び方: `host-setup.sh --events <phase>...`。phase は `preflight`（root 不要）、`packages`、`incus`、`firewall`、`https`、`token`、`all`（= packages incus firewall）。今の `local` は無くし、`remote` は `https` と `token` に分ける。root の検査はスクリプトの頭からフェーズごとに移す。
+- 設定は今と同じ環境変数（`POOL`、`PROJECT`、`NET`、`HTTPS_ADDRESS`、`CLIENT_NAME`、`DSH_BOTS_THIRD_PARTY`）に、`HTTPS_SCOPE=loopback|all`（§3.7）、`REPLACE_CLIENT=<fingerprint>`（token の前に、前の自分の証明書を trust から外す）、`OWNER=<owner>`（§3.5 の project の衝突の判定）を足す。
+- stdout はイベントだけ。1 行に 1 つの JSON オブジェクト（UTF-8）。コマンドの出力はすべて stderr（ログ）に回す（`exec 3>&1 1>&2` でイベントを fd 3 に書く）。SSH 越しでも stdout と stderr が分かれるので同じ形で届く。
+- stdin: 1 行目はスクリプトに来ない（sudo が読む）。以降は制御の行。`cancel` か EOF で、今のフェーズの今のコマンドが終わったところで止まり、`phase-failed`（code `cancelled`）と `end` を出す。
+
+```ts
+type HostSetupPhase = "preflight" | "packages" | "incus" | "firewall" | "https" | "token"
+
+type HostSetupEvent =
+  | { readonly v: 1; readonly type: "hello"; readonly version: string; readonly uid: number }
+  | {
+      readonly v: 1
+      readonly type: "check"
+      readonly id: PreflightCheckId
+      readonly state: "ok" | "warning" | "failed"
+      readonly value?: string
+      readonly code?: string
+      readonly what?: string
+      readonly fix?: string
+    }
+  | { readonly v: 1; readonly type: "phase-start"; readonly phase: HostSetupPhase }
+  | {
+      readonly v: 1
+      readonly type: "phase-done"
+      readonly phase: HostSetupPhase
+      readonly changed: boolean
+      readonly note?: string
+    }
+  | {
+      readonly v: 1
+      readonly type: "phase-failed"
+      readonly phase: HostSetupPhase
+      readonly code: HostSetupFailureCode
+      readonly what: string
+      readonly fix: string
+      readonly command?: string
+      readonly location?: string
+      readonly exit?: number
+    }
+  | { readonly v: 1; readonly type: "fact"; readonly key: HostSetupFactKey; readonly value: string }
+  | { readonly v: 1; readonly type: "token"; readonly token: string }
+  | { readonly v: 1; readonly type: "end"; readonly ok: boolean }
+
+type PreflightCheckId =
+  | "arch"
+  | "os"
+  | "kvm"
+  | "init"
+  | "disk"
+  | "privilege"
+  | "incus"
+  | "third-party"
+  | "port"
+
+type HostSetupFactKey =
+  | "os"
+  | "incus-version"
+  | "https-address"
+  | "server-fingerprint"
+  | "project"
+  | "pool"
+  | "network"
+  | "egress-acl"
+
+type HostSetupFailureCode =
+  | "not-root"
+  | "os-unsupported"
+  | "third-party-refused"
+  | "zabbly-key-mismatch"
+  | "module-missing"
+  | "incus-too-old"
+  | "no-vm-driver"
+  | "project-conflict"
+  | "project-in-use"
+  | "firewall-drops"
+  | "port-in-use"
+  | "token-missing"
+  | "cancelled"
+  | "command-failed"
+```
+
+- 今の `fail <what> <fix>` に code を足して `fail <code> <what> <fix>` にする。ERR trap（`on_error`）は `command-failed` で、`command`（`$BASH_COMMAND`）、`location`（ファイルと行）、`exit` を入れる。what / fix は英語の文のまま（画面は code から日本語・英語の見出しを作り、what / fix をそのまま添える）。
+- `changed`: 変える関数（`apt_install` で何か入れた、`incus … create` した、設定を書き換えた）が立てる旗。
+- `token` は秘密。プラグインはこの行をログに書かず、受けたらすぐペアリングに使い、保存しない。stderr に token が出ないことを host-setup.sh が守る（今の `DSH_BOTS_TOKEN_FILE` の考えと同じ）。
+- JSON の文字列はスクリプトの中の 1 つの関数で作る（`\`、`"`、制御文字を escape）。jq には頼らない。
+- 契約の検査（プラグイン側）: 知らない `type`・`v`、JSON でない行、`end` の前の終了は失敗 `protocol`（fail closed）。
+- 束（`HostSetupBundle`）: `infra/vm/host-setup.sh`、`infra/vm/lib.sh`、`infra/incus/objects.sh`、`infra/release.env` を build が `packages/dsh-bot-vm/lib/host-setup/` に写し、sha256 を出す。元は infra/ だけ（写しを手で直さない）。テストで「写しと元が同じ」「束に要るファイルが揃う」を保つ。
+
+### 5.6 SetupJob
+
+```ts
+type SetupSite =
+  | { readonly kind: "this-machine" }
+  | { readonly kind: "ssh"; readonly target: SshTarget; readonly hostKey: PinnedHostKey }
+
+interface SshTarget {
+  readonly host: string
+  readonly port: number
+  readonly user: string
+}
+
+interface PinnedHostKey {
+  readonly type: string
+  readonly fingerprint: string
+}
+
+interface HostKeyScan {
+  readonly target: SshTarget
+  readonly keys: readonly PinnedHostKey[]
+}
+
+interface SshIdentityView {
+  readonly state: "absent" | "present"
+  readonly authorizedKeysLine?: string
+  readonly fingerprint?: string
+}
+
+interface PreflightCheck {
+  readonly id: PreflightCheckId
+  readonly state: "ok" | "warning" | "failed"
+  readonly value?: string
+  readonly what?: string
+  readonly fix?: string
+}
+
+type ConsentNeed = {
+  readonly kind: "third-party-repository"
+  readonly id: "zabbly"
+  readonly url: string
+  readonly signingKey: string
+}
+
+type SetupInspection =
+  | {
+      readonly id: string
+      readonly at: number
+      readonly site: HostSiteView
+      readonly checks: readonly PreflightCheck[]
+      readonly verdict: "ready"
+      readonly privilege: "root" | "sudo-without-password" | "sudo-with-password"
+      readonly consents: readonly ConsentNeed[]
+    }
+  | {
+      readonly id: string
+      readonly at: number
+      readonly site: HostSiteView
+      readonly checks: readonly PreflightCheck[]
+      readonly verdict: "refused"
+      readonly suggestion?: "another-machine"
+    }
+
+interface SetupStartRequest {
+  readonly inspectionId: string
+  readonly project: string
+  readonly httpsPort: number
+  readonly sudoPassword?: string
+  readonly consents: readonly ConsentNeed["id"][]
+  readonly identityAfter?: "keep" | "remove"
+}
+
+type SetupStepId = "packages" | "incus" | "firewall" | "connect" | "image"
+type SetupStepState = "pending" | "running" | "done" | "skipped" | "failed"
+
+interface SetupStepView {
+  readonly id: SetupStepId
+  readonly state: SetupStepState
+  readonly note?: string
+  readonly startedAt?: number
+  readonly endedAt?: number
+}
+
+type SetupJobState = "running" | "cancelling" | "succeeded" | "failed" | "cancelled" | "interrupted"
+
+interface SetupLogLine {
+  readonly at: number
+  readonly source: "host" | "plugin"
+  readonly text: string
+}
+
+type SetupFailureCode =
+  | HostSetupFailureCode
+  | "sudo-rejected"
+  | "ssh-failed"
+  | "host-key-changed"
+  | "staging-failed"
+  | "protocol"
+  | "endpoint-unreachable"
+  | "pairing-failed"
+  | "check-failed"
+  | "image-failed"
+  | "interrupted"
+
+interface SetupFailure {
+  readonly step: SetupStepId
+  readonly code: SetupFailureCode
+  readonly what: string
+  readonly fix: string
+  readonly command?: string
+  readonly location?: string
+  readonly exitCode?: number
+  readonly logTail: readonly string[]
+}
+
+interface SetupJobView {
+  readonly id: string
+  readonly attempt: number
+  readonly site: HostSiteView
+  readonly project: string
+  readonly state: SetupJobState
+  readonly steps: readonly SetupStepView[]
+  readonly startedAt: number
+  readonly endedAt?: number
+  readonly log: { readonly tail: readonly SetupLogLine[]; readonly lines: number }
+  readonly failure?: SetupFailure
+}
+```
+
+- 状態とロジックを分ける: `reduceSetupJob(job, input): SetupJob`（純粋。入力は HostSetupEvent、プラグインの段の始まり・終わり・失敗、取り消しの要求、プロセスの終了）と、HostShell とストアをつなぐ `SetupRunner`（IO だけ）に分ける。イベントからステップへの写し（§3.6 の表）は reduce の中だけにある。
+- 永続化: `<stateDir>/setup/jobs/<id>/job.json`（SetupJobView から log.tail を除いたもの、0600）と `log.txt`（マスク済み、0600、2 MiB で頭を切る）。書くのはステップの変化ごと。リロードでは Remote の watch が今の job.json を返す。DSH の再起動で `running` / `cancelling` のまま見つかったジョブは `interrupted`（failure の step は走っていたステップ）にする。
+- 再実行: 同じ ID のジョブの `attempt` を 1 つ増やし、ステップをすべて pending に戻す。済んだフェーズは `changed: false` で skipped になる。sudo のパスワードは改めて受ける（§6.1）。事前検査は再実行の前にもう一度行い、`inspectionId` は最新のものだけを受け付ける。
+- 残すのは最後の 5 つのジョブ。`dismiss` は終わったジョブを画面から外す（ファイルは 5 つの枠で消える）。
+- 同時に 1 つ: `start` は走っているジョブがあれば `setup-busy` で拒む。
+
+### 5.7 SetupBrief（セッションの初めのメッセージ）
+
+```ts
+interface SetupBrief {
+  readonly title: string
+  readonly cwd: string
+  readonly message: string
+}
+```
+
+中身は §7。dsh-bot-vm が作り、bot-core がセッションを作る。
+
+## 6. セキュリティ
+
+### 6.1 sudo のパスワード
+
+- 画面の欄（`type=password`）で受け、Remote の `setup.start` の引数で Host に届く。Host はジョブの 1 回の root のプロセスの stdin に 1 度だけ書き、参照を捨てる。
+- 保存しない（job.json、log.txt、placement、credential store のどれにも入れない）。ログに出さない。念のため、ログに書く前にパスワードと同じ文字列を `[redacted]` に置き換える（マスクの対象は他に token、§6.5）。
+- 1 回の sudo で root のフェーズをすべて走らせる。sudo の timestamp は tty か親プロセスに結び付き（推測: sudoers(5) の `timestamp_type`）、SSH のコマンドごとに親が変わるので、フェーズごとに sudo を呼ぶとそのたびにパスワードが要る。
+- 再実行のたびに受け直す。ジョブはパスワードを持たない。
+- Remote の引数が DSH の gateway のログに残るかは未検証。残るなら、パスワードを運ぶ専用の短命の受け口（1 回で消える id）を設ける（§12）。
+- 調べるためのセッション（§7）には渡さない。
+
+### 6.2 SSH の鍵
+
+- プラグイン専用の ed25519 鍵: `ssh-keygen -t ed25519 -N '' -C dsh-bots@<DSH ホスト名> -f <stateDir>/setup/ssh/id_ed25519`。秘密鍵はファイル（0600）。ssh が読むので、ボットの鍵（incus-endpoint.md §6.2）と同じくファイルにする。
+- authorized_keys の行は `restrict` 付き（§3.3）。`from=` は付けない（DSH ホストの出口のアドレスがプラグインからはわからない）。
+- 構築後の扱いは利用者が選ぶ:
+  - 残す（既定）: 修復・更新・調べるためのセッションで使う。`identity: "kept"`。
+  - 消す: 成功の後、SSH で authorized_keys から鍵の本体（base64）が一致する行だけを消し（一時ファイルに書いてから置き換える）、手元の鍵を消す。`identity: "removed"`。修復には鍵の作り直しと行の追加がもう一度要る。
+- 後から消す: 画面の「SSH 鍵を消す」。遠くの行を先に消し、失敗したら何も消さずに理由と手で消すコマンドを示す。「手元だけ消す」も選べる。
+- `<stateDir>/setup/ssh/config` に VM ホストの Host ブロック（`dsh-bots-vm-host`）を 1 つ書く: HostName、Port、User、`IdentityFile`、`IdentitiesOnly yes`、`UserKnownHostsFile <stateDir>/setup/ssh/known_hosts`、`StrictHostKeyChecking yes`、`BatchMode yes`、`ForwardAgent no`、`ClearAllForwardings yes`。`-F` で渡すので利用者の `~/.ssh/config` に左右されない（incus-endpoint.md §5.3 と同じ考え）。
+- DSH ホストに要るのは OpenSSH のクライアント（`ssh`、`ssh-keygen`、`ssh-keyscan`）。今も `ssh` は要る。`ssh-keygen` と `ssh-keyscan` は同じパッケージに入る（推測: Debian の openssh-client、NixOS の openssh）。
+
+### 6.3 SSH のホスト鍵
+
+- `ssh-keyscan` は認証の無い取得なので、指紋は利用者が VM ホストで確かめる（§3.3 の 3）。確かめた鍵だけを `known_hosts` に書き、以降は `StrictHostKeyChecking yes`。
+- 鍵が変わったら ssh が止まり、ジョブは `host-key-changed` で失敗する。自動で受け入れ直さない。画面は「ホスト鍵を確かめ直す」（§3.3 の 3 をもう一度）を出す。
+
+### 6.4 証明書と権限（このマシンも制限付き）
+
+- このマシンも loopback の HTTPS（`https://127.0.0.1:8443`）と、project に限った制限付き証明書（`restricted: true`、`projects: [<project>]`）にする。incus-endpoint.md §10 の 6（形 1 は Unix ソケット）を改める。
+  - 理由: Unix ソケットはサーバ全体（root 相当）の権限で、project への限定がプラグインのコードの正しさだけに頼っていた（incus-endpoint.md §6.1）。制限付き証明書なら Incus が縛る。
+  - DSH のユーザを `incus-admin` に入れない。グループを得るための DSH の再起動も要らない。
+  - transport は HTTPS の 1 つになり、Unix ソケットの `IncusTransport`、設定 `incusSocket`、`kind: "local"` を消す。
+- 確認済み（incus-endpoint.md §11 の 5、2026-11-26）: `core.https_address=127.0.0.1:8443` での制限付き証明書のペアリングと、HTTPS 越しの exec / SSH。spike（§8.1）の数値では exec+HTTPS は exec+ソケットより大きな転送で 1〜5 割遅い（`fs.writeText` 32 MiB で 2674 ms と 1314 ms）。ボットの道具の使い方では問題にならない（推測、incus-endpoint.md §8.1 と同じ判断）。
+- managed の root は VM ホストで何でもできるが、使うのは構築の間だけで、プラグインに残るのは制限付き証明書（と、残すなら SSH 鍵、§6.2）。
+- managed は自分の古い証明書を外せる（token のフェーズで `REPLACE_CLIENT`、root の `incus config trust remove`）。custom は今と同じく外せない（incus-endpoint.md §4）。
+
+### 6.5 置き場所
+
+| もの                                         | 置き場所                                                                            |
+| -------------------------------------------- | ----------------------------------------------------------------------------------- |
+| sudo のパスワード                            | どこにも置かない（1 回の stdin、§6.1）                                              |
+| trust token                                  | どこにも置かない（イベントで受けてすぐ使う。custom では画面の欄から pair の引数へ） |
+| Incus のクライアント証明書の秘密鍵           | credential store `<scope>/incus-client`（今と同じ）                                 |
+| Proxmox の API token の secret               | credential store `<scope>/proxmox-token`                                            |
+| placement（URL、証明書、指紋、origin、site） | `<stateDir>/endpoint.json`（0600、version 3、§5.1）                                 |
+| SSH の秘密鍵・公開鍵                         | `<stateDir>/setup/ssh/id_ed25519{,.pub}`（0600 / 0644、ディレクトリ 0700）          |
+| SSH の known_hosts と config                 | `<stateDir>/setup/ssh/known_hosts`、`config`（0600）                                |
+| ジョブの状態とログ                           | `<stateDir>/setup/jobs/<id>/job.json`、`log.txt`（0600、マスク済み）                |
+| 調べるためのセッションの資料                 | `<stateDir>/setup/jobs/<id>/`（セッションの cwd、§7）                               |
+| VM ホストに送った束                          | VM ホストの `mktemp -d`（0700）。ジョブの終わりに消す                               |
+
+## 7. 失敗とセッション
+
+失敗の画面（ui-design.md の VM host）に「このエラーをセッションで調べる」を置く。押すと普通の DSH セッションを作り、初めのメッセージで状況を渡し、そのセッションを開く。
+
+### 7.1 作り方（DSH の API）
+
+- 確認済み（型を読んだ）: `@deepseek-ai/dsh-api-session-controller` 0.2.2-rc.5 の `SessionController`（`ctx.sessionController`）に `create(request: SessionCreateRequest)`（`workspaceId` か `cwd` のどちらか、任意で `agentPreset`。省くと既定の preset）、`rename({ sessionId, title })`、`prompt({ requestId, sessionId, mode, content })`（`content` は `{ type: "text", text }` など）がある。bot-core は今もこの 3 つを `index.ts` で使っている（Workspace のセッション、チャネルの prompt）。
+- 確認済み（コードを読んだ）: クライアントで `ctx.uiWorkspace.openSession(sessionId)` がセッションを開く（bot-core の `client/wiring/bots-face.ts` など）。
+- 使い方: bot-core の `index.ts` が Remote の `botEnvironmentHost.investigateSetup(jobId)` を受け、`environment.host.setup.brief(jobId)` で SetupBrief を得て、`sessionController.create({ cwd: brief.cwd })` → `rename({ title: brief.title })` → `prompt({ mode: "queue", content: [{ type: "text", text: brief.message }] })` を行い、`sessionId` を返す。クライアントはそれを開く。
+  - design rule 1（`sessionController.create()` は `host/preset/session.ts` と `index.ts` だけ）の範囲に入る。rule 1 の文（ボットのセッションは Bot.createSession）は「ボットのセッション」についてで、これはボットのセッションではない。docs/design-rules.md の rule 1 の行に「VM ホストの構築を調べるセッション（docs/specs/vm-host-modes.md §7）」を例外の理由として足す。
+  - dsh-bot-vm は `sessionController` を使わない（design rule 17）。
+- 未検証: `cwd` だけで作ったセッションが DSH の画面のどこ（どの Workspace）に並ぶか。cwd ごとに Workspace ができる可能性がある（推測）。cwd を `<stateDir>/setup/jobs/<id>/` にすると、ジョブごとに Workspace が増えるかもしれない。段階 5 で確かめ、増えるなら cwd を `<stateDir>/setup/` 1 つにして資料のパスをメッセージで渡す。
+- 未検証: bot-core のサイドバーがこのセッションをボットのものと誤らないこと（bot-core はボットのセッションを preset と記録で見分ける。コードは読んでいない）。
+
+### 7.2 初めのメッセージ
+
+英語で書く（モデル向け。DSH の既定の preset が日本語の利用者に日本語で答えるかはモデル次第）。次を順に入れる。
+
+1. 何をしていたか: 「dsh-bots の VM ホストの構築（managed、Incus）が失敗した。原因を調べ、直し方を提案してほしい」。
+2. 対象: site（このマシン、または `user@host:port`）、OS（fact `os`）、Incus の版（あれば）、project。
+3. 失敗: ステップ、code、what、fix、コマンド、場所（ファイルと行）、終了コード。
+4. ログの末尾（マスク済み、最後の 80 行）と、全体のログのパス（cwd の `log.txt`）。
+5. 直し方の候補: code ごとに用意した文（例: `firewall-drops` なら見つかった chain と ufw / firewalld の許可の仕方、`port-in-use` なら `ss -ltnp` で使っているものを調べる）。
+6. README の要点: infra/vm/README.md の「What gets set up」と「Network isolation」の要約（プール、ブリッジ、ACL、project、ファイアウォールの扱い、`nftables.service` を有効にしないこと）。束に入れた文書から作る。
+7. 使えるもの:
+   - SSH（site が ssh で鍵が残っているとき）: 「`ssh -F <stateDir>/setup/ssh/config dsh-bots-vm-host <command>` で VM ホストに入れる。プラグインが管理する設定なので、`~/.ssh/config` を変えないこと」。
+   - このマシン: そのまま実行できる。
+8. 守ること: sudo のパスワードは渡していない。root が要るコマンドは利用者に実行を頼む。ネットワークの ACL、ブリッジの規則、project の制限を弱めない（docs/agent-setup.md の「Never」と同じ）。直したら、設定画面の「もう一度」で続きから進むこと。
+
+cwd（`<stateDir>/setup/jobs/<id>/`）には `log.txt` と、メッセージと同じ `brief.md` を置く。
+
+## 8. 移行
+
+### 8.1 version 2 の endpoint.json（local、Unix ソケット）
+
+- 読み続けない。起動時に version 2 の local を見つけたら、placement は `migration-required`（`from`: ソケットと project）で、ボットの ensure は問題 `migration-required`（直し方: 設定画面で移行する）で失敗する。ソケットにはつながない。
+- 画面の「移行する」は「このマシンに構築」のジョブを、project を今のもので固定して始める。手順はすべて冪等なので、packages・incus・firewall は skipped になり、実際に変わるのは `core.https_address`（§3.7）と token と証明書（接続）だけのはず（推測）。sudo のパスワードは要る。
+- 同じ Incus の同じ project なので、今のボットの VM とワークスペースのボリュームはそのまま使える。owner も同じ（`<stateDir>/owner`）なので、incus の段の衝突の検査（§3.5）は通る。
+- 成功で version 3（origin managed、site このマシン）を書き、version 2 のファイルは `endpoint.v2.json` に改名して残す（読まない。手で戻すときのため）。
+- `incus-admin` の グループ: 移行は DSH のユーザをグループから外さない（他の用途で使っているかもしれない）。完了の画面に外すコマンド（`sudo gpasswd -d <user> incus-admin`）を示す。
+- 何も保存されていない（version 2 のファイルが無く、今の既定でソケットを使っていた）利用者は、placement が `none` になる。今のボットは ensure が `placement-none` で止まる。画面は「VM ホストを選ぶ」を出す。同じ project を選べば VM は引き継がれる。
+
+### 8.2 version 2 の endpoint.json（remote）
+
+- 起動時に 1 回だけ version 3 に書き換える: backend は Incus（URL、指紋、証明書、project はそのまま）、origin は custom（プラグインはその VM ホストを構築していないので修復できない）。秘密鍵は credential store のまま。
+- 損失の無い書き換えなので、移行のモジュール（`placement-migration.ts`）の中だけで version 2 を読む。元のファイルは `endpoint.v2.json` に残す。
+- install.sh の形 2 で作った VM ホストを managed にしたければ、「別のマシンに構築」を選び直す（ジョブは冪等なので既存の Incus と project を使い、新しい証明書でペアリングし直す）。
+
+### 8.3 version 1
+
+今と同じく読めない（「選び直す」の問題）。
+
+### 8.4 設定（dsh-bot-vm の Config）
+
+- `incusSocket` を消す。
+- `incusProject` は「このマシンに構築」「別のマシンに構築」の project の既定値として残す。
+- 足すもの: `setupHttpsPort`（既定 8443、構築の詳細の欄の既定値）。
+
+### 8.5 既定の場所を無くすこと
+
+今は何も選ばなければこのマシンのソケットを使う。これを無くすのは、managed の構築と custom の接続がどちらも利用者の操作（sudo か token）を要り、黙ってつなげる既定が無くなるため。ensure の失敗と画面の「VM ホストを選ぶ」で知らせる。
+
+## 9. install.sh の廃止と文書への影響
+
+### 9.1 決めたこと
+
+- install.sh を消す。VM ホストの準備は managed のジョブ（§3）だけ。
+- host-setup.sh は残す（§5.5）。人や作者が checkout から直接使える: `sudo infra/vm/host-setup.sh all https token`。
+- `infra/incus/create-project.sh` は残す。入口は §9.2。
+- 作者用のスクリプト（`build-base-image.sh`、`check-vm.sh`、`export-image.sh`）は、project の宣言（`user.dsh-bots.pool` / `network`）がある VM ホストを前提にするのは変わらない。その VM ホストは作者の DSH の「このマシンに構築」か、`sudo infra/vm/host-setup.sh all` で用意する。`incus` のクライアントを root か `incus-admin` で使えること（`sudo -E infra/vm/build-base-image.sh` か、作者が自分でグループに入る）を infra/RELEASING.md に書く。プラグインはもう `incus-admin` を足さない。未検証: `build-base-image.sh` を sudo で走らせたときに `HOME` や gh の資格に頼るところが無いか（`publish-image.sh` は gh を使うので root では走らせない）。
+
+### 9.2 create-project.sh の入口
+
+- リリースのタグのソースを codeload から取り、`infra/` だけを展開して実行する（§4.1 のコマンド）。今の install.sh がパイプ実行で取っていたものと同じ源（installer.md §7）で、別の配布物を作らない。
+- 版はプラグインの版に合わせる。画面はプラグインの `DSH_BOTS_VERSION`（`release.env`）でコマンドを作る。README には `<版>` を README の版に置いた同じコマンドを書き、`test/installer.test.ts` が一致を確かめる。
+- 推測: タグは作り直せるので、sha256 での固定は無い。必要になったら Release に `infra/` の tarball と sha256 を添える（§12）。
+
+### 9.3 影響の一覧（実装の段階 6 で直す）
+
+| もの                                             | 直すこと                                                                                                                                                                                                   |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `install.sh`                                     | 消す                                                                                                                                                                                                       |
+| `infra/vm/host-setup.sh`                         | `--events`、`preflight`、`https` / `token` への分割、`local` の削除、`fail` の code、root の検査をフェーズごとに（段階 3）。メッセージの「use install.sh」を消す                                           |
+| `infra/vm/lib.sh`                                | `fail` / `on_error` / `note` のイベント版、JSON の文字列の関数。`ONLY_DSH_HOST` の文を「別のマシンに構築」に                                                                                               |
+| `infra/incus/create-project.sh`                  | 完了の文の「Another machine」を「Use an existing server → Incus」に                                                                                                                                        |
+| `infra/vm/build-base-image.sh`、`check-vm.sh`    | 「Prepare this host with install.sh」を「the dsh-bots settings (Build on this machine) or sudo host-setup.sh all」に                                                                                       |
+| `infra/vm/publish-image.sh`                      | リリースの notes の「install.sh downloads it」を「the plugin imports it」に                                                                                                                                |
+| `infra/release.env`                              | 頭のコメント（「What install.sh installs」）                                                                                                                                                               |
+| `infra/vm/README.md`                             | 入口、「Incus access」（このマシンも HTTPS と制限付き証明書、incus-admin を消す）、Usage（install.sh の行を消す）、Tear down（`<stateDir>/setup` と SSH 鍵の行）                                           |
+| `infra/RELEASING.md`                             | 作者の VM ホストの用意（§9.1）、リリースの確認（install.sh で clean な VM ホスト → 確認用 DSH の「別のマシンに構築」）、`DSH_BOTS_SOURCE=$PWD bash install.sh` の節                                        |
+| `README.md`                                      | Install の 2〜3 を「DSH の dsh-bots の設定 → VM host で場所を選ぶ」1 つに。既存の Incus の管理者向けのコマンドを §9.2 に                                                                                   |
+| `CONTRIBUTING.md`                                | 「prepare one with install.sh」を設定画面に                                                                                                                                                                |
+| `docs/agent-setup.md`                            | 書き直す: DSH ホストにプラグインを入れる、画面で場所を選ぶ（エージェントは sudo のパスワードを扱わないので、そこは利用者の操作）、失敗したら「セッションで調べる」の案内、既存の Incus の管理者向けは §9.2 |
+| `docs/specs/installer.md`                        | 状態を「廃止」にし、host-setup.sh の中身の記録として残す節と、改めた節を分ける（この段階で頭に注記を入れた）                                                                                               |
+| `docs/specs/incus-endpoint.md`                   | 改めた箇所に注記（この段階で入れた）                                                                                                                                                                       |
+| `packages/dsh-bot-vm/README.md`                  | 「The VM host」（保存形式 v3、managed / custom、ジョブ）、設定の表（`incusSocket` を消す、`setupHttpsPort`）、install.sh の記述                                                                            |
+| `packages/dsh-bot-vm/src/host/endpoint-check.ts` | 直し方の文（install.sh、incus-admin）を `ProblemFix`（§5.2）に（段階 2）                                                                                                                                   |
+| `test/installer.test.ts`                         | `install.sh` を `bash -n` の一覧から外す。README の版の検査は残し、§9.2 のコマンドの版の一致を足す。束の写し（§5.5）の検査を足す                                                                           |
+
+## 10. Proxmox（custom のみ、spike 待ち）
+
+- custom だけ。managed は Incus だけ（Proxmox のノードを構築する手順は持たない）。
+- API だけで動くのが望ましい。無理なら、ノードへの SSH（プラグインの鍵、ホスト鍵の固定は §6.2、§6.3 と同じ作り）も許す。
+- `dev/proxmox-spike/`（別の担当が調査中）の結果で、次を決める。決まるまで `StoredProxmox`、`PROXMOX_PROBLEM_CODES`、`CustomConnectRequest` の proxmox の枝は仮のもの。
+
+| 決めること               | 問い                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ゲストへの経路           | Proxmox にはストリーミングの exec が無い（QEMU guest agent の `guest-exec` は起動と結果の取得だけ、推測）。`sshd -i` へのバイト列をどう作るか: API の serial の termproxy / websocket に `sshd -i` を載せる、ゲストの NIC にノード経由の SSH（`-W`）で入る、など。8 bit を通すか、1 本で足りるか（incus-endpoint.md §5.2 の「SshConnection 1 つにつき 1 本」） |
+| 権限の閉じ込め           | API token（privilege separation）と role を pool・ストレージ・ブリッジ（SDN の vnet）に限れるか。VM の NIC やファイアウォールの設定を token が変えられないようにできるか                                                                                                                                                                                       |
+| イメージ                 | 今の Incus のイメージ（統合 tarball）から何を作るか（qcow2 / raw）。API で取り込めるか（ストレージの `import` の content、推測）。テンプレートにして複製するか                                                                                                                                                                                                 |
+| 初期設定                 | cloud-init の user-data の渡し方。Proxmox の `cicustom` は snippets のストレージにファイルを置く必要があり、API だけでは置けない可能性がある（推測）                                                                                                                                                                                                           |
+| ワークスペースのディスク | VM を消しても残る別のディスクをどう持つか（VM を消すとディスクも消える。外して残す、別の持ち主に付け替える、など）。拡張、by-id の名前                                                                                                                                                                                                                         |
+| ファイアウォール         | VM の egress を ACL と同じに絞る方法（Proxmox の VM のファイアウォール、データセンターの設定が要るか）。宣言と実測（`EgressBackend.probe` は guest agent の exec で足りるか）                                                                                                                                                                                  |
+| 容量                     | `capacity` に使う値（pool の上限、ノードの空き）                                                                                                                                                                                                                                                                                                               |
+
+## 11. 実装の段階（worktree）
+
+| #   | worktree / ブランチ        | 範囲                                                                                                                                                                                                                                                                | 並行                                                                      |
+| --- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| 1   | `feat/vm-host-modes-spec`  | この文書と、incus-endpoint.md・installer.md・ui-design.md の注記と書き直し                                                                                                                                                                                          | —                                                                         |
+| 2   | `feat/vm-backend-contract` | bot-core の `shared/environment-host.ts`・`contract.ts`（§5.2、`setup` と `custom` は型だけ）、dsh-bot-vm の `VmBackend` と Incus の実装（§5.3）、`PlacementStore` v3 と移行（§8）、Unix ソケットの transport と `incusSocket` の削除、画面は型に合わせる最小の変更 | 3a と並行できる（範囲が重ならない）                                       |
+| 3a  | `feat/host-setup-events`   | `infra/vm/host-setup.sh`・`lib.sh`・`infra/incus/objects.sh` の `--events`、フェーズの分割、`fail` の code、シェルのテスト（vitest から bash を実行し、イベントを検査）                                                                                             | 2 と並行                                                                  |
+| 3b  | `feat/setup-jobs`          | dsh-bot-vm の HostShell（local / ssh）、SSH の鍵・known_hosts・config、束の build と検査、`reduceSetupJob` と SetupRunner、ジョブの永続化、`VmHostSetup` の Host 側                                                                                                 | 2 と 3a の後                                                              |
+| 4   | `feat/vm-host-wizard`      | bot-core のクライアント（VM host の画面、ui-design.md）、Remote の `botEnvironmentHost`、i18n                                                                                                                                                                       | 2 の後。3b と並行できる（Remote の型が 2 で決まっていれば、偽の Host で） |
+| 5   | `feat/setup-investigation` | dsh-bot-vm の SetupBrief、bot-core の `investigateSetup`（`index.ts`）、失敗の画面のボタン、design-rules.md の rule 1 の注記、§7.1 の未検証の確認                                                                                                                   | 3b と 4 の後                                                              |
+| 6   | `feat/retire-install-sh`   | §9.3 の一覧（install.sh の削除、README、agent-setup.md、RELEASING.md、installer.md、test）                                                                                                                                                                          | 3a の後。4・5 と並行できる（README は 6 だけが触る）                      |
+| 7   | `feat/proxmox-backend`     | `VmBackend` の Proxmox の実装、custom の Proxmox の画面                                                                                                                                                                                                             | spike と 2 の後                                                           |
+
+- Release は 6 まで済んでから作る（2 で Unix ソケットを消すと、version 2 の local の利用者は 4 の移行の画面まで移行できないため）。2〜5 の間の確認は、custom の Incus（`core.https_address=127.0.0.1:8443` の token）で行う。
+- 動作確認は確認用の DSH と専用の Incus project（`dsh-bots-test` など）で行う。managed の「別のマシンに構築」は使い捨ての VM（入れ子の KVM、installer.md §10 と同じ）に対して行う。普段の DSH と project `default` / `dsh-bots` / `dsh-mv` には触れない。「このマシンに構築」の通しの確認は、このホストの Incus を変える（`core.https_address`、ブリッジ、ACL）ので、このホストでは行わず使い捨ての VM の中で行う。
+
+## 12. 未決と未検証
+
+- 未検証: sudo `-S` がパスワードを拒んだときの読み直しと、`requiretty` の OS（§5.4）。sudoers に入っていない一般ユーザの判定（`sudo -n true` はどちらも「パスワードが要る」を返す、推測）。
+- 未検証: SSH が切れたときに VM ホストの root のプロセスが stdin の EOF を受けて止まること（§5.5）。apt の途中で止めずに済むこと（bash は前景のコマンドが終わってから trap を実行する、推測）。DSH の再起動で中断した apt の後の `dpkg --configure -a` の要否。
+- 未検証: Remote の引数（sudo のパスワード）が DSH の gateway のログに残るか（§6.1）。
+- 未検証: `cwd` で作ったセッションの Workspace と bot-core のサイドバーでの扱い（§7.1）。
+- 未決: managed の VM ホストをやめるとき（「Stop using this VM host」）に、プラグインが root で自分の証明書を外し、作ったもの（ブリッジ、ACL、project）を片付けるか。この文書では custom と同じく案内だけにする。
+- 未決: remote の managed で ufw の HTTPS のポートを DSH ホストのアドレス（`$SSH_CLIENT`）だけに開けるか。今は全体に開ける（今の `phase_remote` と同じ）。証明書の認証で守られる。
+- 未決: create-project.sh の配布物の sha256 での固定（§9.2）。
+- 未決: 1 台の VM ホストだけ。ボットごとに置き場所を選ぶのは今と同じく後回し（placement をボットごとに持てる形にはしていない）。
+- Proxmox の §10 の表。

@@ -8,6 +8,8 @@ curl -fsSL https://raw.githubusercontent.com/1outres/dsh-bots/main/install.sh | 
 
 main の `install.sh` は入口だけで、最新の公開済みリリースのソースを取ってその `install.sh` を実行する（§7、§10）。
 
+改めた（docs/specs/vm-host-modes.md）: install.sh は廃止する。VM ホストの準備は、プラグインの設定画面が同梱の host-setup.sh を VM ホスト（このマシンか SSH の先）へ送ってフェーズごとに実行する managed のジョブにする（同 §3、§5.5）。この文書は host-setup.sh の中身（§2 の root のステップ、§3 の OS、§4 のファイアウォール、§6 の create-project.sh、§8 のイメージの配布）の記録として残す。install.sh に固有の節（§1 の形の選択、§2 のステップ 2 と 6、§5 の sudo と出力、§7 の `install.env` とソースの取得、§9 の `install.sh`）は改めた。
+
 ## 1. 対象と前提
 
 - CPU: x86_64 のみ。KVM が使えること（`/dev/kvm`）。init は systemd。
@@ -69,6 +71,8 @@ VM の通信は Incus の `inet incus` テーブルで許可されても、別�
 
 ## 5. sudo と出力
 
+改めた: sudo のパスワードは画面で受けて 1 回の `sudo -S` に渡し、出力は host-setup.sh の JSON lines のイベントにする（docs/specs/vm-host-modes.md §5.4、§5.5、§6.1）。以下は install.sh の記録。
+
 - sudo は、ステップ 2 の後に一度だけ理由を 1 行示して `sudo -v`。実行中は更新する。host-setup.sh は自分で sudo しない（root でなければ止まる）。
 - 端末（stdout が tty）のときだけ色。各ステップ 1 行。進行中は `…`、終わったら同じ行を `✓`/`✗` で書き換える。詳細はすべてログへ。
 - 失敗時だけ、何が・どう直す・ログの場所。
@@ -96,7 +100,7 @@ It pairs one DSH, once. Run this again for a new token (it replaces an unused on
 
 ## 6. 既存の Incus サーバ（形 3）: infra/incus/create-project.sh
 
-管理者が自分の Incus に対して実行する（root 不要、`incus` のクライアントだけ。`--remote <名前>` で incus の remote に対して）。入口は `install.sh incus-project <オプション>` でもよい（リリースのソースを取って実行する）。
+管理者が自分の Incus に対して実行する（root 不要、`incus` のクライアントだけ。`--remote <名前>` で incus の remote に対して）。入口は `install.sh incus-project <オプション>` でもよい（リリースのソースを取って実行する）。改めた: install.sh の廃止で、入口はリリースのタグのソースから `infra/` を取って実行する形にする（docs/specs/vm-host-modes.md §9.2）。
 
 - 引数: `--pool`（必須）、`--network <既存>` か `--bridge <名前> --cidr <ゲートウェイ/長さ>`、`--acl <既存>` か `--create-acl <名前>`（勧める ACL。新しいブリッジには付け、既存のネットワークには `--attach-acl` のときだけ付ける。そのネットワークの他のインスタンスにも効くため）、`--cpu` / `--memory` / `--disk`（必須。共有のサーバではホストの資源を上限にできない、docs/specs/incus-endpoint.md §5.6）、`--vms`、`--project`（既定 `dsh-bots`）、`--client-name`、`--no-token`。
 - サーバの検査: Incus 6.0.4 以上、qemu ドライバ、`core.https_address` が設定済み（無ければ設定の仕方を示して止まる。サーバの設定は変えない）。
