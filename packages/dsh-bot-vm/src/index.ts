@@ -36,6 +36,7 @@ import { certificateFingerprint, createSelfSignedIdentity } from "./node/client-
 import { startGuestRelay } from "./node/guest-relay"
 import { nodeImageFiles, nodeImageHttp, sha256 } from "./node/image-io"
 import { createIncusTransport } from "./node/incus-transport"
+import { SSH_CONNECTION_DEFAULTS } from "./node/ssh/connection"
 
 export const name = "bot-vm"
 const BOT = "bot"
@@ -149,16 +150,19 @@ export const Config: z<Config> = z.object({
     .default("/opt/dsh-ssh-helper/node_modules/@deepseek-ai/dsh-ssh/lib/helper.js")
     .description("Guest path of dsh-ssh's helper.js."),
   helperHash: z.string().default(HELPER_SHA256).description("SHA-256 of that helper.js."),
-  requestTimeoutMs: z.number().default(30_000).description("dsh-ssh connect and request deadline."),
+  requestTimeoutMs: z
+    .number()
+    .default(SSH_CONNECTION_DEFAULTS.requestTimeoutMs)
+    .description("dsh-ssh connect and request deadline."),
   readyTimeoutMs: z
     .number()
-    .default(480_000)
+    .default(1_200_000)
     .description(
       "How long ensure waits for a VM to answer over SSH (a VM's first boot from a new image can take minutes).",
     ),
   operationTimeoutMs: z
     .number()
-    .default(300_000)
+    .default(900_000)
     .description("Deadline of one Incus operation (create, start, delete)."),
   incusTimeoutMs: z
     .number()

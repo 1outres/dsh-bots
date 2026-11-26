@@ -63,7 +63,7 @@ class FakeConnection {
 vi.mock("../src/node/ssh/connection", () => ({
   SshConnection: FakeConnection,
   SSH_CONNECTION_DEFAULTS: {
-    requestTimeoutMs: 30_000,
+    requestTimeoutMs: 60_000,
     maxFrameBytes: 1,
     maxPending: 1,
     leaseMs: 30_000,
@@ -106,7 +106,7 @@ describe("@1outres/dsh-bot-vm/ssh", () => {
     expect(connections).toHaveLength(1)
     expect(connections[0]?.config).toMatchObject({
       ...config,
-      requestTimeoutMs: 30_000,
+      requestTimeoutMs: 60_000,
       leaseMs: 30_000,
     })
     expect(connections[0]?.config).not.toHaveProperty("retryDelayMs")

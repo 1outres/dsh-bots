@@ -94,7 +94,7 @@ const configSchema = z
   .strict()
 
 export const SSH_CONNECTION_DEFAULTS = {
-  requestTimeoutMs: 30_000,
+  requestTimeoutMs: 60_000,
   maxFrameBytes: 64 * 1024 * 1024,
   maxPending: 128,
   leaseMs: 30_000,
