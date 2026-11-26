@@ -6,6 +6,8 @@ import type { ConnectionsFeed } from "../connections-model"
 import type { ConnectorsHub } from "../connectors-hub"
 import { DeleteBotDialog, type DeleteBotFace } from "../DeleteBotDialog"
 import { ConnectionsSettings } from "../global-settings/ConnectionsSettings"
+import type { GroupsFeed } from "../groups/model"
+import { GROUPS_SECTION } from "../groups/sections"
 import { IconConnectors, IconKey } from "../icons"
 import { localeFormat } from "../locale-format"
 import type { ModelsHub } from "../models/feed"
@@ -37,6 +39,7 @@ export interface SettingsSources {
   readonly senders: SendersFeed
   readonly vaults: VaultsFeed
   readonly logins: BotVaultsHub
+  readonly groups: GroupsFeed
   readonly models: ModelsHub
   readonly workspaces: WorkspacesClient
   readCatalog(): Promise<BotModelCatalog>
@@ -54,6 +57,8 @@ export function wireSettings(ctx: ClientContext, sources: SettingsSources): void
       saveBot: actions.saveBot,
       deleteBot: deletion.ask,
       languages: () => ctx.locale.getSnapshot().locales,
+      groups: sources.groups,
+      openGroups: () => screens.openGlobalSettings(GROUPS_SECTION),
       channels,
       connectors,
       connections,

@@ -15,6 +15,7 @@ export interface TextFieldProps {
   readonly disabled?: boolean
   readonly autoFocus?: boolean
   readonly marks?: DataMarks
+  onBlur?(): void
 }
 
 export function TextField(props: TextFieldProps) {
@@ -46,6 +47,7 @@ export function TextField(props: TextFieldProps) {
         onBlur={() => {
           setFocused(false)
           draft.commit()
+          props.onBlur?.()
         }}
         onChange={(event) => draft.change(event.currentTarget.value)}
         onKeyDown={(event) => {

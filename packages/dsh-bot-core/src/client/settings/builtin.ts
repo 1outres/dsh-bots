@@ -42,6 +42,8 @@ export function builtinSettingsSections(deps: BuiltinSectionDeps): SettingsSecti
       saveBot: deps.saveBot,
       deleteBot: deps.deleteBot,
       languages: deps.languages,
+      groups: deps.groups,
+      openGroups: deps.openGroups,
     })
   const models = (props: SettingsSectionProps) =>
     createElement(ModelsSection, { ...props, models: deps.models, readCatalog: deps.readCatalog })

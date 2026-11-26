@@ -1080,6 +1080,7 @@ describe("client apply(): bot-core's Remote", () => {
       "bot-core.mains",
       "bot-core.connections",
       "bot-core.vaults",
+      "bot-core.groups",
     ])
     expect(global.flow.target.getSnapshot()).toBeNull()
 

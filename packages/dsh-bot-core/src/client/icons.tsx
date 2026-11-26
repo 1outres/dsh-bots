@@ -202,6 +202,33 @@ export function IconUser({ size = 16 }: IconProps) {
   )
 }
 
+export function IconGroups({ size = 16 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      strokeWidth="1"
+      aria-hidden="true"
+    >
+      <path
+        d="M6 7.75C7.24264 7.75 8.25 6.74264 8.25 5.5C8.25 4.25736 7.24264 3.25 6 3.25C4.75736 3.25 3.75 4.25736 3.75 5.5C3.75 6.74264 4.75736 7.75 6 7.75Z"
+        stroke="currentColor"
+      />
+      <path
+        d="M1.75 13.5C1.75 11 3.75 9.75 6 9.75C8.25 9.75 10.25 11 10.25 13.5"
+        stroke="currentColor"
+      />
+      <path
+        d="M10.5 7.5C11.4665 7.5 12.25 6.7165 12.25 5.75C12.25 4.7835 11.4665 4 10.5 4"
+        stroke="currentColor"
+      />
+      <path d="M11.5 9.75C13 10 14.25 11.1 14.25 13.25" stroke="currentColor" />
+    </svg>
+  )
+}
+
 export function IconTrash({ size = 16 }: IconProps) {
   return (
     <svg

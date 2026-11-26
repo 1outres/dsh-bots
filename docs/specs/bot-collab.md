@@ -571,3 +571,16 @@ Peer bots (group "Research"):
 - **子への持ち越し**: `session_start` / `session_send`（target `bot`）は、仲間由来のターンなら source `bot-peer-relay`（`peerMessages` つき）で送る。仲間の名前はそのターンの最後の仲間のメッセージの送り手。分からなければ「Your Main session sent a message for a peer bot:」。`session_read` では `bot-peer-relay` も `main` に分類する。子のターンの終わりと質問の notice は、そのターンが仲間由来（または不明）なら topic `peer-session`。
 - **`peer_send` の行** は `env-bot-core-sessions` の後に置いた。既にいるボットの preset の版（digest）は変わる（revision token は変わらない）。
 - **確かめていないこと**: 実際の DSH でサブエージェントのセッションが `turn/start` を出すか（出さなくても根のセッションで見るので振る舞いは変わらない）。
+
+## 19. 第2段階（Web UI）で確定したこと
+
+- **グループの活動の要約**: §4.1 の「Messages」の行の `meta`（件数と最後の時刻）を出すため、契約の `BotGroupView` に `activity: BotGroupActivity`（`messages` 件数、`queued` 届け待ちの件数、`lastSentAt?` 最後に送られた時刻）を足した。`host/peers/views.ts` の `groupActivity` が `messages` の記録から数える（保存はしない）。メッセージのページはこの要約が変わったとき（新しいメッセージ、届いた・取り下げた・期限切れ、古いものの削除）に、読んでいるページ数ぶんを最新から読み直す。メッセージ用の `watch` は足していない。
+- **名前の変更**: §4.1 の行に無いので、グループの最初の行に「Name / 名前」の `TextField`（Enter / blur で保存）を置いた。グループのタイトルも名前のまま。
+- **古いメッセージ**: 糸を新しい順に並べるので、古いものは下に来る。「前のメッセージを表示」のボタンをページの下端に置き、押すと `messages(groupId, before)` で 40 件読む（上端ではない）。
+- **本文を畳む**: 6 行を超える（改行で数えて 7 行以上、または 480 字を超える）本文は 6 行の高さで畳み、「続きを表示」で開く。
+- **拒否と取り下げの理由**: `StatusPill` は 1 語（届け待ち・取り下げ・期限切れ・拒否）にし、理由（上限の名前、`paused`、取り下げの理由）は時刻の後ろの `meta` に出す。
+- **移すときの確認**: タイトル「<bot> を移しますか？」、本文 1 行「<bot> を <前のグループ> から <このグループ> へ移しますか？」、ボタン「移す」（`primary`）。グループから外すときは確認しない。
+- **ボットの選択肢**: 作成中・削除中のボット（`pending` にあるもの）は「ボットを追加」に出さない。
+- **一時停止の行**: `Switch` はオンが「送れる」。止まっているときは `StatusPill` と、`meta` に止まった時刻（上限なら「 · 上限の名前」）。
+- **ボットの設定の行**: General の最初のグループの最後の行。`meta` は「<グループ名> · <役割>」（役割が無ければ「役割なし」）か「なし」。ボタンは dsh-bots の設定の Groups の節を開く（modal stack に積む）。
+- **部品**: `TextField` に `onBlur` を足した（役割の編集で、変更なしで離れたときに行を戻すため）。

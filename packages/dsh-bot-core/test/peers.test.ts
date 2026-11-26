@@ -394,7 +394,14 @@ describe("the groups panel", () => {
   it("checks the input before it reaches the rules", async () => {
     const { panel } = setup()
     const group = await panel.create(OWNER, { name: " A ", purpose: "" })
-    expect(group).toEqual({ id: "g1", name: "A", purpose: "", members: [], createdAt: 1000 })
+    expect(group).toEqual({
+      id: "g1",
+      name: "A",
+      purpose: "",
+      members: [],
+      activity: { messages: 0, queued: 0 },
+      createdAt: 1000,
+    })
     await expect(panel.join(OWNER, group.id, "nova", { role: 3 })).rejects.toThrow(
       "the role must be a string",
     )
@@ -402,6 +409,22 @@ describe("the groups panel", () => {
     const joined = await panel.join(OWNER, group.id, "nova", { role: "drafts" })
     expect(joined.members).toEqual([{ botId: "nova", role: "drafts", joinedAt: 1001 }])
     expect(await panel.deleteGroup(OWNER, group.id)).toEqual({ groups: [] })
+  })
+
+  it("sums a group's messages, the ones still queued and the latest send in its view", async () => {
+    const { groups, panel, message } = setup()
+    const a = await groups.create({ name: "A", purpose: "" })
+    const b = await groups.create({ name: "B", purpose: "" })
+    await message("p_1", { groupId: a, from: "nova", to: "pico", state: "delivered" })
+    await message("p_2", { groupId: a, from: "pico", to: "nova", sentAt: 5_000 })
+    await message("p_3", { groupId: b, from: "kiri", to: "nova" })
+    const views = panel.snapshot(OWNER).groups
+    expect(views.find((view) => view.id === a)?.activity).toEqual({
+      messages: 2,
+      queued: 1,
+      lastSentAt: 5_000,
+    })
+    expect(views.find((view) => view.id === b)?.activity.messages).toBe(1)
   })
 
   it("pages a group's messages from the newest, oldest first within a page", async () => {

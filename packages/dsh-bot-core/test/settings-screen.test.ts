@@ -53,6 +53,8 @@ function screen(extra: SettingsSection[] = []) {
     deleteBot: () => {},
     languages: () => LANGUAGES,
     openShared: () => {},
+    groups: value({ status: "loading" as const }),
+    openGroups: () => {},
     channels: createChannelsHub(() => model, idleQueries),
     connectors: createConnectorsHub(() => connectors),
     connections: idleConnections(),
@@ -201,6 +203,8 @@ describe("sections", () => {
         saveBot: async () => {},
         deleteBot: () => {},
         languages: () => LANGUAGES,
+        groups: value({ status: "loading" as const }),
+        openGroups: () => {},
       }),
     )
 

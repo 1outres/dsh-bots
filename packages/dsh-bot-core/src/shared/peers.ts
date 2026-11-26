@@ -49,12 +49,19 @@ export interface BotGroupMemberView {
   readonly joinedAt: number
 }
 
+export interface BotGroupActivity {
+  readonly messages: number
+  readonly queued: number
+  readonly lastSentAt?: number
+}
+
 export interface BotGroupView {
   readonly id: string
   readonly name: string
   readonly purpose: string
   readonly members: readonly BotGroupMemberView[]
   readonly paused?: BotGroupPause
+  readonly activity: BotGroupActivity
   readonly createdAt: number
 }
 

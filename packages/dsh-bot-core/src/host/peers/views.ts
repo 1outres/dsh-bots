@@ -1,4 +1,5 @@
 import {
+  type BotGroupActivity,
   type BotGroupsSnapshot,
   type BotGroupView,
   type BotPeerMessagePage,
@@ -8,6 +9,19 @@ import {
 import type { PeerMessageRecord } from "./domain"
 import { membersOf, requireGroup } from "./groups"
 import type { PeerState } from "./store"
+
+export function groupActivity(state: PeerState, groupId: string): BotGroupActivity {
+  let messages = 0
+  let queued = 0
+  let lastSentAt: number | undefined
+  for (const record of state.messages.values()) {
+    if (record.groupId !== groupId) continue
+    messages += 1
+    if (record.state === "queued") queued += 1
+    if (lastSentAt === undefined || record.sentAt > lastSentAt) lastSentAt = record.sentAt
+  }
+  return { messages, queued, ...(lastSentAt === undefined ? {} : { lastSentAt }) }
+}
 
 export function groupView(state: PeerState, groupId: string): BotGroupView {
   const group = requireGroup(state, groupId)
@@ -21,6 +35,7 @@ export function groupView(state: PeerState, groupId: string): BotGroupView {
       joinedAt: member.joinedAt,
     })),
     ...(group.paused === undefined ? {} : { paused: group.paused }),
+    activity: groupActivity(state, groupId),
     createdAt: group.createdAt,
   }
 }

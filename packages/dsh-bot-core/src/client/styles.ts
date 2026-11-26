@@ -6,6 +6,7 @@ import { CONNECTOR_PANELS_CSS } from "./styles-connector-panels"
 import { CONNECTORS_CSS } from "./styles-connectors"
 import { DIALOG_CSS } from "./styles-dialog"
 import { FILES_CSS } from "./styles-files"
+import { GROUPS_CSS } from "./styles-groups"
 import { INTERACTIONS_CSS } from "./styles-interactions"
 import { LIFECYCLE_CSS } from "./styles-lifecycle"
 import { MAIN_VIEW_CSS } from "./styles-main-view"
@@ -38,6 +39,7 @@ export const BOTS_CSS =
   OVERLAY_CSS +
   SETTINGS_CSS +
   WEB_CSS +
+  GROUPS_CSS +
   SKILLS_CSS +
   LIFECYCLE_CSS +
   ONBOARDING_CSS +

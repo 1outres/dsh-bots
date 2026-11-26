@@ -3,6 +3,9 @@ import { type BotUpdateInput, MAX_NAME_LENGTH } from "../../shared/bots"
 import { Avatar } from "../Avatar"
 import { AvatarPicker } from "../AvatarPicker"
 import { type AvatarChoice, avatarOfChoice, decomposeAvatar, sameChoice } from "../avatar-data"
+import { MembershipRow } from "../groups/MembershipRow"
+import type { GroupsState } from "../groups/model"
+import type { Observable } from "../observable"
 import { timeZoneChoices } from "../time-zones"
 import {
   ButtonRow,
@@ -27,6 +30,8 @@ export interface GeneralSectionDeps {
   saveBot(id: string, change: BotUpdateInput): Promise<void>
   deleteBot(id: string): void
   languages(): readonly LanguageOption[]
+  readonly groups: Observable<GroupsState>
+  openGroups(): void
 }
 
 const UNSET = ""
@@ -37,6 +42,8 @@ export function GeneralSection({
   saveBot,
   deleteBot,
   languages,
+  groups,
+  openGroups,
 }: SettingsSectionProps & GeneralSectionDeps) {
   const save = (change: BotUpdateInput): Promise<CommitResult> =>
     commitWith(
@@ -117,6 +124,7 @@ export function GeneralSection({
             />
           }
         />
+        <MembershipRow t={t} botId={bot.id} groups={groups} openGroups={openGroups} />
       </Group>
       <Group>
         <ButtonRow

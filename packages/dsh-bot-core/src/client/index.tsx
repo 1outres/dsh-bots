@@ -10,6 +10,7 @@ import { createConnectionsFeed, createConnectionsModel } from "./connections-mod
 import { createConnectorsHub } from "./connectors-hub"
 import { createConnectorsModel } from "./connectors-model"
 import { createEnvironmentClient } from "./environment/client"
+import { createGroupsFeed } from "./groups/model"
 import { createHeartbeatClient } from "./heartbeat/client"
 import { en, ja } from "./i18n"
 import { createMainsClient } from "./mains/client"
@@ -44,6 +45,7 @@ import { wireDshSettings } from "./wiring/dsh-settings"
 import { wireEnvironment } from "./wiring/environment"
 import { wireFiles } from "./wiring/files"
 import { wireGlobalSettings } from "./wiring/global-settings"
+import { wireGroups } from "./wiring/groups"
 import { wireHeartbeat } from "./wiring/heartbeat"
 import { wireInteractions } from "./wiring/interactions"
 import { createProgressView, wireLifecycle } from "./wiring/lifecycle"
@@ -108,6 +110,7 @@ export function apply(ctx: ClientContext): void {
   const vaultDeps = { mount: remote, generation: ctx.connection.generation }
   const vaults = createVaultsFeed(vaultDeps)
   const logins = createBotVaultsHub(vaultDeps)
+  const groups = createGroupsFeed(vaultDeps)
   const incidents = derive([vaults], openIncidentsOf)
   const progress = createProgressView()
   const classification = wireClassification(ctx, bots, progress)
@@ -215,6 +218,7 @@ export function apply(ctx: ClientContext): void {
     senders,
     vaults,
     logins,
+    groups,
     models: createModelsHub((botId) =>
       createModelsModel({ mount: remote, generation: ctx.connection.generation }, botId),
     ),
@@ -238,6 +242,7 @@ export function apply(ctx: ClientContext): void {
   wireWebLookup(ctx, webLookup, screens)
   wireSharedChannels(ctx, sharedChannels, screens)
   wireVmHost(ctx, createVmHostClient(remote), screens)
+  wireGroups(ctx, { groups, bots }, screens)
   const onboarding = wireOnboarding(ctx, {
     remote,
     bots,
