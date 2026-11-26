@@ -359,6 +359,15 @@ function fakeContext(options: FakeOptions = {}) {
           },
         })),
       },
+      botGroups: {
+        watch: vi.fn(() => ({
+          dispose() {},
+          async *[Symbol.asyncIterator]() {
+            yield { groups: [] }
+            await new Promise(() => {})
+          },
+        })),
+      },
     },
     options.mountFailure,
   )
@@ -973,6 +982,7 @@ describe("client apply(): bot-core's Remote", () => {
         "botOnboarding",
         "botVaults",
         "botSenders",
+        "botGroups",
       ]),
     )
 

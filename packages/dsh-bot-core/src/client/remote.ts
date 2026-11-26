@@ -19,6 +19,7 @@ import type { BotManagedSessionsApi, BotManagedSessionsSnapshot } from "../share
 import type { BotModelsView } from "../shared/models"
 import type { BotNotesApi, BotNotesStatus } from "../shared/notes"
 import type { BotOnboardingApi, BotOnboardingView } from "../shared/onboarding"
+import type { BotGroupsApi, BotGroupsSnapshot } from "../shared/peers"
 import {
   REMOTE_ENDPOINTS,
   REMOTE_JSON_TYPE,
@@ -147,6 +148,10 @@ export interface BotSendersRemote
   watchWaiting(): StreamHandle<SenderWaitingSnapshot>
 }
 
+export interface BotGroupsRemote extends Remoted<Omit<BotGroupsApi, "watch">> {
+  watch(): StreamHandle<BotGroupsSnapshot>
+}
+
 export interface BotCoreRemote {
   readonly bots: BotsRemote
   readonly botFiles: BotFilesRemote
@@ -169,6 +174,7 @@ export interface BotCoreRemote {
   readonly botOnboarding: BotOnboardingRemote
   readonly botVaults: BotVaultsRemote
   readonly botSenders: BotSendersRemote
+  readonly botGroups: BotGroupsRemote
 }
 
 export type RemoteMount =

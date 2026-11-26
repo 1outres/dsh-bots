@@ -187,6 +187,15 @@ import { fetchDueNotes } from "./host/onboarding/releases"
 import { releaseSourceOf } from "./host/onboarding/source"
 import { openOnboardingStore } from "./host/onboarding/store"
 import { acknowledging } from "./host/onboarding/welcome"
+import {
+  PEERS_DOMAIN,
+  type PeerGroupRecord,
+  type PeerMemberRecord,
+  type PeerMessageRecord,
+} from "./host/peers/domain"
+import { createPeerGroups, type PeerBot } from "./host/peers/groups"
+import { createPeerPanel } from "./host/peers/panel"
+import { createPeerStore } from "./host/peers/store"
 import { createBotPermissions, type PermissionPresets } from "./host/permission"
 import { createSessionPreparations } from "./host/preparations"
 import { createTemplateCatalog } from "./host/preset/catalog"
@@ -210,6 +219,7 @@ import {
   BotEnvironmentHostRemoteService,
   BotEnvironmentRemoteService,
   BotFilesRemoteService,
+  BotGroupsRemoteService,
   BotInteractionsRemoteService,
   BotMainsRemoteService,
   BotMainViewRemoteService,
@@ -596,6 +606,7 @@ const EVENTS_PER_STREAM = 500
 const EVENT_RETENTION_MS = 7 * 24 * 60 * 60_000
 const UNREAD_EVENT_RETENTION_MS = 30 * 24 * 60 * 60_000
 const EVENT_PRUNE_EVERY_MS = 60 * 60_000
+const PEER_MESSAGES_KEPT = 500
 const SENDER_HELD_EVENTS = 50
 const SENDER_CLOSED_RETENTION_MS = 7 * 24 * 60 * 60_000
 const SENDER_SWEEP_EVERY_MS = 60 * 60_000
@@ -712,6 +723,13 @@ interface SendersDomain {
   close(): Promise<void>
 }
 
+interface PeersDomain {
+  table(name: "groups"): BotTable<PeerGroupRecord>
+  table(name: "members"): BotTable<PeerMemberRecord>
+  table(name: "messages"): BotTable<PeerMessageRecord>
+  close(): Promise<void>
+}
+
 interface EventsDomain {
   table(name: "events"): BotTable<EventRecord>
   table(name: "cursors"): BotTable<CursorRecord>
@@ -798,6 +816,7 @@ interface HostServices {
     open(spec: typeof VAULTS_DOMAIN): Promise<VaultsDomain>
     open(spec: typeof EVENTS_DOMAIN): Promise<EventsDomain>
     open(spec: typeof SENDERS_DOMAIN): Promise<SendersDomain>
+    open(spec: typeof PEERS_DOMAIN): Promise<PeersDomain>
     open(spec: typeof WEB_DOMAIN): Promise<WebDomain>
     open(spec: typeof MAINS_DOMAIN): Promise<MainsDomain>
     open(spec: typeof SKILLS_DOMAIN): Promise<SkillsDomain>
@@ -3276,9 +3295,34 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
   events.on("agent/status", ({ agent, status }: { agent: { id: string }; status: string }) => {
     if (status === "idle") delivery.idle(agent.id)
   })
+  const peersDomain = await services.storageDomain.open(PEERS_DOMAIN)
+  ctx.effect(() => () => void peersDomain.close(), "bot-core: bot groups storage domain")
+  const peerStore = createPeerStore({
+    peerGroups: peersDomain.table("groups"),
+    peerMembers: peersDomain.table("members"),
+    peerMessages: peersDomain.table("messages"),
+    keptMessages: PEER_MESSAGES_KEPT,
+  })
+  await peerStore.repair()
+  const peerBot = (botId: string): PeerBot => {
+    const listed = registry.get(botId)
+    if (listed !== undefined) return { state: "listed", name: listed.name }
+    const creating = registry.creating().find((bot) => bot.id === botId)
+    return creating === undefined
+      ? { state: "missing" }
+      : { state: "creating", name: creating.name }
+  }
+  const peerGroups = createPeerGroups({
+    store: peerStore,
+    bot: peerBot,
+    newId: () => `grp-${randomBytes(6).toString("hex")}`,
+    now: Date.now,
+  })
+  new BotGroupsRemoteService(ctx, createPeerPanel({ groups: peerGroups }))
   const forgetDeleted = () => {
     const exists = (botId: string) => table.get(botId) !== undefined
     Promise.all([
+      peerGroups.forgetBots(exists),
       broker.prune(exists),
       connectorPermissions.purge(exists),
       connectorSettings.purge(exists),

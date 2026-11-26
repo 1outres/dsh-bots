@@ -12,6 +12,7 @@ import { MANAGED_SESSIONS_DOMAIN } from "../src/host/managed/domain"
 import { MODELS_DOMAIN } from "../src/host/models/domain"
 import { NOTICES_DOMAIN } from "../src/host/notices/domain"
 import { ONBOARDING_DOMAIN } from "../src/host/onboarding/domain"
+import { PEERS_DOMAIN } from "../src/host/peers/domain"
 import { SCHEDULES_DOMAIN } from "../src/host/schedule/domain"
 import { SENDERS_DOMAIN } from "../src/host/senders/domain"
 import { SETTINGS_DOMAIN } from "../src/host/settings/domain"
@@ -52,6 +53,12 @@ const DOMAINS = [
     source: "src/host/senders/domain.ts",
     domain: SENDERS_DOMAIN,
     file: "senders-domain",
+  },
+  {
+    label: "PEERS_DOMAIN",
+    source: "src/host/peers/domain.ts",
+    domain: PEERS_DOMAIN,
+    file: "peers-domain",
   },
   {
     label: "MAINS_DOMAIN",

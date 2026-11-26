@@ -69,6 +69,7 @@ vi.mock("../src/host/remote", () => ({
   BotManagedSessionsRemoteService: class {},
   BotWorkspacesRemoteService: class {},
   BotVaultsRemoteService: class {},
+  BotGroupsRemoteService: class {},
   BotSendersRemoteService: class {},
   BotMainViewRemoteService: class {},
   BotMainsRemoteService: class {

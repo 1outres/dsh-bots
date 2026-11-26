@@ -1,0 +1,92 @@
+{
+  "name": "dsh_bot_peers",
+  "version": 1,
+  "tables": {
+    "groups": {
+      "name": {
+        "required": true,
+        "type": "string"
+      },
+      "purpose": {
+        "required": true,
+        "type": "string"
+      },
+      "paused": {
+        "required": false,
+        "type": "{ reason: \"owner\"; at: number } | { reason: \"limit\"; at: number; detail: \"thread\" | \"pair\" | \"group\" | \"sender\" | \"depth\" }"
+      },
+      "createdAt": {
+        "required": true,
+        "type": "number"
+      }
+    },
+    "members": {
+      "groupId": {
+        "required": true,
+        "type": "string"
+      },
+      "role": {
+        "required": true,
+        "type": "string"
+      },
+      "joinedAt": {
+        "required": true,
+        "type": "number"
+      }
+    },
+    "messages": {
+      "groupId": {
+        "required": true,
+        "type": "string"
+      },
+      "from": {
+        "required": true,
+        "type": "string"
+      },
+      "to": {
+        "required": true,
+        "type": "string"
+      },
+      "threadId": {
+        "required": true,
+        "type": "string"
+      },
+      "replyTo": {
+        "required": false,
+        "type": "string"
+      },
+      "expectsReply": {
+        "required": true,
+        "type": "boolean"
+      },
+      "depth": {
+        "required": true,
+        "type": "number"
+      },
+      "text": {
+        "required": true,
+        "type": "string"
+      },
+      "sentAt": {
+        "required": true,
+        "type": "number"
+      },
+      "state": {
+        "required": true,
+        "type": "\"queued\" | \"delivered\" | \"withdrawn\" | \"expired\" | \"refused\""
+      },
+      "refusal": {
+        "required": false,
+        "type": "\"thread\" | \"pair\" | \"group\" | \"sender\" | \"depth\" | \"paused\""
+      },
+      "withdrawal": {
+        "required": false,
+        "type": "\"group-deleted\" | \"left-group\" | \"bot-deleted\" | \"expired\""
+      },
+      "noticeId": {
+        "required": false,
+        "type": "string"
+      }
+    }
+  }
+}

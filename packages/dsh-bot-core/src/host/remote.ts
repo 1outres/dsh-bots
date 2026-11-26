@@ -107,6 +107,15 @@ import type {
   BotOnboardingView,
   BotWelcomeChannelSetup,
 } from "../shared/onboarding"
+import type {
+  BotGroupChange,
+  BotGroupInput,
+  BotGroupJoin,
+  BotGroupsApi,
+  BotGroupsSnapshot,
+  BotGroupView,
+  BotPeerMessagePage,
+} from "../shared/peers"
 import type { RemoteNamespace } from "../shared/remote-contract"
 import type {
   BotSenderInquiriesSnapshot,
@@ -171,6 +180,7 @@ import type { WorkspacesPanel } from "./managed/workspaces-panel"
 import { type ModelPanel, remoteModelsError } from "./models/panel"
 import type { NotesPanel } from "./notes/panel"
 import type { OnboardingPanel } from "./onboarding/panel"
+import type { PeerPanel } from "./peers/panel"
 import type { BotRegistry } from "./registry"
 import type { SenderAnswers } from "./senders/answers"
 import type { SenderPanel } from "./senders/panel"
@@ -1313,6 +1323,75 @@ export class BotSendersRemoteService extends TypertRemoteService implements BotS
   }
 }
 
+export const BOT_GROUPS_REMOTE = "botGroups" satisfies RemoteNamespace
+
+const GROUPS = Symbol("botGroupsPanel")
+
+export class BotGroupsRemoteService extends TypertRemoteService implements BotGroupsApi {
+  [GROUPS]: PeerPanel
+
+  constructor(ctx: Context, panel: PeerPanel) {
+    super(ctx, BOT_GROUPS_REMOTE)
+    this[GROUPS] = panel
+  }
+
+  @Remote({ mode: "stream" })
+  async *watch(signal?: AbortSignal): AsyncIterable<BotGroupsSnapshot> {
+    const panel = this[GROUPS]
+    const caller = this.ctx.invocation?.peer.principal
+    panel.snapshot(caller)
+    yield* watchStream(
+      () => panel.snapshot(caller),
+      (listener) => panel.subscribe(listener),
+      signal,
+    )
+  }
+
+  @Remote
+  async messages(
+    groupId: string,
+    before: string | undefined,
+    signal?: AbortSignal,
+  ): Promise<BotPeerMessagePage> {
+    return this[GROUPS].messages(this.ctx.invocation?.peer.principal, groupId, before, signal)
+  }
+
+  @Remote
+  create(input: BotGroupInput): Promise<BotGroupView> {
+    return this[GROUPS].create(this.ctx.invocation?.peer.principal, input)
+  }
+
+  @Remote
+  update(groupId: string, change: BotGroupChange): Promise<BotGroupView> {
+    return this[GROUPS].update(this.ctx.invocation?.peer.principal, groupId, change)
+  }
+
+  @Remote
+  deleteGroup(groupId: string): Promise<BotGroupsSnapshot> {
+    return this[GROUPS].deleteGroup(this.ctx.invocation?.peer.principal, groupId)
+  }
+
+  @Remote
+  join(groupId: string, botId: string, join: BotGroupJoin): Promise<BotGroupView> {
+    return this[GROUPS].join(this.ctx.invocation?.peer.principal, groupId, botId, join)
+  }
+
+  @Remote
+  leave(botId: string): Promise<BotGroupsSnapshot> {
+    return this[GROUPS].leave(this.ctx.invocation?.peer.principal, botId)
+  }
+
+  @Remote
+  setRole(botId: string, role: string): Promise<BotGroupView> {
+    return this[GROUPS].setRole(this.ctx.invocation?.peer.principal, botId, role)
+  }
+
+  @Remote
+  setPaused(groupId: string, paused: boolean): Promise<BotGroupView> {
+    return this[GROUPS].setPaused(this.ctx.invocation?.peer.principal, groupId, paused)
+  }
+}
+
 export const REMOTE_SERVICES = {
   bots: BotsRemoteService,
   botFiles: BotFilesRemoteService,
@@ -1335,6 +1414,7 @@ export const REMOTE_SERVICES = {
   botOnboarding: BotOnboardingRemoteService,
   botVaults: BotVaultsRemoteService,
   botSenders: BotSendersRemoteService,
+  botGroups: BotGroupsRemoteService,
 } as const satisfies {
   readonly [Namespace in RemoteNamespace]: new (
     ...args: never[]

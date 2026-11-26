@@ -1,6 +1,6 @@
 # ボット同士の協働（グループと仲間へのメッセージ）
 
-2026-11-26 に決めたこと。オーナーが作る **グループ** に入ったボットどうしが、bot-core の中の経路で Main から Main へメッセージを送り合う。チャネル（Discord・Matrix の同じ部屋でボットどうしが人に見える形で話すこと）は後の段階で、この仕様では接続点だけを書く（§13）。コードはまだ無い。
+2026-11-26 に決めたこと。オーナーが作る **グループ** に入ったボットどうしが、bot-core の中の経路で Main から Main へメッセージを送り合う。チャネル（Discord・Matrix の同じ部屋でボットどうしが人に見える形で話すこと）は後の段階で、この仕様では接続点だけを書く（§13）。第1段階（グループの土台）を実装した（§16）。
 
 この文書の印:
 
@@ -532,3 +532,21 @@ Peer bots (group "Research"):
 12. コンテキストは Main と Web に入れる（§9.1）。子の `bot:management` に 1 行足す（§9.4）。
 13. グループの削除・退出では、届け待ちを取り下げて送り手に知らせる（§10）。
 14. 設計ルールは 78（77 は `feat/sender-policy`）（§3.4）。
+
+## 16. 実装で確定したこと
+
+第1段階（グループの土台: 契約、保存、グループの規則、Remote `botGroups`）で決めたこと。
+
+- **文字数** は UTF-16 の長さではなくコードポイントで数える（名前 40、目的 500、役割 200）。
+- **名前**: `headerName` で整えると空になる名前（`()`、`[]` など）は断る（「the group name needs a character other than [ ] ( ) ·」）。notice の見出しとコンテキストでグループを名指しできなくなるため。
+- **目的**: 前後の空白を除く。改行（`\n`）以外の制御文字・書式文字（タブ、`\r`、双方向の制御など）は名前と同じく断る（直さない）。
+- **入力の形**: 知らないフィールドがあれば断る。`parseGroupChange` は名前か目的の少なくとも一方が要る。ほかに `parseMemberRole`（`setRole`）、`parseGroupPaused`、`parseGroupId`、`parseBotId`、`parseMessageCursor` を `src/shared/peers.ts` に置いた。
+- **参加**: すでにいるグループへの `join` は断る（`from` が同じグループでも）。`from` が今のグループと違えば「<bot> is not in group "<name>"」。作成中のボットは「bot "<name>" is still being created」、無いボットは「no bot "<id>"」。
+- **一時停止**: `setPaused(true)` は止まっていないときだけ `{ reason: "owner" }` を書く（上限で止まったものはそのまま）。`setPaused(false)` はどちらの停止も解く。上限の停止（`pauseForLimit`）も、すでに止まっているグループには書かない。
+- **保存の作り**: 規則は `host/peers/groups.ts` の純粋関数（`decideCreate`・`decideJoin` など）で、今の状態（`PeerState`）から書き込みの列（`PeerWrite`）と結果を返す。`host/peers/store.ts` はそれを 1 列に並べて適用し、グループの削除でメンバーとメッセージを一緒に消し、無いグループへのメンバー・メッセージの書き込みを断り、グループごとに新しい 500 件まで残し、変わった行だけを書く（書く順は groups → members → messages の put、messages → members → groups の delete）。起動時の `repair()` は、グループの無いメンバーとメッセージ（書き込みの途中で止まった残り）を消す。
+- **取り下げ**: 退出・移動・グループの削除・ボットの削除では、規則が `queued` のメッセージを `withdrawn`（理由つき）にし、`PeerGroups.onWithdrawn` で知らせる。notice outbox からの取り下げと送り手への `peer-status` は、この口を使って後の段階で足す。グループの削除とボットの削除では、記録そのものも消える（知らせには消える前の記録が入る）。
+- **ボットの削除**: `index.ts` の `forgetDeleted`（`registry.subscribe` と起動時）で `PeerGroups.forgetBots` を呼ぶ。名前の変更は保存に名前を持たないので何もしない。
+- **グループの id** は `grp-` と 12 桁の 16 進数。
+- **`messages(groupId, before)`**: 1 ページ 40 件、ページの中は古い順。`before` を省くと最新のページ。`earlier` は、より古いものが残っているときのページの最初のメッセージの id。グループに無い id を `before` に渡したら断る。Remote の契約では `before` を省略できる引数にした。
+- **設計ルール**: 77 は `feat/sender-policy` が先に main に入ったので、こちらは 78 のまま。
+- ブラウザの側は `BotCoreRemote` に `botGroups` をつないだだけ（画面は後の段階）。

@@ -11,6 +11,7 @@ import type { BotMainsApi } from "./mains"
 import type { BotManagedSessionsApi } from "./managed-sessions"
 import type { BotNotesApi } from "./notes"
 import type { BotOnboardingApi } from "./onboarding"
+import type { BotGroupsApi } from "./peers"
 import type { BotSendersApi } from "./senders"
 import type { BotSettingsApi } from "./settings"
 import type { BotSkillsApi } from "./skills"
@@ -44,6 +45,7 @@ export interface BotCoreApi {
   readonly botOnboarding: BotOnboardingApi
   readonly botVaults: BotVaultsApi
   readonly botSenders: BotSendersApi
+  readonly botGroups: BotGroupsApi
 }
 
 export type RemoteNamespace = keyof BotCoreApi
@@ -70,6 +72,7 @@ export const REMOTE_NAMESPACES = [
   "botOnboarding",
   "botVaults",
   "botSenders",
+  "botGroups",
 ] as const satisfies readonly RemoteNamespace[]
 
 export const REMOTE_CONTRACT_CODES = [
@@ -279,6 +282,20 @@ export const REMOTE_METHODS: {
     watchBot: { parameters: [{ name: "botId" }], stream: true, cancellable: true },
     watchWaiting: { parameters: [], stream: true, cancellable: true },
     answer: { parameters: [{ name: "inquiryId" }, { name: "choice" }] },
+  },
+  botGroups: {
+    watch: { parameters: [], stream: true, cancellable: true },
+    messages: {
+      parameters: [{ name: "groupId" }, { name: "before", optional: true }],
+      cancellable: true,
+    },
+    create: { parameters: [{ name: "input" }] },
+    update: { parameters: [{ name: "groupId" }, { name: "change" }] },
+    deleteGroup: { parameters: [{ name: "groupId" }] },
+    join: { parameters: [{ name: "groupId" }, { name: "botId" }, { name: "join" }] },
+    leave: { parameters: [{ name: "botId" }] },
+    setRole: { parameters: [{ name: "botId" }, { name: "role" }] },
+    setPaused: { parameters: [{ name: "groupId" }, { name: "paused" }] },
   },
 }
 

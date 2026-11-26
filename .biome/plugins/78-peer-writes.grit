@@ -1,0 +1,12 @@
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or { `$receiver.put`, `$receiver.delete`, `$receiver?.put`, `$receiver?.delete` },
+  $receiver <: or {
+    `peerGroups`, `$_.peerGroups`, `$_?.peerGroups`,
+    `peerMembers`, `$_.peerMembers`, `$_?.peerMembers`,
+    `peerMessages`, `$_.peerMessages`, `$_?.peerMessages`
+  },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 78: do not write the bot group tables here; go through the peer store (host/peers/store.ts), which serializes writes, keeps one group per bot, moves a bot in one write, deletes a group with its members and messages and tells its subscribers."
+  )
+}
