@@ -12,6 +12,7 @@ import type { ShellFace } from "./face"
 
 const STEP_LABELS: { readonly [Phase in CreationPhase]: MessageKey } = {
   queued: "step.queued",
+  image: "step.image",
   creating: "step.creating",
   booting: "step.booting",
   connecting: "step.connecting",

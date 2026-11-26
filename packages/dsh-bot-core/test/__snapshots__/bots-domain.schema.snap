@@ -41,7 +41,7 @@
       },
       "creationFailure": {
         "required": false,
-        "type": "{ phase: \"queued\" | \"creating\" | \"booting\" | \"connecting\" | \"preset\" | \"starting-main\"; message: string; at: number }"
+        "type": "{ phase: \"queued\" | \"image\" | \"creating\" | \"booting\" | \"connecting\" | \"preset\" | \"starting-main\"; message: string; at: number }"
       },
       "timezone": {
         "required": false,

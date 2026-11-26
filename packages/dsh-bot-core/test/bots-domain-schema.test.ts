@@ -24,8 +24,9 @@ import { WEB_DOMAIN } from "../src/host/web/domain"
  * minLength left out). A new required field, an optional field made required
  * or a changed type breaks records already stored, so it needs a version bump;
  * any other change (a new optional field) only needs the snapshot updated.
- * One type change is compatible: widening a field to any JSON value (or an
- * array to an array of any JSON value), since every stored value still parses.
+ * Two type changes are compatible, since every stored value still parses:
+ * widening a field to any JSON value (or an array to an array of any JSON
+ * value), and adding literals to a union of literals (an enum).
  *
  * The rule guards upward compatibility only: records stored by an older
  * version must parse under the current schema. Whether an older version can
@@ -207,6 +208,24 @@ export function widensToJson(previous: string, next: string): boolean {
   return next === `(${ANY_JSON})[]` && isArrayType(previous)
 }
 
+const LITERAL_UNION = /"(?:[^"\\]|\\.)*"(?: \| "(?:[^"\\]|\\.)*")*/g
+
+/**
+ * Whether `next` is `previous` with literals added to its unions of literals:
+ * the rest of the type is the same, and each union keeps all it had.
+ */
+export function widensLiterals(previous: string, next: string): boolean {
+  const unions = (type: string) => [...type.matchAll(LITERAL_UNION)].map((match) => match[0])
+  const skeleton = (type: string) => type.replace(LITERAL_UNION, "<literals>")
+  if (skeleton(previous) !== skeleton(next)) return false
+  const before = unions(previous)
+  const after = unions(next)
+  return before.every((union, index) => {
+    const kept = new Set((after[index] as string).split(" | "))
+    return union.split(" | ").every((literal) => kept.has(literal))
+  })
+}
+
 /** Changes that break records stored under the snapshot's version. */
 export function breakingChanges(saved: DomainSnapshot, current: DomainSnapshot): string[] {
   const problems: string[] = []
@@ -219,7 +238,12 @@ export function breakingChanges(saved: DomainSnapshot, current: DomainSnapshot):
       if (old !== undefined && summary.required && !old.required) {
         problems.push(`${table}.${field} became required`)
       }
-      if (old !== undefined && old.type !== summary.type && !widensToJson(old.type, summary.type)) {
+      if (
+        old !== undefined &&
+        old.type !== summary.type &&
+        !widensToJson(old.type, summary.type) &&
+        !widensLiterals(old.type, summary.type)
+      ) {
         problems.push(`${table}.${field} changed type: ${old.type} -> ${summary.type}`)
       }
     }
@@ -294,6 +318,17 @@ describe("breakingChanges", () => {
     expect(
       breakingChanges(base, withFields({ note: { required: false, type: `(${ANY_JSON})[]` } })),
     ).toEqual([`bots.note changed type: string -> (${ANY_JSON})[]`])
+  })
+
+  it("accepts adding literals to an enum, not removing or renaming one", () => {
+    const phase = (type: string) => withFields({ failure: { required: false, type } })
+    const before = phase('{ phase: "a" | "b"; at: number }')
+    expect(breakingChanges(before, phase('{ phase: "a" | "x" | "b"; at: number }'))).toEqual([])
+    expect(breakingChanges(before, phase('{ phase: "a"; at: number }'))).toHaveLength(1)
+    expect(breakingChanges(before, phase('{ phase: "a" | "c"; at: number }'))).toHaveLength(1)
+    expect(breakingChanges(before, phase('{ phase: "a" | "b"; at: string }'))).toHaveLength(1)
+    expect(widensLiterals('"a" | number', '"a" | "b" | number')).toBe(true)
+    expect(widensLiterals('"a"', "string")).toBe(false)
   })
 
   it("refuses a new required field, a field made required and a type change", () => {

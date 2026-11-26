@@ -73,6 +73,7 @@ describe("creationSteps / elapsedText", () => {
     expect(creationSteps("booting", false).map((step) => step.state)).toEqual([
       "done",
       "done",
+      "done",
       "current",
       "waiting",
       "waiting",

@@ -16,6 +16,7 @@ import { capacityOf } from "./capacity"
 import { BOOT_FINISHED, isCanonicalPath, userDataText } from "./cloud-init"
 import { checkEndpoint, type ProjectDeclaration } from "./endpoint-check"
 import { checkInstanceName, type GuestProxy, proxyCommandOf, SSHD_COMMAND } from "./guest-transport"
+import type { ImageGate } from "./image/manager"
 import type { ExecSession, IncusClient, IncusInstance, IncusVolume } from "./incus"
 import { layoutOf, WORKSPACE_BY_ID } from "./layout"
 import { createLimiter } from "./limit"
@@ -58,6 +59,8 @@ export type RunCommand = (
 export interface EnvironmentDeps {
   /** The Incus API of the endpoint, scoped to {@link EnvironmentSettings.project}. */
   readonly incus: IncusClient
+  /** The base image a new VM is created from (src/host/image/manager.ts). */
+  readonly image: ImageGate
   /** Whether the endpoint is this machine's socket or a paired VM host. */
   readonly endpointKind: () => Promise<"local" | "remote">
   /** The absolute ripgrep path the Host's DSH spawns, inside the bot's environment too. */
@@ -463,8 +466,16 @@ export function createVmEnvironment(
         report,
         signal,
       )
+    // "image" comes after "queued": a wait for a slot after an import stays shown as "image".
+    let imported = false
+    if (existing === undefined) {
+      await deps.image.ready(signal, () => {
+        imported = true
+        report("image")
+      })
+    }
     if (needsBoot) {
-      report("queued")
+      if (!imported) report("queued")
       await provisions.run(bring, signal)
     } else await bring()
   }

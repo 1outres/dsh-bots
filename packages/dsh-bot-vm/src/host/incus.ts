@@ -119,6 +119,11 @@ export interface VolumeSpec {
   readonly config: Readonly<Record<string, string>>
 }
 
+export interface ImageUpload {
+  readonly timeoutMs: number
+  readonly signal?: AbortSignal
+}
+
 export interface IncusImage {
   readonly fingerprint: string
   readonly size: number
@@ -207,8 +212,12 @@ export interface IncusClient {
   ): Promise<void>
   /** Delete a custom volume. Resolves also when it never existed. */
   deleteVolume(pool: string, name: string, signal?: AbortSignal): Promise<void>
-  /** Import a unified image tarball; resolves with its fingerprint. */
-  importImage(body: AsyncIterable<Uint8Array>, signal?: AbortSignal): Promise<string>
+  /**
+   * Import a unified image tarball; resolves with the fingerprint Incus
+   * computed. The upload gets `timeoutMs`, the operation after it the
+   * operation deadline.
+   */
+  importImage(body: AsyncIterable<Uint8Array>, options: ImageUpload): Promise<string>
   image(fingerprint: string, signal?: AbortSignal): Promise<IncusImage | undefined>
   deleteImage(fingerprint: string, signal?: AbortSignal): Promise<void>
   /** The fingerprint an alias points to, or undefined. */
@@ -643,8 +652,8 @@ export function createIncusClient(options: IncusClientOptions): IncusClient {
         throw error
       }
     },
-    async importImage(body, signal) {
-      const limit = bounded(signal, operationTimeoutMs)
+    async importImage(body, { timeoutMs, signal }) {
+      const limit = bounded(signal, timeoutMs)
       const response = await transport.upload(
         scoped("/1.0/images"),
         body,

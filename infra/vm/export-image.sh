@@ -4,8 +4,9 @@
 # Usage: ./export-image.sh <tag> [<out dir>]     (as a user that can talk to Incus)
 # Writes into <out dir> (default ./dist/<tag>): the image split into parts below
 # GitHub's 2 GiB asset limit and manifest.txt, and sets IMAGE_TAG and
-# IMAGE_MANIFEST_SHA256 in infra/release.env. Upload them with publish-image.sh
-# (infra/RELEASING.md).
+# IMAGE_MANIFEST_SHA256 in infra/release.env and in the plugin that imports the
+# image (packages/dsh-bot-vm/src/host/image/release-env.ts). Upload them with
+# publish-image.sh (infra/RELEASING.md).
 #
 # manifest.txt, one record per line:
 #   format 1
@@ -23,6 +24,7 @@ OUT=${2:-$PWD/dist/$TAG}
 ALIAS=${ALIAS:-dsh-bot-base}
 PART_BYTES=$((1900 * 1024 * 1024))
 RELEASE_ENV=$HERE/../release.env
+PLUGIN_RELEASE=$HERE/../../packages/dsh-bot-vm/src/host/image/release-env.ts
 
 [[ $TAG =~ ^[A-Za-z0-9._-]+$ ]] || fail "Tag $TAG has characters a release tag cannot have." "Use letters, digits, dot, dash, underscore."
 fp=$(alias_target "$ALIAS")
@@ -57,6 +59,8 @@ split -b "$PART_BYTES" -d -a 2 "$file" "$OUT/$name.part"
 manifest_sha=$(sha256sum "$OUT/manifest.txt" | cut -d' ' -f1)
 
 sed -i -e "s/^IMAGE_TAG=.*/IMAGE_TAG=$TAG/" -e "s/^IMAGE_MANIFEST_SHA256=.*/IMAGE_MANIFEST_SHA256=$manifest_sha/" "$RELEASE_ENV"
+sed -i -e "s/^export const IMAGE_TAG = .*/export const IMAGE_TAG = \"$TAG\"/" \
+  -e "s/^export const MANIFEST_SHA256 = .*/export const MANIFEST_SHA256 = \"$manifest_sha\"/" "$PLUGIN_RELEASE"
 log "Done"
 cat "$OUT/manifest.txt"
 echo

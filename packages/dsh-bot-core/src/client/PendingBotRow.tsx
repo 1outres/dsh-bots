@@ -12,6 +12,7 @@ import { Button } from "./ui/Button"
 
 export const PHASE_LABELS: { readonly [Phase in CreationPhase]: MessageKey } = {
   queued: "phase.queued",
+  image: "phase.image",
   creating: "phase.creating",
   booting: "phase.booting",
   connecting: "phase.connecting",

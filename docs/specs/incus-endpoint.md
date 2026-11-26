@@ -175,6 +175,8 @@ interface ImageRelease {
 - 確認済み: 制限付き証明書で 1.39 GiB の統合 tarball を HTTPS（loopback）で取り込めた（11.9 s。同じ fingerprint のイメージが default project に既にあったので、Incus が中身を共有して速かった可能性がある）。別名の作成・削除もできる。
 - ダウンロードは DSH ホストが行い、`<stateDir>/images/` に置く（`Range` で再開、検査済みは取り直さない）。VM ホストに直接取らせる（`source.type=url`）手は、イメージサーバの形式（simplestreams）を要るので取らない。
 - プラグインの版は 1 つのイメージの版（`release.env`）を指す。進捗は画面に出す。
+- 段階 4 で実装（`src/host/image/`、`src/node/image-io.ts`）: 検査は install.sh の image ステップと同じ（manifest の sha256・format 1・DSH の版・部分の大きさの合計、部分ごとの大きさと sha256、つないだ全体の sha256、Incus が返す fingerprint の一致。合わない部分は消し、別の fingerprint で入ったイメージは消し戻す）。置き場所は `<stateDir>/images/manifests/<manifest sha256>.txt`（検査済み。手元にあればネットワーク無しで別名を確かめられる）と `<stateDir>/images/downloads/<manifest sha256>/<part>.partial`（`Range` で続き、60 s 無通信で失敗、検査後に `<part>` へ改名。別名を付けたら消す。ほかの版の分も消す）。取り込み前に残りの分の空き容量を確かめる。取り込みは同時に 1 つで、`ensure` は VM を作るときだけ合流して進捗 `image`（bot-core の `ENVIRONMENT_PHASES` に追加）を出し、失敗は理由と直し方で ensure を失敗させる。画面向けの状態とコントラクトは bot-core の `shared/environment-image.ts`（`BotEnvironmentImageView`、`BotEnvironmentImageHost`）。設定 `manageImage`（既定 on、off は別名をそのまま使う）、`imageBaseUrl` + `imageManifestSha256`（ミラー、両方か無し）、`imageUploadTimeoutMs`。release.env の値は `src/host/image/release-env.ts` に `export-image.sh` が書き、テストで一致を保つ。
+- 確認済み（2026-11-26、Unix ソケット、専用 project）: image-20261124（1,459,423,733 bytes）を GitHub Release から取得して取り込み、別名 `dsh-bot-base` が fingerprint 9fa1dfcf… を指した。取得 41.5 s、ソケット越しのアップロードと Incus の処理 47.3 s。300 MiB を超えたところで取り消し（状態 failed / cancelled、`.partial` 315,603,529 bytes が残る）→ 再開で `Range` が 315603529 から始まり、同時に待った 2 つの ensure と画面の start でアップロードは 1 回。終わった後 `downloads/` は空で manifest だけ残る。別名だけ消した状態ではダウンロードもアップロードもせず別名だけ付け直した。確認用 DSH でボットを作ると、ensure が取り込みを行ってから VM を作り（進捗は 空き → ベースイメージを用意 → 作成 → 起動 → 接続）、Main まで進んだ。
 
 ### 5.6 BotEnvironment（bot-core の契約）への影響
 
@@ -333,7 +335,7 @@ ProxyCommand は DSH のプロセスの中で中継する（§5.2）ので、Inc
 1. `feat/incus-endpoint-client`: `IncusTransport`（unix / https + 固定）、`IncusClient` の拡張（exec・websocket・volume・image・server）、`EndpointStore`、`check`、ペアリング（token）。単体テストは偽の HTTPS サーバで。本体の振る舞いはまだ変えない。
 2. `feat/guest-exec-transport`: 自前の `ssh` サービス（§10 の 2）と、プロセス内で中継する GuestTransport（§10 の 1）。ボットごとの ssh 設定を `-F` で渡す。vsock-proxy と socat、`~/.ssh/config` の Include を消す。
 3. `feat/workspace-volume`: volume の作成・接続・拡張・削除、cloud-init の mount、`hostRoot`/`raw.idmap`/`guestUid` 周りを消す。プロファイルをやめ、インスタンスに直接書く。`default` project を拒む。ここで確認用 DSH（形 1）で bot-core の一通りを試す。
-4. `feat/image-import`: プラグインからのイメージの取り込みと画面。
+4. `feat/image-import`: プラグインからのイメージの取り込み（Host 側の状態とコントラクトまで。画面は 5）。
 5. `feat/endpoint-ui`: 設定画面（VM ホストの選択、token、検査結果、ACL の警告）。2〜4 と並べられる（画面だけ。API が固まってから）。
 6. `feat/installer-split`: install.sh / host-setup.sh / 新しい管理者スクリプト / 文書（§7）。
 7. 別のマシンでの形 2・形 3 の通しの確認と §9 の未検証の解消。

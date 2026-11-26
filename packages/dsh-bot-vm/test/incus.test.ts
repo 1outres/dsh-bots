@@ -492,7 +492,7 @@ describe("createIncusClient", () => {
       yield new Uint8Array(3)
       yield new Uint8Array(4)
     }
-    await expect(client.importImage(body())).resolves.toBe("f".repeat(64))
+    await expect(client.importImage(body(), { timeoutMs: 5_000 })).resolves.toBe("f".repeat(64))
     expect(calls[0]?.body).toEqual({
       bytes: 7,
       headers: { "Content-Type": "application/octet-stream" },

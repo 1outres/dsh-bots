@@ -47,7 +47,7 @@ export function sessionsOfBot(bot: BotView): readonly string[] {
 }
 
 /** What the bot's environment reports while it prepares one bot, in order. */
-export const ENVIRONMENT_PHASES = ["queued", "creating", "booting", "connecting"] as const
+export const ENVIRONMENT_PHASES = ["queued", "image", "creating", "booting", "connecting"] as const
 
 export type EnvironmentPhase = (typeof ENVIRONMENT_PHASES)[number]
 

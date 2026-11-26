@@ -81,6 +81,7 @@ export interface BotEnvironmentTarget extends BotEnvironmentBot {
 }
 
 export type * from "./shared/environment"
+export type * from "./shared/environment-image"
 
 /** How one `ensure` runs: bot-core may abort it, and shows its progress to the user. */
 export interface EnsureOptions {

@@ -32,10 +32,15 @@ import {
   type EnvironmentSettings,
   type RunCommand,
 } from "./host/environment"
+import { createImporter } from "./host/image/importer"
+import { createImageManager, type ImageManager } from "./host/image/manager"
+import { releaseOf } from "./host/image/release"
+import { DSH_VERSION } from "./host/image/release-env"
 import { createIncusClient } from "./host/incus"
 import { decideOwner, OWNER_FILE } from "./host/owner"
 import { endpointTransport } from "./node/endpoint-transport"
 import { startGuestRelay } from "./node/guest-relay"
+import { nodeImageFiles, nodeImageHttp, sha256 } from "./node/image-io"
 
 export const name = "bot-vm"
 /**
@@ -59,6 +64,10 @@ export interface Config {
   incusSocket: string
   incusProject: string
   image: string
+  manageImage: boolean
+  imageBaseUrl: string
+  imageManifestSha256: string
+  imageUploadTimeoutMs: number
   rootDiskGiB: number
   instancePrefix: string
   hostAliasPrefix: string
@@ -100,6 +109,26 @@ export const Config: z<Config> = z.object({
       'Incus project of the bot VMs and workspace volumes, made for dsh-bots (docs/specs/incus-endpoint.md §3.4); "default" is refused.',
     ),
   image: z.string().default("dsh-bot-base").description("Incus image alias bot VMs start from."),
+  manageImage: z
+    .boolean()
+    .default(true)
+    .description(
+      "Import the base image this version names (infra/release.env) into the project and point the alias at it. Off: the alias is used as it is (an image you built).",
+    ),
+  imageBaseUrl: z
+    .string()
+    .default("")
+    .description(
+      "Where manifest.txt and the image parts are, set together with imageManifestSha256. Empty: the GitHub release this version names.",
+    ),
+  imageManifestSha256: z
+    .string()
+    .default("")
+    .description("sha256 of the manifest.txt under imageBaseUrl."),
+  imageUploadTimeoutMs: z
+    .number()
+    .default(3_600_000)
+    .description("Deadline of sending the base image to Incus."),
   rootDiskGiB: z
     .number()
     .default(16)
@@ -336,6 +365,44 @@ function storedEndpoint(
   return async () => endpointOf((await store.read()) ?? { kind: "local", socket }, keys)
 }
 
+/** Downloads of the base image stall when no byte arrives for this long. */
+const IMAGE_STALL_MS = 60_000
+
+/** The base image of the project (docs/specs/incus-endpoint.md §5.5); downloads go under `<stateDir>/images`. */
+export function imageManagerOf(
+  config: Config,
+  stateDir: string,
+  incus: ReturnType<typeof createIncusClient>,
+  project: () => string | undefined,
+  log: (message: string) => void,
+): ImageManager {
+  return createImageManager(
+    {
+      alias: config.image,
+      managed: config.manageImage,
+      release: releaseOf({
+        baseUrl: config.imageBaseUrl,
+        manifestSha256: config.imageManifestSha256,
+      }),
+    },
+    {
+      importer: createImporter({
+        incus,
+        files: nodeImageFiles,
+        http: nodeImageHttp({ stallMs: IMAGE_STALL_MS, userAgent: `dsh-bot-vm/${DSH_VERSION}` }),
+        sha256,
+        dir: join(stateDir, "images"),
+        dshVersion: DSH_VERSION,
+        uploadTimeoutMs: config.imageUploadTimeoutMs,
+        log,
+      }),
+      project,
+      now: Date.now,
+      log,
+    },
+  )
+}
+
 export function apply(ctx: Context, config: Config): void {
   const stateDir = expandHome(config.stateDir)
   const settings = settingsOf(config, config.owner === "" ? ownerOf(stateDir) : config.owner)
@@ -351,13 +418,23 @@ export function apply(ctx: Context, config: Config): void {
   })
   const transport = endpointTransport(storedEndpoint(stateDir, config.incusSocket, () => records))
   ctx.effect(() => () => transport.close(), "bot-vm: Incus connections")
+  const incus = createIncusClient({
+    transport,
+    project: config.incusProject,
+    operationTimeoutMs: config.operationTimeoutMs,
+    requestTimeoutMs: config.incusTimeoutMs,
+  })
+  const images = imageManagerOf(
+    config,
+    stateDir,
+    incus,
+    () => config.incusProject,
+    (message) => ctx.logger.info(`bot-vm: ${message}`),
+  )
+  ctx.effect(() => () => images.close(), "bot-vm: base image")
   const environment = createVmEnvironment(settings, {
-    incus: createIncusClient({
-      transport,
-      project: config.incusProject,
-      operationTimeoutMs: config.operationTimeoutMs,
-      requestTimeoutMs: config.incusTimeoutMs,
-    }),
+    incus,
+    image: images,
     endpointKind: () => transport.kind(),
     hostRipgrep,
     files: nodeFiles,

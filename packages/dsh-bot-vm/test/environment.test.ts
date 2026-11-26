@@ -234,6 +234,7 @@ function setup(
     { ...settings, ...change },
     {
       incus: h.incus.client,
+      image: { ready: async () => {} },
       endpointKind: async () => "remote",
       files: h.files.api,
       hostRipgrep: async () => HOST_RG,
@@ -456,6 +457,36 @@ describe("incus-vm environment", () => {
     const steps: string[] = []
     await environment.ensure(target, { progress: (phase) => steps.push(phase) })
     expect(steps).toEqual(["queued", "creating", "booting", "connecting"])
+  })
+
+  it("waits for the base image before creating a VM, reporting it while an import runs, and only then", async () => {
+    const gate: string[] = []
+    const { h, environment } = setup(
+      {},
+      {
+        image: {
+          async ready(_signal, importing) {
+            gate.push("ready")
+            importing()
+          },
+        },
+      },
+    )
+    const steps: string[] = []
+    await environment.ensure(target, { progress: (phase) => steps.push(phase) })
+    expect(steps).toEqual(["image", "creating", "booting", "connecting"])
+    await h.incus.client.setState(alias, "stop")
+    await environment.ensure(target)
+    expect(gate).toEqual(["ready"])
+  })
+
+  it("does not create a VM when the base image cannot be made ready", async () => {
+    const { h, environment } = setup(
+      {},
+      { image: { ready: () => Promise.reject(new Error("the base image is not ready")) } },
+    )
+    await expect(environment.ensure(target)).rejects.toThrow("the base image is not ready")
+    expect(await h.incus.client.instance(alias)).toBeUndefined()
   })
 
   it("skips creating and booting for a VM that runs, and boots a stopped one", async () => {
