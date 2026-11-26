@@ -216,6 +216,7 @@ import {
   BotManagedSessionsRemoteService,
   BotNotesRemoteService,
   BotOnboardingRemoteService,
+  BotSendersRemoteService,
   BotSettingsRemoteService,
   BotSkillsRemoteService,
   BotsRemoteService,
@@ -233,6 +234,16 @@ import { createScheduler } from "./host/schedule/scheduler"
 import { createScheduleStore } from "./host/schedule/store"
 import { canonicalTimezone } from "./host/schedule/timing"
 import { createScheduleTools, type ScheduleCaller } from "./host/schedule/tools"
+import { createSenderAnswers } from "./host/senders/answers"
+import {
+  SENDERS_DOMAIN,
+  type SenderInquiryRecord,
+  type SenderMigrationRecord,
+  type SenderPolicyRecord,
+} from "./host/senders/domain"
+import { createSenderPanel } from "./host/senders/panel"
+import { createSenderPolicies } from "./host/senders/policies"
+import { createSenderStore } from "./host/senders/store"
 import { createSettingsApprovals } from "./host/settings/approval"
 import { channelAreas } from "./host/settings/areas/channels"
 import { BOT_SETTINGS_PLACE, placeIn } from "./host/settings/areas/common"
@@ -575,6 +586,9 @@ const EVENTS_PER_STREAM = 500
 const EVENT_RETENTION_MS = 7 * 24 * 60 * 60_000
 const UNREAD_EVENT_RETENTION_MS = 30 * 24 * 60 * 60_000
 const EVENT_PRUNE_EVERY_MS = 60 * 60_000
+const SENDER_HELD_EVENTS = 50
+const SENDER_CLOSED_RETENTION_MS = 7 * 24 * 60 * 60_000
+const SENDER_SWEEP_EVERY_MS = 60 * 60_000
 
 const CONNECTOR_RETENTION_MS = 7 * 24 * 60 * 60_000
 const NOTICE_READY_WAIT_MS = 15_000
@@ -681,6 +695,13 @@ interface ConnectionsDomain {
   close(): Promise<void>
 }
 
+interface SendersDomain {
+  table(name: "policies"): BotTable<SenderPolicyRecord>
+  table(name: "inquiries"): BotTable<SenderInquiryRecord>
+  table(name: "migrations"): BotTable<SenderMigrationRecord>
+  close(): Promise<void>
+}
+
 interface EventsDomain {
   table(name: "events"): BotTable<EventRecord>
   table(name: "cursors"): BotTable<CursorRecord>
@@ -766,6 +787,7 @@ interface HostServices {
     open(spec: typeof CONNECTIONS_DOMAIN): Promise<ConnectionsDomain>
     open(spec: typeof VAULTS_DOMAIN): Promise<VaultsDomain>
     open(spec: typeof EVENTS_DOMAIN): Promise<EventsDomain>
+    open(spec: typeof SENDERS_DOMAIN): Promise<SendersDomain>
     open(spec: typeof WEB_DOMAIN): Promise<WebDomain>
     open(spec: typeof MAINS_DOMAIN): Promise<MainsDomain>
     open(spec: typeof SKILLS_DOMAIN): Promise<SkillsDomain>
@@ -1166,6 +1188,26 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     const record = connectionStore.get(connectionId)
     return record === undefined ? connectionId : connectionName(record)
   }
+  const sendersDomain = await services.storageDomain.open(SENDERS_DOMAIN)
+  ctx.effect(() => () => void sendersDomain.close(), "bot-core: sender policies storage domain")
+  const senderStore = createSenderStore({
+    senderPolicies: sendersDomain.table("policies"),
+    senderInquiries: sendersDomain.table("inquiries"),
+    senderMigrations: sendersDomain.table("migrations"),
+    now: Date.now,
+  })
+  await senderStore.migrate(connectionStore.list().map((record) => record.id))
+  await senderStore.purge((connectionId) => connectionStore.get(connectionId) !== undefined)
+  const senderPolicies = createSenderPolicies({
+    store: senderStore,
+    release: (release) => eventPoller.release(release),
+    account: accountName,
+    connectorName: (connectorId) => connectorCatalog.get(connectorId)?.name,
+    newId: () => `snd-${randomBytes(6).toString("hex")}`,
+    now: Date.now,
+    maxHeld: SENDER_HELD_EVENTS,
+    closedRetentionMs: SENDER_CLOSED_RETENTION_MS,
+  })
   ctx.inject(["credentials"], (credentialsCtx) => {
     const records = (credentialsCtx as unknown as { credentials: ConnectionCredentialRecords })
       .credentials
@@ -2215,6 +2257,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
         signal,
       ),
     connection: connectionOf,
+    senders: (connectionId) => senderPolicies.senders(connectionId),
     vault: (context) => vaultAccess.forRun(context),
   })
   const readiness = createConnectorReadiness({
@@ -2664,6 +2707,8 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     subscribers: eventSubscribers,
     store: eventStore,
     shield: (botId, events) => shieldContext(botId, events),
+    screen: async (connectionId, connectorId, events) =>
+      (await senderPolicies.screen(connectionId, connectorId, events)).deliver,
     connection: connectionOf,
     later: (ms, work) => later(work, Math.min(ms, MAX_TIMER_MS)),
     deadline: (ms) => AbortSignal.timeout(ms),
@@ -2739,6 +2784,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     providers: connectionProviders,
     services: connectionServices,
     store: connectionStore,
+    senders: { start: (connectionId) => senderStore.start(connectionId, "connected") },
     vault: connectionVault,
     tokens: connectionTokens,
     client: (provider) => oauthClients.credentials(provider),
@@ -2766,6 +2812,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
       fetch: oauthFetch,
       deadline: (ms) => AbortSignal.timeout(ms),
       exists: (botId) => table.get(botId) !== undefined,
+      senders: { forget: (connectionId) => senderStore.forget(connectionId) },
     }),
   )
   ctx.inject(["webServer"], (webCtx) => {
@@ -3352,6 +3399,58 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     exists: (botId) => table.get(botId) !== undefined,
   })
   new BotConnectorActionsRemoteService(ctx, connectorApprovals)
+  const senderAnswers = createSenderAnswers({
+    policies: senderPolicies,
+    store: senderStore,
+    bots: botIds,
+    sees: (botId, record) =>
+      connectionStore.isAssigned(botId, record.connectionId) &&
+      connectorSettings.enabled(botId, record.connectorId),
+  })
+  new BotSendersRemoteService(
+    ctx,
+    {
+      panel: createSenderPanel({
+        policies: senderPolicies,
+        connections: connectionStore,
+        catalog: connectorCatalog,
+        account: accountName,
+        connection: connectionOf,
+        deadline: (ms) => AbortSignal.timeout(ms),
+      }),
+      answers: senderAnswers,
+    },
+    (listener) => {
+      const offs = [
+        senderStore.subscribe(listener),
+        connectionStore.subscribe(listener),
+        connectorSettings.subscribe(() => listener()),
+      ]
+      return () => {
+        for (const off of offs) off()
+      }
+    },
+  )
+  ctx.effect(
+    () =>
+      senderAnswers.subscribe((inquiry, bots) => {
+        for (const botId of bots) outlets.publish(botId, { kind: "sender-inquiry", inquiry })
+      }),
+    "bot-core: sender inquiries in channels",
+  )
+  const sweepSenders = (): void => {
+    senderPolicies.sweep().catch((error: unknown) => {
+      warn(`bot-core: could not expire sender inquiries: ${String(error)}`)
+    })
+  }
+  const sweepSendersLater = (): void => {
+    later(() => {
+      sweepSenders()
+      sweepSendersLater()
+    }, SENDER_SWEEP_EVERY_MS)
+  }
+  sweepSenders()
+  sweepSendersLater()
   new BotConnectorStreamsRemoteService(ctx, connectorStreams)
   ctx.effect(
     () =>
@@ -3832,6 +3931,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
       outlets,
       interactions,
       approvals: connectorApprovals,
+      senders: senderAnswers,
       incidents: {
         open: (botId) =>
           vaultStore

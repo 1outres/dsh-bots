@@ -12,6 +12,9 @@ import type {
   ConnectorActionView,
   ConnectorDecision,
   ConnectorDecisionResult,
+  SenderAnswerResult,
+  SenderChoice,
+  SenderInquiryView,
 } from "@1outres/dsh-bot-core"
 import type { ApprovalTables, RecordTable } from "../src/host/actions/records"
 import type { DiscordActions, DiscordAuthor, DiscordMessage } from "../src/host/discord"
@@ -168,6 +171,12 @@ export function fakeLink(settings: DiscordSettings) {
     reason: "not-found",
   })
   const ledger = new Map<string, ConnectorActionView>()
+  const inquiries = new Map<string, SenderInquiryView>()
+  const senderAnswers: { inquiryId: string; choice: SenderChoice; person: string }[] = []
+  let answerSender: (inquiryId: string, choice: SenderChoice) => SenderAnswerResult = () => ({
+    accepted: false,
+    reason: "not-found",
+  })
   const link: BotChannelLink<DiscordSettings> = {
     bot: { id: "b1", name: "Bot" },
     settings,
@@ -213,6 +222,21 @@ export function fakeLink(settings: DiscordSettings) {
         .filter((action) => action.status.state === "pending")
         .sort((a, b) => a.createdAt - b.createdAt),
     connectorAction: (actionId) => ledger.get(actionId),
+    async answerSender(inquiryId, choice, person) {
+      senderAnswers.push({ inquiryId, choice, person })
+      return answerSender(inquiryId, choice)
+    },
+    pendingSenderInquiries(person) {
+      if (controller.signal.aborted) return { ok: false, reason: "closed" }
+      if (!settings.approvers.includes(person)) return { ok: false, reason: "not-approver" }
+      return {
+        ok: true,
+        inquiries: [...inquiries.values()].filter((item) => item.status.state === "pending"),
+      }
+    },
+    openSenderInquiries: () =>
+      [...inquiries.values()].filter((item) => item.status.state === "pending"),
+    senderInquiry: (inquiryId) => inquiries.get(inquiryId),
     activity: () => activity,
     report: (state) => reports.push(state),
     reportProfile: (report) => profileReports.push(report),
@@ -248,6 +272,16 @@ export function fakeLink(settings: DiscordSettings) {
     },
     drop(actionId: string) {
       ledger.delete(actionId)
+    },
+    senderAnswers,
+    answerSenderWith(next: (inquiryId: string, choice: SenderChoice) => SenderAnswerResult) {
+      answerSender = next
+    },
+    keepInquiries(...items: SenderInquiryView[]) {
+      for (const item of items) inquiries.set(item.id, item)
+    },
+    dropInquiry(inquiryId: string) {
+      inquiries.delete(inquiryId)
     },
   }
 }

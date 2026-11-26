@@ -32,6 +32,9 @@ import type { Scheduler } from "./ports"
 import { createProfilePresenter } from "./profile/presenter"
 import type { ProfileRecords } from "./profile/records"
 import { createSerialQueue } from "./queue"
+import { isInquiryCustomId } from "./senders/custom-id"
+import { createInquiryPresenter } from "./senders/presenter"
+import type { InquiryCards } from "./senders/records"
 import { compareSnowflakes } from "./snowflake"
 import { splitMessage } from "./split"
 import {
@@ -59,6 +62,7 @@ export interface DiscordBridgeDeps {
   records: ApprovalRecords
   incidents: IncidentNotices
   profiles: ProfileRecords
+  inquiries: InquiryCards
   warn(message: string): void
 }
 
@@ -94,7 +98,11 @@ export function createDiscordBridge(deps: DiscordBridgeDeps): BotChannelConnecti
     message: (message) => receiveMessage(message),
     command: (invocation) => receiveCommand(invocation),
     component: (press) =>
-      void (isActionCustomId(press.customId) ? actions.press(press) : interactions.press(press)),
+      void (isActionCustomId(press.customId)
+        ? actions.press(press)
+        : isInquiryCustomId(press.customId)
+          ? inquiries.press(press)
+          : interactions.press(press)),
     modal: (submit) => void interactions.submit(submit),
   })
   const target = createHomeTarget(home, connection.openDm)
@@ -115,6 +123,19 @@ export function createDiscordBridge(deps: DiscordBridgeDeps): BotChannelConnecti
     link,
     actions: connection,
     records: deps.records,
+    home: target,
+    atHome: here,
+    locale: notices,
+    self: deps.channelId,
+    outbound,
+    closed,
+    warn: deps.warn,
+  })
+
+  const inquiries = createInquiryPresenter({
+    link,
+    actions: connection,
+    cards: deps.inquiries,
     home: target,
     atHome: here,
     locale: notices,
@@ -217,6 +238,8 @@ export function createDiscordBridge(deps: DiscordBridgeDeps): BotChannelConnecti
         return incidents.received(output.incident)
       case "profile":
         return profile.received(output.profile)
+      case "sender-inquiry":
+        return inquiries.received(output.inquiry)
     }
   }
 
@@ -337,6 +360,7 @@ export function createDiscordBridge(deps: DiscordBridgeDeps): BotChannelConnecti
   actions
     .start()
     .catch(warnUnlessClosed("could not bring the connector action messages up to date"))
+  inquiries.start().catch(warnUnlessClosed("could not bring the sender questions up to date"))
 
   return { receive, close }
 }

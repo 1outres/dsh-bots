@@ -56,6 +56,7 @@ describe("connector tools that fill logins", () => {
       images: () =>
         ({ images: { admit: async () => ({ ok: false, reason: "no" }) }, refs: () => [] }) as never,
       connection: () => ({}) as never,
+      senders: () => ({}) as never,
       vault(context) {
         seen.push({
           botId: context.botId,

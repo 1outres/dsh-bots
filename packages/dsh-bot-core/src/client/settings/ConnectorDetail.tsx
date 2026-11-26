@@ -14,6 +14,7 @@ import { ConnectorPreparing } from "../connector-preparing"
 import type { ConnectorsFeed } from "../connectors-hub"
 import type { MessageKey } from "../i18n"
 import { localeFormat } from "../locale-format"
+import type { SendersFeed } from "../senders/model"
 import type { Translate } from "../types"
 import { Button, Group, PageTitle, Row, Select, StatusPill, Switch, Tag, TextFieldRow } from "../ui"
 import { READINESS_LABEL } from "./ConnectorsSection"
@@ -21,6 +22,7 @@ import { ConnectorTools } from "./ConnectorTools"
 import { type ConnectorSaves, useConnectorSaves } from "./connector-saves"
 import { switchBlockText } from "./connector-switch"
 import { failureText } from "./failure-text"
+import { SenderAccounts } from "./SenderAccounts"
 import type { SettingsSectionProps } from "./sections"
 
 const UNAVAILABLE_LABEL: Readonly<Record<ConnectorUnavailableCause, MessageKey>> = {
@@ -36,6 +38,8 @@ export interface ConnectorDetailProps {
   readonly block: ConnectorSwitchBlock | undefined
   readonly feed: ConnectorsFeed
   readonly confirm: SettingsSectionProps["confirm"]
+  readonly senders: SendersFeed
+  openSenders(connectionId: string): void
 }
 
 const DELIVERY_LABEL: Readonly<Record<ConnectorEventDelivery, MessageKey>> = {
@@ -44,7 +48,8 @@ const DELIVERY_LABEL: Readonly<Record<ConnectorEventDelivery, MessageKey>> = {
   queue: "connectors.events.queue",
 }
 
-export function ConnectorDetail({ t, text, view, block, feed, confirm }: ConnectorDetailProps) {
+export function ConnectorDetail(props: ConnectorDetailProps) {
+  const { t, text, view, block, feed, confirm } = props
   const { connector } = view
   const saves = useConnectorSaves({ t, view, feed })
   return (
@@ -125,6 +130,9 @@ export function ConnectorDetail({ t, text, view, block, feed, confirm }: Connect
             />
           )}
         </Group>
+      )}
+      {connector.senders !== undefined && (
+        <SenderAccounts t={t} view={view} senders={props.senders} open={props.openSenders} />
       )}
       <ConnectorTools t={t} view={view} feed={feed} confirm={confirm} />
     </div>

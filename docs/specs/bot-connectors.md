@@ -2,7 +2,7 @@
 
 状態: 第 3 段階の前の設計段階。14（作成時のオプションと準備中の表示）は `feat/connector-onboarding` と `feat/new-bot-workstation` で実装済み。13（コネクターのパネルと status）と 12 の画面の中継・引き継ぎは `feat/desktop-screen` で実装済み。1〜9 は `feat/connector-design` で実装済み（bot-core / bot-vm の汎用部分）。11（承認の画面とオーナーの確認）は `feat/connector-approvals` で実装済み。
 10（Gmail / カレンダー向けの接続・認証情報・イベント）は `feat/connector-google` で bot-core に実装し、Gmail / カレンダーのコネクター（`@1outres/dsh-bot-connector-google`）と一緒に入れた（10.5 に実装で確定したこと）。
-requires の有効化・無効化の検査（4 章）は `feat/connector-requires-gate`。
+requires の有効化・無効化の検査（4 章）は `feat/connector-requires-gate`。送信元ポリシー（16 章）は `feat/sender-policy`。
 個々のコネクター本体のうちデスクトップは `packages/dsh-bot-connector-desktop`（12 章）、ブラウザは `packages/dsh-bot-connector-browser`（15 章、`feat/connector-browser`。bot-core のコネクター間の依存 `requires` と、人の操作中の `readOnly` / `operatedBy` も同時に入れた）。
 
 ## 目的
@@ -389,3 +389,51 @@ interface ConnectorEvent {
 - **作成時はオプション 1 つ**（14 章）: 最初はコネクターごとのチェック（各コネクターの `newBots.enabled` が初期値）を並べたが、作成時に選ぶ意味があるのは VM のメモリが変わるデスクトップとブラウザだけで、他は後から設定で足せばよい。そこで bot-core が持つオプションにコネクターが属する形にし、コネクターごとの汎用の仕組みは消した。
 - **requires の切り替えの規則**（`feat/connector-requires-gate`）: 最初は requires を準備状態だけで扱い、ブラウザだけを有効にできた。そのボットではブラウザが「needs Desktop, which is off for this bot: turn it on too」で待ち続け、ツールは見えるが失敗し、VM のメモリは 3072 MiB に上がっていた。有効化の時点で断る（UI と Host の両方）ことにし、逆向き（依存されているものの無効化）も同じ規則で断る。自動で連鎖して有効・無効にはしない。
 - **設計ルール**: 39 に `tool.snapshot()` を足し、43（`preparation.prepare/unprepare()` は readiness.ts、`attachment.open()` は attachments.ts だけ）を足した。46（`recordDecision()` は approvals.ts だけ）は 11 章。
+
+## 16. 送信元ポリシー（`feat/sender-policy`）
+
+ボットが読める・知らされるメールを送信元で制限する（prompt injection 対策でもある）。判定とポリシーと問い合わせは bot-core の汎用機能で、コネクターは「送信元が誰で、確認できたか」と「送信済みの宛先」を渡すだけ。今は Gmail が使う。
+
+### 16.1 コントラクト
+
+- `shared/senders.ts`（ブラウザとも共有）:
+  - `SenderPolicy { unknown: "allow" | "ask" | "deny", rules: SenderRule[] }`、`SenderRule { match: { kind: "address" | "domain", value }, verdict: "allow" | "deny", decidedAt, origin }`（origin は `ConnectorDecisionOrigin`: Web か、どのチャネルの誰か）。ルールは match ごとに一意（同じ match の保存は verdict の置き換え）。アドレス・ドメインは小文字に正規化（IDN は punycode）。
+  - 判定 `judgeSender(policy, sender)`: 具体的なほうが勝つ（アドレス → 完全一致のドメイン → 長い順のワイルドカード → `unknown`）。`example.com` は完全一致だけ、`*.example.com` はサブドメインと `example.com` 自体。deny ルールは確認の有無に関係なく隠す。allow ルールは確認できた送信元にだけ効き、確認できない送信元は `unknown` の扱い（`allow` なら見える、それ以外は隠し、問い合わせない）。`unknown=ask` で確認できた・ルールのない送信元だけが問い合わせの対象（`inquire: true`）。
+  - `ConnectorSender`: `{ kind: "self" }`（自分が送ったもの。常に見える）/ `{ kind: "external", address, verified }` / `{ kind: "anonymous" }`（From が読めない。確認できない扱い）。
+  - 初期値の規則 `SENDER_POLICY_START`: `migrated`（この機能より前からある接続）は `allow`、`connected`（それ以降に接続したアカウント。新しいボットで接続したものも）は `ask`。
+  - フリーメール（`FREEMAIL_DOMAINS` と `gmx.*`）: 問い合わせに「ドメインを許可」を出さない（`senderChoicesFor`）。設定画面ではフリーメールを含むドメインの許可ルールに警告。
+  - 隠した件数の一行 `senderHiddenNote`（例 `3 messages hidden by the sender policy (1 from senders not allowed yet, 1 from senders that could not be verified, 1 denied).`、未判定があれば「設定で許可すれば読める」と続ける）と、1 件を断る文 `senderHiddenRefusal(item)`（ID だけ）。
+- `connector-contract.ts`: `BotConnector.senders?: { kind: "email", recipients(lookup) }`（`connections` が必須。カタログが検査）、`ConnectorEvent.sender`（`senders` のあるコネクターは全イベントに必須。無ければその poll は失敗しカーソルは進まない）、`BotConnectorRun.senders`（接続があり `senders` を宣言したコネクターのとき。`screen()` → `admits(sender)` と `note()`、`require(sender, item)`）。ポリシーの書き込み口はコネクターにも Bot にも無い。
+- ポリシーは **接続（アカウント）ごと**。同じアカウントを使うすべてのボットに効く。
+
+### 16.2 保存と移行
+
+- storage domain `dsh_bot_senders` v1: `senderPolicies`（キー connectionId）、`senderInquiries`、`senderMigrations`。書き込みは `host/senders/store.ts` だけ（**設計ルール 77**）。
+- 起動時に一度だけ、その時点の接続すべてに `allow` のポリシーを書き、印（`existing-connections`、対象の接続の一覧と時刻）を残す。以後、新しい接続はサインインの完了時に接続の記録より先に `ask` のポリシーを書く（印の無いうちは書けない）。ポリシーの無い接続は既定で埋めず、読み取りもイベントも断る（設定画面で選ぶと作られる）。切断で消す。
+
+### 16.3 新着イベントと問い合わせ
+
+- poller はコネクターの poll の後、カーソルを進める保存の前に `screen` に通す（`host/senders/policies.ts`）: 見える → 届ける、問い合わせ対象 → 保留（送信元アドレスごとに 1 件の問い合わせにまとめ、最新 50 件を持ち、届いた件数を数える）、それ以外 → 捨てる。
+- 回答は「アドレスを許可 / ドメインを許可 / アドレスを拒否 / ドメインを拒否」。ルールを保存し（origin 付き）、許可なら保留したイベントをそのときの購読ボットに届ける（50 件を超えた分は gap で知らせる）、拒否なら捨てる。ポリシーが変わるたび（回答・ルールの追加 / 削除・unknown の変更・コピー）に保留中の問い合わせを判定し直し、見えるようになったものは届けて `covered`（allow）、問い合わせ対象でなくなったものは捨てて `covered`（deny）。
+- 期限は 30 日（`SENDER_INQUIRY_TTL_MS`）。切れたら保留を捨て、送信元は未判定のまま（次のメールでまた聞く）。決着した問い合わせは 7 日残す。1 時間ごとに掃除。
+- 過去のメール（search など）では問い合わせない。
+- 状態: `pending` / `answered`（choice・origin・時刻）/ `covered`（verdict）/ `expired`。
+
+### 16.4 誰が答えるか
+
+- コネクターの action（11 章）とは別の種類として並べる: action は bot の Ask で実行と結果の状態機械を持つが、問い合わせは接続に属し、選択肢が 4 つで実行が無い。台帳にも InteractionBoard にも入れない。
+- 問い合わせは、その接続が割り当てられコネクターが有効なボットに見える（同じアカウントを 2 つのボットが使えば両方に出て、どちらで答えても同じ決着）。Web はオーナー（principal `owner`）、チャネルはそのボットのチャネルのオーナー（`capabilities.senderInquiries: true`、`owners` 必須）。経路は `host/senders/answers.ts`。
+- チャネルの出力 `sender-inquiry`（`SenderInquiryView` 全体。作成・変化のたび、接続時に開いているもの）。link に `answerSender` / `pendingSenderInquiries` / `openSenderInquiries` / `senderInquiry`。結果 `SenderAnswerResult`: `accepted` / `not-approver` / `not-found` / `settled` / `closed` / `not-offered`。
+- Discord: ホームにカード（状態の行、送信元・アカウント・待っている件数・最新の要約（コードブロック）、期限、選択肢のボタン `dshs:<inquiry id>:aa|ad|da|dd`）。カードの場所は `dsh_bot_discord` v4 の `inquiryCards`（`host/senders/records.ts`）。決着したら全カードを今の姿に書き換える。
+
+### 16.5 Gmail
+
+- 送信元の確認（`gmail/authentication.ts`）: 一番上の `Authentication-Results` の authserv-id が `mx.google.com` のときだけ読み、`dmarc=pass` で `header.from` が From のドメイン、または `dkim=pass` で `header.d`（無ければ `header.i` のドメイン）が From のドメインかその親なら verified。`SENT` ラベルのメールは `self`。From が 1 つの mailbox でなければ `anonymous`。
+- search は隠したものを除いて一行で件数を伝える（data に `hidden` 件数）。get_thread は隠すべきメッセージだけ伏せて件数を伝える。get_message / get_attachment / reply / forward / trash / untrash / 返信の下書き（`reply_to_message_id`）は隠すべきメールなら ID だけのエラー。list_drafts / get_draft は対象外。新着イベントには `sender` を付ける。
+- `senders.recipients`: SENT の最近のメール（最大 200 件）の To / Cc / Bcc（自分を除く）を件数つきで返す。
+
+### 16.6 Web
+
+- 承認のトレイ（アクション）に保留中の問い合わせのカード（選択肢のボタン、待っている件数、最新の要約、期限）と、決着したものの一覧。メニューの件数とボット一覧のバッジに問い合わせを足す。
+- Gmail コネクターの詳細に「送信元」欄（割り当てたアカウントごとの行）→ アカウントの送信元ページ: unknown の選択（許可 / 聞く / 隠す、聞く・隠すで過去のメールも見えなくなる旨）、保留中の問い合わせ、ルール一覧（verdict の切り替え、削除＝未判定に戻る、決めた日時と場所、フリーメールの警告）、ルールの追加（アドレス / ドメイン / *.ドメイン）、送信済みメールの宛先から一括で許可、他のアカウントにコピー（置き換え、確認つき）。Remote `botSenders`（`watch`、`setUnknown`、`putRules`、`removeRule`、`copy`、`recipients`、`watchBot`、`watchWaiting`、`answer`。変更はオーナーだけ）。
+- ボット自身の設定ツール（bot-settings.md）にはポリシーを出さない（読み書きとも無し）。

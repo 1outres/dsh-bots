@@ -7,11 +7,13 @@ export interface ReadMessage {
   readonly from?: string
   readonly to?: string
   readonly cc?: string
+  readonly bcc?: string
   readonly replyTo?: string
   readonly subject?: string
   readonly date?: string
   readonly messageId?: string
   readonly references?: string
+  readonly authenticationResults?: string
   readonly snippet: string
   readonly internalDate?: number
   readonly text: string
@@ -100,11 +102,13 @@ export function readMessage(message: gmail_v1.Schema$Message): ReadMessage {
     ...optional("from", header(top, "From")),
     ...optional("to", header(top, "To")),
     ...optional("cc", header(top, "Cc")),
+    ...optional("bcc", header(top, "Bcc")),
     ...optional("replyTo", header(top, "Reply-To")),
     ...optional("subject", header(top, "Subject")),
     ...optional("date", header(top, "Date")),
     ...optional("messageId", header(top, "Message-ID") ?? header(top, "Message-Id")),
     ...optional("references", header(top, "References")),
+    ...optional("authenticationResults", header(top, "Authentication-Results")),
     snippet: message.snippet ?? "",
     ...(message.internalDate ? { internalDate: Number(message.internalDate) } : {}),
     text: plain ?? (html === undefined ? "" : htmlText(html)),
@@ -120,4 +124,12 @@ export function headline(message: ReadMessage): string {
   ].join(" · ")
 }
 
-export const METADATA_HEADERS = ["From", "To", "Cc", "Subject", "Date", "Message-ID"]
+export const METADATA_HEADERS = [
+  "From",
+  "To",
+  "Cc",
+  "Subject",
+  "Date",
+  "Message-ID",
+  "Authentication-Results",
+]

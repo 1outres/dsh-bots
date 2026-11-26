@@ -1,5 +1,6 @@
 import { CONNECTIONS_EN, CONNECTIONS_JA } from "./i18n-connections"
 import { ONBOARDING_EN, ONBOARDING_JA } from "./i18n-onboarding"
+import { SENDERS_EN, SENDERS_JA } from "./i18n-senders"
 import { VAULTS_EN, VAULTS_JA } from "./i18n-vaults"
 import { VM_HOST_EN, VM_HOST_JA } from "./i18n-vm-host"
 
@@ -711,6 +712,7 @@ const EN = {
   "registration.refused.permissionSeat":
     "DSH's permission selector could not be removed from bot sessions (another plugin holds its place; see the browser console).",
   ...CONNECTIONS_EN,
+  ...SENDERS_EN,
   ...ONBOARDING_EN,
   ...VAULTS_EN,
   ...VM_HOST_EN,
@@ -1432,6 +1434,7 @@ const JA: { readonly [Key in MessageKey]: string } = {
   "registration.refused.permissionSeat":
     "ボットのセッションから DSH の権限選択を取り除けませんでした（ほかのプラグインが先に登録しています。ブラウザーのコンソールを確認してください）。",
   ...CONNECTIONS_JA,
+  ...SENDERS_JA,
   ...ONBOARDING_JA,
   ...VAULTS_JA,
   ...VM_HOST_JA,

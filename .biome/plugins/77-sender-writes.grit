@@ -1,0 +1,12 @@
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or { `$receiver.put`, `$receiver.delete`, `$receiver?.put`, `$receiver?.delete` },
+  $receiver <: or {
+    `senderPolicies`, `$_.senderPolicies`, `$_?.senderPolicies`,
+    `senderInquiries`, `$_.senderInquiries`, `$_?.senderInquiries`,
+    `senderMigrations`, `$_.senderMigrations`, `$_?.senderMigrations`
+  },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 77: do not write the sender policy tables here; go through the sender store (host/senders/store.ts), which serializes writes, migrates the existing accounts once and tells its subscribers."
+  )
+}

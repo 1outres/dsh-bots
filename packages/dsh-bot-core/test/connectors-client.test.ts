@@ -26,7 +26,12 @@ import type {
   ConnectorReadiness,
 } from "../src/shared/connectors"
 import { bot, t } from "./support/client"
-import { idleConnections, probeDescriptor, probeView } from "./support/connectors-client"
+import {
+  idleConnections,
+  idleSenders,
+  probeDescriptor,
+  probeView,
+} from "./support/connectors-client"
 
 const view = probeView()
 const snapshot: BotConnectorsSnapshot = { botId: "a", connectors: [view] }
@@ -56,6 +61,7 @@ function mounted(botConnectors: Partial<BotConnectorsRemote>): Promise<RemoteMou
       botEnvironmentHost: {} as never,
       botOnboarding: {} as never,
       botVaults: {} as never,
+      botSenders: {} as never,
     },
   })
 }
@@ -299,6 +305,7 @@ describe("ConnectorsSection", () => {
         confirm: async () => false,
         connectors: hub,
         connections,
+        senders: idleSenders(),
         openConnectionSettings: () => {},
         text: (text) => text.en,
       }),

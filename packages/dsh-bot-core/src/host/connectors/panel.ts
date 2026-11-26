@@ -83,6 +83,7 @@ export function descriptorOf(connector: CatalogConnector): ConnectorDescriptor {
             intervalMs: connector.events.intervalMs,
           },
         }),
+    ...(connector.senders === undefined ? {} : { senders: { kind: connector.senders.kind } }),
     ...(connector.panel === undefined
       ? {}
       : {

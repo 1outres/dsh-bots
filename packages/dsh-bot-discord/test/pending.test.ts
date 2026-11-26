@@ -17,6 +17,7 @@ import { createHomeTarget } from "../src/host/home-target"
 import { openIncidentNotices } from "../src/host/incidents/records"
 import { openProfileRecords } from "../src/host/profile/records"
 import { createSerialQueue } from "../src/host/queue"
+import { openInquiryCards } from "../src/host/senders/records"
 import {
   ALLOWED,
   CHANNEL_SETTINGS,
@@ -279,6 +280,7 @@ describe("/pending", () => {
       records: openApprovalRecords(memoryApprovalTables(), "b1"),
       incidents: openIncidentNotices(memoryTable(), "b1"),
       profiles: openProfileRecords(memoryTable(), "b1"),
+      inquiries: openInquiryCards(memoryTable(), "b1"),
       warn: () => {},
     })
     events?.ready({ id: "self", username: "bot", tag: "bot" })

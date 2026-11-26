@@ -105,3 +105,19 @@ export function idleConnections(): import("../../src/client/connections-model").
     disconnect: unused,
   }
 }
+
+export function idleSenders(): import("../../src/client/senders/model").SendersFeed {
+  const unused = async (): Promise<never> => {
+    throw new Error("unused")
+  }
+  return {
+    getSnapshot: () => ({ status: "loading" }),
+    subscribe: () => () => {},
+    setUnknown: unused,
+    putRules: unused,
+    removeRule: unused,
+    copy: unused,
+    recipients: unused,
+    answer: unused,
+  }
+}

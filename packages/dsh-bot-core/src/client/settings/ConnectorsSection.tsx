@@ -24,18 +24,26 @@ import { useObservable } from "../hooks"
 import type { MessageKey } from "../i18n"
 import { IconConnectors } from "../icons"
 import { localeFormat } from "../locale-format"
+import type { SendersFeed } from "../senders/model"
 import type { Translate } from "../types"
 import { EmptyState, ErrorText, Group, NavRow, Row, StatusPill, Switch } from "../ui"
 import { BotAccountsPage } from "./BotAccountsPage"
 import { ConnectorDetail } from "./ConnectorDetail"
 import { useConnectorSaves } from "./connector-saves"
 import { switchBlockText } from "./connector-switch"
-import { accountsDetail, connectorDetail, connectorsPageOf } from "./connectors-pages"
+import {
+  accountsDetail,
+  connectorDetail,
+  connectorsPageOf,
+  sendersDetail,
+} from "./connectors-pages"
+import { SenderPolicyPage } from "./SenderPolicyPage"
 import type { SettingsSectionProps } from "./sections"
 
 export interface ConnectorsSectionDeps {
   readonly connectors: ConnectorsHub
   readonly connections: ConnectionsFeed
+  readonly senders: SendersFeed
   openConnectionSettings(): void
   text(text: ConnectorText): string
 }
@@ -76,6 +84,22 @@ export function ConnectorsSection(props: SettingsSectionProps & ConnectorsSectio
           view={view}
           block={switchBlockOf(view, views, spec)}
           feed={feed}
+          confirm={props.confirm}
+          senders={props.senders}
+          openSenders={(connectionId) => page.open(sendersDetail(view.connector.id, connectionId))}
+        />
+      )
+    }
+  }
+  if (shown.kind === "senders") {
+    const view = views.find((item) => item.connector.id === shown.connectorId)
+    if (view !== undefined) {
+      return (
+        <SenderPolicyPage
+          t={t}
+          view={view}
+          connectionId={shown.connectionId}
+          senders={props.senders}
           confirm={props.confirm}
         />
       )

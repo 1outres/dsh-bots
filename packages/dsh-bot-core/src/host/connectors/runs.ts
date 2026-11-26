@@ -3,6 +3,7 @@ import type {
   BotConnectorContext,
   BotConnectorEnvironment,
   BotConnectorRun,
+  BotConnectorSenders,
   BotConnectorTrigger,
 } from "../../connector-contract"
 import type { ConnectionRecord } from "../connections/domain"
@@ -31,6 +32,7 @@ export interface ConnectorRunsDeps {
   attachments: Pick<ConnectorAttachments, "get">
   images(sessionId: string, signal: AbortSignal): RunImages
   connection(record: ConnectionRecord): BotConnectorConnection
+  senders(connectionId: string): BotConnectorSenders
   vault(context: VaultAccessContext): VaultRun
 }
 
@@ -98,6 +100,9 @@ export function createConnectorRuns(deps: ConnectorRunsDeps): ConnectorRuns {
           ? {}
           : { caller: { sessionId: callerSessionId, images: images.images } }),
         ...(connection === undefined ? {} : { connection: deps.connection(connection) }),
+        ...(connection === undefined || connector.senders === undefined
+          ? {}
+          : { senders: deps.senders(connection.id) }),
         ...(vault === undefined ? {} : { vault: vault.access }),
       }
       const release = () => vault?.release()

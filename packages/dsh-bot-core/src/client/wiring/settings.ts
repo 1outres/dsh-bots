@@ -10,6 +10,7 @@ import { IconConnectors, IconKey } from "../icons"
 import { localeFormat } from "../locale-format"
 import type { ModelsHub } from "../models/feed"
 import { derive, type Observable } from "../observable"
+import type { SendersFeed } from "../senders/model"
 import type { BotsState } from "../session-classification"
 import { snapshotOf } from "../session-classification"
 import { builtinSettingsSections } from "../settings/builtin"
@@ -32,6 +33,7 @@ export interface SettingsSources {
   readonly channels: ChannelsHub
   readonly connectors: ConnectorsHub
   readonly connections: ConnectionsFeed
+  readonly senders: SendersFeed
   readonly vaults: VaultsFeed
   readonly logins: BotVaultsHub
   readonly models: ModelsHub
@@ -54,6 +56,7 @@ export function wireSettings(ctx: ClientContext, sources: SettingsSources): void
       channels,
       connectors,
       connections,
+      senders: sources.senders,
       models: sources.models,
       workspaces: sources.workspaces,
       readCatalog: sources.readCatalog,

@@ -9,7 +9,7 @@ import { createSidePanels } from "../src/client/shell/side-panels"
 import { builtinShellEntries } from "../src/client/shell-menu"
 import { EmptyState, NavRow } from "../src/client/ui"
 import { createViewer } from "../src/client/viewer"
-import { idleApprovals, idleConnectorPanels, t, value } from "./support/client"
+import { idleApprovals, idleConnectorPanels, idleInquiries, t, value } from "./support/client"
 
 describe("side panel layout", () => {
   const wide = CHAT_MIN_WIDTH + MENU_BAR_WIDTH + 420
@@ -54,6 +54,7 @@ describe("folded menu bar", () => {
         viewer,
         panels: createSidePanels(viewer),
         approvals: idleApprovals,
+        inquiries: idleInquiries,
         connectors: idleConnectorPanels.connectors,
       }),
     )

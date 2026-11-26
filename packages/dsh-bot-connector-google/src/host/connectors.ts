@@ -3,6 +3,7 @@ import { calendarEvents } from "./calendar/events"
 import type { OwnChanges } from "./calendar/own"
 import { calendarTools } from "./calendar/tools"
 import { gmailEvents } from "./gmail/events"
+import { gmailSenders } from "./gmail/senders"
 import { gmailTools } from "./gmail/tools"
 import type { Google } from "./google"
 import { GOOGLE_PROVIDER } from "./provider"
@@ -19,6 +20,7 @@ export function gmailConnector(google: Google): BotConnector {
     sessions: "main",
     connections: { provider: GOOGLE_PROVIDER, scopes: [...GMAIL_SCOPES] },
     events: gmailEvents(google),
+    senders: gmailSenders(google),
     tools: gmailTools(google),
   }
 }

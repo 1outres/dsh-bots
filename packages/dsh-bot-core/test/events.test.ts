@@ -80,6 +80,8 @@ async function eventsSetup(
     createEventPoller({
       catalog: setup.catalog,
       shield: async (_botId, events) => events,
+      screen: async (connectionId, connectorId, events) =>
+        (await setup.senderPolicies.screen(connectionId, connectorId, events)).deliver,
       connections: setup.connectionStore,
       subscribers,
       store: setup.eventStore,

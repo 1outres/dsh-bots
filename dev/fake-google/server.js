@@ -90,10 +90,25 @@ export function createFakeGoogle(options = {}) {
     return message
   }
 
-  const deliver = (email, { from, subject, text, to }) => {
+  const authenticationOf = (from, verified, authenticationResults) => {
+    if (authenticationResults !== undefined)
+      return [`Authentication-Results: ${authenticationResults}`]
+    if (verified !== true) return []
+    const address = /<([^>]+)>/.exec(from)?.[1] ?? from
+    const domain = address.slice(address.lastIndexOf("@") + 1).trim()
+    return [
+      `Authentication-Results: mx.google.com; dkim=pass header.i=@${domain} header.s=fake; spf=pass smtp.mailfrom=${address.trim()}; dmarc=pass (p=NONE) header.from=${domain}`,
+    ]
+  }
+
+  const deliver = (
+    email,
+    { from, subject, text, to, verified, authenticationResults, threadId },
+  ) => {
     const account = accounts.get(email)
     if (account === undefined) throw new Error(`no account ${email}`)
     const raw = [
+      ...authenticationOf(from, verified, authenticationResults),
       `From: ${from}`,
       `To: ${to ?? email}`,
       `Subject: =?UTF-8?B?${Buffer.from(subject).toString("base64")}?=`,
@@ -105,7 +120,7 @@ export function createFakeGoogle(options = {}) {
       "",
       Buffer.from(text).toString("base64"),
     ].join("\r\n")
-    return store(account, raw, ["INBOX", "UNREAD"])
+    return store(account, raw, ["INBOX", "UNREAD"], threadId)
   }
 
   const payloadOf = (message, format) => {

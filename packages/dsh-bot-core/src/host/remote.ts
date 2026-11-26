@@ -108,6 +108,19 @@ import type {
 } from "../shared/onboarding"
 import type { RemoteNamespace } from "../shared/remote-contract"
 import type {
+  BotSenderInquiriesSnapshot,
+  BotSendersApi,
+  BotSendersSnapshot,
+  SenderAnswerResult,
+  SenderChoice,
+  SenderMatch,
+  SenderPolicyView,
+  SenderRecipientsView,
+  SenderRuleChange,
+  SenderUnknown,
+  SenderWaitingSnapshot,
+} from "../shared/senders"
+import type {
   BotSettingRevertResult,
   BotSettingsApi,
   BotSettingsHistoryView,
@@ -158,6 +171,8 @@ import { type ModelPanel, remoteModelsError } from "./models/panel"
 import type { NotesPanel } from "./notes/panel"
 import type { OnboardingPanel } from "./onboarding/panel"
 import type { BotRegistry } from "./registry"
+import type { SenderAnswers } from "./senders/answers"
+import type { SenderPanel } from "./senders/panel"
 import type { SettingsPanel } from "./settings/panel"
 import type { SkillPanel } from "./skills/panel"
 import { watchStream } from "./stream"
@@ -1213,6 +1228,100 @@ export class BotVaultsRemoteService extends TypertRemoteService implements BotVa
   }
 }
 
+export const BOT_SENDERS_REMOTE = "botSenders" satisfies RemoteNamespace
+
+const SENDERS = Symbol("botSenders")
+const SENDER_CHANGES = Symbol("botSenderChanges")
+
+export interface SendersBackend {
+  readonly panel: SenderPanel
+  readonly answers: SenderAnswers
+}
+
+export class BotSendersRemoteService extends TypertRemoteService implements BotSendersApi {
+  [SENDERS]: SendersBackend;
+  [SENDER_CHANGES]: (listener: () => void) => () => void
+
+  constructor(
+    ctx: Context,
+    backend: SendersBackend,
+    subscribe: (listener: () => void) => () => void,
+  ) {
+    super(ctx, BOT_SENDERS_REMOTE)
+    this[SENDERS] = backend
+    this[SENDER_CHANGES] = subscribe
+  }
+
+  @Remote({ mode: "stream" })
+  async *watch(signal?: AbortSignal): AsyncIterable<BotSendersSnapshot> {
+    const { panel } = this[SENDERS]
+    yield* watchStream(() => panel.snapshot(), this[SENDER_CHANGES], signal)
+  }
+
+  @Remote
+  setUnknown(connectionId: string, unknown: SenderUnknown): Promise<SenderPolicyView> {
+    return this[SENDERS].panel.setUnknown(
+      this.ctx.invocation?.peer.principal,
+      connectionId,
+      unknown,
+    )
+  }
+
+  @Remote
+  putRules(connectionId: string, rules: readonly SenderRuleChange[]): Promise<SenderPolicyView> {
+    return this[SENDERS].panel.putRules(this.ctx.invocation?.peer.principal, connectionId, rules)
+  }
+
+  @Remote
+  removeRule(connectionId: string, match: SenderMatch): Promise<SenderPolicyView> {
+    return this[SENDERS].panel.removeRule(this.ctx.invocation?.peer.principal, connectionId, match)
+  }
+
+  @Remote
+  copy(fromConnectionId: string, toConnectionId: string): Promise<SenderPolicyView> {
+    return this[SENDERS].panel.copy(
+      this.ctx.invocation?.peer.principal,
+      fromConnectionId,
+      toConnectionId,
+    )
+  }
+
+  @Remote
+  recipients(
+    connectorId: string,
+    connectionId: string,
+    signal?: AbortSignal,
+  ): Promise<SenderRecipientsView> {
+    return this[SENDERS].panel.recipients(
+      this.ctx.invocation?.peer.principal,
+      connectorId,
+      connectionId,
+      signal,
+    )
+  }
+
+  @Remote({ mode: "stream" })
+  async *watchBot(botId: string, signal?: AbortSignal): AsyncIterable<BotSenderInquiriesSnapshot> {
+    const { answers } = this[SENDERS]
+    yield* watchStream(
+      () => ({ botId, inquiries: answers.views(botId) }),
+      this[SENDER_CHANGES],
+      signal,
+    )
+  }
+
+  @Remote({ mode: "stream" })
+  async *watchWaiting(signal?: AbortSignal): AsyncIterable<SenderWaitingSnapshot> {
+    const { answers } = this[SENDERS]
+    yield* watchStream(() => ({ waiting: answers.waiting() }), this[SENDER_CHANGES], signal)
+  }
+
+  @Remote
+  answer(inquiryId: string, choice: SenderChoice): Promise<SenderAnswerResult> {
+    return this[SENDERS].answers.fromWeb(this.ctx.invocation?.peer.principal, inquiryId, choice)
+  }
+}
+
 export const REMOTE_SERVICES = {
   bots: BotsRemoteService,
   botFiles: BotFilesRemoteService,
@@ -1234,6 +1343,7 @@ export const REMOTE_SERVICES = {
   botEnvironmentHost: BotEnvironmentHostRemoteService,
   botOnboarding: BotOnboardingRemoteService,
   botVaults: BotVaultsRemoteService,
+  botSenders: BotSendersRemoteService,
 } as const satisfies {
   readonly [Namespace in RemoteNamespace]: new (
     ...args: never[]

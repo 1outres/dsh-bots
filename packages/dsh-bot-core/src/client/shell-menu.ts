@@ -5,6 +5,7 @@ import { pendingCount } from "./approvals/view"
 import type { ConnectorsHub } from "./connectors-hub"
 import { IconActions, IconFolder, IconNotes, IconSessionLog } from "./icons"
 import { createStore, derive, type Observable } from "./observable"
+import type { InquiriesHub } from "./senders/inquiries"
 import {
   ACTIONS_PANEL,
   NOTES_PANEL,
@@ -74,11 +75,12 @@ export interface BuiltinEntrySources {
   readonly viewer: Pick<Viewer, "toggle" | "of" | "getSnapshot" | "subscribe">
   readonly panels: Pick<SidePanels, "toggle" | "getSnapshot" | "subscribe">
   readonly approvals: ActionsHub
+  readonly inquiries: InquiriesHub
   readonly connectors: ConnectorsHub
 }
 
 export function builtinShellEntries(sources: BuiltinEntrySources): ShellMenuEntry[] {
-  const { viewer, panels, approvals, connectors } = sources
+  const { viewer, panels, approvals, inquiries, connectors } = sources
   return [
     {
       id: FILES_ENTRY_ID,
@@ -105,8 +107,13 @@ export function builtinShellEntries(sources: BuiltinEntrySources): ShellMenuEntr
       pressed: ({ sessionId }) =>
         derive([panels], (open) => samePanel(open[sessionId], ACTIONS_PANEL)),
       count: ({ bot }) =>
-        derive([approvals.feed(bot.id)], (state) =>
-          state.status === "ready" ? pendingCount(state.actions) : 0,
+        derive(
+          [approvals.feed(bot.id), inquiries.feed(bot.id)],
+          (state, asked) =>
+            (state.status === "ready" ? pendingCount(state.actions) : 0) +
+            (asked.status === "ready"
+              ? asked.inquiries.filter((inquiry) => inquiry.status.state === "pending").length
+              : 0),
         ),
       attention: ({ bot }) =>
         derive(

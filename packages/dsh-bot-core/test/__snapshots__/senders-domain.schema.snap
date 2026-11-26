@@ -1,0 +1,76 @@
+{
+  "name": "dsh_bot_senders",
+  "version": 1,
+  "tables": {
+    "policies": {
+      "connectionId": {
+        "required": true,
+        "type": "string"
+      },
+      "unknown": {
+        "required": true,
+        "type": "\"allow\" | \"ask\" | \"deny\""
+      },
+      "rules": {
+        "required": true,
+        "type": "({ match: { kind: \"address\" | \"domain\"; value: string }; verdict: \"allow\" | \"deny\"; decidedAt: number; origin: { kind: \"web\" } | { kind: \"channel\"; channelId: string; channelName: string; person: string } })[]"
+      },
+      "updatedAt": {
+        "required": true,
+        "type": "number"
+      }
+    },
+    "inquiries": {
+      "id": {
+        "required": true,
+        "type": "string"
+      },
+      "connectionId": {
+        "required": true,
+        "type": "string"
+      },
+      "connectorId": {
+        "required": true,
+        "type": "string"
+      },
+      "address": {
+        "required": true,
+        "type": "string"
+      },
+      "held": {
+        "required": true,
+        "type": "({ key: string; kind: string; occurredAt: number; summary: string; ref: string | number | boolean | null | json[] | { [key: string]: json }; sender: { kind: \"self\" } | { kind: \"external\"; address: string; verified: boolean } | { kind: \"anonymous\" } })[]"
+      },
+      "arrived": {
+        "required": true,
+        "type": "number"
+      },
+      "createdAt": {
+        "required": true,
+        "type": "number"
+      },
+      "updatedAt": {
+        "required": true,
+        "type": "number"
+      },
+      "expiresAt": {
+        "required": true,
+        "type": "number"
+      },
+      "status": {
+        "required": true,
+        "type": "{ state: \"pending\" } | { state: \"answered\"; choice: \"allow-address\" | \"allow-domain\" | \"deny-address\" | \"deny-domain\"; origin: { kind: \"web\" } | { kind: \"channel\"; channelId: string; channelName: string; person: string }; at: number } | { state: \"covered\"; verdict: \"allow\" | \"deny\"; at: number } | { state: \"expired\"; at: number }"
+      }
+    },
+    "migrations": {
+      "connections": {
+        "required": true,
+        "type": "string[]"
+      },
+      "at": {
+        "required": true,
+        "type": "number"
+      }
+    }
+  }
+}

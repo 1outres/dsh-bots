@@ -4,10 +4,11 @@ JsCallExpression(callee = $callee) as $call where {
     `cards`, `$_.cards`, `$_?.cards`,
     `digests`, `$_.digests`, `$_?.digests`,
     `incidents`, `$_.incidents`, `$_?.incidents`,
-    `profiles`, `$_.profiles`, `$_?.profiles`
+    `profiles`, `$_.profiles`, `$_?.profiles`,
+    `inquiryCards`, `$_.inquiryCards`, `$_?.inquiryCards`
   },
   register_diagnostic(
     span = $call,
-    message = "Design rule 72: do not write the Discord channel's records here; go through host/actions/records.ts (approval cards and lists), host/incidents/records.ts (which owner was shown which credential incident) or host/profile/records.ts (the name and avatar last applied to the bot's Discord user)."
+    message = "Design rule 72: do not write the Discord channel's records here; go through host/actions/records.ts (approval cards and lists), host/incidents/records.ts (which owner was shown which credential incident), host/profile/records.ts (the name and avatar last applied to the bot's Discord user) or host/senders/records.ts (sender question cards)."
   )
 }

@@ -23,6 +23,7 @@ export interface EventArrival {
 
 export interface EventStore {
   receive(arrival: EventArrival, cursor: ConnectorJson): Promise<readonly string[]>
+  admit(arrival: EventArrival): Promise<readonly string[]>
   cursor(connectionId: string, connectorId: string): ConnectorJson | undefined
   start(connectionId: string, connectorId: string, cursor: ConnectorJson): Promise<void>
   dropCursor(connectionId: string, connectorId: string): Promise<void>
@@ -114,51 +115,62 @@ export function createEventStore(deps: EventStoreDeps): EventStore {
     }
   }
 
+  const put = async (arrival: EventArrival): Promise<readonly string[]> => {
+    const now = deps.now()
+    const fresh = new Set<string>()
+    for (const botId of arrival.botIds) {
+      if (arrival.gap !== undefined) {
+        const gap = gapRecord(
+          botId,
+          arrival.connectorId,
+          arrival.connectionId,
+          `events may have been missed: ${arrival.gap}`,
+        )
+        await deps.events.put(keyOf(gap), gap)
+        fresh.add(botId)
+      }
+      for (const event of arrival.events) {
+        const key = eventRecordKey(botId, arrival.connectorId, arrival.connectionId, event.key)
+        if (deps.events.get(key) !== undefined) continue
+        await deps.events.put(key, {
+          id: deps.newId(),
+          botId,
+          connectorId: arrival.connectorId,
+          connectionId: arrival.connectionId,
+          key: event.key,
+          kind: event.kind,
+          occurredAt: event.occurredAt,
+          receivedAt: now,
+          summary: event.summary.slice(0, MAX_SUMMARY),
+          ref: event.ref,
+          own: event.own === true,
+          gap: false,
+          state: event.own === true ? "acked" : "new",
+        })
+        if (event.own !== true) fresh.add(botId)
+      }
+      await trim(botId, arrival.connectorId, arrival.connectionId)
+    }
+    return [...fresh]
+  }
+
   return {
     receive(arrival, cursor) {
       return serial(async () => {
-        const now = deps.now()
-        const fresh = new Set<string>()
-        for (const botId of arrival.botIds) {
-          if (arrival.gap !== undefined) {
-            const gap = gapRecord(
-              botId,
-              arrival.connectorId,
-              arrival.connectionId,
-              `events may have been missed: ${arrival.gap}`,
-            )
-            await deps.events.put(keyOf(gap), gap)
-            fresh.add(botId)
-          }
-          for (const event of arrival.events) {
-            const key = eventRecordKey(botId, arrival.connectorId, arrival.connectionId, event.key)
-            if (deps.events.get(key) !== undefined) continue
-            await deps.events.put(key, {
-              id: deps.newId(),
-              botId,
-              connectorId: arrival.connectorId,
-              connectionId: arrival.connectionId,
-              key: event.key,
-              kind: event.kind,
-              occurredAt: event.occurredAt,
-              receivedAt: now,
-              summary: event.summary.slice(0, MAX_SUMMARY),
-              ref: event.ref,
-              own: event.own === true,
-              gap: false,
-              state: event.own === true ? "acked" : "new",
-            })
-            if (event.own !== true) fresh.add(botId)
-          }
-          await trim(botId, arrival.connectorId, arrival.connectionId)
-        }
+        const bots = await put(arrival)
         await deps.cursors.put(cursorRecordKey(arrival.connectionId, arrival.connectorId), {
           connectionId: arrival.connectionId,
           connectorId: arrival.connectorId,
           cursor,
-          updatedAt: now,
+          updatedAt: deps.now(),
         })
-        const bots = [...fresh]
+        changed(bots.map((botId) => streamOf(botId, arrival.connectorId)))
+        return bots
+      })
+    },
+    admit(arrival) {
+      return serial(async () => {
+        const bots = await put(arrival)
         changed(bots.map((botId) => streamOf(botId, arrival.connectorId)))
         return bots
       })

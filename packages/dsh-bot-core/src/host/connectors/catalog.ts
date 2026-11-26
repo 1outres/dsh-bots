@@ -196,6 +196,15 @@ function accountsProblem(connector: CatalogConnector): string | undefined {
       return "has connections without scopes"
     }
   }
+  const { senders } = connector
+  if (senders !== undefined) {
+    if (connections === undefined)
+      return "has senders but no connections (senders are an account's)"
+    if (typeof senders !== "object" || senders === null || senders.kind !== "email") {
+      return "has senders whose kind is not email"
+    }
+    if (!isFunction(senders.recipients)) return "has senders without recipients"
+  }
   if (events === undefined) return undefined
   if (connections === undefined) return "has events but no connections (events come from accounts)"
   if (!isFunction(events.poll)) return "has events without poll"

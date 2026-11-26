@@ -5,7 +5,7 @@ import { ACTIONS_PANEL, createSidePanels } from "../src/client/shell/side-panels
 import { builtinShellEntries, createShellMenu, type ShellMenuEntry } from "../src/client/shell-menu"
 import { createViewer } from "../src/client/viewer"
 import type { ConnectorActionView } from "../src/shared/connectors"
-import { bot, idleApprovals, idleConnectorPanels, t, value } from "./support/client"
+import { bot, idleApprovals, idleConnectorPanels, idleInquiries, t, value } from "./support/client"
 import { probeView } from "./support/connectors-client"
 
 const plainView = probeView()
@@ -26,6 +26,7 @@ const sources = (viewer = createViewer()) => ({
   viewer,
   panels: createSidePanels(viewer),
   approvals: idleApprovals,
+  inquiries: idleInquiries,
   connectors: idleConnectorPanels.connectors,
 })
 
@@ -138,9 +139,13 @@ describe("shell menu", () => {
     const connectors: ConnectorsHub = {
       feed: () => ({ ...idleConnectorPanels.connectors.feed("x"), ...requested }),
     }
-    const entry = builtinShellEntries({ viewer, panels, approvals, connectors }).find(
-      (item) => item.id === "bot-core.actions",
-    )
+    const entry = builtinShellEntries({
+      viewer,
+      panels,
+      approvals,
+      inquiries: idleInquiries,
+      connectors,
+    }).find((item) => item.id === "bot-core.actions")
     if (entry === undefined) throw new Error("no Actions entry")
     const context = { bot: bot("x", "m1"), sessionId: "m1" }
     expect(entry.label(t, context.bot)).toBe("shell.actions(Bot x)")

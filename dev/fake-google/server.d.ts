@@ -31,6 +31,9 @@ export interface FakeGoogle {
       readonly subject: string
       readonly text: string
       readonly to?: string
+      readonly verified?: boolean
+      readonly authenticationResults?: string
+      readonly threadId?: string
     },
   ): { readonly id: string; readonly threadId: string }
   listen(port?: number, host?: string): Promise<string>

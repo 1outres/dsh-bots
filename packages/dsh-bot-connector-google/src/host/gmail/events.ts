@@ -3,6 +3,7 @@ import type { gmail_v1 } from "@googleapis/gmail"
 import { type Google, googleStatus } from "../google"
 import { oneLine } from "../kit"
 import { METADATA_HEADERS, readMessage } from "./message"
+import { senderOf } from "./sender"
 
 export const MESSAGE_RECEIVED = "gmail.message.received"
 
@@ -107,6 +108,7 @@ export function gmailEvents(google: Google): BotConnectorEvents {
               `From: ${message.from ?? "?"} · Subject: ${message.subject ?? "(no subject)"} · ${message.snippet}`,
             ),
             ref: { message_id: id, thread_id: threadId },
+            sender: senderOf(message),
           })
         }
         return { events, cursor: { historyId: latest } }

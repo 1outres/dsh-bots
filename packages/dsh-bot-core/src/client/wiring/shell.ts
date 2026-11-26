@@ -6,6 +6,7 @@ import type { FilesFace } from "../files/files-face"
 import { ACTIONS_PANEL_WIDTH, createPanelWidth } from "../files/panel-width"
 import type { NotesFace } from "../notes/face"
 import { createStore, type Observable } from "../observable"
+import type { InquiriesHub } from "../senders/inquiries"
 import type { BotsState, RegistrationStatus } from "../session-classification"
 import type { ShellFace } from "../shell/face"
 import { createNoticeDismissal } from "../shell/notice-dismissal"
@@ -31,6 +32,7 @@ export interface ShellSources {
   readonly actions: Pick<BotActions, "status" | "clearError" | "pending">
   readonly progress: Observable<string | null>
   readonly approvals: ActionsHub
+  readonly inquiries: InquiriesHub
   readonly panels: SidePanels
   readonly popovers: ShellPopovers
   readonly settingsStack: ShellFace["settingsStack"]
@@ -50,6 +52,7 @@ export function wireShell(
       viewer: sources.files.viewer,
       panels: sources.panels,
       approvals: sources.approvals,
+      inquiries: sources.inquiries,
       connectors: sources.connectorPanels.connectors,
     }).map((entry) => menu.register(entry))
     return () => {
@@ -79,6 +82,7 @@ export function wireShell(
     progress: sources.progress,
     pending: actions.pending,
     approvals: sources.approvals,
+    inquiries: sources.inquiries,
     actionsWidth: createPanelWidth(ACTIONS_PANEL_WIDTH),
     panels: sources.panels,
     popovers: sources.popovers,

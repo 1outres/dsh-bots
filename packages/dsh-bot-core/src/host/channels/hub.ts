@@ -8,6 +8,7 @@ import type { BotChannelConnectionState, BotChannelField } from "../../shared/ch
 import type { VaultIncidentView } from "../../shared/vaults"
 import type { ConnectorApprovals } from "../connectors/approvals"
 import type { InteractionBoard } from "../interactions/board"
+import type { SenderAnswers } from "../senders/answers"
 import { commandsOf } from "./capabilities"
 import { type ConversationDeps, openMainConversation } from "./conversation"
 import { channelRecordKey } from "./domain"
@@ -31,6 +32,7 @@ export interface ChannelHubDeps {
   approvals: Pick<ConnectorApprovals, "open" | "pending" | "fromChannel" | "pendingFor" | "find">
   incidents: { open(botId: string): readonly VaultIncidentView[] }
   profiles: Pick<ProfileSync, "attached" | "reported">
+  senders: Pick<SenderAnswers, "open" | "fromChannel" | "pendingFor" | "find">
   warn(message: string): void
 }
 
@@ -98,6 +100,12 @@ export function createChannelHub(deps: ChannelHubDeps): ChannelHub {
           approvers: capabilities.connectorActions === true ? owners : new Set<string>(),
           signal,
         }
+        const answering = {
+          id: channel.id,
+          name: channel.name,
+          approvers: capabilities.senderInquiries === true ? owners : new Set<string>(),
+          signal,
+        }
         const conversation = openMainConversation(
           deps.conversation,
           { botId: bot.id, channel: { id: channel.id, name: channel.name }, capabilities, owners },
@@ -121,6 +129,15 @@ export function createChannelHub(deps: ChannelHubDeps): ChannelHub {
             capabilities.connectorActions !== true
               ? undefined
               : deps.approvals.find(bot.id, actionId),
+          answerSender: (inquiryId, choice, person) =>
+            deps.senders.fromChannel(bot.id, answering, person, inquiryId, choice),
+          pendingSenderInquiries: (person) => deps.senders.pendingFor(bot.id, answering, person),
+          openSenderInquiries: () =>
+            capabilities.senderInquiries === true ? deps.senders.open(bot.id) : [],
+          senderInquiry: (inquiryId) =>
+            capabilities.senderInquiries !== true
+              ? undefined
+              : deps.senders.find(bot.id, inquiryId),
           activity: () => conversation.activity(),
           report(state) {
             if (signal.aborted) return
@@ -138,6 +155,9 @@ export function createChannelHub(deps: ChannelHubDeps): ChannelHub {
         }
         for (const action of deps.approvals.open(bot.id)) {
           deps.outlets.publishTo(bot.id, channel.id, { kind: "connector-action", action })
+        }
+        for (const inquiry of deps.senders.open(bot.id)) {
+          deps.outlets.publishTo(bot.id, channel.id, { kind: "sender-inquiry", inquiry })
         }
         for (const incident of deps.incidents.open(bot.id)) {
           deps.outlets.publishTo(bot.id, channel.id, { kind: "credential-incident", incident })

@@ -81,6 +81,7 @@ export function connectionsSetup(options: {
     store: setup.connectionStore,
     vault,
     tokens: connectionTokens,
+    senders: { start: (connectionId) => setup.senderStore.start(connectionId, "connected") },
     client: (provider) => clients.credentials(provider),
     exists: (botId) => setup.bots.has(botId),
     fetch: options.fetch,
@@ -103,11 +104,14 @@ export function connectionsSetup(options: {
     fetch: options.fetch,
     deadline: (ms) => AbortSignal.timeout(ms),
     exists: (botId) => setup.bots.has(botId),
+    senders: { forget: (connectionId) => setup.senderStore.forget(connectionId) },
   })
   const poller = () =>
     createEventPoller({
       catalog: setup.catalog,
       shield: async (_botId, events) => events,
+      screen: async (connectionId, connectorId, events) =>
+        (await setup.senderPolicies.screen(connectionId, connectorId, events)).deliver,
       connections: setup.connectionStore,
       subscribers: (connectionId, connector) =>
         [...setup.bots].filter(

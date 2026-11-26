@@ -16,7 +16,7 @@ import { createSettingsSections, type SettingsSection } from "../src/client/sett
 import type { SettingsScreenId } from "../src/client/wiring/screens"
 import { idleQueries } from "./channels-support"
 import { bot, t, value } from "./support/client"
-import { idleConnections } from "./support/connectors-client"
+import { idleConnections, idleSenders } from "./support/connectors-client"
 
 const target = bot("x", "m1")
 const LANGUAGES = [
@@ -55,6 +55,7 @@ function screen(extra: SettingsSection[] = []) {
     channels: createChannelsHub(() => model, idleQueries),
     connectors: createConnectorsHub(() => connectors),
     connections: idleConnections(),
+    senders: idleSenders(),
     models: createModelsHub(() => ({
       ...value({ status: "loading" as const }),
       configure: unused,

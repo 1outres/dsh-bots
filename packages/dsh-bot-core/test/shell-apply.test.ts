@@ -336,6 +336,29 @@ function fakeContext(options: FakeOptions = {}) {
         })),
         watchBot: vi.fn(),
       },
+      botSenders: {
+        watch: vi.fn(() => ({
+          dispose() {},
+          async *[Symbol.asyncIterator]() {
+            yield { accounts: [] }
+            await new Promise(() => {})
+          },
+        })),
+        watchBot: vi.fn((botId: string) => ({
+          dispose() {},
+          async *[Symbol.asyncIterator]() {
+            yield { botId, inquiries: [] }
+            await new Promise(() => {})
+          },
+        })),
+        watchWaiting: vi.fn(() => ({
+          dispose() {},
+          async *[Symbol.asyncIterator]() {
+            yield { waiting: {} }
+            await new Promise(() => {})
+          },
+        })),
+      },
     },
     options.mountFailure,
   )
@@ -552,6 +575,7 @@ describe("client apply(): the bot session shell", () => {
         "connectorPanels",
         "files",
         "incidents",
+        "inquiries",
         "lockdownNotice",
         "mainView",
         "menu",
@@ -948,6 +972,7 @@ describe("client apply(): bot-core's Remote", () => {
         "botEnvironmentHost",
         "botOnboarding",
         "botVaults",
+        "botSenders",
       ]),
     )
 

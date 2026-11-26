@@ -13,6 +13,7 @@ import { MODELS_DOMAIN } from "../src/host/models/domain"
 import { NOTICES_DOMAIN } from "../src/host/notices/domain"
 import { ONBOARDING_DOMAIN } from "../src/host/onboarding/domain"
 import { SCHEDULES_DOMAIN } from "../src/host/schedule/domain"
+import { SENDERS_DOMAIN } from "../src/host/senders/domain"
 import { SETTINGS_DOMAIN } from "../src/host/settings/domain"
 import { SKILLS_DOMAIN } from "../src/host/skills/domain"
 import { VAULTS_DOMAIN } from "../src/host/vaults/domain"
@@ -45,6 +46,12 @@ const DOMAINS = [
     source: "src/host/events/domain.ts",
     domain: EVENTS_DOMAIN,
     file: "events-domain",
+  },
+  {
+    label: "SENDERS_DOMAIN",
+    source: "src/host/senders/domain.ts",
+    domain: SENDERS_DOMAIN,
+    file: "senders-domain",
   },
   {
     label: "MAINS_DOMAIN",

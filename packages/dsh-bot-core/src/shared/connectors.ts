@@ -342,6 +342,10 @@ export interface ConnectorEventsDescriptor {
   readonly intervalMs: number
 }
 
+export interface ConnectorSendersDescriptor {
+  readonly kind: "email"
+}
+
 export const CONNECTOR_PANEL_ICONS = ["desktop", "browser", "mail", "calendar", "files"] as const
 
 export type ConnectorPanelIcon = (typeof CONNECTOR_PANEL_ICONS)[number]
@@ -402,6 +406,7 @@ export interface ConnectorDescriptor {
   readonly panel?: ConnectorPanelDescriptor
   readonly connections?: ConnectorConnectionsDescriptor
   readonly events?: ConnectorEventsDescriptor
+  readonly senders?: ConnectorSendersDescriptor
 }
 
 export interface ConnectorSwitchSubject {

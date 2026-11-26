@@ -25,6 +25,12 @@ import {
   REMOTE_PACKAGE,
   type RemoteEndpoint,
 } from "../shared/remote-contract"
+import type {
+  BotSenderInquiriesSnapshot,
+  BotSendersApi,
+  BotSendersSnapshot,
+  SenderWaitingSnapshot,
+} from "../shared/senders"
 import type { BotSettingsApi, BotSettingsHistoryView } from "../shared/settings"
 import type { BotSkillsApi, BotSkillsView } from "../shared/skills"
 import type { BotVaultsApi, BotVaultsSnapshot, BotVaultView } from "../shared/vaults"
@@ -134,6 +140,13 @@ export interface BotVaultsRemote extends Remoted<Omit<BotVaultsApi, "watch" | "w
   watchBot(botId: string): StreamHandle<BotVaultView>
 }
 
+export interface BotSendersRemote
+  extends Remoted<Omit<BotSendersApi, "watch" | "watchBot" | "watchWaiting">> {
+  watch(): StreamHandle<BotSendersSnapshot>
+  watchBot(botId: string): StreamHandle<BotSenderInquiriesSnapshot>
+  watchWaiting(): StreamHandle<SenderWaitingSnapshot>
+}
+
 export interface BotCoreRemote {
   readonly bots: BotsRemote
   readonly botFiles: BotFilesRemote
@@ -155,6 +168,7 @@ export interface BotCoreRemote {
   readonly botEnvironmentHost: BotEnvironmentHostRemote
   readonly botOnboarding: BotOnboardingRemote
   readonly botVaults: BotVaultsRemote
+  readonly botSenders: BotSendersRemote
 }
 
 export type RemoteMount =

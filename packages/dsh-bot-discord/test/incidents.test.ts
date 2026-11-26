@@ -15,6 +15,7 @@ import {
 } from "../src/host/incidents/records"
 import { renderIncidentCard } from "../src/host/incidents/render"
 import { openProfileRecords } from "../src/host/profile/records"
+import { openInquiryCards } from "../src/host/senders/records"
 import {
   ALLOWED,
   CHANNEL_SETTINGS,
@@ -175,6 +176,7 @@ function connect(options: {
     records: openApprovalRecords(memoryApprovalTables(), "b1"),
     incidents: openIncidentNotices(options.table, "b1"),
     profiles: openProfileRecords(memoryTable(), "b1"),
+    inquiries: openInquiryCards(memoryTable(), "b1"),
     warn: () => {},
   })
   events?.ready({ id: "self", username: "bot", tag: "bot" })
@@ -201,6 +203,7 @@ describe("Discord bridge: credential incidents", () => {
       approvals: memoryApprovalTables(),
       incidents: memoryTable(),
       profiles: memoryTable(),
+      inquiryCards: memoryTable(),
       warn: () => {},
     })
     expect(channel.owners).toBe("approvers")

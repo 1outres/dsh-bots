@@ -28,6 +28,14 @@ import type { CursorRecord, EventRecord } from "../src/host/events/domain"
 import { createEventStore } from "../src/host/events/store"
 import { createConnectorOwnTools } from "../src/host/events/tools"
 import { createSaveQueue } from "../src/host/save-queue"
+import {
+  SENDER_MIGRATION_KEY,
+  type SenderInquiryRecord,
+  type SenderMigrationRecord,
+  type SenderPolicyRecord,
+} from "../src/host/senders/domain"
+import { createSenderPolicies } from "../src/host/senders/policies"
+import { createSenderStore } from "../src/host/senders/store"
 import type { VaultAccessContext, VaultRun } from "../src/host/vaults/access"
 import type { ConnectorAction } from "../src/shared/connectors"
 import { type BotEnvironmentSpec, DEFAULT_BOT_ENVIRONMENT_SPEC } from "../src/shared/environment"
@@ -165,6 +173,7 @@ export function brokerSetup(
   } = {},
 ) {
   const clock = manualClock()
+  const bots = new Set(["b1", "b2", "gone"])
   const log: string[] = []
   const notices: { botId: string; notice: ConnectorNotice }[] = []
   const catalog = createConnectorCatalog()
@@ -199,6 +208,37 @@ export function brokerSetup(
     retentionMs: 60_000,
     unreadRetentionMs: 120_000,
   })
+  const senderMigrations = memoryTable<SenderMigrationRecord>()
+  senderMigrations.rows.set(SENDER_MIGRATION_KEY, { connections: [], at: clock.now() })
+  const senderStore = createSenderStore({
+    senderPolicies: memoryTable<SenderPolicyRecord>(),
+    senderInquiries: memoryTable<SenderInquiryRecord>(),
+    senderMigrations,
+    now: clock.now,
+  })
+  let senderIds = 0
+  const senderPolicies = createSenderPolicies({
+    store: senderStore,
+    release: async (release) => {
+      await eventStore.admit({
+        botIds: [...bots].filter(
+          (botId) =>
+            connectionStore.isAssigned(botId, release.connectionId) &&
+            settings.delivery(botId, release.connectorId) !== "off",
+        ),
+        connectorId: release.connectorId,
+        connectionId: release.connectionId,
+        events: release.events,
+        ...(release.gap === undefined ? {} : { gap: release.gap }),
+      })
+    },
+    account: (connectionId) => connectionId,
+    connectorName: (connectorId) => catalog.get(connectorId)?.name,
+    newId: () => `snd-${++senderIds}`,
+    now: clock.now,
+    maxHeld: 3,
+    closedRetentionMs: 60_000,
+  })
   const tokens: string[] = []
   const subscribeAccounts = (listener: () => void) => connectionStore.subscribe(listener)
   let imageIds = 0
@@ -218,6 +258,7 @@ export function brokerSetup(
         signal,
       ),
     vault: options.vault ?? refusingVault,
+    senders: (connectionId) => senderPolicies.senders(connectionId),
     connection:
       options.connection ??
       ((record) => ({
@@ -228,7 +269,7 @@ export function brokerSetup(
         },
       })),
   })
-  const bots = new Set(["b1", "b2", "gone"])
+
   const readiness = createConnectorReadiness({
     catalog,
     settings,
@@ -308,6 +349,8 @@ export function brokerSetup(
     connectionStore,
     accounts,
     eventStore,
+    senderStore,
+    senderPolicies,
     tokens,
     subscribeAccounts,
     usableAccounts: (botId: string, connector: BotConnector<unknown>) =>

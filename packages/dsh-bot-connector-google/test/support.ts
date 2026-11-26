@@ -1,4 +1,4 @@
-import type { BotConnectorEnvironment } from "@1outres/dsh-bot-core"
+import type { BotConnectorEnvironment, SenderUnknown } from "@1outres/dsh-bot-core"
 import { expect } from "vitest"
 import { createFakeGoogle } from "../../../dev/fake-google/server.js"
 import { connectionsSetup, OWNER } from "../../dsh-bot-core/test/connections-support"
@@ -54,6 +54,7 @@ export async function signIn(
   setup: ReturnType<typeof googleSetup>,
   email: string,
   request: Record<string, unknown> = {},
+  unknown: SenderUnknown = "allow",
 ) {
   await setup.panel.configureClient(OWNER, "google", {
     clientId: world.fake.client.id,
@@ -75,7 +76,9 @@ export async function signIn(
   const redirect = await fetch(approve, { redirect: "manual" })
   const back = new URL(redirect.headers.get("location") ?? "")
   expect(back.origin + back.pathname).toBe("https://dsh.example/bot-core/oauth/callback")
-  return setup.signIn.callback(back.searchParams)
+  const outcome = await setup.signIn.callback(back.searchParams)
+  if (outcome.ok) await setup.senderPolicies.setUnknown(outcome.connection.id, unknown)
+  return outcome
 }
 
 export function connectorOf(setup: ReturnType<typeof googleSetup>, id: string) {

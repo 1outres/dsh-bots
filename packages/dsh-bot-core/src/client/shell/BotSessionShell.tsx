@@ -364,6 +364,7 @@ function OpenSidePanel(
           text={connectorPanels.text}
           sessionId={sessionId}
           feed={props.approvals.feed(bot.id)}
+          inquiries={props.inquiries.feed(bot.id)}
           connectors={connectorPanels.connectors.feed(bot.id)}
           places={connectorPanels.places}
           width={props.actionsWidth}

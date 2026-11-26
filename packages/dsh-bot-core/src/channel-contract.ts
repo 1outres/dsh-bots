@@ -22,6 +22,7 @@ import type {
   BotInteractionClosure,
   BotInteractionKind,
 } from "./shared/interactions"
+import type { SenderAnswerResult, SenderChoice, SenderInquiryView } from "./shared/senders"
 import type { VaultIncidentView } from "./shared/vaults"
 
 export type * from "./shared/interactions"
@@ -81,6 +82,7 @@ export interface BotChannelCapabilities {
   readonly connectorActions?: true
   readonly credentialIncidents?: true
   readonly profile?: BotChannelProfileSupport
+  readonly senderInquiries?: true
 }
 
 export interface BotAttachmentCapability {
@@ -107,6 +109,7 @@ export type BotChannelOutput =
   | { readonly kind: "connector-action"; readonly action: ConnectorActionView }
   | { readonly kind: "credential-incident"; readonly incident: VaultIncidentView }
   | { readonly kind: "profile"; readonly profile: BotChannelProfile }
+  | { readonly kind: "sender-inquiry"; readonly inquiry: SenderInquiryView }
 
 export interface BotProfileImage {
   readonly mediaType: "image/png"
@@ -238,6 +241,10 @@ export type BotPendingActionsResult =
   | { readonly ok: true; readonly actions: readonly ConnectorActionView[] }
   | { readonly ok: false; readonly reason: "not-approver" | "closed" }
 
+export type BotPendingSenderInquiriesResult =
+  | { readonly ok: true; readonly inquiries: readonly SenderInquiryView[] }
+  | { readonly ok: false; readonly reason: "not-approver" | "closed" }
+
 export interface BotChannelLink<V = BotChannelValuesOf<readonly BotChannelField[]>> {
   readonly bot: { readonly id: string; readonly name: string }
   readonly settings: V
@@ -255,6 +262,10 @@ export interface BotChannelLink<V = BotChannelValuesOf<readonly BotChannelField[
   pendingActions(person: string): BotPendingActionsResult
   openActions(): readonly ConnectorActionView[]
   connectorAction(actionId: string): ConnectorActionView | undefined
+  answerSender(inquiryId: string, choice: SenderChoice, person: string): Promise<SenderAnswerResult>
+  pendingSenderInquiries(person: string): BotPendingSenderInquiriesResult
+  openSenderInquiries(): readonly SenderInquiryView[]
+  senderInquiry(inquiryId: string): SenderInquiryView | undefined
   activity(): BotActivity
   report(state: BotChannelConnectionState): void
   reportProfile(report: BotChannelProfileReport): void

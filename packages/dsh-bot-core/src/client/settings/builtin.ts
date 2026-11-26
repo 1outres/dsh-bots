@@ -4,6 +4,7 @@ import type { ConnectionsFeed } from "../connections-model"
 import type { ConnectorsHub } from "../connectors-hub"
 import { IconChannels, IconConnectors, IconFolder, IconModel, IconUser } from "../icons"
 import { derive } from "../observable"
+import type { SendersFeed } from "../senders/model"
 import { ChannelsSection, type ChannelsSectionDeps } from "./ChannelsSection"
 import { ConnectorsSection, type ConnectorsSectionDeps } from "./ConnectorsSection"
 import { channelsBadge } from "./channels-badge"
@@ -28,6 +29,7 @@ export interface BuiltinSectionDeps
   readonly channels: ChannelsHub
   readonly connectors: ConnectorsHub
   readonly connections: ConnectionsFeed
+  readonly senders: SendersFeed
   openConnectionSettings(): void
   readonly text: ChannelsSectionDeps["text"] & ConnectorsSectionDeps["text"]
 }
@@ -55,6 +57,7 @@ export function builtinSettingsSections(deps: BuiltinSectionDeps): SettingsSecti
       ...props,
       connectors: deps.connectors,
       connections: deps.connections,
+      senders: deps.senders,
       openConnectionSettings: deps.openConnectionSettings,
       text: deps.text,
     })

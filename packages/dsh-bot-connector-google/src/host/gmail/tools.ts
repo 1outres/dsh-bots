@@ -1,5 +1,6 @@
 import type {
   BotConnectorRun,
+  BotConnectorSenders,
   BotConnectorToolDefinition,
   ConnectorJson,
   ConnectorPreview,
@@ -32,6 +33,7 @@ import {
 } from "./io"
 import { headline, METADATA_HEADERS, type ReadMessage, readMessage } from "./message"
 import { rawOf } from "./mime"
+import { senderOf } from "./sender"
 
 const MAX_TEXT = 20_000
 const GUARDED_LABELS = ["TRASH", "SPAM"]
@@ -99,6 +101,16 @@ function snapshotOf(snapshot: ConnectorJson | undefined): MailSnapshot {
 
 const factsOf = (loaded: readonly LoadedAttachment[]) => loaded.map((item) => item.fact)
 
+function sendersOf(run: BotConnectorRun): BotConnectorSenders {
+  if (run.senders === undefined) throw new Error("the account's sender policy is not available")
+  return run.senders
+}
+
+const withNote = (text: string, note: string | undefined) =>
+  note === undefined ? text : `${text}\n${note}`
+
+type MessageCheck = (messageId: string) => Promise<void>
+
 export function gmailTools(google: Google): BotConnectorToolDefinition[] {
   const as = <T>(run: BotConnectorRun, work: (gmail: gmail_v1.Gmail) => Promise<T>) =>
     google.as(connectionOf(run), (apis) => work(apis.gmail))
@@ -132,9 +144,20 @@ export function gmailTools(google: Google): BotConnectorToolDefinition[] {
       .get({ userId: "me", id, format: "metadata", metadataHeaders: METADATA_HEADERS })
       .then((response) => readMessage(response.data))
 
+  const visibleOf = async (gmail: gmail_v1.Gmail, run: BotConnectorRun, id: string) => {
+    const message = await metadataOf(gmail, id)
+    sendersOf(run).require(senderOf(message), `message ${id}`)
+    return message
+  }
+  const checkOf =
+    (gmail: gmail_v1.Gmail, run: BotConnectorRun): MessageCheck =>
+    async (id) => {
+      await visibleOf(gmail, run, id)
+    }
+
   const messageSnapshot = (args: { readonly message_id: string }, run: BotConnectorRun) =>
     as(run, async (gmail) => {
-      const message = await metadataOf(gmail, args.message_id)
+      const message = await visibleOf(gmail, run, args.message_id)
       return { from: message.from ?? "", subject: message.subject ?? "", date: message.date ?? "" }
     })
   const messageFields = (
@@ -182,21 +205,29 @@ export function gmailTools(google: Google): BotConnectorToolDefinition[] {
             includeSpamTrash: args.include_spam_trash === true,
           })
           const ids = (listed.data.messages ?? []).flatMap((item) => (item.id ? [item.id] : []))
-          const messages = await Promise.all(ids.map((id) => metadataOf(gmail, id)))
+          const found = await Promise.all(ids.map((id) => metadataOf(gmail, id)))
+          const screen = sendersOf(run).screen()
+          const messages = found.filter((message) => screen.admits(senderOf(message)))
+          const note = screen.note()
           const lines = messages.map(
             (message) =>
               `- ${message.id} (thread ${message.threadId}): ${oneLine(headline(message))} — ${oneLine(message.snippet)}`,
           )
           return {
-            text:
+            text: withNote(
               messages.length === 0
-                ? "No message matches."
+                ? found.length === 0
+                  ? "No message matches."
+                  : "No message to show."
                 : untrusted("search results", lines.join("\n")) +
-                  (listed.data.nextPageToken
-                    ? `\nMore: page_token ${listed.data.nextPageToken}`
-                    : ""),
+                    (listed.data.nextPageToken
+                      ? `\nMore: page_token ${listed.data.nextPageToken}`
+                      : ""),
+              note,
+            ),
             data: json({
               messages: messages.map(summaryOf),
+              hidden: found.length - messages.length,
               nextPageToken: listed.data.nextPageToken ?? null,
             }),
           }
@@ -220,6 +251,7 @@ export function gmailTools(google: Google): BotConnectorToolDefinition[] {
             format: "full",
           })
           const message = readMessage(response.data)
+          sendersOf(run).require(senderOf(message), `message ${args.message_id}`)
           return { text: messageText(message), data: json(summaryOf(message)) }
         }),
     }),
@@ -241,10 +273,21 @@ export function gmailTools(google: Google): BotConnectorToolDefinition[] {
             id: args.thread_id,
             format: "full",
           })
-          const messages = (response.data.messages ?? []).map(readMessage)
+          const screen = sendersOf(run).screen()
+          const all = (response.data.messages ?? []).map(readMessage)
+          const messages = all.filter((message) => screen.admits(senderOf(message)))
           return {
-            text: messages.map(messageText).join("\n\n"),
-            data: json({ threadId: args.thread_id, messages: messages.map(summaryOf) }),
+            text: withNote(
+              messages.length === 0
+                ? "No message of the thread to show."
+                : messages.map(messageText).join("\n\n"),
+              screen.note(),
+            ),
+            data: json({
+              threadId: args.thread_id,
+              messages: messages.map(summaryOf),
+              hidden: all.length - messages.length,
+            }),
           }
         }),
     }),
@@ -271,6 +314,7 @@ export function gmailTools(google: Google): BotConnectorToolDefinition[] {
       }),
       execute: (args, run) =>
         as(run, async (gmail) => {
+          await visibleOf(gmail, run, args.message_id)
           const data = await downloadAttachment(gmail, args.message_id, args.attachment_id)
           const path = args.path.startsWith("/")
             ? args.path
@@ -460,7 +504,7 @@ export function gmailTools(google: Google): BotConnectorToolDefinition[] {
       }),
       execute: (args, run) =>
         as(run, async (gmail) => {
-          const message = await draftOf(gmail, args, accountEmail(run))
+          const message = await draftOf(gmail, args, accountEmail(run), checkOf(gmail, run))
           const response = await gmail.users.drafts.create({
             userId: "me",
             requestBody: {
@@ -485,7 +529,7 @@ export function gmailTools(google: Google): BotConnectorToolDefinition[] {
       }),
       execute: (args, run) =>
         as(run, async (gmail) => {
-          const message = await draftOf(gmail, args, accountEmail(run))
+          const message = await draftOf(gmail, args, accountEmail(run), checkOf(gmail, run))
           await gmail.users.drafts.update({
             userId: "me",
             id: args.draft_id,
@@ -574,6 +618,7 @@ export function gmailTools(google: Google): BotConnectorToolDefinition[] {
       maxResultChars: 256_000,
       snapshot: (args, run) =>
         as(run, async (gmail) => {
+          await visibleOf(gmail, run, args.message_id)
           const original = await readOriginal(gmail, args.message_id, args.quote)
           const loaded = await readFiles(run.environment, args.attachments ?? [])
           const snapshot: MailSnapshot = {
@@ -605,7 +650,10 @@ export function gmailTools(google: Google): BotConnectorToolDefinition[] {
           if (facts.original === undefined) throw new Error("the snapshot has no original message")
           return deliver(run, composeReply(args, facts.from, facts.original, facts.attachments))
         }
-        const original = await as(run, (gmail) => readOriginal(gmail, args.message_id, args.quote))
+        const original = await as(run, async (gmail) => {
+          await visibleOf(gmail, run, args.message_id)
+          return readOriginal(gmail, args.message_id, args.quote)
+        })
         const loaded = await readFiles(run.environment, args.attachments ?? [])
         return deliver(run, composeReply(args, accountEmail(run), original, factsOf(loaded)))
       },
@@ -627,6 +675,7 @@ export function gmailTools(google: Google): BotConnectorToolDefinition[] {
       maxResultChars: 256_000,
       snapshot: (args, run) =>
         as(run, async (gmail) => {
+          await visibleOf(gmail, run, args.message_id)
           const original = await readOriginal(gmail, args.message_id, true)
           const loaded = args.include_attachments
             ? await forwardedAttachments(gmail, args.message_id)
@@ -652,15 +701,18 @@ export function gmailTools(google: Google): BotConnectorToolDefinition[] {
         const facts =
           run.trigger.kind === "approval"
             ? snapshotOf(run.trigger.snapshot)
-            : await as(run, async (gmail) => ({
-                from: accountEmail(run),
-                original: await readOriginal(gmail, args.message_id, true),
-                attachments: factsOf(
-                  args.include_attachments
-                    ? await forwardedAttachments(gmail, args.message_id)
-                    : [],
-                ),
-              }))
+            : await as(run, async (gmail) => {
+                await visibleOf(gmail, run, args.message_id)
+                return {
+                  from: accountEmail(run),
+                  original: await readOriginal(gmail, args.message_id, true),
+                  attachments: factsOf(
+                    args.include_attachments
+                      ? await forwardedAttachments(gmail, args.message_id)
+                      : [],
+                  ),
+                }
+              })
         if (facts.original === undefined) throw new Error("the snapshot has no original message")
         return deliver(
           run,
@@ -681,6 +733,7 @@ export function gmailTools(google: Google): BotConnectorToolDefinition[] {
       }),
       execute: (args, run) =>
         as(run, async (gmail) => {
+          await visibleOf(gmail, run, args.message_id)
           await gmail.users.messages.trash({ userId: "me", id: args.message_id })
           return { text: `Moved ${args.message_id} to the trash.`, data: { id: args.message_id } }
         }),
@@ -697,6 +750,7 @@ export function gmailTools(google: Google): BotConnectorToolDefinition[] {
       }),
       execute: (args, run) =>
         as(run, async (gmail) => {
+          await visibleOf(gmail, run, args.message_id)
           await gmail.users.messages.untrash({ userId: "me", id: args.message_id })
           return {
             text: `Took ${args.message_id} out of the trash.`,
@@ -892,9 +946,11 @@ async function draftOf(
     readonly reply_to_message_id?: string
   },
   from: string,
+  check: MessageCheck,
 ): Promise<Outgoing> {
   const written = composeMessage(args, from, [])
   if (args.reply_to_message_id === undefined) return written
+  await check(args.reply_to_message_id)
   const original = await readOriginal(gmail, args.reply_to_message_id, false)
   const reply = composeReply(
     { body: args.body, reply_all: false, quote: false },

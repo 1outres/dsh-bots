@@ -27,6 +27,7 @@ export interface ConnectionSignInDeps {
   store: Pick<ConnectionStore, "get" | "byAccount" | "put" | "assign">
   vault: Pick<ConnectionVault, "writeGrant">
   tokens: Pick<ConnectionTokens, "remember">
+  senders: { start(connectionId: string): Promise<void> }
   client(provider: string): Promise<ClientCredentials | undefined>
   exists(botId: string): boolean
   fetch: OAuthFetch
@@ -206,6 +207,7 @@ export function createConnectionSignIn(deps: ConnectionSignInDeps): ConnectionSi
       createdAt: previous?.createdAt ?? now,
       authorizedAt: now,
     }
+    if (previous === undefined) await deps.senders.start(id)
     await deps.store.put(record)
     deps.tokens.remember(id, tokens)
     if (attempt.view.botId !== undefined && deps.exists(attempt.view.botId)) {

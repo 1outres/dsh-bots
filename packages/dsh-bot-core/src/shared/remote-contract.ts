@@ -11,6 +11,7 @@ import type { BotMainsApi } from "./mains"
 import type { BotManagedSessionsApi } from "./managed-sessions"
 import type { BotNotesApi } from "./notes"
 import type { BotOnboardingApi } from "./onboarding"
+import type { BotSendersApi } from "./senders"
 import type { BotSettingsApi } from "./settings"
 import type { BotSkillsApi } from "./skills"
 import type { BotVaultsApi } from "./vaults"
@@ -42,6 +43,7 @@ export interface BotCoreApi {
   readonly botEnvironmentHost: BotEnvironmentHostApi
   readonly botOnboarding: BotOnboardingApi
   readonly botVaults: BotVaultsApi
+  readonly botSenders: BotSendersApi
 }
 
 export type RemoteNamespace = keyof BotCoreApi
@@ -67,6 +69,7 @@ export const REMOTE_NAMESPACES = [
   "botEnvironmentHost",
   "botOnboarding",
   "botVaults",
+  "botSenders",
 ] as const satisfies readonly RemoteNamespace[]
 
 export const REMOTE_CONTRACT_CODES = [
@@ -264,6 +267,20 @@ export const REMOTE_METHODS: {
     updateGrant: { parameters: [{ name: "botId" }, { name: "grantId" }, { name: "change" }] },
     revoke: { parameters: [{ name: "botId" }, { name: "grantId" }] },
     acknowledgeIncident: { parameters: [{ name: "botId" }, { name: "incidentId" }] },
+  },
+  botSenders: {
+    watch: { parameters: [], stream: true, cancellable: true },
+    setUnknown: { parameters: [{ name: "connectionId" }, { name: "unknown" }] },
+    putRules: { parameters: [{ name: "connectionId" }, { name: "rules" }] },
+    removeRule: { parameters: [{ name: "connectionId" }, { name: "match" }] },
+    copy: { parameters: [{ name: "fromConnectionId" }, { name: "toConnectionId" }] },
+    recipients: {
+      parameters: [{ name: "connectorId" }, { name: "connectionId" }],
+      cancellable: true,
+    },
+    watchBot: { parameters: [{ name: "botId" }], stream: true, cancellable: true },
+    watchWaiting: { parameters: [], stream: true, cancellable: true },
+    answer: { parameters: [{ name: "inquiryId" }, { name: "choice" }] },
   },
 }
 

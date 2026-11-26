@@ -163,6 +163,7 @@ function signInSetup() {
     store: setup.connectionStore,
     vault,
     tokens,
+    senders: { start: (connectionId) => setup.senderStore.start(connectionId, "connected") },
     client: (provider) => clients.credentials(provider),
     exists: (botId) => setup.bots.has(botId),
     fetch: endpoint.fetch,
@@ -185,6 +186,7 @@ function signInSetup() {
     fetch: endpoint.fetch,
     deadline: () => new AbortController().signal,
     exists: (botId) => setup.bots.has(botId),
+    senders: { forget: (connectionId) => setup.senderStore.forget(connectionId) },
   })
   const connect = async (subject: string, request: Record<string, unknown> = {}) => {
     const authorization = await panel.authorize(OWNER, {

@@ -8,6 +8,7 @@ import type { PanelWidth } from "../files/panel-width"
 import type { MainViewFace } from "../main-view/face"
 import type { NotesFace } from "../notes/face"
 import type { Observable } from "../observable"
+import type { InquiriesHub } from "../senders/inquiries"
 import type { BotsState, RegistrationStatus, SessionClass } from "../session-classification"
 import type { ShellMenu } from "../shell-menu"
 import type { BotStatus } from "../status"
@@ -30,6 +31,7 @@ export interface ShellFace {
   readonly progress: Observable<string | null>
   readonly pending: PendingActions
   readonly approvals: ActionsHub
+  readonly inquiries: InquiriesHub
   readonly actionsWidth: PanelWidth
   readonly panels: SidePanels
   readonly popovers: ShellPopovers

@@ -12,6 +12,7 @@ import type { FetchUrl } from "../src/host/download"
 import { homeOf } from "../src/host/home"
 import { openIncidentNotices } from "../src/host/incidents/records"
 import { openProfileRecords } from "../src/host/profile/records"
+import { openInquiryCards } from "../src/host/senders/records"
 import { PULSE_DELAY_MS, TYPING_INTERVAL_MS } from "../src/host/typing"
 import {
   ALLOWED,
@@ -79,6 +80,7 @@ function setup(
     records: openApprovalRecords(tables, "b1"),
     incidents: openIncidentNotices(memoryTable(), "b1"),
     profiles: openProfileRecords(memoryTable(), "b1"),
+    inquiries: openInquiryCards(memoryTable(), "b1"),
     warn: () => {},
   })
   const ready = () => events?.ready({ id: "self", username: "bot", tag: "bot" })

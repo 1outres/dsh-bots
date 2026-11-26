@@ -127,6 +127,10 @@
       "includes": ["packages/*/src/**", "!packages/dsh-bot-core/src/host/skills/store.ts"]
     },
     {
+      "path": "./.biome/plugins/77-sender-writes.grit",
+      "includes": ["packages/*/src/**", "!packages/dsh-bot-core/src/host/senders/store.ts"]
+    },
+    {
       "path": "./.biome/plugins/76-setting-change-writes.grit",
       "includes": ["packages/*/src/**", "!packages/dsh-bot-core/src/host/settings/store.ts"]
     },
@@ -239,7 +243,8 @@
         "packages/dsh-bot-discord/src/**",
         "!packages/dsh-bot-discord/src/host/actions/records.ts",
         "!packages/dsh-bot-discord/src/host/incidents/records.ts",
-        "!packages/dsh-bot-discord/src/host/profile/records.ts"
+        "!packages/dsh-bot-discord/src/host/profile/records.ts",
+        "!packages/dsh-bot-discord/src/host/senders/records.ts"
       ]
     },
     {

@@ -45,6 +45,7 @@ function mounted(botChannels: Partial<BotChannelsRemote>): Promise<RemoteMount> 
       botEnvironmentHost: {} as never,
       botOnboarding: {} as never,
       botVaults: {} as never,
+      botSenders: {} as never,
     },
   })
 }

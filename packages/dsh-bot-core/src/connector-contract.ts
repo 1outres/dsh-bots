@@ -15,10 +15,12 @@ import type {
   ConnectorText,
 } from "./shared/connectors"
 import type { BotEnvironmentMinimum } from "./shared/environment"
+import type { ConnectorSender, SenderRecipient } from "./shared/senders"
 import type { BotVaultAccess } from "./vault-contract"
 
 export type * from "./shared/connections"
 export type * from "./shared/connectors"
+export type * from "./shared/senders"
 
 export interface BotConnector<A = undefined> {
   readonly id: string
@@ -33,6 +35,7 @@ export interface BotConnector<A = undefined> {
   readonly attachment?: BotConnectorAttachmentSource<A>
   readonly connections?: BotConnectorConnections
   readonly events?: BotConnectorEvents
+  readonly senders?: BotConnectorSenderSource
   readonly tools: readonly BotConnectorToolDefinition<A>[]
   readonly panel?: BotConnectorPanel
   readonly status?: BotConnectorStatusSource
@@ -93,6 +96,34 @@ export interface BotConnectorConnection {
   accessToken(options?: { readonly refresh?: boolean }): Promise<string>
 }
 
+export type ConnectorSenderKind = "email"
+
+export interface BotConnectorSenderSource {
+  readonly kind: ConnectorSenderKind
+  recipients(lookup: BotConnectorRecipientLookup): Promise<BotConnectorRecipients>
+}
+
+export interface BotConnectorRecipientLookup {
+  readonly connection: BotConnectorConnection
+  readonly limit: number
+  readonly signal: AbortSignal
+}
+
+export interface BotConnectorRecipients {
+  readonly scanned: number
+  readonly recipients: readonly SenderRecipient[]
+}
+
+export interface BotConnectorSenders {
+  screen(): BotConnectorSenderScreen
+  require(sender: ConnectorSender, item: string): void
+}
+
+export interface BotConnectorSenderScreen {
+  admits(sender: ConnectorSender): boolean
+  note(): string | undefined
+}
+
 export interface BotConnectorEvents {
   readonly kinds: readonly ConnectorEventKind[]
   readonly delivery: "notify" | "queue"
@@ -121,6 +152,7 @@ export interface ConnectorEvent {
   readonly summary: string
   readonly ref: ConnectorJson
   readonly own?: boolean
+  readonly sender?: ConnectorSender
 }
 
 export interface BotConnectorContext {
@@ -225,6 +257,7 @@ export interface BotConnectorRun<A = undefined> extends BotConnectorContext {
   readonly attachment: A
   readonly caller?: BotConnectorCaller
   readonly connection?: BotConnectorConnection
+  readonly senders?: BotConnectorSenders
   readonly vault?: BotVaultAccess
 }
 

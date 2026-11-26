@@ -64,7 +64,7 @@ function checkDistinct(values: unknown, known: ReadonlySet<string>, what: string
 }
 
 function checkOwnersOutput(
-  name: "connectorActions" | "credentialIncidents",
+  name: "connectorActions" | "credentialIncidents" | "senderInquiries",
   value: unknown,
   owners: string | undefined,
   what: string,
@@ -120,6 +120,7 @@ export function checkChannelCapabilities(
   checkOwnersOutput("connectorActions", value.connectorActions, channel.owners, what)
   checkOwnersOutput("credentialIncidents", value.credentialIncidents, channel.owners, what)
   checkProfile(value.profile, what)
+  checkOwnersOutput("senderInquiries", value.senderInquiries, channel.owners, what)
 }
 
 export function commandsOf(capabilities: BotChannelCapabilities): readonly BotCommandSpec[] {
@@ -152,5 +153,7 @@ export function carries(capabilities: BotChannelCapabilities, output: BotChannel
       return capabilities.credentialIncidents === true
     case "profile":
       return capabilities.profile !== undefined
+    case "sender-inquiry":
+      return capabilities.senderInquiries === true
   }
 }

@@ -139,6 +139,12 @@ function setup() {
     outlets,
     interactions,
     approvals,
+    senders: {
+      open: () => [],
+      find: () => undefined,
+      pendingFor: () => ({ ok: true, inquiries: [] }),
+      fromChannel: async () => ({ accepted: false, reason: "not-found" }),
+    },
     incidents: { open: (botId) => (botId === "a" ? [openIncident] : []) },
     profiles,
     warn: (message) => warnings.push(message),

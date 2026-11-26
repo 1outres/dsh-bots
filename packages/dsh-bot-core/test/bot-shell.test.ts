@@ -23,7 +23,7 @@ import { builtinShellEntries, createShellMenu } from "../src/client/shell-menu"
 import type { SessionListState, SessionSummary } from "../src/client/types"
 import { createViewer, type Viewer } from "../src/client/viewer"
 import type { SettingsScreenId } from "../src/client/wiring/screens"
-import { bot, idleApprovals, idleConnectorPanels, t, value } from "./support/client"
+import { bot, idleApprovals, idleConnectorPanels, idleInquiries, t, value } from "./support/client"
 import { notesFace } from "./support/notes"
 
 function filesFace(viewer: Viewer = createViewer()): FilesFace {
@@ -77,6 +77,7 @@ function menuOf(viewer: Viewer, panels: SidePanels = createSidePanels(viewer)) {
     viewer,
     panels,
     approvals: idleApprovals,
+    inquiries: idleInquiries,
     connectors: idleConnectorPanels.connectors,
   })) {
     menu.register(item)
@@ -107,6 +108,7 @@ function props(overrides: Partial<ShellSlotProps> = {}) {
     status: value({}),
     clearError: () => {},
     approvals: idleApprovals,
+    inquiries: idleInquiries,
     actionsWidth: { ...value(420), resize: () => {} },
     panels,
     popovers,

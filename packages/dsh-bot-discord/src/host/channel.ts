@@ -17,6 +17,8 @@ import { createPresence, ownerNames } from "./people"
 import type { Scheduler } from "./ports"
 import type { ProfileRecord } from "./profile/domain"
 import { openProfileRecords } from "./profile/records"
+import type { InquiryCardRecord } from "./senders/domain"
+import { adoptInquiryCards, openInquiryCards } from "./senders/records"
 import { createDiscordSettingsQueries } from "./settings/queries"
 import { upgradeDiscordSettings } from "./upgrade"
 
@@ -28,6 +30,7 @@ export interface DiscordChannelDeps {
   approvals: ApprovalTables
   incidents: RecordTable<IncidentNoticeRecord>
   profiles: RecordTable<ProfileRecord>
+  inquiryCards: RecordTable<InquiryCardRecord>
   warn(message: string): void
 }
 
@@ -40,6 +43,7 @@ export const DISCORD_CAPABILITIES = {
   connectorActions: true,
   credentialIncidents: true,
   profile: { name: true, avatar: true },
+  senderInquiries: true,
 } as const satisfies BotChannelCapabilities
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
@@ -104,6 +108,7 @@ export function createDiscordChannel(deps: DiscordChannelDeps): BotChannel<typeo
         adopt: async (homeChannelId) => {
           await adoptApprovalRecords(deps.approvals, link.bot.id, homeChannelId)
           await adoptIncidentNotices(deps.incidents, link.bot.id, homeChannelId)
+          await adoptInquiryCards(deps.inquiryCards, link.bot.id, homeChannelId)
         },
         channelId: "discord",
         connect: (events) =>
@@ -120,6 +125,7 @@ export function createDiscordChannel(deps: DiscordChannelDeps): BotChannel<typeo
         records: openApprovalRecords(deps.approvals, link.bot.id),
         incidents: openIncidentNotices(deps.incidents, link.bot.id),
         profiles: openProfileRecords(deps.profiles, link.bot.id),
+        inquiries: openInquiryCards(deps.inquiryCards, link.bot.id),
         warn: deps.warn,
       })
     },

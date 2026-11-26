@@ -17,6 +17,8 @@ import { registerMenuIcons } from "./menu-icons"
 import { createModelsHub, createModelsModel, modelCatalogReader } from "./models/feed"
 import { createNoticeStore } from "./notices"
 import { derive } from "./observable"
+import { createInquiriesHub, createInquiriesModel, watchSenderWaiting } from "./senders/inquiries"
+import { createSendersFeed, createSendersModel } from "./senders/model"
 import { createSessionArchive } from "./session-archive"
 import { snapshotOf } from "./session-classification"
 import { createSessionMenuOpener } from "./session-menu"
@@ -79,8 +81,19 @@ export function apply(ctx: ClientContext): void {
   const bots = watchBots(remote, ctx.connection.generation)
   ctx.effect(() => () => bots.dispose(), "bot-core: bots store")
   wireStyles(ctx, bots)
-  const waiting = watchWaiting(remote, ctx.connection.generation)
-  ctx.effect(() => () => waiting.dispose(), "bot-core: waiting connector actions")
+  const actionWaiting = watchWaiting(remote, ctx.connection.generation)
+  ctx.effect(() => () => actionWaiting.dispose(), "bot-core: waiting connector actions")
+  const senderWaiting = watchSenderWaiting(remote, ctx.connection.generation)
+  ctx.effect(() => () => senderWaiting.dispose(), "bot-core: waiting sender inquiries")
+  const waiting = derive([actionWaiting, senderWaiting], (actions, senders) => {
+    const total: Record<string, number> = { ...actions }
+    for (const [botId, count] of Object.entries(senders)) total[botId] = (total[botId] ?? 0) + count
+    return total
+  })
+  const inquiries = createInquiriesHub((botId) =>
+    createInquiriesModel({ mount: remote, generation: ctx.connection.generation }, botId),
+  )
+  const senders = createSendersFeed(() => createSendersModel(remote))
   const approvals = createActionsHub((botId) =>
     createActionsModel({ mount: remote, generation: ctx.connection.generation }, botId),
   )
@@ -145,6 +158,7 @@ export function apply(ctx: ClientContext): void {
     actions,
     progress,
     approvals,
+    inquiries,
     panels: surfaces.panels,
     popovers: surfaces.popovers,
     settingsStack: screens.stack,
@@ -188,6 +202,7 @@ export function apply(ctx: ClientContext): void {
     channels: createChannelsHub((botId) => createChannelsModel(remote, botId), channelQueries),
     connectors,
     connections,
+    senders,
     vaults,
     logins,
     models: createModelsHub((botId) =>

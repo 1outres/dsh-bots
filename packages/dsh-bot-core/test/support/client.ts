@@ -6,6 +6,7 @@ import type {
 } from "../../src/client/connector-panels/places"
 import { FORMAT_LOCALE_KEY } from "../../src/client/locale-format"
 import { constant } from "../../src/client/observable"
+import type { InquiriesHub } from "../../src/client/senders/inquiries"
 import type { Observable, Translate } from "../../src/client/types"
 import type { BotView, CreationPhase, PendingBotView } from "../../src/shared/bots"
 
@@ -89,6 +90,14 @@ export const idleConnectorPanels: ConnectorPanelsFace = {
   openStream: () => {
     throw new Error("idle")
   },
+}
+
+export const idleInquiries: InquiriesHub = {
+  feed: () => ({
+    getSnapshot: () => ({ status: "loading" }),
+    subscribe: () => () => {},
+    answer: async () => ({ kind: "unreachable", message: "idle" }),
+  }),
 }
 
 export const idleApprovals: ActionsHub = {

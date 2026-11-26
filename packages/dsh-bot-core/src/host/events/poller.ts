@@ -13,8 +13,13 @@ export interface EventPollerDeps {
   catalog: Pick<ConnectorCatalog, "list">
   connections: Pick<ConnectionStore, "list">
   subscribers(connectionId: string, connector: CatalogConnector): readonly string[]
-  store: Pick<EventStore, "cursor" | "start" | "receive" | "dropCursor">
+  store: Pick<EventStore, "cursor" | "start" | "receive" | "admit" | "dropCursor">
   shield(botId: string, events: readonly ConnectorEvent[]): Promise<readonly ConnectorEvent[]>
+  screen(
+    connectionId: string,
+    connectorId: string,
+    events: readonly ConnectorEvent[],
+  ): Promise<readonly ConnectorEvent[]>
   connection(record: ConnectionRecord): BotConnectorConnection
   later(ms: number, work: () => void): () => void
   deadline(ms: number): AbortSignal
@@ -27,8 +32,16 @@ export interface EventStreamStatus {
   readonly lastError?: string
 }
 
+export interface EventRelease {
+  readonly connectionId: string
+  readonly connectorId: string
+  readonly events: readonly ConnectorEvent[]
+  readonly gap?: string
+}
+
 export interface EventPoller {
   sync(): void
+  release(release: EventRelease): Promise<void>
   status(connectionId: string, connectorId: string): EventStreamStatus | undefined
   dispose(): void
 }
@@ -102,7 +115,10 @@ export function createEventPoller(deps: EventPollerDeps): EventPoller {
       return
     }
     const botIds = deps.subscribers(connectionId, connector)
-    let kept: readonly ConnectorEvent[] = polled.events
+    let kept: readonly ConnectorEvent[] =
+      connector.senders === undefined
+        ? polled.events
+        : await deps.screen(connectionId, connector.id, polled.events)
     for (const botId of botIds) kept = await deps.shield(botId, kept)
     await deps.store.receive(
       {
@@ -147,6 +163,20 @@ export function createEventPoller(deps: EventPollerDeps): EventPoller {
   }
 
   return {
+    async release(release) {
+      const connector = deps.catalog.list().find((item) => item.id === release.connectorId)
+      if (connector === undefined) return
+      const botIds = deps.subscribers(release.connectionId, connector)
+      let kept = release.events
+      for (const botId of botIds) kept = await deps.shield(botId, kept)
+      await deps.store.admit({
+        botIds,
+        connectorId: release.connectorId,
+        connectionId: release.connectionId,
+        events: kept,
+        ...(release.gap === undefined ? {} : { gap: release.gap }),
+      })
+    },
     sync() {
       if (closed) return
       const wanted = new Map<string, { connectionId: string; connector: CatalogConnector }>()

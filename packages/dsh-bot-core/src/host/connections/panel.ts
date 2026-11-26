@@ -29,6 +29,7 @@ export interface ConnectionPanelDeps {
   fetch: OAuthFetch
   deadline(ms: number): AbortSignal
   exists(botId: string): boolean
+  senders: { forget(connectionId: string): Promise<void> }
 }
 
 export interface ConnectionPanel {
@@ -142,6 +143,7 @@ export function createConnectionPanel(deps: ConnectionPanelDeps): ConnectionPane
       deps.tokens.forget(record.id)
       await deps.vault.removeGrant(record.id)
       await deps.store.remove(record.id)
+      await deps.senders.forget(record.id)
       return { connectionId: record.id, revoked, ...(reason === undefined ? {} : { reason }) }
     },
     subscribe(listener) {
