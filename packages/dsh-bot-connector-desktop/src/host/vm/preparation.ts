@@ -4,9 +4,9 @@
  * the screen size, and a check of the display and the agent.
  */
 import type { BotConnectorContext, BotConnectorPreparation } from "@1outres/dsh-bot-core"
+import { type Resolution, resolutionOf } from "../../shared/resolution"
 import { connectAgent } from "../agent/connect"
 import type { RpcClientDeps } from "../agent/rpc"
-import { type Resolution, resolutionOf } from "../settings"
 import { readVmUser, run } from "./commands"
 import {
   type InstalledFile,

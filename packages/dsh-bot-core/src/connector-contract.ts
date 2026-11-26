@@ -5,6 +5,7 @@ import type {
   ConnectorEventKind,
   ConnectorJson,
   ConnectorPanelIcon,
+  ConnectorPanelPresentation,
   ConnectorPermission,
   ConnectorPreview,
   ConnectorSessions,
@@ -101,8 +102,8 @@ export interface BotConnector<A = undefined> {
 }
 
 /**
- * The connector's panel in a bot's shell (beside Files). bot-core shows its
- * button and frame for every bot, and the connector's readiness while it is
+ * The connector's panel in a bot's shell (beside Files, or floating over the
+ * chat). bot-core shows its button and frame for every bot, and the connector's readiness while it is
  * not ready; once ready, the connector's own browser part draws the body (the
  * `bot-core.connector.panel` Slot, keyed by the connector's id) and opens
  * {@link streams} through bot-core's `botConnectorStreams` Remote.
@@ -111,6 +112,8 @@ export interface BotConnectorPanel {
   readonly title: ConnectorText
   /** Its menu bar button's glyph, one bot-core draws. */
   readonly icon: ConnectorPanelIcon
+  /** Beside the chat, or floating over it for a body of a fixed aspect (a screen). */
+  readonly presentation: ConnectorPanelPresentation
   readonly streams: readonly BotConnectorStream[]
 }
 

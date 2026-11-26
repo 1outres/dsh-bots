@@ -57,6 +57,7 @@ export function createDesktopConnector(deps: DesktopConnectorDeps): BotConnector
     panel: {
       title: { en: "Desktop", ja: "デスクトップ" },
       icon: "desktop",
+      presentation: "popover",
       streams: [screenStream(deps.control)],
     },
     status: {

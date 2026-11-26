@@ -9,6 +9,7 @@ import { createStore, type Observable } from "../observable"
 import type { BotsState, RegistrationStatus } from "../session-classification"
 import type { ShellFace } from "../shell/face"
 import { createNoticeDismissal } from "../shell/notice-dismissal"
+import type { ShellPopovers } from "../shell/popovers"
 import { ShellRoot } from "../shell/ShellRoot"
 import type { SidePanels } from "../shell/side-panels"
 import { builtinShellEntries, createShellMenu } from "../shell-menu"
@@ -29,6 +30,7 @@ export interface ShellSources {
   readonly progress: Observable<string | null>
   readonly approvals: ActionsHub
   readonly panels: SidePanels
+  readonly popovers: ShellPopovers
   readonly connectorPanels: ConnectorPanelsFace
   readonly incidents: ShellFace["incidents"]
 }
@@ -72,6 +74,7 @@ export function wireShell(
     approvals: sources.approvals,
     actionsWidth: createPanelWidth(ACTIONS_PANEL_WIDTH),
     panels: sources.panels,
+    popovers: sources.popovers,
     connectorPanels: sources.connectorPanels,
     incidents: sources.incidents,
   }

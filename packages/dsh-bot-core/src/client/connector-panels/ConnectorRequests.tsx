@@ -1,14 +1,20 @@
-import type { ConnectorPanelIcon, ConnectorRequest, ConnectorText } from "../../shared/connectors"
+import type {
+  ConnectorPanelIcon,
+  ConnectorPanelPresentation,
+  ConnectorRequest,
+  ConnectorText,
+} from "../../shared/connectors"
 import type { ConnectorsState } from "../connectors-model"
-import { connectorPanel, type SidePanels } from "../shell/side-panels"
 import type { Translate } from "../types"
 import { Button, Group, Row } from "../ui"
 import { CONNECTOR_PANEL_GLYPHS } from "./icons"
+import type { ConnectorPanelPlaces } from "./places"
 
 export interface OpenRequest {
   readonly connectorId: string
   readonly title: string
   readonly icon: ConnectorPanelIcon
+  readonly presentation: ConnectorPanelPresentation
   readonly request: ConnectorRequest
 }
 
@@ -23,7 +29,15 @@ export function requestsOf(
     const panel = view.connector.panel
     return request === undefined || panel === undefined
       ? []
-      : [{ connectorId: view.connector.id, title: text(panel.title), icon: panel.icon, request }]
+      : [
+          {
+            connectorId: view.connector.id,
+            title: text(panel.title),
+            icon: panel.icon,
+            presentation: panel.presentation,
+            request,
+          },
+        ]
   })
 }
 
@@ -35,13 +49,13 @@ export function ConnectorRequests(props: {
   readonly t: Translate
   readonly sessionId: string
   readonly requests: readonly OpenRequest[]
-  readonly panels: Pick<SidePanels, "open">
+  readonly places: ConnectorPanelPlaces
 }) {
-  const { t, sessionId, requests, panels } = props
+  const { t, sessionId, requests, places } = props
   if (requests.length === 0) return null
   return (
     <Group marks={{ "data-dshb-connector-requests": "" }}>
-      {requests.map(({ connectorId, title, icon, request }) => {
+      {requests.map(({ connectorId, title, icon, presentation, request }) => {
         const Glyph = CONNECTOR_PANEL_GLYPHS[icon]
         return (
           <Row
@@ -54,7 +68,7 @@ export function ConnectorRequests(props: {
               <Button
                 variant="row"
                 marks={{ "data-dshb-connector-request-open": connectorId }}
-                onClick={() => panels.open(sessionId, connectorPanel(connectorId))}
+                onClick={() => places[presentation].open(sessionId, connectorId)}
               >
                 {t("connectorRequest.open", { title })}
               </Button>

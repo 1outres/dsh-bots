@@ -14,7 +14,7 @@ import { checkChannelDescriptor } from "../src/shared/channels"
 import type { ConnectorAction, ConnectorActionView } from "../src/shared/connectors"
 import { CAPABILITIES, DECIDING, FIELDS } from "./channels-support"
 import { brokerSetup } from "./connectors-support"
-import { t } from "./support/client"
+import { idlePlaces, t } from "./support/client"
 
 const base = (id: string, botId = "b1"): ConnectorAction => ({
   id,
@@ -292,7 +292,7 @@ describe("actions panel", () => {
         sessionId: "m1",
         feed,
         connectors,
-        panels: { open: () => {} },
+        places: idlePlaces,
         width: { getSnapshot: () => 420, subscribe: () => () => {}, resize: () => {} },
         containerRef: { current: null },
         close: () => {},

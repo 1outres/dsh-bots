@@ -58,5 +58,12 @@ export const PANEL_CSS = `
   background: var(--dsw-alias-markdown-code-block);
   overflow: hidden;
 }
+.dsdk-panel[data-dsdk-frame='popover'] { flex: none; }
+.dsdk-panel[data-dsdk-frame='popover'] .dsdk-screen {
+  flex: 0 1 auto;
+  width: min(var(--dsdk-max-width) - 32px, (var(--dsdk-max-height) - 68px) * var(--dsdk-ratio));
+  aspect-ratio: var(--dsdk-ratio);
+  min-height: 0;
+}
 .dsdk-screen[data-dsdk-self] { outline: 2px solid var(--dsw-alias-state-warn-primary); outline-offset: -2px; }
 `

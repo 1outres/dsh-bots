@@ -66,6 +66,7 @@ function screenConnector(status: {
     panel: {
       title: { en: "Screen", ja: "画面" },
       icon: "desktop",
+      presentation: "side",
       streams: [
         connectorStream<{ readonly say: string }>({
           name: "view",
@@ -215,6 +216,7 @@ describe("connector status and panel in views", () => {
     expect(view()?.connector.panel).toEqual({
       title: { en: "Screen", ja: "画面" },
       icon: "desktop",
+      presentation: "side",
       streams: ["view"],
     })
     expect(view()?.status).toEqual({})
@@ -227,7 +229,7 @@ describe("connector status and panel in views", () => {
     expect(broker.status.listeners.size).toBe(0)
   })
 
-  it("refuses a panel without a title, a stream named twice or one without open", () => {
+  it("refuses a panel without a title, an unknown presentation, a stream named twice or one without open", () => {
     const status = { current: {}, listeners: new Set<(botId: string) => void>() }
     const { connector } = screenConnector(status)
     const stream = connector.panel?.streams[0]
@@ -236,8 +238,15 @@ describe("connector status and panel in views", () => {
     const register = (patch: Partial<BotConnector>) => () =>
       catalog.register({ ...connector, ...patch })
     const panel = (patch: Partial<NonNullable<BotConnector["panel"]>>) =>
-      register({ panel: { title: { en: "S" }, icon: "desktop", streams: [], ...patch } })
+      register({
+        panel: { title: { en: "S" }, icon: "desktop", presentation: "side", streams: [], ...patch },
+      })
     expect(panel({ title: { en: "" } })).toThrow(/English title/)
+    expect(
+      panel({
+        presentation: "dock" as unknown as NonNullable<BotConnector["panel"]>["presentation"],
+      }),
+    ).toThrow(/presentation is not one of/)
     expect(
       panel({ icon: "rocket" as unknown as NonNullable<BotConnector["panel"]>["icon"] }),
     ).toThrow(/icon is not one of/)

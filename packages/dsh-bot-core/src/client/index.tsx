@@ -42,12 +42,12 @@ import { createProgressView, wireLifecycle } from "./wiring/lifecycle"
 import { wireMains } from "./wiring/mains"
 import { wireNotes } from "./wiring/notes"
 import { wireOnboarding } from "./wiring/onboarding"
+import { wirePanels } from "./wiring/panels"
 import { NAMESPACE } from "./wiring/plugin"
 import { wireRightbar } from "./wiring/rightbar"
 import { createSettingsScreens } from "./wiring/screens"
 import { wireSettings } from "./wiring/settings"
 import { wireShell } from "./wiring/shell"
-import { wireSidePanels } from "./wiring/side-panels"
 import { wireSkills } from "./wiring/skills"
 import { wireStyles } from "./wiring/styles"
 import { wireVmHost } from "./wiring/vm-host"
@@ -128,6 +128,11 @@ export function apply(ctx: ClientContext): void {
   wireRightbar(ctx, { classification, viewer: files.viewer, lockdown })
   wireInteractions(ctx, { remote, classification, managed })
   const rightbar = derive([lockdown], (status) => status.registration)
+  const surfaces = wirePanels(ctx, {
+    bots,
+    classify: classification.classify,
+    viewer: files.viewer,
+  })
   const shell = wireShell(ctx, {
     classification,
     bots,
@@ -138,12 +143,9 @@ export function apply(ctx: ClientContext): void {
     actions,
     progress,
     approvals,
-    panels: wireSidePanels(ctx, {
-      bots,
-      classify: classification.classify,
-      viewer: files.viewer,
-    }),
-    connectorPanels: wireConnectorPanels(ctx, { remote, connectors }),
+    panels: surfaces.panels,
+    popovers: surfaces.popovers,
+    connectorPanels: wireConnectorPanels(ctx, { remote, connectors, surfaces }),
     incidents,
   })
 

@@ -105,6 +105,7 @@ export function descriptorOf(connector: CatalogConnector): ConnectorDescriptor {
           panel: {
             title: connector.panel.title,
             icon: connector.panel.icon,
+            presentation: connector.panel.presentation,
             streams: connector.panel.streams.map((stream) => stream.name),
           },
         }),

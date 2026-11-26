@@ -1,7 +1,10 @@
 import { type ReactNode, useCallback, useMemo, useRef } from "react"
 import type { BotView } from "../../shared/bots"
 import { ActionsPanel } from "../approvals/ActionsPanel"
-import { ConnectorPanelView } from "../connector-panels/ConnectorPanel"
+import {
+  type ConnectorPanelPlacement,
+  ConnectorPanelView,
+} from "../connector-panels/ConnectorPanel"
 import { connectorEntries } from "../connector-panels/entries"
 import type { ConversationContentInput, ConversationViewsProps } from "../dsh/conversation"
 import { FACTORY, SLOT } from "../dsh/slots"
@@ -51,9 +54,11 @@ export interface BotSessionShellProps extends Omit<ShellSlotProps, "sessionId" |
   readonly bot: ShellBot
 }
 
+const POPOVER_PLACEMENT: ConnectorPanelPlacement = { presentation: "popover" }
+
 /** The menu's entries for a known bot: bot-core's, then the panels of the connectors it has on. */
 function useKnownEntries(props: KnownProps, bot: BotView) {
-  const { menu, connectorPanels, panels } = props
+  const { menu, connectorPanels } = props
   const feed = connectorPanels.connectors.feed(bot.id)
   return useMemo(
     () =>
@@ -61,11 +66,15 @@ function useKnownEntries(props: KnownProps, bot: BotView) {
         state.status === "ready"
           ? [
               ...builtins,
-              ...connectorEntries(state.snapshot.connectors, panels, connectorPanels.text),
+              ...connectorEntries(
+                state.snapshot.connectors,
+                connectorPanels.places,
+                connectorPanels.text,
+              ),
             ].sort(byOrder)
           : builtins,
       ),
-    [menu, feed, panels, connectorPanels.text],
+    [menu, feed, connectorPanels.places, connectorPanels.text],
   )
 }
 
@@ -185,6 +194,7 @@ export function BotSessionShell(props: BotSessionShellProps) {
       {known !== undefined && (
         <OpenSidePanel {...props} bot={known} containerRef={shellRef} returnFocus={focusEntry} />
       )}
+      {known !== undefined && <OpenPopover {...props} bot={known} returnFocus={focusEntry} />}
       {known === undefined ? (
         <PendingShellBar {...props} compact={compact} />
       ) : (
@@ -319,7 +329,7 @@ function OpenSidePanel(
           sessionId={sessionId}
           feed={props.approvals.feed(bot.id)}
           connectors={connectorPanels.connectors.feed(bot.id)}
-          panels={panels}
+          places={connectorPanels.places}
           width={props.actionsWidth}
           containerRef={props.containerRef}
           close={() => {
@@ -337,9 +347,12 @@ function OpenSidePanel(
           bot={bot}
           sessionId={sessionId}
           connectorId={panel.connectorId}
+          placement={{
+            presentation: "side",
+            width: connectorPanels.width,
+            containerRef: props.containerRef,
+          }}
           feed={connectorPanels.connectors.feed(bot.id)}
-          width={connectorPanels.width}
-          containerRef={props.containerRef}
           renderSlot={props.renderSlot}
           openStream={connectorPanels.openStream}
           openSettings={() => props.openSettings(bot.id, SETTINGS_SECTION.connectors)}
@@ -350,4 +363,35 @@ function OpenSidePanel(
         />
       )
   }
+}
+
+/** The connector panel floating over the session's chat, if any. */
+function OpenPopover(
+  props: KnownProps & {
+    readonly bot: BotView
+    readonly returnFocus: (entryId: string) => void
+  },
+) {
+  const { t, bot, sessionId, connectorPanels, popovers } = props
+  const popover = useObservable(popovers)[sessionId]
+  if (popover === undefined) return null
+  return (
+    <ConnectorPanelView
+      key={popover.connectorId}
+      t={t}
+      text={connectorPanels.text}
+      bot={bot}
+      sessionId={sessionId}
+      connectorId={popover.connectorId}
+      placement={POPOVER_PLACEMENT}
+      feed={connectorPanels.connectors.feed(bot.id)}
+      renderSlot={props.renderSlot}
+      openStream={connectorPanels.openStream}
+      openSettings={() => props.openSettings(bot.id, SETTINGS_SECTION.connectors)}
+      close={() => {
+        popovers.close(sessionId)
+        props.returnFocus(`connector:${popover.connectorId}`)
+      }}
+    />
+  )
 }

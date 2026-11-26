@@ -12,6 +12,7 @@ import {
 import {
   BOT_CREATION_OPTIONS,
   CONNECTOR_PANEL_ICONS,
+  CONNECTOR_PANEL_PRESENTATIONS,
   CONNECTOR_PERMISSIONS,
   CONNECTOR_SESSIONS,
   type ConnectorJson,
@@ -19,6 +20,7 @@ import {
   connectorToolName,
   isBotCreationOption,
   isConnectorPanelIcon,
+  isConnectorPanelPresentation,
 } from "../../shared/connectors"
 import { BOT_ENVIRONMENT_SPEC_KEYS } from "../../shared/environment"
 import { type ArgumentsCheck, compileArguments } from "./arguments"
@@ -243,6 +245,9 @@ function surfaceProblem(connector: CatalogConnector): string | undefined {
     }
     if (!isConnectorPanelIcon(panel.icon)) {
       return `has a panel whose icon is not one of ${CONNECTOR_PANEL_ICONS.join(", ")}`
+    }
+    if (!isConnectorPanelPresentation(panel.presentation)) {
+      return `has a panel whose presentation is not one of ${CONNECTOR_PANEL_PRESENTATIONS.join(", ")}`
     }
     if (!Array.isArray(panel.streams)) return "has a panel whose streams are not a list"
     const names = new Set<string>()

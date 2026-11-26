@@ -23,3 +23,10 @@ export function panelLayout({ shellWidth, panelWidth, compact }: PanelLayoutInpu
   if (shellWidth === undefined) return "beside"
   return shellWidth - MENU_BAR_WIDTH - panelWidth < CHAT_MIN_WIDTH ? "overlay" : "beside"
 }
+
+/** How a popover sits in the shell: `floating` over the chat by the menu bar, or a full-screen `sheet` on a compact window. */
+export type PopoverLayout = "floating" | "sheet"
+
+export function popoverLayout(compact: boolean): PopoverLayout {
+  return compact ? "sheet" : "floating"
+}

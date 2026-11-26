@@ -13,7 +13,12 @@ const idleView = {
   ...plainView,
   connector: {
     ...plainView.connector,
-    panel: { title: { en: "Desktop" }, icon: "desktop" as const, streams: [] },
+    panel: {
+      title: { en: "Desktop" },
+      icon: "desktop" as const,
+      presentation: "popover" as const,
+      streams: [],
+    },
   },
 }
 

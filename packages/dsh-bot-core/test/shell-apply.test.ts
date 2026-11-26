@@ -572,6 +572,7 @@ describe("client apply(): the bot session shell", () => {
         "openSettings",
         "panels",
         "pending",
+        "popovers",
         "progress",
         "rightbarRegistration",
         "status",

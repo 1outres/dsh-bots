@@ -10,6 +10,7 @@ import type {
 } from "../src/client/session-classification"
 import type { ShellSlotProps } from "../src/client/shell/face"
 import { createNoticeDismissal } from "../src/client/shell/notice-dismissal"
+import { createShellPopovers } from "../src/client/shell/popovers"
 import { ShellBoundary } from "../src/client/shell/ShellBoundary"
 import { barKey } from "../src/client/shell/ShellMenuBar"
 import { ShellRoot } from "../src/client/shell/ShellRoot"
@@ -72,6 +73,7 @@ function props(overrides: Partial<ShellSlotProps> = {}) {
   const renderFactorySlot = vi.fn((): ReactNode => "[content]")
   const viewer = createViewer()
   const panels = createSidePanels(viewer)
+  const popovers = createShellPopovers({ panels, viewer })
   const shellProps: ShellSlotProps = {
     t,
     sessionId: "m1",
@@ -92,6 +94,7 @@ function props(overrides: Partial<ShellSlotProps> = {}) {
     approvals: idleApprovals,
     actionsWidth: { ...value(420), resize: () => {} },
     panels,
+    popovers,
     connectorPanels: idleConnectorPanels,
     incidents: value<Readonly<Record<string, number>>>({}),
     renderSlot: () => null,

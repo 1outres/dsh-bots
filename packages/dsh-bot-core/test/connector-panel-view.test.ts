@@ -2,6 +2,7 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it, vi } from "vitest"
 import {
+  type ConnectorPanelPlacement,
   ConnectorPanelView,
   type RenderShellSlot,
 } from "../src/client/connector-panels/ConnectorPanel"
@@ -17,7 +18,12 @@ function desktopView(readiness: ConnectorReadiness): BotConnectorView {
     connector: {
       ...plain.connector,
       id: "desktop",
-      panel: { title: { en: "Desktop" }, icon: "desktop", streams: ["screen"] },
+      panel: {
+        title: { en: "Desktop" },
+        icon: "desktop",
+        presentation: "popover",
+        streams: ["screen"],
+      },
     },
     readiness,
     status: { note: { en: "A person is operating" } },
@@ -32,7 +38,17 @@ const feedOf = (view: BotConnectorView): ConnectorsFeed => ({
   retry: vi.fn(),
 })
 
-function render(readiness: ConnectorReadiness, renderSlot: RenderShellSlot = () => null) {
+const SIDE: ConnectorPanelPlacement = {
+  presentation: "side",
+  width: { getSnapshot: () => 720, subscribe: () => () => {}, resize: () => {} },
+  containerRef: { current: null },
+}
+
+function render(
+  readiness: ConnectorReadiness,
+  renderSlot: RenderShellSlot = () => null,
+  placement: ConnectorPanelPlacement = SIDE,
+) {
   return renderToStaticMarkup(
     createElement(ConnectorPanelView, {
       t,
@@ -41,8 +57,7 @@ function render(readiness: ConnectorReadiness, renderSlot: RenderShellSlot = () 
       sessionId: "m1",
       connectorId: "desktop",
       feed: feedOf(desktopView(readiness)),
-      width: { getSnapshot: () => 720, subscribe: () => () => {}, resize: () => {} },
-      containerRef: { current: null },
+      placement,
       renderSlot,
       openStream: () => {
         throw new Error("not opened")
@@ -104,5 +119,27 @@ describe("ConnectorPanelView", () => {
     )
     expect(html).toContain('data-body="desktop"')
     expect(html).toContain("connectorPanel.missing(Desktop)")
+    expect(renderSlot.mock.calls[0]?.[1].frame).toEqual({ presentation: "side" })
+  })
+
+  it("draws the same readiness in a popover, whose body gets the popover's bounds", () => {
+    const html = render({ state: "failed", reason: "apt broke", at: 1 }, () => null, {
+      presentation: "popover",
+    })
+    expect(html).toContain('class="dshb-popover"')
+    expect(html).toContain('role="dialog"')
+    expect(html).toContain('data-dshb-cpanel-presentation="popover"')
+    expect(html).not.toContain("connectorPanel.resize")
+    expect(html).toContain("apt broke")
+    expect(html).toContain("connectorPanel.retry")
+    const renderSlot = vi.fn<RenderShellSlot>(() => null)
+    render({ state: "ready", since: 1 }, renderSlot, { presentation: "popover" })
+    expect(renderSlot.mock.calls[0]?.[1].frame).toEqual({
+      presentation: "popover",
+      bounds: {
+        width: "var(--dshb-popover-body-width)",
+        height: "var(--dshb-popover-body-height)",
+      },
+    })
   })
 })

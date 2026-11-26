@@ -23,11 +23,27 @@ export interface ConnectorPanelProps {
   readonly sessionId: string
   /** The bot's state of the connector, ready while the body is rendered. */
   readonly connector: BotConnectorView
+  /** The frame it is drawn in, as the connector's `panel.presentation` asks. */
+  readonly frame: ConnectorPanelFrame
   /**
    * Open one of the panel's streams (`BotConnectorPanel.streams`) through
    * bot-core's `botConnectorStreams` Remote. The caller disposes it.
    */
   readonly openStream: (name: string) => ConnectorPanelStream
+}
+
+/**
+ * A `side` panel's body fills the frame. A `popover` is as large as its
+ * body, which sizes itself to its content (a screen's aspect) within
+ * `bounds`: CSS lengths of the most room it has, usable in `calc()`.
+ */
+export type ConnectorPanelFrame =
+  | { readonly presentation: "side" }
+  | { readonly presentation: "popover"; readonly bounds: ConnectorPanelBounds }
+
+export interface ConnectorPanelBounds {
+  readonly width: string
+  readonly height: string
 }
 
 /** One open panel stream: the Host's items, and the browser's items back. */

@@ -1,5 +1,6 @@
-import type { ConnectorPanelProps } from "@1outres/dsh-bot-core"
-import { useEffect, useRef, useState, useSyncExternalStore } from "react"
+import type { ConnectorPanelFrame, ConnectorPanelProps } from "@1outres/dsh-bot-core"
+import { type CSSProperties, useEffect, useRef, useState, useSyncExternalStore } from "react"
+import { type Resolution, resolutionOf } from "../shared/resolution"
 import { SCREEN_STREAM } from "../shared/screen"
 import type { Translate } from "./dsh"
 import { ScreenSession, type ScreenState } from "./screen-session"
@@ -60,8 +61,22 @@ function statusText(t: Translate, state: ScreenState, seconds: number | undefine
   }
 }
 
+/** In a popover, the panel sizes the screen to the desktop's aspect within the frame's bounds (styles.ts). */
+function frameStyle(frame: ConnectorPanelFrame, screen: Resolution): CSSProperties | undefined {
+  switch (frame.presentation) {
+    case "side":
+      return undefined
+    case "popover":
+      return {
+        "--dsdk-max-width": frame.bounds.width,
+        "--dsdk-max-height": frame.bounds.height,
+        "--dsdk-ratio": screen.width / screen.height,
+      } as CSSProperties
+  }
+}
+
 /** The bot's desktop in its panel: the screen (view only unless you take over), who operates it, and the bot's request. */
-export function DesktopPanel({ t, openStream }: DesktopPanelProps) {
+export function DesktopPanel({ t, openStream, frame, connector }: DesktopPanelProps) {
   const screen = useRef<HTMLDivElement>(null)
   const [session, setSession] = useState<ScreenSession>()
   useEffect(() => {
@@ -83,7 +98,13 @@ export function DesktopPanel({ t, openStream }: DesktopPanelProps) {
   const request = state?.request ?? null
 
   return (
-    <div className="dsdk-panel" data-dsdk-status={state?.status} data-dsdk-holder={state?.holder}>
+    <div
+      className="dsdk-panel"
+      data-dsdk-frame={frame.presentation}
+      data-dsdk-status={state?.status}
+      data-dsdk-holder={state?.holder}
+      style={frameStyle(frame, resolutionOf(connector.values))}
+    >
       <style>{PANEL_CSS}</style>
       <div className="dsdk-bar">
         <span className="dsdk-status" role="status" data-dsdk-state="">

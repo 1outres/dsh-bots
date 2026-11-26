@@ -1,6 +1,11 @@
 import type { ActionsHub } from "../../src/client/approvals/hub"
 import type { ConnectorPanelsFace } from "../../src/client/connector-panels/face"
+import type {
+  ConnectorPanelPlace,
+  ConnectorPanelPlaces,
+} from "../../src/client/connector-panels/places"
 import { FORMAT_LOCALE_KEY } from "../../src/client/locale-format"
+import { constant } from "../../src/client/observable"
 import type { Observable, Translate } from "../../src/client/types"
 import type { BotView, CreationPhase, PendingBotView } from "../../src/shared/bots"
 
@@ -63,6 +68,15 @@ export const translateWith =
       params !== undefined && name in params ? String(params[name]) : match,
     )
 
+const idlePlace: ConnectorPanelPlace = {
+  shows: () => constant(false),
+  open: () => {},
+  toggle: () => {},
+}
+
+/** Places that never show a connector's panel. */
+export const idlePlaces: ConnectorPanelPlaces = { side: idlePlace, popover: idlePlace }
+
 /** Connectors that never load: the shell shows no connector button, request or panel. */
 export const idleConnectorPanels: ConnectorPanelsFace = {
   connectors: {
@@ -74,6 +88,7 @@ export const idleConnectorPanels: ConnectorPanelsFace = {
       retry: () => Promise.reject(new Error("idle")),
     }),
   },
+  places: idlePlaces,
   width: { getSnapshot: () => 720, subscribe: () => () => {}, resize: () => {} },
   text: (value) => value.en,
   openStream: () => {

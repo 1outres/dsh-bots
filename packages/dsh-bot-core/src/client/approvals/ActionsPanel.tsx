@@ -1,13 +1,13 @@
 import { type KeyboardEvent, useState } from "react"
 import type { ConnectorText } from "../../shared/connectors"
 import { ConnectorRequests, requestsOf } from "../connector-panels/ConnectorRequests"
+import type { ConnectorPanelPlaces } from "../connector-panels/places"
 import type { ConnectorsFeed } from "../connectors-hub"
 import type { PanelWidth } from "../files/panel-width"
 import { useNow, useObservable } from "../hooks"
 import { IconActions } from "../icons"
 import { localeFormat } from "../locale-format"
 import { SidePanelFrame } from "../shell/SidePanelFrame"
-import type { SidePanels } from "../shell/side-panels"
 import type { Translate } from "../types"
 import { EmptyState, ErrorText, Group, NavRow, StatusPill } from "../ui"
 import { ActionCard, ActionDetails } from "./ActionCard"
@@ -20,7 +20,7 @@ export interface ActionsPanelProps {
   readonly sessionId: string
   readonly feed: ActionsFeed
   readonly connectors: ConnectorsFeed
-  readonly panels: Pick<SidePanels, "open">
+  readonly places: ConnectorPanelPlaces
   readonly width: PanelWidth
   readonly containerRef: { readonly current: HTMLElement | null }
   close(): void
@@ -67,7 +67,7 @@ export function ActionsPanel(props: ActionsPanelProps) {
           t={t}
           sessionId={props.sessionId}
           requests={requests}
-          panels={props.panels}
+          places={props.places}
         />
         {state.status === "loading" && <p className="dshb-panel-note">{t("files.loading")}</p>}
         {state.status === "failed" && (

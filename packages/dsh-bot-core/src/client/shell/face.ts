@@ -11,6 +11,7 @@ import type { BotsState, RegistrationStatus, SessionClass } from "../session-cla
 import type { ShellMenu } from "../shell-menu"
 import type { BotStatus } from "../status"
 import type { NoticeDismissal } from "./notice-dismissal"
+import type { ShellPopovers } from "./popovers"
 import type { SidePanels } from "./side-panels"
 
 /** What bot-core injects into its `main.conversation` entry. */
@@ -37,8 +38,10 @@ export interface ShellFace {
   /** Each bot's connector actions, in the Actions panel. */
   readonly approvals: ActionsHub
   readonly actionsWidth: PanelWidth
-  /** The Actions or connector panel each session shows. */
+  /** The Notes, Actions or connector panel each session shows beside the chat. */
   readonly panels: SidePanels
+  /** The connector panel each session shows over the chat. */
+  readonly popovers: ShellPopovers
   /** Connectors' panels beside the chat. */
   readonly connectorPanels: ConnectorPanelsFace
   /** Unacknowledged credential incidents per bot (docs/specs/bot-vaults.md §7.3). */

@@ -3,7 +3,7 @@
  * `vm/` directory (the agent, the user units, configuration) mapped to their
  * installed paths, and the display settings generated from the bot's settings.
  */
-import type { Resolution } from "../settings"
+import type { Resolution } from "../../shared/resolution"
 import {
   AGENT_DIR,
   CHROME_POLICY,

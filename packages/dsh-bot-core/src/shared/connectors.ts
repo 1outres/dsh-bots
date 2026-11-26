@@ -480,12 +480,26 @@ export function isConnectorPanelIcon(value: unknown): value is ConnectorPanelIco
   return (CONNECTOR_PANEL_ICONS as readonly unknown[]).includes(value)
 }
 
+/**
+ * Where the shell shows a connector's panel: `side` in the side panel frame
+ * beside the chat (Files, Actions); `popover` floating over the chat by the
+ * menu bar, as large as its body, for a body of a fixed aspect (a screen).
+ */
+export const CONNECTOR_PANEL_PRESENTATIONS = ["side", "popover"] as const
+
+export type ConnectorPanelPresentation = (typeof CONNECTOR_PANEL_PRESENTATIONS)[number]
+
+export function isConnectorPanelPresentation(value: unknown): value is ConnectorPanelPresentation {
+  return (CONNECTOR_PANEL_PRESENTATIONS as readonly unknown[]).includes(value)
+}
+
 /** A connector's panel in a bot's shell, as the browser shows it. */
 export interface ConnectorPanelDescriptor {
   /** The panel's title and its menu bar button's label. */
   readonly title: ConnectorText
   /** Its menu bar button's glyph. */
   readonly icon: ConnectorPanelIcon
+  readonly presentation: ConnectorPanelPresentation
   /** The streams the panel's browser part may open (`botConnectorStreams.open`). */
   readonly streams: readonly string[]
 }
