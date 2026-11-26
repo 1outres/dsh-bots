@@ -13,24 +13,24 @@ PART_BYTES=$((1900 * 1024 * 1024))
 RELEASE_ENV=$HERE/../release.env
 PLUGIN_RELEASE=$HERE/../../packages/dsh-bot-vm/src/host/image/release-env.ts
 
-[[ $TAG =~ ^[A-Za-z0-9._-]+$ ]] || fail "Tag $TAG has characters a release tag cannot have." "Use letters, digits, dot, dash, underscore."
+[[ $TAG =~ ^[A-Za-z0-9._-]+$ ]] || fail usage "Tag $TAG has characters a release tag cannot have." "Use letters, digits, dot, dash, underscore."
 fp=$(alias_target "$PROJECT" "$ALIAS")
-[[ -n $fp ]] || fail "There is no image alias $ALIAS." "Build it with build-base-image.sh."
+[[ -n $fp ]] || fail image-missing "There is no image alias $ALIAS." "Build it with build-base-image.sh."
 version=$(incus query "/1.0/images/$fp?project=$PROJECT" | sed -n 's/^[[:space:]]*"dsh.version": "\([^"]*\)".*/\1/p')
 [[ $version == "$DSH_VERSION" ]] ||
-  fail "$ALIAS was built for DSH ${version:-unknown}, release.env says $DSH_VERSION." "Rebuild the image with build-base-image.sh."
+  fail image-missing "$ALIAS was built for DSH ${version:-unknown}, release.env says $DSH_VERSION." "Rebuild the image with build-base-image.sh."
 
 install -d "$OUT"
-[[ -z $(ls -A "$OUT") ]] || fail "$OUT is not empty." "Give an empty or new directory."
+[[ -z $(ls -A "$OUT") ]] || fail usage "$OUT is not empty." "Give an empty or new directory."
 work=$(mktemp -d "$OUT/.export.XXXXXX")
 trap 'rm -rf "$work"' EXIT
 
 log "Exporting $ALIAS ($fp)"
 incus image export --project "$PROJECT" "$fp" "$work/"
 mapfile -t exported < <(find "$work" -maxdepth 1 -type f)
-((${#exported[@]} == 1)) || fail "Incus exported ${#exported[@]} files, not one unified image." "Publish the image as a unified tarball (build-base-image.sh does)."
+((${#exported[@]} == 1)) || fail export-failed "Incus exported ${#exported[@]} files, not one unified image." "Publish the image as a unified tarball (build-base-image.sh does)."
 file=${exported[0]}
-[[ $(sha256sum "$file" | cut -d' ' -f1) == "$fp" ]] || fail "The exported file's sha256 is not the fingerprint $fp." "Export again."
+[[ $(sha256sum "$file" | cut -d' ' -f1) == "$fp" ]] || fail export-failed "The exported file's sha256 is not the fingerprint $fp." "Export again."
 name=dsh-bot-base-$TAG.${file##*/"$fp".}
 
 log "Splitting into parts of at most $PART_BYTES bytes"

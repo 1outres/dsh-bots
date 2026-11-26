@@ -56,34 +56,36 @@ while (($#)); do
     --client-name) CLIENT_NAME=${2:?--client-name needs a value}; shift ;;
     --no-token) TOKEN=0 ;;
     -h | --help) usage; exit 0 ;;
-    *) fail "Unknown option $1." "Run create-project.sh --help." ;;
+    *) fail usage "Unknown option $1." "Run create-project.sh --help." ;;
   esac
   shift
 done
 
-[[ -n $POOL ]] || fail "No --pool given." "Name the storage pool bot VMs use (create-project.sh --help)."
-[[ -n $NETWORK || -n $BRIDGE ]] || fail "Neither --network nor --bridge given." "Name an existing network, or a new bridge with --cidr."
-[[ -z $NETWORK || -z $BRIDGE ]] || fail "Both --network and --bridge given." "Give one of them."
-[[ -z $BRIDGE || -n $CIDR ]] || fail "--bridge needs --cidr." "Give the bridge's gateway address, e.g. --cidr 10.240.81.1/24."
-[[ -z $ACL_NAME || -z $CREATE_ACL ]] || fail "Both --acl and --create-acl given." "Give one of them."
-[[ -z $BRIDGE || -n $CREATE_ACL ]] || fail "A new bridge needs --create-acl." "Add --create-acl dsh-bot-egress (or another name)."
-((!ATTACH_ACL)) || [[ -n $NETWORK && -n $CREATE_ACL ]] || fail "--attach-acl needs --network and --create-acl." "Give both, or leave it out."
+[[ -n $POOL ]] || fail usage "No --pool given." "Name the storage pool bot VMs use (create-project.sh --help)."
+[[ -n $NETWORK || -n $BRIDGE ]] || fail usage "Neither --network nor --bridge given." "Name an existing network, or a new bridge with --cidr."
+[[ -z $NETWORK || -z $BRIDGE ]] || fail usage "Both --network and --bridge given." "Give one of them."
+[[ -z $BRIDGE || -n $CIDR ]] || fail usage "--bridge needs --cidr." "Give the bridge's gateway address, e.g. --cidr 10.240.81.1/24."
+[[ -z $ACL_NAME || -z $CREATE_ACL ]] || fail usage "Both --acl and --create-acl given." "Give one of them."
+[[ -z $BRIDGE || -n $CREATE_ACL ]] || fail usage "A new bridge needs --create-acl." "Add --create-acl dsh-bot-egress (or another name)."
+((!ATTACH_ACL)) || [[ -n $NETWORK && -n $CREATE_ACL ]] || fail usage "--attach-acl needs --network and --create-acl." "Give both, or leave it out."
 [[ -n $LIMIT_CPU && -n $LIMIT_MEMORY && -n $LIMIT_DISK ]] ||
-  fail "--cpu, --memory and --disk are all needed." "Give the share of this server bot VMs may use together; dsh-bots sizes bots within it."
+  fail usage "--cpu, --memory and --disk are all needed." "Give the share of this server bot VMs may use together; dsh-bots sizes bots within it."
 INCUS_REMOTE=$REMOTE
-command -v incus >/dev/null || fail "The incus client is not installed." "Install it (it is part of Incus)."
+command -v incus >/dev/null || fail tool-missing "The incus client is not installed." "Install it (it is part of Incus)."
 
 log "Server"
-info=$(incus query "$(server)/1.0") || fail "Incus ${REMOTE:-on this machine} does not answer." "Check incus remote list and that you may use the server."
+info=$(incus query "$(server)/1.0") || fail unreachable "Incus ${REMOTE:-on this machine} does not answer." "Check incus remote list and that you may use the server."
 version=$(sed -n 's/^[[:space:]]*"server_version": "\([^"]*\)".*/\1/p' <<<"$info" | head -n1)
-version_ge "$version" "$MIN_INCUS" || fail "Incus ${version:-(unknown)} is older than $MIN_INCUS." "Upgrade Incus to $MIN_INCUS or newer."
-grep -q '"auth": "trusted"' <<<"$info" || fail "The server does not trust this client." "Use a client with full access to the server."
+version_ge "$version" "$MIN_INCUS" || fail incus-too-old "Incus ${version:-(unknown)} is older than $MIN_INCUS." "Upgrade Incus to $MIN_INCUS or newer."
+grep -q '"auth": "trusted"' <<<"$info" || fail untrusted "The server does not trust this client." "Use a client with full access to the server."
 grep -qw qemu <<<"$(incus info "$(server)" | awk '/^  driver:/')" ||
-  fail "This Incus cannot run virtual machines (no qemu driver)." "Install QEMU on the server; its journal says why."
+  fail no-vm-driver "This Incus cannot run virtual machines (no qemu driver)." "Install QEMU on the server; its journal says why."
 address=$(incus config get "$(server)" core.https_address)
-[[ -n $address ]] || fail "The server does not listen on HTTPS (core.https_address is unset), so DSH cannot reach it." \
+[[ -n $address ]] || fail https-unset "The server does not listen on HTTPS (core.https_address is unset), so DSH cannot reach it." \
   "Set it, e.g. incus config set core.https_address=:8443, and open that port to the DSH host."
 note "Incus $version, $address"
+incus storage show "$(at "$POOL")" >/dev/null 2>&1 || fail pool-missing "There is no storage pool $POOL." "Create it or name an existing one."
+[[ -z $NETWORK ]] || incus network show "$(at "$NETWORK")" >/dev/null 2>&1 || fail network-missing "There is no network $NETWORK." "Create it or name an existing one, or use --bridge."
 
 log "Network"
 ACL=$ACL_NAME
@@ -95,7 +97,7 @@ if [[ -n $BRIDGE ]]; then
 elif [[ -n $CREATE_ACL ]]; then
   ACL=$CREATE_ACL
   gateway=$(gateway_of "$NETWORK")
-  [[ -n $gateway ]] || fail "The network $NETWORK has no IPv4 address on the server, so the ACL cannot name its gateway." \
+  [[ -n $gateway ]] || fail network-unusable "The network $NETWORK has no IPv4 address on the server, so the ACL cannot name its gateway." \
     "Use --acl with an ACL you made for it, or --bridge for a new one."
   ensure_egress_acl "$ACL" "$gateway"
   if ((ATTACH_ACL)); then
@@ -125,7 +127,7 @@ idle connections after 5 minutes.
 EOF
 
 if ((TOKEN)); then
-  token=$(issue_token "$CLIENT_NAME" "$PROJECT")
-  printf '\nPaste this trust token in DSH: dsh-bots settings → VM host → Another machine.\n\n%s\n\n' "$token"
+  issue_token "$CLIENT_NAME" "$PROJECT"
+  printf '\nPaste this trust token in DSH: dsh-bots settings → VM host → Another machine.\n\n%s\n\n' "$TOKEN"
   printf 'It pairs one DSH, once. To end it later: incus config trust remove %s<first 12 of its fingerprint>.\n' "$(server)"
 fi

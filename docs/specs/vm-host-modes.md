@@ -533,10 +533,12 @@ interface ShellProcess {
 
 host-setup.sh は今のとおり root で非対話・冪等に動く単体のスクリプトで、人が直接使ってもよい（出力は今と同じ）。`--events` を付けると次の契約で動く。
 
-- 呼び方: `host-setup.sh --events <phase>...`。phase は `preflight`（root 不要）、`packages`、`incus`、`firewall`、`https`、`token`、`all`（= packages incus firewall）。今の `local` は無くし、`remote` は `https` と `token` に分ける。root の検査はスクリプトの頭からフェーズごとに移す。
-- 設定は今と同じ環境変数（`POOL`、`PROJECT`、`NET`、`HTTPS_ADDRESS`、`CLIENT_NAME`、`DSH_BOTS_THIRD_PARTY`）に、`HTTPS_SCOPE=loopback|all`（§3.7）、`REPLACE_CLIENT=<fingerprint>`（token の前に、前の自分の証明書を trust から外す）、`OWNER=<owner>`（§3.5 の project の衝突の判定）を足す。
+- 呼び方: `host-setup.sh --events <phase>...`。phase は `preflight`（root 不要）、`packages`、`incus`、`firewall`、`https`、`token`、`all`（= packages incus firewall）。今の `local` は無くし、`remote` は `https` と `token` に分ける。root の検査はスクリプトの頭からフェーズごとに移す（root の要るフェーズが一般ユーザで走ると、そのフェーズの `phase-failed`（`not-root`）で止まる）。
+- 設定は今と同じ環境変数（`POOL`、`POOL_SIZE`、`PROJECT`、`NET`、`NET_CIDR`、`ACL`、`CLIENT_NAME`、`DSH_BOTS_THIRD_PARTY`）に、`HTTPS_PORT=<port>`（既定 8443。今の `HTTPS_ADDRESS` の代わり。preflight の `port` と、未設定のときに https が設定するアドレスのポート）、`HTTPS_SCOPE=loopback|all`（§3.7。既定 `all`。loopback は未設定なら `127.0.0.1:<port>` にし、ufw / firewalld に触らない。all は `:<port>` にし、ポートを開ける）、`REPLACE_CLIENT=<fingerprint>`（12〜64 桁の 16 進。token の前に、前の自分の証明書を trust から外す。無ければ何もしない）、`OWNER=<owner>`（16〜64 桁の 16 進、`<stateDir>/owner`。§3.5 の project の衝突の判定。インスタンスと custom ボリュームの `user.dsh-bot.owner` を見る。空なら判定しない）を足す。
+- 引数・設定の誤り（知らない phase、phase が無い、上の値の形の違い）はイベントを出さずに終了コード 2 と stderr の usage で終わる（プラグインには `end` の前の終了、つまり `protocol`）。プラグインの誤りなので画面の失敗の種類にはしない。
 - stdout はイベントだけ。1 行に 1 つの JSON オブジェクト（UTF-8）。コマンドの出力はすべて stderr（ログ）に回す（`exec 3>&1 1>&2` でイベントを fd 3 に書く）。SSH 越しでも stdout と stderr が分かれるので同じ形で届く。
-- stdin: 1 行目はスクリプトに来ない（sudo が読む）。以降は制御の行。`cancel` か EOF で、今のフェーズの今のコマンドが終わったところで止まり、`phase-failed`（code `cancelled`）と `end` を出す。
+- stdin: 1 行目はスクリプトに来ない（sudo が読む）。以降は制御の行。`cancel` か EOF で、今のフェーズの今のコマンドが終わったところで止まり、`phase-failed`（code `cancelled`）と `end` を出す。知らない行は読み捨てる。実装: `--events` のときだけ、stdin を読む子プロセスが `cancel` か EOF で親に `SIGUSR1` を送り、親の trap が `fail cancelled` を呼ぶ（bash は前景のコマンドが終わってから trap を実行する。確認済み: テストで apt-get の偽物を止めている間に cancel / EOF を送り、apt-get が終わってから `cancelled` が出て次のコマンドが走らないこと）。スクリプトの中のコマンドの stdin は `/dev/null` にする（制御の行を apt などに読ませない）。フェーズとフェーズの間に来たら、次のフェーズの `phase-start` の直後に `cancelled` で止まる。
+- 出る順: `hello` → フェーズごとに `phase-start` →（`check` / `fact` / `token`）→ `phase-done` か `phase-failed` → `end`。`phase-failed` の後は `end`（`ok: false`）で終わり、残りのフェーズは走らない。preflight は検査が `failed` でもフェーズとしては `phase-done`（`changed: false`）で、可否はプラグインが check から決める（§5.6 の verdict）。
 
 ```ts
 type HostSetupPhase = "preflight" | "packages" | "incus" | "firewall" | "https" | "token"
@@ -548,8 +550,8 @@ type HostSetupEvent =
       readonly type: "check"
       readonly id: PreflightCheckId
       readonly state: "ok" | "warning" | "failed"
-      readonly value?: string
-      readonly code?: string
+      readonly value: string
+      readonly code?: PreflightCheckCode
       readonly what?: string
       readonly fix?: string
     }
@@ -575,6 +577,19 @@ type HostSetupEvent =
   | { readonly v: 1; readonly type: "fact"; readonly key: HostSetupFactKey; readonly value: string }
   | { readonly v: 1; readonly type: "token"; readonly token: string }
   | { readonly v: 1; readonly type: "end"; readonly ok: boolean }
+
+type PreflightCheckCode =
+  | "arch-unsupported"
+  | "os-unsupported"
+  | "os-dsh-host-only"
+  | "kvm-missing"
+  | "systemd-missing"
+  | "disk-low"
+  | "sudo-missing"
+  | "incus-present"
+  | "consent-needed"
+  | "port-maybe-incus"
+  | "port-in-use"
 
 type PreflightCheckId =
   | "arch"
@@ -614,11 +629,16 @@ type HostSetupFailureCode =
   | "command-failed"
 ```
 
+- check の value と code: `arch` は `uname -m`、`os` は PRETTY_NAME、`kvm` は `/dev/kvm` か `absent`、`init` は `systemd` か `other`、`disk` は `<n> GiB free`、`privilege` は `root` / `sudo-without-password` / `sudo-with-password` / `none`（SetupInspection の privilege にそのまま写す）、`incus` は `incus --version` か `absent`、`third-party` は `zabbly` か `none`、`port` は HTTPS_PORT。code は ok 以外のときだけ。`os-dsh-host-only`（NixOS / Arch / WSL / RHEL 系）は suggestion `another-machine` に、`consent-needed` は ConsentNeed（zabbly）に写す。`port` は一般ユーザには listen しているプロセスがわからない（`ss -p` は他のユーザのものを示さない）ので、Incus が入っていてポートが使われていれば `warning`（`port-maybe-incus`）、入っていなければ `failed`（`port-in-use`）。https のフェーズは未設定のときだけ `ss` を見直し、使われていれば `port-in-use` で止まる。
 - 今の `fail <what> <fix>` に code を足して `fail <code> <what> <fix>` にする。ERR trap（`on_error`）は `command-failed` で、`command`（`$BASH_COMMAND`）、`location`（ファイルと行）、`exit` を入れる。what / fix は英語の文のまま（画面は code から日本語・英語の見出しを作り、what / fix をそのまま添える）。
-- `changed`: 変える関数（`apt_install` で何か入れた、`incus … create` した、設定を書き換えた）が立てる旗。
+- `changed`: 変える関数（`apt_install` で何か入れた、`incus … create` した、設定を書き換えた）が立てる旗（`mark_changed`）。Incus の資源は `incus … show` の前後を比べる（`objects.sh` の ensure_*）。ufw は `ufw status` の前後、systemd のユニットは `is-enabled` / `is-active`、書くファイルは中身を比べる。`token` は毎回 token を出すので常に `changed: true`。
+- `HostSetupFailureCode` のうち、`fail` を呼ぶのは `objects.sh` と `create-project.sh` も同じ（`project-conflict`、`token-missing` など）。`create-project.sh` と作者用のスクリプトは `--events` を持たないが、`fail` の形を揃えるため code を付ける（`usage`、`tool-missing`、`unreachable` など、HostSetupFailureCode の外。イベントにならないので契約には入れない）。
+- テスト（`test/host-setup.test.ts`）: vitest が host-setup.sh を bash で実行し、stdout のすべての行を JSON として読んでイベントを確かめる。root と Incus の要るところは、PATH を偽のコマンド（`test/fixtures/host-setup/fake-host.mjs`。incus、apt-get、systemctl、ufw、ss、id など。状態は JSON のファイル）と許した実物だけにし、ファイルは `DSH_BOTS_SYSROOT`（テスト用の根。`/etc/os-release`、`/dev/kvm`、`/run/systemd/system`、`/var/lib`、`/sys/module`、書くファイル）の下に置く。
 - `token` は秘密。プラグインはこの行をログに書かず、受けたらすぐペアリングに使い、保存しない。stderr に token が出ないことを host-setup.sh が守る（今の `DSH_BOTS_TOKEN_FILE` の考えと同じ）。
 - JSON の文字列はスクリプトの中の 1 つの関数で作る（`\`、`"`、制御文字を escape）。jq には頼らない。
 - 契約の検査（プラグイン側）: 知らない `type`・`v`、JSON でない行、`end` の前の終了は失敗 `protocol`（fail closed）。
+- `https` は `incus query /1.0` の `certificate_fingerprint`（64 桁）を fact `server-fingerprint` にする。読めなければ `command-failed` で止まる（空の値を返さない）。
+- 確認済み（2026-11-27、段階 3a）: 使い捨ての Debian 13 の VM（入れ子の KVM）で、一般ユーザの `--events preflight`（すべて ok、`sudo-with-password`）、`sudo -S` で 1 回だけパスワードを渡した `HTTPS_SCOPE=loopback OWNER=… --events all https token`（packages・incus・https が changed、`core.https_address=127.0.0.1:8443`、token は stderr に出ない）、2 回目で token 以外がすべて `changed: false`、その token で `incus remote add` して project `dsh-bots` だけが見えること、`REPLACE_CLIENT` で前の証明書が trust から消えること、sudo 越しの stdin の EOF で `cancelled` になること、install.sh の remote / local が今の形のまま最後まで通ること。未検証: Debian 12 / Ubuntu 24.04（Zabbly）と Fedora の実機（偽のコマンドのテストだけ）、ufw / firewalld / Docker の実機、apt の実際の途中での取り消し（偽の apt-get では確認済み）。
 - 束（`HostSetupBundle`）: `infra/vm/host-setup.sh`、`infra/vm/lib.sh`、`infra/incus/objects.sh`、`infra/release.env` を build が `packages/dsh-bot-vm/lib/host-setup/` に写し、sha256 を出す。元は infra/ だけ（写しを手で直さない）。テストで「写しと元が同じ」「束に要るファイルが揃う」を保つ。
 
 ### 5.6 SetupJob

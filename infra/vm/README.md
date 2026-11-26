@@ -12,17 +12,17 @@ Users prepare a VM host with the repository's `install.sh` ([README](../../READM
 the spec is `docs/specs/installer.md`. An Incus server that runs other things gets a
 project from its administrator instead (`../incus/create-project.sh`).
 
-| file                     | what                                                                                                                                                                 |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `host-setup.sh`          | root, idempotent VM host setup in phases: `packages`, `incus` (pool, bridge, ACL, project), `firewall`, `all`; then `local` (incus-admin) or `remote` (HTTPS, token) |
-| `lib.sh`                 | OS detection, failure report, alias helpers; sources `../release.env`                                                                                                |
-| `../incus/objects.sh`    | the ACL, bridge, project and trust token, shared with `../incus/create-project.sh`                                                                                   |
-| `check-vm.sh`            | a throw-away VM in the project from its base image: Incus' exec, HTTPS out, the gateway refused                                                                      |
-| `build-base-image.sh`    | author: builds the base VM image in the project and (re)points its `dsh-bot-base` alias at it                                                                        |
-| `provision-base.sh`      | runs inside the builder VM (called by `build-base-image.sh`)                                                                                                         |
-| `export-image.sh`        | author: splits the image for a GitHub Release, writes `manifest.txt`, sets `IMAGE_TAG` / `IMAGE_MANIFEST_SHA256` in `../release.env` and the plugin                  |
-| `publish-image.sh`       | author: uploads that export as the GitHub release `IMAGE_TAG` (gh CLI, never "latest") and checks it                                                                 |
-| `check-image-release.sh` | author and the Release workflow: the release `IMAGE_TAG` is published with the manifest `IMAGE_MANIFEST_SHA256` and every part                                       |
+| file                     | what                                                                                                                                                                                                                    |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `host-setup.sh`          | root, idempotent VM host setup in phases: `packages`, `incus` (pool, bridge, ACL, project), `firewall`, `all`, `https`, `token`; `preflight` without root; `--events` for JSON lines (docs/specs/vm-host-modes.md §5.5) |
+| `lib.sh`                 | OS detection, failure report, alias helpers; sources `../release.env`                                                                                                                                                   |
+| `../incus/objects.sh`    | the ACL, bridge, project and trust token, shared with `../incus/create-project.sh`                                                                                                                                      |
+| `check-vm.sh`            | a throw-away VM in the project from its base image: Incus' exec, HTTPS out, the gateway refused                                                                                                                         |
+| `build-base-image.sh`    | author: builds the base VM image in the project and (re)points its `dsh-bot-base` alias at it                                                                                                                           |
+| `provision-base.sh`      | runs inside the builder VM (called by `build-base-image.sh`)                                                                                                                                                            |
+| `export-image.sh`        | author: splits the image for a GitHub Release, writes `manifest.txt`, sets `IMAGE_TAG` / `IMAGE_MANIFEST_SHA256` in `../release.env` and the plugin                                                                     |
+| `publish-image.sh`       | author: uploads that export as the GitHub release `IMAGE_TAG` (gh CLI, never "latest") and checks it                                                                                                                    |
+| `check-image-release.sh` | author and the Release workflow: the release `IMAGE_TAG` is published with the manifest `IMAGE_MANIFEST_SHA256` and every part                                                                                          |
 
 The base image is imported by the plugin, from the DSH host (dsh-bots settings → VM host →
 Base image; `packages/dsh-bot-vm/README.md`).
@@ -48,8 +48,8 @@ x86_64 with KVM, systemd, Incus 6.0.4 or newer.
 | network ACL   | `dsh-bot-egress` on `dshbr0`: egress reject `0/8, 10/8, 100.64/10, 127/8, 169.254/16, 172.16/12, 192.0.0/24, 192.168/16, 198.18/15, 224/3`, the gateway, all IPv6; allow other IPv4; no ingress rules; default ingress/egress action `reject`                                            |
 | project       | `dsh-bots` (`PROJECT`): own images, profiles and volumes, the default project's networks; `restricted=true` with only `dshbr0`; every other pool `limits.disk.pool.<pool>=0`; `user.dsh-bots.pool` / `network` / `egress-acl` say which ones the plugin uses; limits only with `LIMIT_*` |
 | kernel module | `vhost_vsock` (`/etc/modules-load.d/dsh-bots.conf`): Incus' exec reaches a VM's incus-agent over vsock                                                                                                                                                                                   |
-| local         | the DSH user joins `incus-admin` (DSH must be restarted to get the group)                                                                                                                                                                                                                |
-| remote        | `core.https_address` (`:8443` when unset; `HTTPS_ADDRESS`), the port in ufw / firewalld, and a trust token for one client certificate restricted to the project (`CLIENT_NAME`, `dsh-bots`)                                                                                              |
+| https         | `core.https_address` when unset: `127.0.0.1:<port>` (`HTTPS_SCOPE=loopback`) or `:<port>` and the port in ufw / firewalld (`all`, the default); `HTTPS_PORT` (8443)                                                                                                                      |
+| token         | a trust token for one client certificate restricted to the project (`CLIENT_NAME`, `dsh-bots`); `REPLACE_CLIENT` removes a previous certificate first                                                                                                                                    |
 | firewall      | ufw / firewalld / Docker: `dshbr0` allowed (below); another forward filter that drops: the installer stops                                                                                                                                                                               |
 
 No profile: the plugin writes every VM's config and devices into the instance itself
@@ -93,7 +93,7 @@ with `flush ruleset` and would wipe Incus' tables (and any other service's).
 
 ### Incus access
 
-- **This machine** (local): `/var/lib/incus/unix.socket` (root:incus-admin 0660). `host-setup.sh local`
+- **This machine** (local): `/var/lib/incus/unix.socket` (root:incus-admin 0660). install.sh
   adds the DSH user to `incus-admin`; a running DSH keeps the groups it started with, so the
   installer says to restart DSH. Access to that socket is root-equivalent on the host; the plugin
   confines itself to the project in its code (§6.1).
@@ -108,7 +108,7 @@ with `flush ruleset` and would wipe Incus' tables (and any other service's).
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/1outres/dsh-bots/main/install.sh | bash   # users
-sudo ./host-setup.sh all remote             # the same from a checkout (or: sudo DSH_USER=$USER ./host-setup.sh all local)
+sudo ./host-setup.sh all https token        # the same from a checkout (another machine; install.sh grants incus-admin itself for this machine)
 ./check-vm.sh                               # after the plugin imported the base image
 ./build-base-image.sh                       # author: ~25 min; rebuild whenever packages / DSH version change
 ./export-image.sh image-YYYYMMDD            # author: parts + manifest for a release (infra/RELEASING.md)

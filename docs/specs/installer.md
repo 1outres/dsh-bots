@@ -33,7 +33,7 @@ main の `install.sh` は入口だけで、最新の公開済みリリースの�
 | 6   | Letting DSH use Incus（local）  | DSH のユーザを `incus-admin` に入れる                                                                    | ✓    |
 | 6   | Issuing a trust token（remote） | `core.https_address`（未設定なら `:8443`）、ufw / firewalld でそのポート、制限付き token の発行          | ✓    |
 
-中身は `infra/vm/host-setup.sh <phase>`（`packages` / `incus` / `firewall` / `all` / `local` / `remote`）。host-setup.sh は root で非対話・冪等に動く単体のスクリプトで、直接使ってもよい。Incus の資源（ACL、ブリッジ、project、token）の作り方は `infra/incus/objects.sh` にあり、形 3 のスクリプトと共有する。
+中身は `infra/vm/host-setup.sh <phase>`（`packages` / `incus` / `firewall` / `all` / `local` / `remote`）。改めた: host-setup.sh の phase は `preflight` / `packages` / `incus` / `firewall` / `https` / `token` / `all` になった（docs/specs/vm-host-modes.md §5.5）。install.sh の local のステップ 6 は install.sh 自身が `sudo usermod -aG incus-admin` を行い、remote は `HTTPS_SCOPE=all host-setup.sh https token`（install.sh は段階 6 で消す）。host-setup.sh は root で非対話・冪等に動く単体のスクリプトで、直接使ってもよい。Incus の資源（ACL、ブリッジ、project、token）の作り方は `infra/incus/objects.sh` にあり、形 3 のスクリプトと共有する。
 
 完了時:
 

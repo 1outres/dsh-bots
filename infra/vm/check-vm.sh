@@ -11,11 +11,11 @@ NAME=dsh-bots-host-check
 p=(--project "$PROJECT")
 
 pool=$(incus project get "$PROJECT" user.dsh-bots.pool) ||
-  fail "There is no project $PROJECT." "Prepare this VM host with install.sh first."
+  fail project-missing "There is no project $PROJECT." "Prepare this VM host with install.sh first."
 network=$(incus project get "$PROJECT" user.dsh-bots.network)
-[[ -n $pool && -n $network ]] || fail "The project $PROJECT declares no user.dsh-bots.pool / network." "Run install.sh again."
+[[ -n $pool && -n $network ]] || fail project-undeclared "The project $PROJECT declares no user.dsh-bots.pool / network." "Run install.sh again."
 [[ -n $(alias_target "$PROJECT" "$IMAGE") ]] ||
-  fail "The project $PROJECT has no image $IMAGE yet." "Import it in DSH: dsh-bots settings → VM host → Base image."
+  fail image-missing "The project $PROJECT has no image $IMAGE yet." "Import it in DSH: dsh-bots settings → VM host → Base image."
 
 cleanup() { incus delete "${p[@]}" --force "$NAME" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
@@ -27,7 +27,7 @@ incus init -q "${p[@]}" "$IMAGE" "$NAME" --vm --no-profiles --storage "$pool" --
 incus config device set "${p[@]}" "$NAME" root size=16GiB
 incus config device set "${p[@]}" "$NAME" eth0 \
   security.port_isolation=true security.mac_filtering=true security.ipv4_filtering=true
-incus start "${p[@]}" "$NAME" || fail "The test VM did not start." "See the log; incus info --show-log $NAME --project $PROJECT shows QEMU's output."
+incus start "${p[@]}" "$NAME" || fail vm-check-failed "The test VM did not start." "See the log; incus info --show-log $NAME --project $PROJECT shows QEMU's output."
 
 wait_for() {
   local deadline=$((SECONDS + $1))
@@ -40,14 +40,14 @@ wait_for() {
 
 log "Waiting for exec"
 wait_for 600 incus exec "${p[@]}" "$NAME" -- test -e /var/lib/cloud/instance/boot-finished ||
-  fail "Incus' exec did not reach the test VM within 10 minutes." "Check that vhost_vsock is loaded (lsmod) and see the log."
+  fail vm-check-failed "Incus' exec did not reach the test VM within 10 minutes." "Check that vhost_vsock is loaded (lsmod) and see the log."
 
 log "Checking the network"
 code=$(incus exec "${p[@]}" "$NAME" -- curl -sS -m 20 -o /dev/null -w '%{http_code}' https://deb.debian.org/ 2>&1) ||
-  fail "The test VM cannot reach the internet ($code)." \
+  fail vm-check-failed "The test VM cannot reach the internet ($code)." \
     "A firewall drops forwarding for $network (iptables-legacy rules are not visible to nft); allow $network there."
 gateway=$(incus exec "${p[@]}" "$NAME" -- sh -c "ip -4 route show default | awk '{print \$3; exit}'")
 if incus exec "${p[@]}" "$NAME" -- timeout 5 bash -c "exec 3<>/dev/tcp/$gateway/22" >/dev/null 2>&1; then
-  fail "The test VM reached its gateway $gateway on port 22." "Put the egress ACL on $network (install.sh does)."
+  fail vm-check-failed "The test VM reached its gateway $gateway on port 22." "Put the egress ACL on $network (install.sh does)."
 fi
 note "exec, internet, gateway closed"

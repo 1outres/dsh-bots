@@ -26,8 +26,8 @@ trap cleanup EXIT
 
 pool=$(incus project get "$PROJECT" user.dsh-bots.pool 2>/dev/null) || pool=""
 network=$(incus project get "$PROJECT" user.dsh-bots.network 2>/dev/null) || network=""
-[[ -n $pool && -n $network ]] || fail "The project $PROJECT declares no user.dsh-bots.pool / network." "Prepare this host with install.sh (or set PROJECT)."
-command -v zstd >/dev/null || fail "zstd is missing (incus publish --compression zstd)." "Install zstd."
+[[ -n $pool && -n $network ]] || fail project-undeclared "The project $PROJECT declares no user.dsh-bots.pool / network." "Prepare this host with install.sh (or set PROJECT)."
+command -v zstd >/dev/null || fail tool-missing "zstd is missing (incus publish --compression zstd)." "Install zstd."
 desktop_packages=$(tr '\n' ' ' <"$DESKTOP_PACKAGES_FILE")
 
 cleanup

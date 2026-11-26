@@ -165,7 +165,7 @@ acquire_root() {
 
 host_setup() {
   local settings=() name
-  for name in POOL POOL_SIZE PROJECT LIMIT_VMS LIMIT_CPU LIMIT_MEMORY LIMIT_DISK HTTPS_ADDRESS CLIENT_NAME; do
+  for name in POOL POOL_SIZE PROJECT LIMIT_VMS LIMIT_CPU LIMIT_MEMORY LIMIT_DISK HTTPS_PORT CLIENT_NAME; do
     [[ -z ${!name:-} ]] || settings+=("$name=${!name}")
   done
   "${SUDO[@]}" env DSH_BOTS_REPORT="$REPORT_FILE" DSH_BOTS_NOTE="$NOTE_FILE" "${settings[@]}" "$@"
@@ -231,12 +231,22 @@ step_packages() {
 step_incus() { host_setup bash "$TREE/infra/vm/host-setup.sh" incus; }
 step_firewall() { host_setup bash "$TREE/infra/vm/host-setup.sh" firewall; }
 
+grant_socket() {
+  getent group incus-admin >/dev/null || stop "The group incus-admin does not exist." "Reinstall Incus; its package creates the group."
+  if id -nG "$USER" | tr ' ' '\n' | grep -qx incus-admin; then
+    note "$USER is in incus-admin"
+    return 0
+  fi
+  keep GROUP_ADDED 1
+  "${SUDO[@]}" usermod -aG incus-admin "$USER"
+  note "$USER joined incus-admin"
+}
+
 step_grant() {
   if [[ $ACCESS == local ]]; then
-    id -nG "$USER" | tr ' ' '\n' | grep -qx incus-admin || keep GROUP_ADDED 1
-    host_setup DSH_USER="$USER" bash "$TREE/infra/vm/host-setup.sh" local
+    grant_socket
   else
-    host_setup DSH_BOTS_TOKEN_FILE="$TOKEN_FILE" bash "$TREE/infra/vm/host-setup.sh" remote
+    host_setup DSH_BOTS_TOKEN_FILE="$TOKEN_FILE" HTTPS_SCOPE=all bash "$TREE/infra/vm/host-setup.sh" https token
   fi
 }
 
