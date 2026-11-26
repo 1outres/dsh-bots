@@ -77,7 +77,7 @@ You are {{bot_name}}, an autonomous bot powered by the {{model}} model. You keep
 - Some connector actions wait for your owner's approval before they run; the tool result tells you when one does. Waiting for approval is not a failure: tell the user what is waiting, and do not retry it another way.
 ```
 
-仲間のボット（④）は、ボット同士の協働を作るときにこの節へ足す（仲間の一覧は変わるのでコンテキスト側）。
+仲間のボット（④）は docs/specs/bot-collab.md §9 で決めた（この節に 1 行足し、仲間の一覧はコンテキスト `bot:peer-group`、作法はセクション `bot:peers`）。
 
 ### 2.4 This session（セッションの種類で 1 つ選ぶ）
 
@@ -198,7 +198,7 @@ bot-core がチャネルの発言をプロンプトにするとき（`host/chann
 - `owner`: そのチャネルの承認者リスト（コネクター承認と同じ一覧）に入っている人。承認者リストを「そのチャネルでのオーナーの一覧」として扱う。既定は空なので、作ったばかりのボットでは、チャネル上には誰もオーナーがいない。
   - 空のチャネルは `Bot status` に `Discord (connected; no owner listed: nobody there can instruct you as your owner)` のように出し、ボットが「オーナーなら承認者リストに入れてもらうよう」案内できるようにする。
   - チャネル設定の画面でも、承認者リストが空なら「このチャネルでは誰もオーナーとして扱われない」と注記する。承認者リストの説明文も「オーナー（ボットに指示を出し、コネクターの操作を承認できる人）」に改める。
-- `bot`: ボット同士の協働で、送り主がボットのとき。
+- `bot`: 送り主がボットのとき。ボット同士の協働の今の段階はチャネルを通らない（docs/specs/bot-collab.md）。共有のチャンネルでボットどうしが話す後の段階で使う（同 §13.1）。
 - 表示名とハンドルは改行と制御文字を除いて 1 行にし、`[` `]` を取り除く（見出しの偽装を防ぐ。コネクターのイベントの `line()` と同じ扱い）。
 - 見出しを作るのに要るもの（場所、送り主の表示名・ハンドル・オーナーかどうか）は、channel contract の `BotInboundMessage` に足す。チャネルは事実だけを渡し、見出しの書式は bot-core が持つ。
 
@@ -321,7 +321,7 @@ You are {name}. This is the very first moment of your Main session, the conversa
 ## 8. まだ決めていないこと
 
 - ~~長期記憶の仕組み~~: `docs/specs/bot-notes.md` で決めて実装した（ノート、ピン留め、`## Memory` 節）。
-- ボット同士の協働で、§2.3 に足す仲間の説明と、コンテキストに載せる仲間の一覧。
-- グループ会話での振る舞い（いつ話すか）。グループに対応するときに §2.5 へ足す。
+- ~~ボット同士の協働で、§2.3 に足す仲間の説明と、コンテキストに載せる仲間の一覧~~: docs/specs/bot-collab.md §9 で決めた。
+- グループ会話での振る舞い（いつ話すか）。共有のチャンネルでボットどうしが話すとき（docs/specs/bot-collab.md §13.1）に §2.5 へ足す。
 - サブエージェントを既定で有効にするかどうか（§2.4 のサブエージェント用の文面）。
 - ~~プロンプトのスナップショットテスト~~: 実装した。`packages/dsh-bot-core/test/prompt-scope.test.ts` が DSH の本物のプロンプトレジストリと scope で行を preset として mount し、Main / Web / スケジュール / サブエージェントごとに、組み上がったシステムプロンプトとコンテキストを `test/__snapshots__/prompt-scope.test.ts.snap` に固定する。文面を変えたら `pnpm vitest run packages/dsh-bot-core/test/prompt-scope.test.ts --update` で更新し、差分を見る。
