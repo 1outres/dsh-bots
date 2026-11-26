@@ -242,6 +242,11 @@ interface Committed {
   readonly pinned: number | undefined
 }
 
+export type PinnedAccess = "open" | "locked"
+
+export const PINNED_LOCKED =
+  "Not saved: pinned notes are written, pinned and unpinned only in turns with your owner; this turn took in a message from a peer bot. Write an unpinned note instead, or tell your owner"
+
 export interface NoteTools {
   call(
     state: BotNotesState,
@@ -249,6 +254,7 @@ export interface NoteTools {
     tool: NoteTool,
     args: unknown,
     signal: AbortSignal,
+    pinned: PinnedAccess,
   ): Promise<string>
 }
 
@@ -291,8 +297,15 @@ export function createNoteTools(deps: NoteToolsDeps): NoteTools {
     view: NotesView,
     change: Change,
     signal: AbortSignal,
+    access: PinnedAccess,
   ): Promise<Committed> => {
     checkFields(change.note)
+    if (
+      access === "locked" &&
+      (change.note.pinned || view.catalog.note(change.id)?.pinned === true)
+    ) {
+      throw new NoteToolError(PINNED_LOCKED)
+    }
     const pinned = checkPinned(view.catalog, change)
     let current = view
     const created: string[] = []
@@ -332,6 +345,7 @@ export function createNoteTools(deps: NoteToolsDeps): NoteTools {
     place: NotesPlace,
     args: unknown,
     signal: AbortSignal,
+    _access: PinnedAccess,
   ) => {
     const { note } = parse(readSchema, args)
     const { catalog } = await state.notebook.load(place, signal)
@@ -343,6 +357,7 @@ export function createNoteTools(deps: NoteToolsDeps): NoteTools {
     place: NotesPlace,
     args: unknown,
     signal: AbortSignal,
+    access: PinnedAccess,
   ) => {
     const input = parse(writeSchema, args)
     const view = await state.notebook.load(place, signal)
@@ -370,6 +385,7 @@ export function createNoteTools(deps: NoteToolsDeps): NoteTools {
           view,
           { id: deps.newId(), note, mode: "create", before: "", dailies },
           signal,
+          access,
         )
         return report(`Created ${note.title}.`, committed)
       }
@@ -417,6 +433,7 @@ export function createNoteTools(deps: NoteToolsDeps): NoteTools {
           view,
           { id, note, mode: "replace", before: current.body, dailies },
           signal,
+          access,
         )
         return report(`Saved ${note.title}.`, committed)
       }
@@ -432,6 +449,7 @@ export function createNoteTools(deps: NoteToolsDeps): NoteTools {
             view,
             { id, note: dailyNote(input.note, text), mode: "create", before: "", dailies },
             signal,
+            access,
           )
           return report(`Created ${input.note} and wrote to it.`, committed)
         }
@@ -447,6 +465,7 @@ export function createNoteTools(deps: NoteToolsDeps): NoteTools {
           view,
           { id, note, mode: "replace", before: current.body, dailies },
           signal,
+          access,
         )
         return report(`Saved ${note.title}.`, committed)
       }
@@ -458,6 +477,7 @@ export function createNoteTools(deps: NoteToolsDeps): NoteTools {
     place: NotesPlace,
     args: unknown,
     signal: AbortSignal,
+    access: PinnedAccess,
   ) => {
     const input = parse(linkSchema, args)
     const view = await state.notebook.load(place, signal)
@@ -555,6 +575,7 @@ export function createNoteTools(deps: NoteToolsDeps): NoteTools {
         suggestions: remaining,
       },
       signal,
+      access,
     )
     const linked = [...chosen.values()]
       .sort((a, b) => a.suggestion.start - b.suggestion.start)
@@ -576,6 +597,7 @@ export function createNoteTools(deps: NoteToolsDeps): NoteTools {
     place: NotesPlace,
     args: unknown,
     signal: AbortSignal,
+    _access: PinnedAccess,
   ) => {
     const input = parse(searchSchema, args)
     const { catalog } = await state.notebook.load(place, signal)
@@ -610,6 +632,7 @@ export function createNoteTools(deps: NoteToolsDeps): NoteTools {
   }
 
   return {
-    call: (state, place, tool, args, signal) => handlers[tool](state, place, args, signal),
+    call: (state, place, tool, args, signal, pinned) =>
+      handlers[tool](state, place, args, signal, pinned),
   }
 }

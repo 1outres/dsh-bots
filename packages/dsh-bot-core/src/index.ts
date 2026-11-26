@@ -150,7 +150,7 @@ import { createMainPanel } from "./host/mains/panel"
 import { createMainPreparations } from "./host/mains/preparations"
 import { openMainStore } from "./host/mains/store"
 import { createMaintenanceTurns } from "./host/mains/turns"
-import { createTurnAuthority } from "./host/managed/authority"
+import { workspaceRefusal } from "./host/managed/authority"
 import {
   MANAGED_SESSIONS_DOMAIN,
   type ManagedSessionRecord,
@@ -184,7 +184,7 @@ import { createNotesPanel } from "./host/notes/panel"
 import { createNoteTools } from "./host/notes/tools"
 import { createNoticeDelivery, type NoticeAgent, type NoticeMessage } from "./host/notices/delivery"
 import { NOTICES_DOMAIN, type NoticeRecord } from "./host/notices/domain"
-import { createNoticeOutbox } from "./host/notices/outbox"
+import { createNoticeOutbox, type NoticeOrigin } from "./host/notices/outbox"
 import { createWelcomeChannels } from "./host/onboarding/channels"
 import { ONBOARDING_DOMAIN, type OnboardingRecord } from "./host/onboarding/domain"
 import { followWelcomeBot } from "./host/onboarding/follow"
@@ -194,6 +194,7 @@ import { fetchDueNotes } from "./host/onboarding/releases"
 import { releaseSourceOf } from "./host/onboarding/source"
 import { openOnboardingStore } from "./host/onboarding/store"
 import { acknowledging } from "./host/onboarding/welcome"
+import { createPeerDelivery } from "./host/peers/delivery"
 import {
   PEERS_DOMAIN,
   type PeerGroupRecord,
@@ -201,7 +202,10 @@ import {
   type PeerMessageRecord,
 } from "./host/peers/domain"
 import { createPeerGroups, type PeerBot } from "./host/peers/groups"
+import { peerOriginOf } from "./host/peers/origin"
+import { createPeerPairPauses } from "./host/peers/pair-pauses"
 import { createPeerPanel } from "./host/peers/panel"
+import { createPeerSend, type PeerNotices } from "./host/peers/send"
 import { createPeerStore } from "./host/peers/store"
 import { createBotPermissions, type PermissionPresets } from "./host/permission"
 import { createSessionPreparations } from "./host/preparations"
@@ -277,7 +281,7 @@ import {
   createWorkspacesArea,
 } from "./host/settings/areas/read-only"
 import { createSkillsArea } from "./host/settings/areas/skills"
-import { createSettingsTurns } from "./host/settings/authority"
+import { type SettingsTurns, settingsTurnOf } from "./host/settings/authority"
 import { createSettingsCatalog } from "./host/settings/catalog"
 import { SETTINGS_DOMAIN } from "./host/settings/domain"
 import { createSettingsPanel } from "./host/settings/panel"
@@ -312,6 +316,7 @@ import {
 import { createSkillStore } from "./host/skills/store"
 import { CURATION_REFUSAL, REVIEW_REFUSAL } from "./host/skills/texts"
 import type { TranscriptMessage } from "./host/spoken-messages"
+import { createTurnParties, peerDerived } from "./host/turns/parties"
 import { createVaultAccess } from "./host/vaults/access"
 import { createVaultAvailability } from "./host/vaults/availability"
 import { createVaultChecks } from "./host/vaults/checks"
@@ -449,6 +454,20 @@ declare module "@deepseek-ai/dsh-llm" {
     "bot-session": { kind: "bot-session"; form: "notice"; summary: string }
     "bot-heartbeat": { kind: "bot-heartbeat"; form: "notice"; summary: string }
     "bot-main-relay": { kind: "bot-main-relay"; form: "relay" }
+    "bot-peer": {
+      kind: "bot-peer"
+      form: "notice"
+      summary: string
+      peerMessages: readonly string[]
+    }
+    "bot-peer-status": { kind: "bot-peer-status"; form: "notice"; summary: string }
+    "bot-peer-session": {
+      kind: "bot-peer-session"
+      form: "notice"
+      summary: string
+      peerMessages: readonly string[]
+    }
+    "bot-peer-relay": { kind: "bot-peer-relay"; form: "relay"; peerMessages: readonly string[] }
     "working-directory": { kind: "working-directory" }
   }
 }
@@ -1660,6 +1679,60 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     const parent = agent.session.header.parentSession
     return parent === undefined ? undefined : host.agents.get(parent)
   }
+  const peersDomain = await services.storageDomain.open(PEERS_DOMAIN)
+  ctx.effect(() => () => void peersDomain.close(), "bot-core: bot groups storage domain")
+  const peerStore = createPeerStore({
+    peerGroups: peersDomain.table("groups"),
+    peerMembers: peersDomain.table("members"),
+    peerMessages: peersDomain.table("messages"),
+    keptMessages: PEER_MESSAGES_KEPT,
+  })
+  await peerStore.repair()
+  const peerBot = (botId: string): PeerBot => {
+    const listed = registry.get(botId)
+    if (listed !== undefined) return { state: "listed", name: listed.name }
+    const creating = registry.creating().find((bot) => bot.id === botId)
+    return creating === undefined
+      ? { state: "missing" }
+      : { state: "creating", name: creating.name }
+  }
+  const peerGroups = createPeerGroups({
+    store: peerStore,
+    bot: peerBot,
+    newId: () => `grp-${randomBytes(6).toString("hex")}`,
+    now: Date.now,
+  })
+  const turnParties = createTurnParties({
+    tracked: (sessionId) => registry.botOfSession(sessionId) !== undefined,
+  })
+  events.on("session/event", (session: { id: string }, event: SessionEventLike) =>
+    turnParties.sessionEvent(session.id, event),
+  )
+  const rootSessionOf = (agentId: string): string => {
+    let root = host.agents.get(agentId)
+    if (root === undefined) return agentId
+    for (let depth = 0; root.session.header.origin === "subagent"; depth += 1) {
+      const parent = parentOf(root)
+      if (parent === undefined || depth >= MAX_DELEGATION_DEPTH) return root.id
+      root = parent
+    }
+    return root.id
+  }
+  const turnOfAgent = (agentId: string) => turnParties.current(rootSessionOf(agentId))
+  const peerTurnOf = (agentId: string) => peerDerived(turnOfAgent(agentId))
+  const peerOriginOfAgent = (agentId: string) =>
+    peerOriginOf(peerGroups.state(), turnOfAgent(agentId))
+  const peerNameOf = (botId: string | undefined) =>
+    botId === undefined ? undefined : registry.get(botId)?.name
+  const listedBotName = (botId: string) => {
+    const listed = registry.get(botId)
+    if (listed === undefined) throw new Error(`bot "${botId}" is not listed`)
+    return listed.name
+  }
+  const peerMachineStopped = (botId: string) => {
+    const status = environments.status(botId)
+    return !status.ready && status.pending !== true
+  }
 
   const isolation = createIsolation<LiveAgent>({
     presetOf,
@@ -1933,6 +2006,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     placeOf: notesPlaceOf,
     tools: createNoteTools({ newId: newNoteId }),
     shield: (botId, text) => shieldContext(botId, text),
+    peerTurn: peerTurnOf,
   })
   ctx.effect(
     () => registry.subscribe(() => botNotes.forget((botId) => table.get(botId) !== undefined)),
@@ -2392,6 +2466,10 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     async notify(botId, notice) {
       await outbox.enqueue(botId, "connector", notice)
     },
+    peerTurn(sessionId) {
+      if (!peerTurnOf(sessionId)) return undefined
+      return { peerName: peerNameOf(peerOriginOfAgent(sessionId)?.from) }
+    },
     newId: () => `act-${randomUUID().replaceAll("-", "").slice(0, 10)}`,
     now: Date.now,
     later: (ms, work) => later(work, Math.min(ms, MAX_TIMER_MS)),
@@ -2520,6 +2598,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     },
     store: skillStore,
     stepped: (botId, sessionId) => skillReviews.stepped(botId, sessionId),
+    peerTurn: peerTurnOf,
     now: Date.now,
     warn,
   })
@@ -2717,6 +2796,44 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     hand: (work) => host.agents.withoutInitiator(work),
     later: (ms, work) => later(work, Math.min(ms, MAX_TIMER_MS)),
     retry: NOTICE_RETRY,
+    warn,
+  })
+  const peerPairPauses = createPeerPairPauses({ now: Date.now })
+  const peerNotices: PeerNotices = {
+    enqueue: (botId, topic, notice, origin) => outbox.enqueue(botId, topic, notice, origin),
+    withdraw: (noticeId) => delivery.withdraw(noticeId),
+  }
+  const peerDelivery = createPeerDelivery({
+    groups: peerGroups,
+    store: peerStore,
+    notices: peerNotices,
+    exists: (botId) => table.get(botId) !== undefined,
+    botName: (botId) => registry.get(botId)?.name,
+    stopped: peerMachineStopped,
+    later: (ms, work) => later(work, Math.min(ms, MAX_TIMER_MS)),
+    now: Date.now,
+    warn,
+  })
+  ctx.effect(
+    () => outbox.onDelivered((entry) => peerDelivery.delivered(entry)),
+    "bot-core: delivered peer messages",
+  )
+  ctx.effect(() => () => peerDelivery.dispose(), "bot-core: peer message delivery")
+  peerDelivery.start()
+  const peerSend = createPeerSend({
+    refusal: mainSessionRefusal("peer_send"),
+    groups: peerGroups,
+    store: peerStore,
+    pairPauses: peerPairPauses,
+    turn: (agentId) => turnParties.current(agentId),
+    botName: listedBotName,
+    timezone: (botId) => registry.timezoneOf(botId),
+    stopped: peerMachineStopped,
+    shield: (botId, text) => shieldContext(botId, text),
+    notices: peerNotices,
+    track: (messageId) => peerDelivery.track(messageId),
+    newId: () => randomBytes(5).toString("hex"),
+    now: Date.now,
     warn,
   })
   ctx.effect(
@@ -2986,6 +3103,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
       skillPanel.jobsChanged()
     },
     botTimezone: (botId) => registry.timezoneOf(botId),
+    peerTurn: peerTurnOf,
     now: Date.now,
     newId: () => `job-${randomUUID().replaceAll("-", "").slice(0, 8)}`,
     warn,
@@ -3108,10 +3226,21 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
 
   const managedDomain = await services.storageDomain.open(MANAGED_SESSIONS_DOMAIN)
   ctx.effect(() => () => void managedDomain.close(), "bot-core: managed sessions storage domain")
-  const tellManaged = (session: BotManagedSession, event: SessionNoticeEvent) =>
-    outbox.enqueue(session.botId, "session", sessionNotice(session, event)).then(() => undefined)
-  const tellManagedLater = (session: BotManagedSession, event: SessionNoticeEvent) => {
-    tellManaged(session, event).catch((error: unknown) => {
+  const tellManaged = (
+    session: BotManagedSession,
+    event: SessionNoticeEvent,
+    origin?: NoticeOrigin,
+  ) =>
+    (origin === undefined
+      ? outbox.enqueue(session.botId, "session", sessionNotice(session, event))
+      : outbox.enqueue(session.botId, "peer-session", sessionNotice(session, event), origin)
+    ).then(() => undefined)
+  const tellManagedLater = (
+    session: BotManagedSession,
+    event: SessionNoticeEvent,
+    origin: NoticeOrigin | undefined,
+  ) => {
+    tellManaged(session, event, origin).catch((error: unknown) => {
       warn(
         `bot-core: could not store a notice of managed session "${session.sessionId}": ${String(error)}`,
       )
@@ -3164,6 +3293,10 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
   })
   const managedFollow = createManagedFollow({
     managed: (sessionId) => managed.get(sessionId),
+    peerOrigin(sessionId) {
+      const turn = turnParties.latest(sessionId)
+      return peerDerived(turn) ? { peerMessages: turn?.peerMessages ?? [] } : undefined
+    },
     tell: tellManagedLater,
   })
   interactionOpened = (sessionId, interaction) => managedFollow.opened(sessionId, interaction)
@@ -3187,15 +3320,15 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
       return workspaceManaged(root.id)
     },
     opened: (session, wait) =>
-      tellManagedLater(session, { kind: "waiting", interaction: wait.kind, answerer: "owner" }),
+      tellManagedLater(
+        session,
+        { kind: "waiting", interaction: wait.kind, answerer: "owner" },
+        undefined,
+      ),
     newId: () => randomUUID().replaceAll("-", "").slice(0, 10),
   })
   dshWaits = managedWaits
-  const authority = createTurnAuthority({
-    isMain: (sessionId) => registry.botOfMain(sessionId) !== undefined,
-  })
   events.on("session/event", (session: { id: string }, event: SessionEventLike) => {
-    authority.sessionEvent(session.id, event)
     managedFollow.sessionEvent(session.id, event)
   })
   const workspaceChanges = new Set<() => void>()
@@ -3271,7 +3404,13 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
       (await sessions.create(botId, { title, model }, { startedBy: "main" })).sessionId,
     createInWorkspace: (grant, options) => workspaceSessions.create(grant, options),
     workspaces: (botId) => grants.granted(botId),
-    authority: (mainSessionId) => authority.refusal(mainSessionId),
+    authority: (mainSessionId) => workspaceRefusal(turnParties.current(mainSessionId)),
+    peerRelay(mainSessionId) {
+      const origin = peerOriginOfAgent(mainSessionId)
+      return origin === undefined
+        ? undefined
+        : { peerMessages: origin.peerMessages, peerName: peerNameOf(origin.from) }
+    },
     botName: botNameOf,
     send: sendMainMessage,
     messages: async (sessionId) => (await liveAgent(sessionId)).session.deriveMessages(),
@@ -3319,29 +3458,6 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
   })
   events.on("agent/status", ({ agent, status }: { agent: { id: string }; status: string }) => {
     if (status === "idle") delivery.idle(agent.id)
-  })
-  const peersDomain = await services.storageDomain.open(PEERS_DOMAIN)
-  ctx.effect(() => () => void peersDomain.close(), "bot-core: bot groups storage domain")
-  const peerStore = createPeerStore({
-    peerGroups: peersDomain.table("groups"),
-    peerMembers: peersDomain.table("members"),
-    peerMessages: peersDomain.table("messages"),
-    keptMessages: PEER_MESSAGES_KEPT,
-  })
-  await peerStore.repair()
-  const peerBot = (botId: string): PeerBot => {
-    const listed = registry.get(botId)
-    if (listed !== undefined) return { state: "listed", name: listed.name }
-    const creating = registry.creating().find((bot) => bot.id === botId)
-    return creating === undefined
-      ? { state: "missing" }
-      : { state: "creating", name: creating.name }
-  }
-  const peerGroups = createPeerGroups({
-    store: peerStore,
-    bot: peerBot,
-    newId: () => `grp-${randomBytes(6).toString("hex")}`,
-    now: Date.now,
   })
   new BotGroupsRemoteService(ctx, createPeerPanel({ groups: peerGroups }))
   const heartbeatsDomain = await services.storageDomain.open(HEARTBEATS_DOMAIN)
@@ -3696,12 +3812,9 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     "bot-core: setting changes of bots",
   )
   void forgetSettingChanges()
-  const settingsTurns = createSettingsTurns({
-    tracked: (sessionId) => registry.botOfSession(sessionId) !== undefined,
-  })
-  events.on("session/event", (session: { id: string }, event: SessionEventLike) =>
-    settingsTurns.sessionEvent(session.id, event),
-  )
+  const settingsTurns: SettingsTurns = {
+    of: (sessionId) => settingsTurnOf(turnParties.current(sessionId)),
+  }
   const settingsTool = createSettingsTool({
     sealed: (botId, token) => revisionTokens.get(botId)?.has(token) === true,
     session(botId, agentId) {
@@ -3867,6 +3980,10 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     managedSessions: {
       available: (botId, token, agentId) => managedTools.available(botId, token, shownAs(agentId)),
       call: (botId, token, request) => managedTools.call(botId, token, request),
+    },
+    peers: {
+      available: (botId, token, agentId) => peerSend.available(botId, token, shownAs(agentId)),
+      call: (botId, token, request) => peerSend.call(botId, token, request),
     },
     environmentServices,
     compactors,

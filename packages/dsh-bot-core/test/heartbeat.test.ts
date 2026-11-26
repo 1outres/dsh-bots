@@ -16,10 +16,11 @@ import { createHeartbeatStore } from "../src/host/heartbeat/store"
 import { hasHeartbeatTasks } from "../src/host/heartbeat/tasks"
 import { heartbeatNotice } from "../src/host/heartbeat/texts"
 import { nextBeatAt, withinActiveHours } from "../src/host/heartbeat/timing"
-import { fromOwnerSide } from "../src/host/managed/authority"
+import { workspaceRefusal } from "../src/host/managed/authority"
 import { createSaveQueue } from "../src/host/save-queue"
 import { createHeartbeatArea } from "../src/host/settings/areas/heartbeat"
-import { partyOf } from "../src/host/settings/authority"
+import { settingsTurnOf } from "../src/host/settings/authority"
+import { inputPartyOf } from "../src/host/turns/parties"
 import { HEARTBEAT_MD } from "../src/host/workspace-files"
 import {
   DEFAULT_HEARTBEAT,
@@ -523,8 +524,10 @@ describe("createHeartbeats", () => {
 describe("the outside inputs", () => {
   it("count the heartbeat as an input from someone other than the owner", () => {
     const input = { content: [], source: { kind: "bot-heartbeat" } }
-    expect(partyOf(input)).toBe("other")
-    expect(fromOwnerSide(input)).toBe(false)
+    expect(inputPartyOf(input)).toBe("other")
+    const turn = { turn: 1, open: true, inputs: ["other" as const], peerMessages: [] }
+    expect(settingsTurnOf(turn)?.startedBy).toBe("other")
+    expect(workspaceRefusal(turn)).toMatch("someone other than your owner")
   })
 })
 

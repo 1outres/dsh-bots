@@ -270,8 +270,16 @@ describe("withdrawing and forgetting", () => {
     await groups.join(b, "nova", { role: "", from: a })
     expect(withdrawn).toEqual([
       [
-        { messageId: "p_1", message: expect.objectContaining({ withdrawal: "left-group" }) },
-        { messageId: "p_2", message: expect.objectContaining({ withdrawal: "left-group" }) },
+        {
+          messageId: "p_1",
+          message: expect.objectContaining({ withdrawal: "left-group" }),
+          groupName: "A",
+        },
+        {
+          messageId: "p_2",
+          message: expect.objectContaining({ withdrawal: "left-group" }),
+          groupName: "A",
+        },
       ],
     ])
     const states = Object.fromEntries(
@@ -291,7 +299,13 @@ describe("withdrawing and forgetting", () => {
     await message("p_2", { groupId: a, from: "pico", to: "nova", state: "delivered" })
     await groups.deleteGroup(a)
     expect(withdrawn).toEqual([
-      [{ messageId: "p_1", message: expect.objectContaining({ withdrawal: "group-deleted" }) }],
+      [
+        {
+          messageId: "p_1",
+          message: expect.objectContaining({ withdrawal: "group-deleted" }),
+          groupName: "A",
+        },
+      ],
     ])
     expect([...tables.peerGroups.rows.keys()]).toEqual([b])
     expect([...tables.peerMembers.rows.keys()]).toEqual(["kiri"])
@@ -307,7 +321,13 @@ describe("withdrawing and forgetting", () => {
     await message("p_3", { groupId: a, from: "pico", to: "kiri" })
     await groups.forgetBots((botId) => botId !== "nova")
     expect(withdrawn).toEqual([
-      [{ messageId: "p_1", message: expect.objectContaining({ withdrawal: "bot-deleted" }) }],
+      [
+        {
+          messageId: "p_1",
+          message: expect.objectContaining({ withdrawal: "bot-deleted" }),
+          groupName: "A",
+        },
+      ],
     ])
     expect([...tables.peerMembers.rows.keys()].sort()).toEqual(["kiri", "pico"])
     expect([...tables.peerMessages.rows.keys()]).toEqual(["p_3"])

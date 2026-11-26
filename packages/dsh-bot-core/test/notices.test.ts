@@ -242,3 +242,58 @@ describe("notice outbox and delivery", () => {
     expect(notices.rows.size).toBe(0)
   })
 })
+
+describe("withdrawing a notice and telling who got one", () => {
+  it("withdraws a waiting notice, unqueues a handed one and keeps a recorded one", async () => {
+    const { outbox, main, delivery } = setup()
+    const delivered: string[] = []
+    outbox.onDelivered((entry) => delivered.push(`${entry.topic} ${entry.peerMessages?.join(",")}`))
+    const first = await outbox.enqueue(
+      "b9",
+      "peer",
+      { text: "[peer] a", summary: "A" },
+      {
+        peerMessages: ["p_1"],
+      },
+    )
+    expect(await delivery.withdraw(first.id)).toBe("withdrawn")
+    expect(outbox.entry(first.id)).toBeUndefined()
+    expect(await delivery.withdraw(first.id)).toBe("gone")
+    delivery.start()
+    const handed = await outbox.enqueue(
+      "b1",
+      "peer",
+      { text: "[peer] b", summary: "B" },
+      {
+        peerMessages: ["p_2"],
+      },
+    )
+    await settle()
+    expect(main.state.inbox.map((message) => message.id)).toEqual([handed.messageId])
+    expect(main.state.inbox[0]?.source).toMatchObject({ kind: "bot-peer", peerMessages: ["p_2"] })
+    expect(await delivery.withdraw(handed.id)).toBe("withdrawn")
+    expect(main.state.inbox).toEqual([])
+    const read = await outbox.enqueue(
+      "b1",
+      "peer",
+      { text: "[peer] c", summary: "C" },
+      {
+        peerMessages: ["p_3"],
+      },
+    )
+    await settle()
+    main.record()
+    expect(await delivery.withdraw(read.id)).toBe("recorded")
+    expect(delivered).toEqual(["peer p_3"])
+  })
+
+  it("refuses peer messages on other topics and a peer notice without its message", async () => {
+    const { outbox } = setup()
+    await expect(
+      outbox.enqueue("b1", "session", { text: "x", summary: "x" }, { peerMessages: ["p_1"] }),
+    ).rejects.toThrow("carries no peer messages")
+    await expect(outbox.enqueue("b1", "peer", { text: "x", summary: "x" })).rejects.toThrow(
+      "exactly the peer message",
+    )
+  })
+})

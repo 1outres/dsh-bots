@@ -430,6 +430,10 @@ export const SESSIONS_ROW_ID = "env-bot-core-sessions"
 
 export const SESSIONS_ROW_PLUGIN = "@1outres/dsh-bot-core/sessions"
 
+export const PEERS_ROW_ID = "env-bot-core-peers"
+
+export const PEERS_ROW_PLUGIN = "@1outres/dsh-bot-core/peers"
+
 export const PROMPT_ROW_ID = "env-bot-core-prompt"
 
 export const PROMPT_ROW_PLUGIN = "@1outres/dsh-bot-core/prompt"
@@ -518,6 +522,7 @@ const BOT_CORE_ROWS = [
   { id: VAULT_GUARD_ROW_ID, plugin: VAULT_GUARD_ROW_PLUGIN },
   { id: SCHEDULE_ROW_ID, plugin: SCHEDULE_ROW_PLUGIN },
   { id: SESSIONS_ROW_ID, plugin: SESSIONS_ROW_PLUGIN },
+  { id: PEERS_ROW_ID, plugin: PEERS_ROW_PLUGIN },
   { id: PROMPT_ROW_ID, plugin: PROMPT_ROW_PLUGIN },
   { id: NOTES_ROW_ID, plugin: NOTES_ROW_PLUGIN },
   { id: SKILLS_ROW_ID, plugin: SKILLS_ROW_PLUGIN },

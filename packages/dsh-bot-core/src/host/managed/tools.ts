@@ -16,7 +16,7 @@ import type { BotWorkspaceGrant, DshWorkspace } from "../../shared/workspaces"
 import { delegateNamed, modelIdOf } from "../models/delegates"
 import type { TranscriptMessage } from "../spoken-messages"
 import type { ManagedFollow } from "./follow"
-import { type MainMessage, mainMessage, mainMessageLead } from "./messages"
+import { type MainMessage, mainMessage, mainMessageLead, type PeerRelay } from "./messages"
 import type { ManagedSessions } from "./sessions"
 import { describeInteraction, renderTranscript, transcriptOf } from "./transcript"
 import type { DshWait } from "./waits"
@@ -39,6 +39,7 @@ export interface ManagedToolsDeps {
     botId: string,
   ): readonly { readonly grant: BotWorkspaceGrant; readonly workspace: DshWorkspace }[]
   authority(mainSessionId: string): string | undefined
+  peerRelay(mainSessionId: string): PeerRelay | undefined
   botName(botId: string): string
   send(sessionId: string, message: MainMessage, mode: "queue" | "steer"): Promise<void>
   messages(sessionId: string): Promise<readonly TranscriptMessage[]>
@@ -235,12 +236,19 @@ export function createManagedTools(deps: ManagedToolsDeps): ManagedTools {
     })
   }
 
-  const send = (session: BotManagedSession, text: string, mode: "queue" | "steer") =>
-    deps.send(
+  const send = (
+    mainSessionId: string,
+    session: BotManagedSession,
+    text: string,
+    mode: "queue" | "steer",
+  ) => {
+    const relay = session.target.kind === "bot" ? deps.peerRelay(mainSessionId) : undefined
+    return deps.send(
       session.sessionId,
-      mainMessage(text, mainMessageLead(session.target, deps.botName(session.botId))),
+      mainMessage(text, mainMessageLead(session.target, deps.botName(session.botId), relay), relay),
       mode,
     )
+  }
 
   const managed = (botId: string, mainSessionId: string, sessionId: string) => {
     const session = deps.sessions.require(botId, sessionId)
@@ -265,7 +273,7 @@ export function createManagedTools(deps: ManagedToolsDeps): ManagedTools {
           answerer: input.answerer ?? DEFAULT_ANSWERER[target.kind],
           label: input.title,
         })
-        await send(session, input.instruction, "queue")
+        await send(mainSessionId, session, input.instruction, "queue")
         return {
           text: `Started session ${created} "${input.title}"; its turn is running. When it ends, a [session] notice reaches you.`,
           data: { session },
@@ -274,7 +282,7 @@ export function createManagedTools(deps: ManagedToolsDeps): ManagedTools {
       case "session_send": {
         const input = parse(schemas.session_send, args)
         const session = managed(botId, mainSessionId, input.session_id)
-        await send(session, input.message, input.mode ?? "queue")
+        await send(mainSessionId, session, input.message, input.mode ?? "queue")
         return { text: `Sent to session ${session.sessionId}.`, data: { sent: session.sessionId } }
       }
       case "session_read": {

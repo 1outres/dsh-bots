@@ -1,7 +1,7 @@
 import type { BotInteraction } from "../../shared/interactions"
 import { counted } from "../plural"
 import { spokenLines, spokenMessageOf, type TranscriptMessage, textsOf } from "../spoken-messages"
-import { MAIN_MESSAGE_SOURCE } from "./messages"
+import { MAIN_MESSAGE_SOURCES } from "./messages"
 
 export type TranscriptSpeaker = "owner" | "main" | "notice" | "assistant"
 
@@ -35,7 +35,7 @@ function entryOf(message: TranscriptMessage): TranscriptEntry | undefined {
   }
   if (message.role !== "user") return undefined
   const { source } = message
-  if (source.kind === MAIN_MESSAGE_SOURCE) {
+  if (MAIN_MESSAGE_SOURCES.includes(source.kind)) {
     const [, ...body] = textsOf(message)
     return { id: message.id, speaker: "main", text: clip(body.join("\n")) }
   }

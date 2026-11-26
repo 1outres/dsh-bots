@@ -17,6 +17,7 @@ export type PeerBot =
 export interface PeerWithdrawn {
   readonly messageId: string
   readonly message: PeerMessageRecord
+  readonly groupName: string
 }
 
 export interface PeerMember {
@@ -120,6 +121,7 @@ function withdrawals(
     .map(([messageId, message]) => ({
       messageId,
       message: { ...message, state: "withdrawn", withdrawal },
+      groupName: requireGroup(state, message.groupId).name,
     }))
 }
 

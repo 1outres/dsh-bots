@@ -36,6 +36,7 @@ export function setup() {
   const clock = { now: 1_700_000_000_000 }
   let ids = 0
   const stepped: string[] = []
+  const peerTurns = new Set<string>()
   const skills = createBotSkills({
     sealed: (botId, token) => botId === "a" && token === "t",
     agent: (agentId) =>
@@ -74,6 +75,7 @@ export function setup() {
     },
     store,
     stepped: (_botId, sessionId) => stepped.push(sessionId),
+    peerTurn: (agentId) => peerTurns.has(agentId),
     shield: async (_botId, value) => value,
     now: () => clock.now,
     warn: () => {},
@@ -84,6 +86,7 @@ export function setup() {
     skills.call("a", "t", { agentId, args }, signal).then((result) => result.text)
   const file = (path: string) => fs.files.get(`${WORKSPACE}/${path}`)?.text
   return {
+    peerTurns,
     fs,
     place,
     store,

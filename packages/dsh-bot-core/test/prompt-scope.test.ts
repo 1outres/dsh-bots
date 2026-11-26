@@ -106,6 +106,7 @@ function botNotes() {
     placeOf: () => place,
     tools: createNoteTools({ newId }),
     shield: async (_botId, text) => text,
+    peerTurn: () => false,
   })
   const initial = createInitialNotes({
     placeOf: () => place,

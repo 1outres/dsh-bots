@@ -1055,6 +1055,11 @@ describe("bot-core apply", () => {
     expect(token).toMatch(/^[0-9a-f]{64}$/)
     await h.announce(h.agent("m", "bot-a", "bot-a"))
     await h.announce(h.agent("s1", "bot-a", "bot-a"))
+    h.ctx.emit(
+      "session/event" as never,
+      { id: "m" } as never,
+      { type: "turn/start", data: { turn: 1 } } as never,
+    )
     const service = botOf(h.ctx) as unknown as Record<symbol, unknown>
     const available = (service[SCHEDULE_TOOL_AVAILABLE] as ScheduleToolAvailable).bind(service)
     const call = (service[CALL_SCHEDULE_TOOL] as CallScheduleTool).bind(service)
@@ -1091,6 +1096,11 @@ describe("bot-core apply", () => {
     const token = group.config.find((entry) => entry.id === "env-bot-core-sessions")?.config?.token
     expect(token).toMatch(/^[0-9a-f]{64}$/)
     await h.announce(h.agent("m", "bot-a", "bot-a"))
+    h.ctx.emit(
+      "session/event" as never,
+      { id: "m" } as never,
+      { type: "turn/start", data: { turn: 1 } } as never,
+    )
     const service = botOf(h.ctx) as unknown as Record<symbol, unknown>
     const available = (service[SESSION_TOOLS_AVAILABLE] as SessionToolsAvailable).bind(service)
     const call = (service[CALL_SESSION_TOOL] as CallSessionTool).bind(service)
@@ -1125,6 +1135,11 @@ describe("bot-core apply", () => {
       call("a", token ?? "", { agentId: session.sessionId, tool: "session_list", args: {} }),
     ).rejects.toThrow("only in the bot's Main session")
 
+    h.ctx.emit(
+      "session/event" as never,
+      { id: session.sessionId } as never,
+      { type: "turn/start", data: { turn: 1 } } as never,
+    )
     h.ctx.emit(
       "session/event" as never,
       { id: session.sessionId } as never,

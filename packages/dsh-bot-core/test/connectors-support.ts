@@ -9,7 +9,7 @@ import { createConnectorAccounts } from "../src/host/connections/accounts"
 import type { ClientRecord, ConnectionRecord, GrantRecord } from "../src/host/connections/domain"
 import { connectionInfo, createConnectionStore } from "../src/host/connections/store"
 import { createConnectorAttachments } from "../src/host/connectors/attachments"
-import { createConnectorBroker } from "../src/host/connectors/broker"
+import { createConnectorBroker, type PeerTurnMark } from "../src/host/connectors/broker"
 import { createConnectorCatalog } from "../src/host/connectors/catalog"
 import { createDeadlines } from "../src/host/connectors/deadlines"
 import type { PermissionRecord, SettingsRecord } from "../src/host/connectors/domain"
@@ -311,7 +311,9 @@ export function brokerSetup(
       await settings.configure(botId, connector, { enabled: true, values })
   }
   let ids = 0
+  const peerTurns = new Map<string, PeerTurnMark>()
   const broker = createConnectorBroker({
+    peerTurn: (sessionId) => peerTurns.get(sessionId),
     catalog,
     shield: async (_botId, _tool, value) => value,
     permissions,
@@ -344,6 +346,7 @@ export function brokerSetup(
     newNonce: () => "nonce",
   })
   return {
+    peerTurns,
     spec: (_botId: string) => DEFAULT_BOT_ENVIRONMENT_SPEC as BotEnvironmentSpec | undefined,
     subscribeSpecs: (_listener: (botId: string) => void) => () => {},
     connectionStore,

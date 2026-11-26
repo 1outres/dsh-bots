@@ -58,6 +58,7 @@ function toolsSetup(callerOf: (agentId: string) => ScheduleCaller) {
   const setup = scheduleSetup()
   let ids = 0
   let changes = 0
+  const peerTurns = new Set<string>()
   const tools = createScheduleTools({
     caller: (_botId, token, agentId) =>
       token === "tok" ? callerOf(agentId) : { kind: "refused", reason: "stale revision" },
@@ -67,11 +68,12 @@ function toolsSetup(callerOf: (agentId: string) => ScheduleCaller) {
       changes += 1
     },
     botTimezone: () => "UTC",
+    peerTurn: (agentId) => peerTurns.has(agentId),
     now: setup.clock.now,
     newId: () => `job-${++ids}`,
     warn: () => {},
   })
-  return { ...setup, tools, changes: () => changes }
+  return { ...setup, tools, peerTurns, changes: () => changes }
 }
 
 const mainOrRun = (agentId: string): ScheduleCaller =>

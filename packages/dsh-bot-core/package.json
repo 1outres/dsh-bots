@@ -18,6 +18,7 @@
     "./connectors": "./lib/connectors.js",
     "./schedule": "./lib/schedule.js",
     "./sessions": "./lib/sessions.js",
+    "./peers": "./lib/peers.js",
     "./prompt": "./lib/prompt.js",
     "./compaction": "./lib/compaction.js",
     "./notes": "./lib/notes.js",

@@ -58,6 +58,18 @@ export type ConnectorDecisionOutcome =
       readonly action: ConnectorAction
     }
 
+export interface PeerTurnMark {
+  readonly peerName: string | undefined
+}
+
+export const PEER_REQUEST_LABEL = "Peer request"
+
+export function peerRequestText(mark: PeerTurnMark): string {
+  return mark.peerName === undefined
+    ? "asked in a turn that took in a message from a peer bot"
+    : `asked in a turn that took in a message from peer bot ${mark.peerName}`
+}
+
 export interface ConnectorBrokerDeps {
   catalog: Pick<ConnectorCatalog, "tool" | "subscribe">
   permissions: Pick<ConnectorPermissions, "effective">
@@ -68,6 +80,7 @@ export interface ConnectorBrokerDeps {
   accounts: Pick<ConnectorAccounts, "resolve" | "pinned">
   exclusive: ExclusiveRuns
   operated(botId: string, connector: CatalogTool["connector"]): string | undefined
+  peerTurn(sessionId: string): PeerTurnMark | undefined
   shield<T>(botId: string, tool: string, value: T): Promise<T>
   notify(botId: string, notice: ConnectorNotice): Promise<void>
   newId(): string
@@ -385,6 +398,7 @@ export function createConnectorBroker(deps: ConnectorBrokerDeps): ConnectorBroke
     call: ConnectorCall,
     signal: AbortSignal,
     connection: ConnectionRecord | undefined,
+    peer: PeerTurnMark | undefined,
   ) => {
     let action = ledger.pendingTwin(
       call.botId,
@@ -423,16 +437,18 @@ export function createConnectorBroker(deps: ConnectorBrokerDeps): ConnectorBroke
       }
       const problem = previewProblem(described)
       if (problem !== undefined) throw new Error(`${entry.name}: ${problem}`)
-      const preview: ConnectorPreview =
-        connection === undefined
-          ? described
-          : {
-              ...described,
-              fields: [
-                { label: "Account", value: connectionName(connection) },
-                ...described.fields,
-              ],
-            }
+      const preview: ConnectorPreview = {
+        ...described,
+        fields: [
+          ...(connection === undefined
+            ? []
+            : [{ label: "Account", value: connectionName(connection) }]),
+          ...(peer === undefined
+            ? []
+            : [{ label: PEER_REQUEST_LABEL, value: peerRequestText(peer) }]),
+          ...described.fields,
+        ],
+      }
       const now = deps.now()
       action = {
         id: deps.newId(),
@@ -491,7 +507,10 @@ export function createConnectorBroker(deps: ConnectorBrokerDeps): ConnectorBroke
             : `${entry.name} is not available to this bot as ${connectionName(connection)}: the user disallowed it for that account in the bot's Connectors settings`,
         )
       }
-      if (permission === "ask") return ask(entry, call, signal, connection)
+      const peer = deps.peerTurn(call.sessionId)
+      if (permission === "ask" || peer !== undefined) {
+        return ask(entry, call, signal, connection, peer)
+      }
       const outcome = await run(
         entry,
         call.botId,

@@ -170,6 +170,7 @@
   "packages/dsh-bot-core/src/plugins/files.ts": [],
   "packages/dsh-bot-core/src/plugins/notes.ts": [],
   "packages/dsh-bot-core/src/plugins/prompt.ts": [],
+  "packages/dsh-bot-core/src/plugins/peers.ts": [],
   "packages/dsh-bot-core/src/plugins/schedule.ts": [],
   "packages/dsh-bot-core/src/plugins/sessions.ts": [],
   "packages/dsh-bot-core/src/plugins/settings.ts": [],

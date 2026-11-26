@@ -30,6 +30,7 @@ export interface BotNotesDeps<A extends KindAgent> {
   placeOf(botId: string, token: string): NotesPlace | undefined
   tools: NoteTools
   shield(botId: string, text: string): Promise<string>
+  peerTurn(agentId: string): boolean
 }
 
 const PINNED_SESSIONS: readonly BotSessionKind[] = ["main", "web", "delegated", "schedule"]
@@ -137,8 +138,9 @@ export function createBotNotes<A extends KindAgent>(deps: BotNotesDeps<A>): BotN
       if (!(NOTE_TOOLS as readonly string[]).includes(request.tool))
         throw new NoteToolError(`unknown note tool ${request.tool}`)
       const place = requirePlace(botId, token)
+      const pinned = deps.peerTurn(request.agentId) ? "locked" : "open"
       const text = await withNotes(botId, (state) =>
-        deps.tools.call(state, place, request.tool as NoteTool, request.args, signal),
+        deps.tools.call(state, place, request.tool as NoteTool, request.args, signal, pinned),
       )
       return { text }
     },

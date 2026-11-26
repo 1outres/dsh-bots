@@ -561,6 +561,11 @@ describe("createPresetRealizer", () => {
             config: { botId: "a", token: realizer.registration("a")?.revisionToken },
           },
           {
+            id: "env-bot-core-peers",
+            name: "@1outres/dsh-bot-core/peers",
+            config: { botId: "a", token: realizer.registration("a")?.revisionToken },
+          },
+          {
             id: "env-bot-core-prompt",
             name: "@1outres/dsh-bot-core/prompt",
             config: { botId: "a", token: realizer.registration("a")?.revisionToken },

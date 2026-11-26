@@ -231,7 +231,7 @@ Sent p_7f3a to Nova (thread p_7f3a). It reaches Nova's Main session after its cu
 
 ### 6.1 notice と source
 
-`dsh_bot_notices` に topic を 2 つ足し、version 6（`compatibleVersions: [1, 2, 3, 4, 5]`）にする。
+`dsh_bot_notices` に topic を 2 つ足し、version 7（`compatibleVersions: [1, 2, 3, 4, 5, 6]`）にする（v6 は heartbeat。§17）。
 
 | topic         | source の kind    | 配信        | 中身                                            | 出どころ             |
 | ------------- | ----------------- | ----------- | ----------------------------------------------- | -------------------- |
@@ -472,7 +472,7 @@ Peer bots (group "Research"):
 | notice の文面                                                     | `src/host/peers/notice.ts`                                                                                                                                   |
 | Remote の入口（オーナーの確認）                                   | `src/host/peers/panel.ts`、`src/host/remote.ts` の `BotGroupsRemoteService`（`botGroups`）                                                                   |
 | 入力の出どころ                                                    | `src/host/turns/parties.ts`（`host/managed/authority.ts` と `host/settings/authority.ts` はこれを使う）                                                      |
-| notice の topic、取り下げ、記録の知らせ                           | `src/host/notices/domain.ts`（version 6）、`delivery.ts`、`outbox.ts`                                                                                        |
+| notice の topic、取り下げ、記録の知らせ                           | `src/host/notices/domain.ts`（version 7）、`delivery.ts`、`outbox.ts`                                                                                        |
 | 仲間由来の制限                                                    | `host/managed/messages.ts`・`follow.ts`、`host/skills/bot-skills.ts`、`host/notes/tools.ts`、`host/schedule/`、`host/connectors/broker.ts`                   |
 | ツールの行                                                        | `src/plugins/peers.ts`（`env-bot-core-peers`、exports `./peers`）                                                                                            |
 | プロンプト                                                        | `src/host/prompt/texts.ts`、`sections.ts`、`facts.ts`、`peers.ts`                                                                                            |
@@ -550,3 +550,24 @@ Peer bots (group "Research"):
 - **`messages(groupId, before)`**: 1 ページ 40 件、ページの中は古い順。`before` を省くと最新のページ。`earlier` は、より古いものが残っているときのページの最初のメッセージの id。グループに無い id を `before` に渡したら断る。Remote の契約では `before` を省略できる引数にした。
 - **設計ルール**: 77 は `feat/sender-policy` が先に main に入ったので、こちらは 78 のまま。
 - ブラウザの側は `BotCoreRemote` に `botGroups` をつないだだけ（画面は後の段階）。
+
+## 17. 第2段階で確定したこと（送受信・権限・上限）
+
+- **出どころ**（`host/turns/parties.ts`）: `inputPartyOf` は §7.1 の表のとおり。ただし `bot-notes` と `bot-skills`（そのターンの入力から bot-core が作る補足）は **数えない**（`undefined`）。表では `system` だが、数えると `bot_settings` の「オーナー以外が混じった」が、ノートが話題に出たオーナーのターンでも立ってしまい、今の振る舞いが変わるため。記録（`createTurnParties`）はボットのセッションごとに、開いているターンの入力の出どころの列（`inputs`、最初が「始めた出どころ」）と、取り込んだ仲間のメッセージの id（`peerMessages`）を持ち、終わったターンも次の開始まで `latest` で読める。`host/managed/authority.ts` は `workspaceRefusal(turn)`、`host/settings/authority.ts` は `settingsTurnOf(turn)` という純粋な見方になった（今までの `createTurnAuthority` / `createSettingsTurns` / `fromOwnerSide` / `partyOf` は無くした）。
+- **heartbeat**（main に先に入った `bot-heartbeat`、docs/specs/bot-heartbeat.md §7）: 出どころの表では `other`（オーナー以外）にした。heartbeat のターンは外から来たイベントを扱うので、コネクターのイベントの notice と同じ扱い（Workspace のセッションは断り、`bot_settings` の `change` も断る）という heartbeat 側の決まりを、そのまま表に乗せたもの。仲間由来（`peer`）ではないので、heartbeat のターンでもスキル・ピン留め・スケジュールは断らない。
+- **notices の版**: heartbeat が v6（topic `heartbeat`）を使ったので、こちらは **v7**（`compatibleVersions: [1, 2, 3, 4, 5, 6]`）。topic `peer` / `peer-status` / `peer-session` と、記録の `peerMessages` を足した。
+- **サブエージェント**: 道具を呼んだ Agent がサブエージェントなら、親をたどった根のセッションのターンで「仲間由来か」を見る（`index.ts` の `rootSessionOf`）。
+- **仲間のメッセージの id の運び方**: メモリの表ではなく、メッセージの source に `peerMessages: string[]` を持たせて運ぶ（`bot-peer` は届けるメッセージ 1 つ、`bot-peer-relay` と `bot-peer-session` はそのターンが取り込んだもの全部）。notice の記録（`dsh_bot_notices` v7）にも省略できる `peerMessages` を足した（`peer` と `peer-session` だけが持てる。`peer` はちょうど 1 つ）。記録に残るので、再起動や Main の切り替えの後に届いた notice でも深さが分かる。深さは `peerMessages` の記録の深さの最大 + 1。どれかが記録に無い（500 件を超えて消えた・取り下げで消えた）か、仲間由来なのに id が無ければ不明（新しい糸は断る）。
+- **不明の深さで断ったもの** は、記録の `depth` を 2（上限 + 1）にして `refused` / `depth` で残す。
+- **上限の順**: グループの停止 → ボット対の停止中 → 深さ（新しい糸だけ）→ 糸の 12 通（返信だけ）→ 送り手の 1 時間 40 通 → ボット対の 10 分 8 通（ここで 30 分止める）→ グループの 10 分 30 通（ここで `pauseForLimit`）。数えるのは `refused` 以外の記録。上限は「窓の中に既に N 通あるときの次の 1 通」を断る（8 通目までは届く）。本文の長さ（4,000 字、コードポイント）・空の本文・宛先や `reply_to` の誤りは記録に残さない。
+- **ボット対の止め** はメモリの `host/peers/pair-pauses.ts`（`PeerPairPauses`、プロンプト担当と同じ部品）。止まったときは両方の Main に `peer-status`。グループの止めは全メンバーに。
+- **届いた状態**: notice outbox の `onDelivered(entry)` は、記録された（`delivered(noticeId)` で消えた）notice を知らせる。`host/peers/delivery.ts` が購読し、`peer` の notice の `peerMessages` を `delivered` にする。
+- **取り下げ**: `NoticeDelivery.withdraw(noticeId)` は `"withdrawn" | "recorded" | "gone"` を返す。Agent に渡したものは、その Agent の inbox から `unqueue` してから `NoticeOutbox.withdraw` で消す。既に記録されていたら取り下げずに `delivered` にする（退出のときは記録の `withdrawn` を `delivered` に戻す）。退出では、退出した側（もうそのグループにいない送り手）には知らせない。削除されたボット宛ての文面は「<名前> was deleted by your owner.」。複数のときは「[peer] N of your messages were not delivered:」の下に 1 行ずつ並べる。
+- **24 時間の期限**: 送ってから 24 時間たっても `queued` なら取り下げて `expired`（`withdrawal: "expired"`）。受け手の VM が止まっていれば §6.2 の文面、動いていれば「(… stayed stopped)」を書かない文面。起動時に `queued` のものの期限を数え直す。
+- **コネクター**: 仲間由来のターン（子のセッションのターンも）では `allow` も `ask` にし、プレビューの最初の欄に「Peer request: asked in a turn that took in a message from peer bot <name>」を足す（`ask` の道具でも足す）。
+- **ピン留めノート**: ピン留めのノートへの書き込み（append・update・リンク）、ピン留めを付ける・外すを断る（`note_write` の結果のエラー）。どのセッションでも、そのターンが仲間由来なら。
+- **スキル**: 会話のセッション（Main・Web）からの `skill_manage` の変更だけを断る（振り返り・整理のセッションは bot-core が動かすので見ない）。
+- **スケジュール**: Main からの `list` 以外を断る。スケジュールの separate 実行のセッションは見ない。
+- **子への持ち越し**: `session_start` / `session_send`（target `bot`）は、仲間由来のターンなら source `bot-peer-relay`（`peerMessages` つき）で送る。仲間の名前はそのターンの最後の仲間のメッセージの送り手。分からなければ「Your Main session sent a message for a peer bot:」。`session_read` では `bot-peer-relay` も `main` に分類する。子のターンの終わりと質問の notice は、そのターンが仲間由来（または不明）なら topic `peer-session`。
+- **`peer_send` の行** は `env-bot-core-sessions` の後に置いた。既にいるボットの preset の版（digest）は変わる（revision token は変わらない）。
+- **確かめていないこと**: 実際の DSH でサブエージェントのセッションが `turn/start` を出すか（出さなくても根のセッションで見るので振る舞いは変わらない）。

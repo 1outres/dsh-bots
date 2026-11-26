@@ -241,6 +241,7 @@ describe("following managed sessions", () => {
     const told: string[] = []
     const follow = createManagedFollow({
       managed: (sessionId) => (sessionId === "s1" ? session() : undefined),
+      peerOrigin: () => undefined,
       tell: (managed, event) => told.push(`${managed.sessionId} ${JSON.stringify(event)}`),
     })
     const end = (sessionId: string, reason: unknown) =>
@@ -392,6 +393,7 @@ describe("session tools", () => {
     const stopping: string[] = []
     const open = new Map<string, BotInteraction[]>()
     const tools = createManagedTools({
+      peerRelay: () => undefined,
       refusal: (_botId, token, agentId) =>
         token !== "t" ? "stale" : agentId === "m" ? undefined : "only in the Main session",
       sessions: w.sessions,
@@ -586,6 +588,7 @@ describe("session tools in Workspaces", () => {
     const waits = new Map<string, DshWait[]>()
     let refused: string | undefined
     const tools = createManagedTools({
+      peerRelay: () => undefined,
       refusal: (_botId, _token, agentId) =>
         agentId === "m" ? undefined : "only in the Main session",
       sessions: w.sessions,

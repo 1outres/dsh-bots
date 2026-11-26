@@ -8,6 +8,9 @@ export const NOTICE_SOURCES = {
   file: "bot-file",
   session: "bot-session",
   heartbeat: "bot-heartbeat",
+  peer: "bot-peer",
+  "peer-status": "bot-peer-status",
+  "peer-session": "bot-peer-session",
 } as const satisfies Record<NoticeTopic, string>
 
 export type NoticeSourceKind = (typeof NOTICE_SOURCES)[NoticeTopic]
@@ -23,6 +26,9 @@ export const NOTICE_DELIVERY = {
   file: "next-turn",
   session: "next-turn",
   heartbeat: "next-turn",
+  peer: "next-turn",
+  "peer-status": "next-turn",
+  "peer-session": "next-turn",
 } as const satisfies Record<NoticeTopic, NoticeTiming>
 
 export function handOffOf(
@@ -40,6 +46,7 @@ export interface NoticeMessage {
     readonly kind: NoticeSourceKind
     readonly form: "notice"
     readonly summary: string
+    readonly peerMessages?: readonly string[]
   }
 }
 
@@ -53,7 +60,10 @@ export interface NoticeAgent {
 }
 
 export interface NoticeDeliveryDeps {
-  outbox: Pick<NoticeOutbox, "pending" | "bots" | "byMessage" | "delivered" | "subscribe">
+  outbox: Pick<
+    NoticeOutbox,
+    "pending" | "bots" | "entry" | "byMessage" | "delivered" | "withdraw" | "subscribe"
+  >
   admit<T>(botId: string, work: (sessionId: string | undefined) => Promise<T>): Promise<T>
   archived(sessionId: string): boolean
   ready(botId: string): Promise<void>
@@ -67,10 +77,13 @@ export interface NoticeDeliveryDeps {
 export interface NoticeDelivery {
   start(): void
   recorded(messageId: string): void
+  withdraw(noticeId: string): Promise<NoticeWithdrawal>
   idle(sessionId: string): void
   mainChanged(botId: string): void
   dispose(): void
 }
+
+export type NoticeWithdrawal = "withdrawn" | "recorded" | "gone"
 
 interface BotState {
   running: boolean
@@ -91,6 +104,9 @@ export function noticeMessage(entry: NoticeEntry): NoticeMessage {
       kind: NOTICE_SOURCES[entry.topic],
       form: "notice",
       summary: entry.summary,
+      ...(entry.peerMessages === undefined
+        ? {}
+        : { peerMessages: Object.freeze([...entry.peerMessages]) }),
     }),
   })
 }
@@ -133,6 +149,7 @@ export function createNoticeDelivery(deps: NoticeDeliveryDeps): NoticeDelivery {
     let complete = true
     for (const entry of deps.outbox.pending(botId)) {
       if (disposed) return true
+      if (deps.outbox.entry(entry.id) === undefined) continue
       if (agent.recorded(entry.messageId)) {
         state.handed.delete(entry.id)
         await deps.outbox.delivered(entry.id)
@@ -207,6 +224,24 @@ export function createNoticeDelivery(deps: NoticeDeliveryDeps): NoticeDelivery {
       deps.outbox.delivered(entry.id).catch((error: unknown) => {
         deps.warn(`bot-core: could not mark notice "${entry.id}" delivered: ${messageOf(error)}`)
       })
+    },
+    async withdraw(noticeId) {
+      const entry = deps.outbox.entry(noticeId)
+      if (entry === undefined) return "gone"
+      const state = states.get(entry.botId)
+      const handed = state?.handed.get(noticeId)
+      if (handed !== undefined) {
+        const agent = await deps.resolve(handed.sessionId)
+        if (deps.outbox.entry(noticeId) === undefined) return "gone"
+        if (agent.recorded(entry.messageId)) {
+          state?.handed.delete(noticeId)
+          await deps.outbox.delivered(noticeId)
+          return "recorded"
+        }
+        if (agent.queued(entry.messageId)) agent.unqueue(entry.messageId)
+        state?.handed.delete(noticeId)
+      }
+      return (await deps.outbox.withdraw(noticeId)) ? "withdrawn" : "gone"
     },
     idle(sessionId) {
       for (const [botId, state] of states) {

@@ -1,11 +1,17 @@
 import type { BotInteraction } from "../../shared/interactions"
 import type { BotManagedSession } from "../../shared/managed-sessions"
 import { endedTurnOf, type SessionEventLike, type TurnEndReason } from "../channels/feed"
+import type { NoticeOrigin } from "../notices/outbox"
 import type { SessionNoticeEvent } from "./notice"
 
 export interface ManagedFollowDeps {
   managed(sessionId: string): BotManagedSession | undefined
-  tell(session: BotManagedSession, event: SessionNoticeEvent): void
+  peerOrigin(sessionId: string): NoticeOrigin | undefined
+  tell(
+    session: BotManagedSession,
+    event: SessionNoticeEvent,
+    origin: NoticeOrigin | undefined,
+  ): void
 }
 
 export interface ManagedFollow {
@@ -16,6 +22,8 @@ export interface ManagedFollow {
 
 export function createManagedFollow(deps: ManagedFollowDeps): ManagedFollow {
   const stopped = new Set<string>()
+  const originOf = (session: BotManagedSession) =>
+    session.target.kind === "bot" ? deps.peerOrigin(session.sessionId) : undefined
   return {
     sessionEvent(sessionId, event) {
       if (event.type !== "turn/end") return
@@ -25,17 +33,21 @@ export function createManagedFollow(deps: ManagedFollowDeps): ManagedFollow {
       const turn = endedTurnOf((event.data as { readonly reason: TurnEndReason }).reason)
       if (turn === undefined || turn.phase === "started") return
       if (turn.phase === "cancelled" && ownStop) return
-      deps.tell(session, { kind: "turn", turn })
+      deps.tell(session, { kind: "turn", turn }, originOf(session))
     },
     opened(sessionId, interaction) {
       if (interaction.kind === "approval") return
       const session = deps.managed(sessionId)
       if (session === undefined) return
-      deps.tell(session, {
-        kind: "waiting",
-        interaction: interaction.kind,
-        answerer: session.answerer,
-      })
+      deps.tell(
+        session,
+        {
+          kind: "waiting",
+          interaction: interaction.kind,
+          answerer: session.answerer,
+        },
+        originOf(session),
+      )
     },
     stopping(sessionId) {
       stopped.add(sessionId)

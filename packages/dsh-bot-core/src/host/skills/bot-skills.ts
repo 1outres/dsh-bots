@@ -5,6 +5,7 @@ import { type KindAgent, type SessionKindDeps, sessionKindOf } from "../prompt/s
 import { createSkillLibrary, type SkillCatalog, type SkillsPlace } from "./library"
 import {
   type BotSkillsState,
+  changes,
   createSkillManager,
   parseSkillArgs,
   type SkillActor,
@@ -27,12 +28,16 @@ export interface BotSkillsDeps<A extends KindAgent> {
   history: Omit<SkillManagerDeps, "changed">
   store: Pick<SkillStore, "recordUse">
   stepped(botId: string, sessionId: string): void
+  peerTurn(agentId: string): boolean
   shield<T>(botId: string, value: T): Promise<T>
   now(): number
   warn(message: string): void
 }
 
 const MANAGING_SESSIONS: readonly BotSessionKind[] = ["main", "web", "curator"]
+
+export const PEER_TURN_REFUSAL =
+  "skill_manage changes skills only in turns with your owner; this turn took in a message from a peer bot, so only list and view work here. Tell your owner if a skill should change"
 
 export interface SkillsReading {
   readonly active: readonly { readonly name: string; readonly description: string }[]
@@ -169,6 +174,9 @@ export function createBotSkills<A extends KindAgent>(deps: BotSkillsDeps<A>): Bo
       }
       const actor = actorOf(request.agentId, kind)
       const args = parseSkillArgs(request.args)
+      if (actor.kind === "conversation" && changes(args.action) && deps.peerTurn(request.agentId)) {
+        throw new SkillToolError(PEER_TURN_REFUSAL)
+      }
       const place = requirePlace(botId, token)
       const text = await withSkills(botId, (state) =>
         manager.run(botId, state, place, actor, args, signal),

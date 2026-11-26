@@ -18,6 +18,9 @@ import { InvalidScheduleError } from "./timing"
 
 export const SCHEDULE_ACTIONS = ["create", "list", "update", "delete", "run"] as const
 
+export const PEER_TURN_REFUSAL =
+  "schedule jobs are created, changed and run only at your owner's request; this turn took in a message from a peer bot, so only list works here. Tell your owner if a job is needed"
+
 export type ScheduleCaller =
   | { readonly kind: "main"; readonly sessionId: string }
   | { readonly kind: "run"; readonly sessionId: string; readonly jobId: string }
@@ -29,6 +32,7 @@ export interface ScheduleToolsDeps {
   runner: Pick<ScheduleRunner, "isRunning" | "start" | "result">
   changed(): void
   botTimezone(botId: string): string
+  peerTurn(agentId: string): boolean
   now(): number
   newId(): string
   warn(message: string): void
@@ -82,6 +86,9 @@ export function createScheduleTools(deps: ScheduleToolsDeps): ScheduleTools {
           "in a scheduled run's session, only this run's own job can be changed",
         )
       }
+    }
+    if (caller.kind === "main" && action !== "list" && deps.peerTurn(caller.sessionId)) {
+      throw new InvalidScheduleError(PEER_TURN_REFUSAL)
     }
     const target = caller.kind === "run" ? caller.jobId : id
     const now = deps.now()

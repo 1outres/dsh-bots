@@ -19,7 +19,8 @@ function notes() {
   const state = createNotesState(createNotebook())
   const newId = idMaker()
   const tools = createNoteTools({ newId })
-  const call = (tool: NoteTool, args: unknown) => tools.call(state, place, tool, args, signal)
+  const call = (tool: NoteTool, args: unknown) =>
+    tools.call(state, place, tool, args, signal, "open")
   const write = (args: object) => call("note_write", args)
   const fileOf = (title: string) =>
     [...fs.files.entries()].find(
@@ -499,6 +500,7 @@ describe("the notes of a step", () => {
       placeOf: () => ({ fs, workspace: WORKSPACE }),
       tools: createNoteTools({ newId: idMaker() }),
       shield: async (_botId, text) => text,
+      peerTurn: () => false,
     })
     const step = { agentId: "main", messages: [{ fromUser: true, text: "hello" }] }
     expect(await notes.prepare("a", "t", step, signal)).toBeUndefined()

@@ -50,6 +50,7 @@ function setup() {
     placeOf: () => undefined,
     tools: createNoteTools({ newId: idMaker() }),
     shield: async (_botId, text) => text,
+    peerTurn: () => false,
   })
   const placeOf = (botId: string): NotesPlace | undefined => {
     const fs = filesOf.get(botId)
@@ -66,7 +67,7 @@ function setup() {
   const tools = createNoteTools({ newId: () => id(900) })
   const botCall = (botId: string, tool: NoteTool, args: unknown) =>
     botNotes.withNotes(botId, (state) =>
-      tools.call(state, placeOf(botId) as NotesPlace, tool, args, signal),
+      tools.call(state, placeOf(botId) as NotesPlace, tool, args, signal, "open"),
     )
   const a = filesOf.get("a") as MemoryNotesFs
   a.put(

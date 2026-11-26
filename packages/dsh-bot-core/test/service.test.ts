@@ -100,6 +100,16 @@ function fakeBackend(): FakeBackend {
         return { text: "ok" }
       },
     },
+    peers: {
+      available: (botId, token, agentId) => {
+        calls.push(`peers available ${botId} ${token} ${agentId}`)
+        return true
+      },
+      call: async (botId, token) => {
+        calls.push(`peer tool ${botId} ${token}`)
+        return { text: "ok", data: null }
+      },
+    },
     managedSessions: {
       available: (botId, token, agentId) => {
         calls.push(`sessions available ${botId} ${token} ${agentId}`)

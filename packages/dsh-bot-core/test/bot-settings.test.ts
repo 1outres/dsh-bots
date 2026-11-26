@@ -10,12 +10,13 @@ import { createSettingsApprovals } from "../src/host/settings/approval"
 import { channelAreas } from "../src/host/settings/areas/channels"
 import { connectorAreas } from "../src/host/settings/areas/connectors"
 import { createModelsArea, modelToken } from "../src/host/settings/areas/models"
-import { createSettingsTurns, partyOf } from "../src/host/settings/authority"
+import { settingsTurnOf } from "../src/host/settings/authority"
 import { createSettingsCatalog } from "../src/host/settings/catalog"
 import { describeArea } from "../src/host/settings/describe"
 import { createSettingsPanel } from "../src/host/settings/panel"
 import { createSettingChangeStore } from "../src/host/settings/store"
 import { createSettingsTool, parseSettingsArgs } from "../src/host/settings/tool"
+import { createTurnParties, inputPartyOf } from "../src/host/turns/parties"
 import { CALL_SETTINGS_TOOL, SETTINGS_TOOL_AVAILABLE, type SettingsToolCall } from "../src/internal"
 import BotSettingsTool from "../src/plugins/settings"
 import type { BotSettingsArea } from "../src/settings-contract"
@@ -115,26 +116,33 @@ describe("setting values and rules", () => {
 })
 
 const event = (type: string, data: unknown) => ({ type, data })
+const settingsTurns = (tracked: (sessionId: string) => boolean) => {
+  const parties = createTurnParties({ tracked })
+  return {
+    sessionEvent: parties.sessionEvent,
+    of: (sessionId: string) => settingsTurnOf(parties.current(sessionId)),
+  }
+}
 const user = (text: string, extra: object = {}) =>
   event("user/message", { content: [{ type: "text", text }], source: { kind: "user", ...extra } })
 
 describe("who started a turn", () => {
   it("knows the owner from the Web UI and the owner header, and others from notices", () => {
-    expect(partyOf({ content: [{ type: "text", text: "hi" }], source: { kind: "user" } })).toBe(
-      "owner",
-    )
     expect(
-      partyOf({
+      inputPartyOf({ content: [{ type: "text", text: "hi" }], source: { kind: "user" } }),
+    ).toBe("owner")
+    expect(
+      inputPartyOf({
         content: [{ type: "text", text: "[Discord · DM · Bob (@bob)]\nhi" }],
         source: { kind: "user" },
       }),
     ).toBe("other")
-    expect(partyOf({ content: [], source: { kind: "bot-schedule" } })).toBe("other")
-    expect(partyOf({ content: [], source: { kind: "runtime-context" } })).toBeUndefined()
+    expect(inputPartyOf({ content: [], source: { kind: "bot-schedule" } })).toBe("system")
+    expect(inputPartyOf({ content: [], source: { kind: "runtime-context" } })).toBeUndefined()
   })
 
   it("remembers who started the turn and whether someone else joined", () => {
-    const turns = createSettingsTurns({ tracked: (id) => id === "s" })
+    const turns = settingsTurns((id) => id === "s")
     turns.sessionEvent("s", event("turn/start", { turn: 1 }))
     expect(turns.of("s")).toBeUndefined()
     turns.sessionEvent(
@@ -222,7 +230,7 @@ function setup(options: { language?: string } = {}) {
   const area = fakeArea()
   const catalog = createSettingsCatalog()
   catalog.register(area)
-  const turns = createSettingsTurns({ tracked: () => true })
+  const turns = settingsTurns(() => true)
   const opened: { id: string; question: unknown; detail: unknown }[] = []
   const board = createInteractionBoard({
     newId: (() => {

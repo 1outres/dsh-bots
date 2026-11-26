@@ -168,6 +168,32 @@ export type CallSessionTool = (
   request: SessionToolRequest,
 ) => Promise<SessionToolResponse>
 
+export const PEER_TOOL_AVAILABLE: unique symbol = Symbol.for(
+  "@1outres/dsh-bot-core#peerToolAvailable",
+) as never
+
+export type PeerToolAvailable = (botId: string, token: string, agentId: string) => boolean
+
+export const CALL_PEER_TOOL: unique symbol = Symbol.for(
+  "@1outres/dsh-bot-core#callPeerTool",
+) as never
+
+export interface PeerToolRequest {
+  readonly agentId: string
+  readonly args: unknown
+}
+
+export interface PeerToolResponse {
+  readonly text: string
+  readonly data: unknown
+}
+
+export type CallPeerTool = (
+  botId: string,
+  token: string,
+  request: PeerToolRequest,
+) => Promise<PeerToolResponse>
+
 export const WEB_READY: unique symbol = Symbol.for("@1outres/dsh-bot-core#webReady") as never
 
 export type WebReady = (

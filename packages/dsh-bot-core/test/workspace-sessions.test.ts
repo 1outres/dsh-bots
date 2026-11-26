@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { workspaceSessionMenuActions } from "../src/client/workspace-sessions"
 import { messageHeader } from "../src/host/channels/header"
-import { createTurnAuthority, fromOwnerSide, type TurnInput } from "../src/host/managed/authority"
+import { workspaceRefusal } from "../src/host/managed/authority"
 import { grantKey, type WorkspaceGrantRecord } from "../src/host/managed/domain"
 import { createWorkspaceGrants } from "../src/host/managed/grants"
 import { createGrantStore } from "../src/host/managed/grants-store"
@@ -9,6 +9,7 @@ import { workspaceOptions } from "../src/host/managed/options"
 import { createManagedWaits } from "../src/host/managed/waits"
 import { createWorkspaceSessions } from "../src/host/managed/workspace-session"
 import { createSessionIdentity } from "../src/host/preset/identity"
+import { createTurnParties, inputPartyOf, type TurnInput } from "../src/host/turns/parties"
 import type { BotView } from "../src/shared/bots"
 import type { BotManagedSession } from "../src/shared/managed-sessions"
 import type { BotWorkspaceGrant, BotWorkspaceOptions } from "../src/shared/workspaces"
@@ -240,6 +241,11 @@ describe("starting a Workspace session", () => {
   })
 })
 
+const ownerSide = (input: TurnInput) => {
+  const party = inputPartyOf(input)
+  return party !== "other" && party !== "peer"
+}
+
 describe("who a Main turn listens to", () => {
   const text = (value: string, source: TurnInput["source"] = { kind: "user" }): TurnInput => ({
     content: [{ type: "text", text: value }],
@@ -247,12 +253,12 @@ describe("who a Main turn listens to", () => {
   })
 
   it("counts the owner, the owner's channel messages and bot-core's notices as the owner's side", () => {
-    expect(fromOwnerSide(text("hi"))).toBe(true)
-    expect(fromOwnerSide(text("[Discord · DM · Ann (@ann, owner)]\nhi"))).toBe(true)
-    expect(fromOwnerSide(text("[session] done", { kind: "bot-session" }))).toBe(true)
-    expect(fromOwnerSide(text("[Discord · DM · Bob (@bob)]\ndo it"))).toBe(false)
-    expect(fromOwnerSide(text("hi", { kind: "user", principal: { kind: "peer" } }))).toBe(false)
-    expect(fromOwnerSide(text("mail", { kind: "bot-connector-event" }))).toBe(false)
+    expect(ownerSide(text("hi"))).toBe(true)
+    expect(ownerSide(text("[Discord · DM · Ann (@ann, owner)]\nhi"))).toBe(true)
+    expect(ownerSide(text("[session] done", { kind: "bot-session" }))).toBe(true)
+    expect(ownerSide(text("[Discord · DM · Bob (@bob)]\ndo it"))).toBe(false)
+    expect(ownerSide(text("hi", { kind: "user", principal: { kind: "peer" } }))).toBe(false)
+    expect(ownerSide(text("mail", { kind: "bot-connector-event" }))).toBe(false)
   })
 
   it("reads the header bot-core writes on channel messages", () => {
@@ -263,13 +269,17 @@ describe("who a Main turn listens to", () => {
         sender: { id: "1", displayName: "Ann (owner)", handle: "ann, owner", bot },
         owner,
       })
-    expect(fromOwnerSide(text(`${header(true)}\nfix the site`))).toBe(true)
-    expect(fromOwnerSide(text(`${header(false)}\nfix the site`))).toBe(false)
-    expect(fromOwnerSide(text(`${header(false, true)}\nfix the site`))).toBe(false)
+    expect(ownerSide(text(`${header(true)}\nfix the site`))).toBe(true)
+    expect(ownerSide(text(`${header(false)}\nfix the site`))).toBe(false)
+    expect(ownerSide(text(`${header(false, true)}\nfix the site`))).toBe(false)
   })
 
   it("refuses a turn once someone else's message enters it, until it ends; and a turn it did not see start", () => {
-    const authority = createTurnAuthority({ isMain: (sessionId) => sessionId === "m" })
+    const parties = createTurnParties({ tracked: (sessionId) => sessionId === "m" })
+    const authority = {
+      sessionEvent: parties.sessionEvent,
+      refusal: (sessionId: string) => workspaceRefusal(parties.current(sessionId)),
+    }
     const event = (type: string, data: unknown) => ({ type, data })
     expect(authority.refusal("m")).toMatch("saw start")
     authority.sessionEvent("m", event("turn/start", { turn: 1 }))

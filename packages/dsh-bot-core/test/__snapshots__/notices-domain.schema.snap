@@ -1,6 +1,6 @@
 {
   "name": "dsh_bot_notices",
-  "version": 6,
+  "version": 7,
   "tables": {
     "notices": {
       "botId": {
@@ -9,7 +9,7 @@
       },
       "topic": {
         "required": true,
-        "type": "\"connector\" | \"schedule\" | \"event\" | \"file\" | \"session\" | \"heartbeat\""
+        "type": "\"connector\" | \"schedule\" | \"event\" | \"file\" | \"session\" | \"heartbeat\" | \"peer\" | \"peer-status\" | \"peer-session\""
       },
       "messageId": {
         "required": true,
@@ -22,6 +22,10 @@
       "summary": {
         "required": true,
         "type": "string"
+      },
+      "peerMessages": {
+        "required": false,
+        "type": "string[]"
       },
       "createdAt": {
         "required": true,

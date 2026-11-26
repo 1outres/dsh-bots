@@ -31,6 +31,7 @@ import {
   CALL_CONNECTOR_TOOL,
   CALL_CONVERSATION_TOOL,
   CALL_NOTE_TOOL,
+  CALL_PEER_TOOL,
   CALL_SCHEDULE_TOOL,
   CALL_SESSION_TOOL,
   CALL_SETTINGS_TOOL,
@@ -38,6 +39,7 @@ import {
   type CallConnectorTool,
   type CallConversationTool,
   type CallNoteTool,
+  type CallPeerTool,
   type CallScheduleTool,
   type CallSessionTool,
   type CallSettingsTool,
@@ -70,6 +72,10 @@ import {
   type LoadSkill,
   type NoteStepRequest,
   type NoteToolRequest,
+  PEER_TOOL_AVAILABLE,
+  type PeerToolAvailable,
+  type PeerToolRequest,
+  type PeerToolResponse,
   PINNED_NOTES,
   type PinnedNotes,
   PREPARE_NOTES,
@@ -151,6 +157,7 @@ export interface BotBackend {
   readonly stayChannelSilent: StayChannelSilent
   readonly schedules: BotSchedulesBackend
   readonly managedSessions: BotManagedSessionsBackend
+  readonly peers: BotPeersBackend
   readonly web: BotWebLookupBackend
   readonly describePrompt: DescribePrompt
   readonly notes: BotNotesBackend
@@ -217,6 +224,11 @@ export interface BotWebLookupBackend {
 export interface BotSchedulesBackend {
   readonly available: ScheduleToolAvailable
   readonly call: CallScheduleTool
+}
+
+export interface BotPeersBackend {
+  readonly available: PeerToolAvailable
+  readonly call: CallPeerTool
 }
 
 export interface BotManagedSessionsBackend {
@@ -452,6 +464,18 @@ export class BotService extends Service implements Bot {
     request: SessionToolRequest,
   ): Promise<SessionToolResponse> {
     return this[BACKEND].managedSessions.call(botId, token, request)
+  }
+
+  [PEER_TOOL_AVAILABLE](botId: string, token: string, agentId: string): boolean {
+    return this[BACKEND].peers.available(botId, token, agentId)
+  }
+
+  [CALL_PEER_TOOL](
+    botId: string,
+    token: string,
+    request: PeerToolRequest,
+  ): Promise<PeerToolResponse> {
+    return this[BACKEND].peers.call(botId, token, request)
   }
 
   registerWebBackend(backend: BotWebBackend): () => void {

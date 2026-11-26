@@ -99,6 +99,7 @@
         "!packages/dsh-bot-core/src/plugins/connectors.ts",
         "!packages/dsh-bot-core/src/plugins/schedule.ts",
         "!packages/dsh-bot-core/src/plugins/sessions.ts",
+        "!packages/dsh-bot-core/src/plugins/peers.ts",
         "!packages/dsh-bot-core/src/plugins/notes.ts",
         "!packages/dsh-bot-core/src/plugins/skills.ts",
         "!packages/dsh-bot-core/src/plugins/conversations.ts",
