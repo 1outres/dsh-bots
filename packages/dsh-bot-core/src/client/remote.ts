@@ -10,6 +10,7 @@ import type {
   ConnectorWaitingSnapshot,
 } from "../shared/connectors"
 import type { BotEnvironmentApi, BotEnvironmentView } from "../shared/environment"
+import type { BotEnvironmentHostApi, BotEnvironmentHostState } from "../shared/environment-host"
 import type { BotFilesApi } from "../shared/files-api"
 import type { BotInteractionsApi, BotInteractionsSnapshot } from "../shared/interactions"
 import type { BotMainsApi, BotMainsView, MainRotationSettings } from "../shared/mains"
@@ -126,6 +127,11 @@ export interface BotEnvironmentRemote extends Remoted<Omit<BotEnvironmentApi, "w
   watch(botId: string): StreamHandle<BotEnvironmentView>
 }
 
+/** The mounted `remote.botEnvironmentHost`; `watch` streams instead of resolving once. */
+export interface BotEnvironmentHostRemote extends Remoted<Omit<BotEnvironmentHostApi, "watch">> {
+  watch(): StreamHandle<BotEnvironmentHostState>
+}
+
 /** The mounted `remote.botOnboarding`; `watch` streams instead of resolving once. */
 export interface BotOnboardingRemote extends Remoted<Omit<BotOnboardingApi, "watch">> {
   watch(): StreamHandle<BotOnboardingView>
@@ -153,6 +159,7 @@ export interface BotCoreRemote {
   readonly botSkills: BotSkillsRemote
   readonly botNotes: BotNotesRemote
   readonly botEnvironment: BotEnvironmentRemote
+  readonly botEnvironmentHost: BotEnvironmentHostRemote
   readonly botOnboarding: BotOnboardingRemote
   readonly botVaults: BotVaultsRemote
 }

@@ -14,6 +14,7 @@ import { ROWS_CSS } from "./styles-rows"
 import { SETTINGS_CSS } from "./styles-settings"
 import { SHELL_CSS } from "./styles-shell"
 import { SKILLS_CSS } from "./styles-skills"
+import { VM_HOST_CSS } from "./styles-vm-host"
 import { WEB_CSS } from "./styles-web"
 import { UI_CSS } from "./ui/styles"
 
@@ -36,4 +37,5 @@ export const BOTS_CSS =
   WEB_CSS +
   SKILLS_CSS +
   LIFECYCLE_CSS +
-  ONBOARDING_CSS
+  ONBOARDING_CSS +
+  VM_HOST_CSS

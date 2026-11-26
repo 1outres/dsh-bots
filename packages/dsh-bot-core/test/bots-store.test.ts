@@ -66,6 +66,7 @@ function remote() {
       botSkills: {} as never,
       botNotes: {} as never,
       botEnvironment: {} as never,
+      botEnvironmentHost: {} as never,
       botOnboarding: {} as never,
       botVaults: {} as never,
     },

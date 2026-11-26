@@ -24,6 +24,7 @@ import { createSkillsClient } from "./skills/client"
 import { mountBotCoreRemote, watchBots } from "./store"
 import type { ClientContext } from "./types"
 import { createBotVaultsHub, createVaultsFeed, openIncidentsOf } from "./vaults/model"
+import { createVmHostClient } from "./vm-host/client"
 import { createWebLookupFeed } from "./web/feed"
 import { wireArchive } from "./wiring/archive"
 import { createBotActions, createBotsFace, wireBotsSection } from "./wiring/bots-face"
@@ -49,6 +50,7 @@ import { wireShell } from "./wiring/shell"
 import { wireSidePanels } from "./wiring/side-panels"
 import { wireSkills } from "./wiring/skills"
 import { wireStyles } from "./wiring/styles"
+import { wireVmHost } from "./wiring/vm-host"
 import { wireWebLookup } from "./wiring/web"
 import { registerWorkspaceManagedMark, registerWorkspaceSessionMenu } from "./workspace-sessions"
 import { watchWorkspaces } from "./workspaces"
@@ -200,6 +202,7 @@ export function apply(ctx: ClientContext): void {
   wireSkills(ctx, { skills: createSkillsClient(remote), screens })
   wireEnvironment(ctx, { environment: createEnvironmentClient(remote), screens })
   wireWebLookup(ctx, webLookup, screens)
+  wireVmHost(ctx, createVmHostClient(remote), screens)
   const onboarding = wireOnboarding(ctx, {
     remote,
     bots,

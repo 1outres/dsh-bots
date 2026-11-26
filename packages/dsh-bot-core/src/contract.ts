@@ -14,6 +14,12 @@ import type {
 } from "./shared/connectors"
 import type { BotEnvironmentCapacity, BotEnvironmentSpec } from "./shared/environment"
 import type {
+  EnvironmentHostPairing,
+  EnvironmentHostView,
+  TrustTokenPreview,
+} from "./shared/environment-host"
+import type { BotEnvironmentImageHost } from "./shared/environment-image"
+import type {
   BotModelCatalog,
   BotModelChoice,
   BotModelSelection,
@@ -153,6 +159,30 @@ export interface BotEnvironment {
   rows(bot: BotEnvironmentBot): readonly PluginRow[]
   /** Optional: observe readiness changes (e.g. VM stopped); bot-core recomposes/marks the preset. */
   onChange?(listener: (botId: string) => void): () => void
+  /** Optional: where the VMs run, chosen in the dsh-bots settings (its VM host section). */
+  readonly host?: BotEnvironmentHost
+}
+
+/**
+ * The VM host of an environment (docs/specs/incus-endpoint.md §3, §4): which
+ * one is used, whether it can hold bot VMs, what the VMs reach that they must
+ * not, and its base image. Every change is followed by `subscribe`'s listeners.
+ * A rejection carries what went wrong (English); nothing is changed then.
+ */
+export interface BotEnvironmentHost {
+  view(): EnvironmentHostView
+  subscribe(listener: () => void): () => void
+  /** Check the VM host and project now. */
+  check(signal?: AbortSignal): Promise<EnvironmentHostView>
+  /** @throws when `token` is not a trust token. */
+  previewToken(token: string): TrustTokenPreview
+  /** Pair with a VM host and use it; the bots are ensured there again. */
+  pair(pairing: EnvironmentHostPairing, signal?: AbortSignal): Promise<EnvironmentHostView>
+  useLocal(project: string): Promise<EnvironmentHostView>
+  setProject(project: string): Promise<EnvironmentHostView>
+  forget(): Promise<EnvironmentHostView>
+  /** The base image VMs start from, when the environment imports it. */
+  readonly image?: BotEnvironmentImageHost
 }
 
 /** What other plugins see of the registered environment. */

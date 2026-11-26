@@ -14,6 +14,7 @@ import type {
 } from "@1outres/dsh-bot-core"
 import { capacityOf } from "./capacity"
 import { BOOT_FINISHED, isCanonicalPath, userDataText } from "./cloud-init"
+import { type EgressReport, egressProbeScript, egressReportOf } from "./egress-probe"
 import { checkEndpoint, type ProjectDeclaration } from "./endpoint-check"
 import { checkInstanceName, type GuestProxy, proxyCommandOf, SSHD_COMMAND } from "./guest-transport"
 import type { ImageGate } from "./image/manager"
@@ -61,8 +62,10 @@ export interface EnvironmentDeps {
   readonly incus: IncusClient
   /** The base image a new VM is created from (src/host/image/manager.ts). */
   readonly image: ImageGate
-  /** Whether the endpoint is this machine's socket or a paired VM host. */
-  readonly endpointKind: () => Promise<"local" | "remote">
+  /** The VM host now: this machine's socket or a paired one, and the project {@link incus} is scoped to. */
+  readonly scope: () => Promise<{ readonly kind: "local" | "remote"; readonly project: string }>
+  /** What the egress probe found from inside a bot's VM after its ensure (src/host/egress-probe.ts). */
+  readonly egress: (botId: string, report: EgressReport) => void
   /** The absolute ripgrep path the Host's DSH spawns, inside the bot's environment too. */
   readonly hostRipgrep: () => Promise<string>
   readonly files: EnvironmentFiles
@@ -75,8 +78,6 @@ export interface EnvironmentDeps {
 export interface EnvironmentSettings extends RowSettings {
   /** Absolute state directory (keys, known_hosts, state); `ssh/` under it holds each bot's ssh config. */
   readonly stateDir: string
-  /** The Incus project of every bot VM and volume; never "default". */
-  readonly project: string
   /**
    * Marks the instances and volumes this installation created
    * (`user.dsh-bot.owner`). Others are never started, stopped or deleted.
@@ -118,6 +119,8 @@ const MAX_INSTANCE_NAME = 63
 const WARM_UP_MIN_MS = 120_000
 /** A warm-up this slow is logged. */
 const WARM_UP_LOG_MS = 5_000
+/** The egress probe tries every connection at once, each for a few seconds. */
+const EGRESS_PROBE_TIMEOUT_MS = 30_000
 /** ssh's own failure; any other exit code comes from the remote command. */
 const SSH_FAILURE = 255
 
@@ -144,6 +147,8 @@ export interface VmEnvironment extends BotEnvironment {
    * instance this owner created for a bot is reached.
    */
   openGuest(instance: string, signal?: AbortSignal): Promise<ExecSession>
+  /** The VM host or project changed: ask bot-core to ensure every bot seen in this process again, there. */
+  rehome(): void
 }
 
 export interface ReconcileResult {
@@ -210,14 +215,14 @@ export function createVmEnvironment(
    * pass every check (src/host/endpoint-check.ts); otherwise what is missing
    * and how to fix it.
    */
-  async function placement(signal?: AbortSignal): Promise<ProjectDeclaration> {
-    const check = await checkEndpoint(
-      { incus, kind: await deps.endpointKind(), project: settings.project },
-      signal,
-    )
-    if (check.ok) return check.declaration
+  async function placement(
+    signal?: AbortSignal,
+  ): Promise<ProjectDeclaration & { readonly project: string }> {
+    const { kind, project } = await deps.scope()
+    const check = await checkEndpoint({ incus, kind, project }, signal)
+    if (check.ok) return { ...check.declaration, project }
     throw new Error(
-      `the Incus project "${settings.project}" cannot hold bot VMs: ${check.problems.map((problem) => `${problem.message} (${problem.fix})`).join("; ")}`,
+      `the Incus project "${project}" cannot hold bot VMs: ${check.problems.map((problem) => `${problem.message} (${problem.fix})`).join("; ")}`,
     )
   }
 
@@ -427,7 +432,7 @@ export function createVmEnvironment(
     }
     if (instance !== undefined && state === undefined) {
       throw new Error(
-        `Incus instance "${name}" exists but its state under ${file.dir} is missing; delete it (incus delete --force ${name} --project ${settings.project}) to provision it again`,
+        `Incus instance "${name}" exists but its state under ${file.dir} is missing; delete it (incus delete --force ${name} --project ${where.project}) to provision it again`,
       )
     }
     const volume = await incus.volume(where.pool, volumeOf(botId), signal)
@@ -634,6 +639,32 @@ export function createVmEnvironment(
     )
     await waitForSsh(alias, signal)
     await linkHostRipgrep(alias, signal)
+    await measureEgress(botId, alias, signal)
+  }
+
+  /** Report what the bot's VM reaches that it must not (advisory: never fails the ensure). */
+  async function measureEgress(botId: string, alias: string, signal?: AbortSignal): Promise<void> {
+    const result = await deps.run("ssh", sshArgs(alias, egressProbeScript()), {
+      signal,
+      timeoutMs: EGRESS_PROBE_TIMEOUT_MS,
+    })
+    signal?.throwIfAborted()
+    const report =
+      result.code === 0
+        ? egressReportOf(result.stdout, deps.now())
+        : {
+            state: "unmeasured" as const,
+            at: deps.now(),
+            reason: `the probe failed (exit ${result.code}): ${result.stderr.trim()}`,
+          }
+    if (report.state === "open") {
+      deps.log(
+        `${alias} reaches ${report.reached.join(", ")}; the VM host's egress ACL lets that through`,
+      )
+    } else if (report.state === "unmeasured") {
+      deps.log(`measuring the egress of ${alias} failed: ${report.reason}`)
+    }
+    deps.egress(botId, report)
   }
 
   /**
@@ -814,6 +845,12 @@ export function createVmEnvironment(
         throw new Error(`the workspace volume of Incus instance "${instance.name}" is missing`)
       }
       return specOf(instance, volume)
+    },
+    rehome() {
+      healthy.clear()
+      for (const botId of [...seen]) {
+        for (const listener of [...listeners]) listener(botId)
+      }
     },
     onChange(listener) {
       listeners.add(listener)

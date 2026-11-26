@@ -27,6 +27,7 @@ const mounted = (botFiles: Partial<BotFilesRemote>): Promise<RemoteMount> =>
       botSkills: {} as never,
       botNotes: {} as never,
       botEnvironment: {} as never,
+      botEnvironmentHost: {} as never,
       botOnboarding: {} as never,
       botVaults: {} as never,
     },

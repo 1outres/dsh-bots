@@ -4,6 +4,7 @@ import { Context, Service } from "@deepseek-ai/cordis"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { type BotEnvironment, botOf, type EnsureOptions } from "../src/contract"
 import type { BotRecord, BotSessionRecord } from "../src/host/domain"
+import type { EnvironmentHostPanel } from "../src/host/environment-host/panel"
 import type { EnvironmentPanel } from "../src/host/environment-spec/panel"
 import { DEFAULT_FILES_LIMITS } from "../src/host/files"
 import type { MainPanel } from "../src/host/mains/panel"
@@ -44,6 +45,8 @@ const mainPanels = vi.hoisted(() => [] as MainPanel[])
 /** The botEnvironment Remote's panels (BotEnvironmentRemoteService). */
 const environmentPanels = vi.hoisted(() => [] as EnvironmentPanel[])
 const onboardingPanels = vi.hoisted(() => [] as OnboardingPanel[])
+/** The botEnvironmentHost Remote's panels (BotEnvironmentHostRemoteService). */
+const environmentHostPanels = vi.hoisted(() => [] as EnvironmentHostPanel[])
 /** The botSkills Remote's panels (BotSkillsRemoteService). */
 const skillPanels = vi.hoisted(() => [] as SkillPanel[])
 /** The botNotes Remote's panels (BotNotesRemoteService). */
@@ -91,6 +94,11 @@ vi.mock("../src/host/remote", () => ({
   BotEnvironmentRemoteService: class {
     constructor(_ctx: unknown, panel: EnvironmentPanel) {
       environmentPanels.push(panel)
+    }
+  },
+  BotEnvironmentHostRemoteService: class {
+    constructor(_ctx: unknown, panel: EnvironmentHostPanel) {
+      environmentHostPanels.push(panel)
     }
   },
   BotOnboardingRemoteService: class {

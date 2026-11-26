@@ -5,8 +5,9 @@ import { afterEach, describe, expect, it } from "vitest"
 import {
   endpointOf,
   type IncusEndpoint,
-  parseStoredEndpoint,
-  serializeStoredEndpoint,
+  parseProjectName,
+  parseStoredScope,
+  serializeStoredScope,
   storedOf,
 } from "../src/host/endpoint"
 import { checkEndpoint } from "../src/host/endpoint-check"
@@ -155,7 +156,7 @@ describe("pairing with a trust token", () => {
       {
         createIdentity: async (name) =>
           createSelfSignedIdentity({ commonName: name, now: new Date(), usage: "client" }),
-        connect: clientOf,
+        connect: (endpoint: IncusEndpoint) => ({ incus: clientOf(endpoint), close() {} }),
         now: Date.now,
       },
     )
@@ -173,7 +174,11 @@ describe("pairing with a trust token", () => {
 
   it("refuses an expired token without connecting, and a used one after connecting", async () => {
     const server = await fake()
-    const deps = { createIdentity: async () => identity(), connect: clientOf, now: Date.now }
+    const deps = {
+      createIdentity: async () => identity(),
+      connect: (endpoint: IncusEndpoint) => ({ incus: clientOf(endpoint), close() {} }),
+      now: Date.now,
+    }
     const expired = parseTrustToken(server.token({ expiresAt: "2020-01-01T00:00:00Z" }))
     await expect(pair({ token: expired, url: server.url, name: "n" }, deps)).rejects.toThrow(
       "expired",
@@ -193,7 +198,11 @@ describe("pairing with a trust token", () => {
     await expect(
       pair(
         { token, url: other.url, name: "n" },
-        { createIdentity: async () => identity(), connect: clientOf, now: Date.now },
+        {
+          createIdentity: async () => identity(),
+          connect: (endpoint: IncusEndpoint) => ({ incus: clientOf(endpoint), close() {} }),
+          now: Date.now,
+        },
       ),
     ).rejects.toBeInstanceOf(CertificatePinError)
     expect(other.requests).toEqual([])
@@ -231,25 +240,37 @@ describe("endpoint store", () => {
       clientCertificate: made.certificate,
       clientKey: made.key,
     }
-    await store.write(storedOf(endpoint))
+    await store.write({ endpoint: storedOf(endpoint), project: "dsh-bots" })
     expect(files.get("/state/endpoint.json")?.mode).toBe(0o600)
     expect(files.get("/state/endpoint.json")?.content).not.toContain("PRIVATE KEY")
-    await expect(endpointOf((await store.read()) as never, keys)).rejects.toThrow(
+    const stored = async () => {
+      const scope = await store.read()
+      if (scope === undefined) throw new Error("nothing stored")
+      return scope
+    }
+    expect((await stored()).project).toBe("dsh-bots")
+    await expect(endpointOf((await stored()).endpoint, keys)).rejects.toThrow(
       "pair this installation",
     )
     await keys.write(made.key)
     expect([...records.keys()]).toEqual(["bot-vm/incus-client"])
-    await expect(endpointOf((await store.read()) as never, keys)).resolves.toEqual(endpoint)
+    await expect(endpointOf((await stored()).endpoint, keys)).resolves.toEqual(endpoint)
     await store.clear()
     await expect(store.read()).resolves.toBeUndefined()
   })
 
-  it("rejects stored endpoints it did not write", () => {
-    expect(() => parseStoredEndpoint("{}")).toThrow("unknown version")
+  it("rejects stored VM hosts it did not write, and earlier formats with what to do", () => {
+    expect(() => parseStoredScope("{}")).toThrow("unknown version")
     expect(() =>
-      parseStoredEndpoint(
-        JSON.stringify({
-          version: 1,
+      parseStoredScope(
+        JSON.stringify({ version: 1, kind: "local", socket: "/var/lib/incus/unix.socket" }),
+      ),
+    ).toThrow("choose the VM host again")
+    const scope = (endpoint: unknown, project = "dsh-bots") =>
+      JSON.stringify({ version: 2, project, endpoint })
+    expect(() =>
+      parseStoredScope(
+        scope({
           kind: "remote",
           url: "http://h:8443",
           serverCertificateSha256: "a".repeat(64),
@@ -257,22 +278,38 @@ describe("endpoint store", () => {
         }),
       ),
     ).toThrow("https://")
+    expect(() =>
+      parseStoredScope(scope({ kind: "local", socket: "/var/lib/incus/unix.socket" }, "default")),
+    ).toThrow('"default"')
     expect(
-      parseStoredEndpoint(
-        serializeStoredEndpoint({ kind: "local", socket: "/var/lib/incus/unix.socket" }),
+      parseStoredScope(
+        serializeStoredScope({
+          endpoint: { kind: "local", socket: "/var/lib/incus/unix.socket" },
+          project: "bots",
+        }),
       ),
-    ).toEqual({ kind: "local", socket: "/var/lib/incus/unix.socket" })
+    ).toEqual({
+      endpoint: { kind: "local", socket: "/var/lib/incus/unix.socket" },
+      project: "bots",
+    })
     expect(
-      parseStoredEndpoint(
-        JSON.stringify({
-          version: 1,
+      parseStoredScope(
+        scope({
           kind: "remote",
           url: "https://h:8443/",
           serverCertificateSha256: `${"AB:".repeat(31)}CD`,
           clientCertificate: identity().certificate,
         }),
-      ),
+      ).endpoint,
     ).toMatchObject({ url: "https://h:8443", serverCertificateSha256: `${"ab".repeat(31)}cd` })
+  })
+
+  it("takes Incus project names other than default", () => {
+    expect(parseProjectName(" dsh-bots ")).toBe("dsh-bots")
+    expect(() => parseProjectName("default")).toThrow('"default"')
+    for (const bad of ["", "a/b", ".x", "x".repeat(64)]) {
+      expect(() => parseProjectName(bad)).toThrow("not an Incus project name")
+    }
   })
 })
 

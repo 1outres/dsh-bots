@@ -24,8 +24,8 @@ export interface ClientIdentity {
 export interface PairingDeps {
   /** A new identity (EC P-384, self-signed) named `commonName`. */
   createIdentity(commonName: string): Promise<ClientIdentity>
-  /** A client of the endpoint; pairing only calls server-wide endpoints. */
-  connect(endpoint: IncusEndpoint): IncusClient
+  /** A client of the endpoint, closed once pairing ended; pairing only calls server-wide endpoints. */
+  connect(endpoint: IncusEndpoint): { readonly incus: IncusClient; close(): void }
   readonly now: () => number
 }
 
@@ -65,13 +65,18 @@ export async function pair(
     clientCertificate: identity.certificate,
     clientKey: identity.key,
   }
-  const incus = deps.connect(endpoint)
-  // Reach the pinned server before the token's secret is sent.
-  await incus.server(signal)
-  await incus.trustWithToken(token.text, signal)
-  const after = await incus.server(signal)
-  if (after.auth !== "trusted") {
-    throw new Error(`the VM host ${url} accepted the trust token but does not trust this client`)
+  const connection = deps.connect(endpoint)
+  try {
+    const { incus } = connection
+    // Reach the pinned server before the token's secret is sent.
+    await incus.server(signal)
+    await incus.trustWithToken(token.text, signal)
+    const after = await incus.server(signal)
+    if (after.auth !== "trusted") {
+      throw new Error(`the VM host ${url} accepted the trust token but does not trust this client`)
+    }
+  } finally {
+    connection.close()
   }
   const { clientKey, ...stored } = endpoint
   return { endpoint: stored, clientKey }

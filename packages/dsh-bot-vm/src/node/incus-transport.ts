@@ -104,7 +104,7 @@ async function bodyOf(response: IncomingMessage): Promise<unknown> {
 }
 
 export interface ClosableIncusTransport extends IncusTransport {
-  /** Close idle kept-alive connections. */
+  /** Close every connection, the websockets of operations included. */
   close(): void
 }
 
@@ -113,6 +113,8 @@ export function createIncusTransport(endpoint: IncusEndpoint): ClosableIncusTran
     endpoint.kind === "local" ? localConnector(endpoint.socket) : remoteConnector(endpoint)
   const pooled = agentOf(connect, true)
   const single = agentOf(connect, false)
+  /** Upgraded sockets leave their agent: they are closed with the transport. */
+  const upgraded = new Set<Socket>()
 
   const exchange = (
     method: string,
@@ -176,7 +178,10 @@ export function createIncusTransport(endpoint: IncusEndpoint): ClosableIncusTran
             reject(new Error(`Incus websocket ${path.split("?")[0]}: bad handshake`))
             return
           }
-          ;(socket as Socket).setNoDelay(true)
+          const opened = socket as Socket
+          upgraded.add(opened)
+          opened.once("close", () => upgraded.delete(opened))
+          opened.setNoDelay(true)
           resolve(websocketChannel(socket, head, true))
         })
         req.once("response", (response) => {
@@ -195,6 +200,8 @@ export function createIncusTransport(endpoint: IncusEndpoint): ClosableIncusTran
     close() {
       pooled.destroy()
       single.destroy()
+      for (const socket of upgraded) socket.destroy()
+      upgraded.clear()
     },
   }
 }

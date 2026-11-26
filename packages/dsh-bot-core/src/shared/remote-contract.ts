@@ -3,6 +3,7 @@ import type { BotChannelsApi } from "./channels"
 import type { BotConnectionsApi } from "./connections"
 import type { BotConnectorActionsApi, BotConnectorStreamsApi, BotConnectorsApi } from "./connectors"
 import type { BotEnvironmentApi } from "./environment"
+import type { BotEnvironmentHostApi } from "./environment-host"
 import type { BotFilesApi } from "./files-api"
 import type { BotInteractionsApi } from "./interactions"
 import type { BotMainsApi } from "./mains"
@@ -37,6 +38,7 @@ export interface BotCoreApi {
   readonly botSkills: BotSkillsApi
   readonly botNotes: BotNotesApi
   readonly botEnvironment: BotEnvironmentApi
+  readonly botEnvironmentHost: BotEnvironmentHostApi
   readonly botOnboarding: BotOnboardingApi
   readonly botVaults: BotVaultsApi
 }
@@ -59,6 +61,7 @@ export const REMOTE_NAMESPACES = [
   "botSkills",
   "botNotes",
   "botEnvironment",
+  "botEnvironmentHost",
   "botOnboarding",
   "botVaults",
 ] as const satisfies readonly RemoteNamespace[]
@@ -219,6 +222,18 @@ export const REMOTE_METHODS: {
   botEnvironment: {
     watch: { parameters: [{ name: "botId" }], stream: true, cancellable: true },
     configure: { parameters: [{ name: "botId" }, { name: "spec" }] },
+  },
+  botEnvironmentHost: {
+    watch: { parameters: [], stream: true, cancellable: true },
+    check: { parameters: [] },
+    previewToken: { parameters: [{ name: "token" }] },
+    pair: { parameters: [{ name: "pairing" }] },
+    useLocal: { parameters: [{ name: "project" }] },
+    setProject: { parameters: [{ name: "project" }] },
+    forget: { parameters: [] },
+    refreshImage: { parameters: [] },
+    startImage: { parameters: [] },
+    cancelImage: { parameters: [] },
   },
   botOnboarding: {
     watch: { parameters: [], stream: true, cancellable: true },

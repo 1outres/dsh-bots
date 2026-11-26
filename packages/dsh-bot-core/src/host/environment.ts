@@ -112,6 +112,8 @@ export interface EnvironmentKeeper {
   subscribe(listener: (botId: string) => void): () => void
   /** Called with the bot id after its {@link progress} or {@link removal} changed. */
   onActivity(listener: (botId: string) => void): () => void
+  /** Called after an environment was registered or unregistered. */
+  onRegistration(listener: () => void): () => void
   /** Abort every `ensure`; later calls do nothing. */
   dispose(): void
 }
@@ -162,6 +164,16 @@ export function createEnvironmentKeeper(deps: EnvironmentKeeperDeps): Environmen
   const orphans = new Set<string>()
   const listeners = new Set<(botId: string) => void>()
   const activityListeners = new Set<(botId: string) => void>()
+  const registrationListeners = new Set<() => void>()
+  const registrationChanged = () => {
+    for (const listener of [...registrationListeners]) {
+      try {
+        listener()
+      } catch (error) {
+        deps.warn(`bot-core: an environment registration listener failed: ${describe(error)}`)
+      }
+    }
+  }
   const removalStates = new Map<string, RemovalStatus>()
   let environment: BotEnvironment | undefined
   let offChange: (() => void) | undefined
@@ -422,6 +434,7 @@ export function createEnvironmentKeeper(deps: EnvironmentKeeperDeps): Environmen
       for (const botId of [...orphans]) void remove(botId)
       for (const botId of tracked.keys()) start(botId)
       void sync()
+      registrationChanged()
       return () => {
         if (environment !== next) return
         environment = undefined
@@ -444,6 +457,7 @@ export function createEnvironmentKeeper(deps: EnvironmentKeeperDeps): Environmen
           entry.warned = undefined
           setStatus(botId, entry, NO_ENVIRONMENT)
         }
+        registrationChanged()
       }
     },
 
@@ -500,6 +514,13 @@ export function createEnvironmentKeeper(deps: EnvironmentKeeperDeps): Environmen
       }
     },
 
+    onRegistration(listener) {
+      registrationListeners.add(listener)
+      return () => {
+        registrationListeners.delete(listener)
+      }
+    },
+
     onActivity(listener) {
       const entry = (botId: string) => listener(botId)
       activityListeners.add(entry)
@@ -522,6 +543,7 @@ export function createEnvironmentKeeper(deps: EnvironmentKeeperDeps): Environmen
       }
       offChange = undefined
       listeners.clear()
+      registrationListeners.clear()
       activityListeners.clear()
     },
   }

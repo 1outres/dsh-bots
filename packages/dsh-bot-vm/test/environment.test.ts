@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { type EgressReport, egressProbeScript } from "../src/host/egress-probe"
 import {
   type CommandResult,
   createVmEnvironment,
@@ -23,7 +24,6 @@ const DAY = 24 * 3_600_000
 
 const settings: EnvironmentSettings = {
   stateDir: "/state",
-  project: "dsh-bots",
   owner: "owner-a",
   orphanGraceMs: 7 * DAY,
   instancePrefix: "dsh-bot-",
@@ -215,6 +215,7 @@ interface Harness {
   clock: { now: number }
   /** Exit codes the readiness probe returns, in order (then 0). */
   probe: number[]
+  egress: { botId: string; report: EgressReport }[]
 }
 
 function setup(
@@ -228,6 +229,7 @@ function setup(
     commands: [],
     clock: { now: 0 },
     probe: [],
+    egress: [],
     ...overrides,
   }
   const environment = createVmEnvironment(
@@ -235,7 +237,8 @@ function setup(
     {
       incus: h.incus.client,
       image: { ready: async () => {} },
-      endpointKind: async () => "remote",
+      scope: async () => ({ kind: "remote", project: "dsh-bots" }),
+      egress: (botId, report) => h.egress.push({ botId, report }),
       files: h.files.api,
       hostRipgrep: async () => HOST_RG,
       async run(file, args): Promise<CommandResult> {
@@ -402,7 +405,8 @@ describe("incus-vm environment", () => {
       alias,
       "test -e /var/lib/cloud/instance/boot-finished && mountpoint -q '/home/bot/workspace' && test -w '/home/bot/workspace'",
     ])
-    expect(sshCommands(h)).toHaveLength(3)
+    expect(sshCommands(h)).toHaveLength(4)
+    expect(sshCommands(h)[3]?.at(-1)).toBe(egressProbeScript())
     expect(sshCommands(h)[1]?.slice(-2)).toEqual([
       alias,
       "cd '/home/bot/workspace' && '/usr/bin/node' --disable-sigusr1 '/opt/helper.js' </dev/null >/dev/null 2>&1; exit 0",
@@ -415,12 +419,51 @@ describe("incus-vm environment", () => {
     await expect(environment.ensure(target)).rejects.toThrow(
       'the Incus project "dsh-bots" cannot hold bot VMs: the project "dsh-bots" names no storage pool (user.dsh-bots.pool) (incus project set dsh-bots user.dsh-bots.pool=<pool>); ',
     )
-    const local = setup({}, { endpointKind: async () => "local" }, { project: "default" })
+    const local = setup({}, { scope: async () => ({ kind: "local", project: "default" }) })
     await expect(local.environment.ensure(target)).rejects.toThrow(
       'never use the Incus project "default"',
     )
     expect([...h.incus.log, ...local.h.incus.log]).toEqual([])
     expect(h.files.files.size).toBe(0)
+  })
+
+  it("measures from inside the VM what it reaches that it must not, and only reports it", async () => {
+    const outputs: Record<string, CommandResult> = {
+      open: {
+        code: 0,
+        stdout: "gateway 10.20.0.1\nopen 10.20.0.1:22\nopen 10.0.0.1:22\n",
+        stderr: "",
+      },
+      failed: { code: 255, stdout: "", stderr: "Connection closed" },
+    }
+    for (const [name, output] of Object.entries(outputs)) {
+      const { h, environment } = setup(
+        {},
+        {
+          async run(file, args) {
+            if (file === "ssh-keygen") {
+              const path = args[args.indexOf("-f") + 1] as string
+              await h.files.api.write(path, "PRIVATE", 0o600)
+              await h.files.api.write(`${path}.pub`, "ssh-ed25519 K", 0o600)
+              return { code: 0, stdout: "", stderr: "" }
+            }
+            return args.at(-1) === egressProbeScript()
+              ? output
+              : { code: 0, stdout: "", stderr: "" }
+          },
+        },
+      )
+      await environment.ensure(target)
+      expect(h.egress.map((entry) => [entry.botId, entry.report.state])).toEqual([
+        [target.id, name === "open" ? "open" : "unmeasured"],
+      ])
+      if (name === "open") {
+        expect(h.egress[0]?.report).toMatchObject({
+          gateway: "10.20.0.1",
+          reached: ["10.0.0.1:22", "10.20.0.1:22"],
+        })
+      }
+    }
   })
 
   it("warms the helper up with a generous deadline and never fails ensure on it", async () => {
@@ -446,7 +489,7 @@ describe("incus-vm environment", () => {
       },
     )
     await prepared.environment.ensure(target)
-    expect(timeouts).toEqual([30_000, 120_000, 30_000])
+    expect(timeouts).toEqual([30_000, 120_000, 30_000, 30_000])
     expect(
       logs.some((line) => line.includes("warming up the SSH helper") && line.includes("timed out")),
     ).toBe(true)

@@ -92,6 +92,7 @@ import {
   WORKSPACE_FILES_VERSION,
 } from "./host/domain"
 import { createEnvironmentKeeper } from "./host/environment"
+import { createEnvironmentHostPanel } from "./host/environment-host/panel"
 import {
   ENVIRONMENT_SPECS_DOMAIN,
   type EnvironmentSpecRecord,
@@ -201,6 +202,7 @@ import {
   BotConnectorActionsRemoteService,
   BotConnectorStreamsRemoteService,
   BotConnectorsRemoteService,
+  BotEnvironmentHostRemoteService,
   BotEnvironmentRemoteService,
   BotFilesRemoteService,
   BotInteractionsRemoteService,
@@ -319,6 +321,8 @@ export {
   BOT_ENVIRONMENT_SPEC_KEYS,
   DEFAULT_BOT_ENVIRONMENT_SPEC,
 } from "./shared/environment"
+export type * from "./shared/environment-host"
+export { ENVIRONMENT_HOST_PROBLEM_CODES } from "./shared/environment-host"
 export type * from "./shared/files"
 export { BOT_FILE_ERROR_CODES } from "./shared/files"
 export type * from "./shared/managed-sessions"
@@ -3534,6 +3538,14 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     needs: connectorNeeds,
     listed: (botId) => registry.get(botId) !== undefined,
   })
+  new BotEnvironmentHostRemoteService(
+    ctx,
+    createEnvironmentHostPanel({
+      environment: environments,
+      botName: (botId) => registry.get(botId)?.name,
+      onBots: (listener) => registry.subscribe(() => listener()),
+    }),
+  )
   new BotEnvironmentRemoteService(ctx, environmentPanel, (listener) => {
     const offs = [
       specStore.subscribe(() => listener()),

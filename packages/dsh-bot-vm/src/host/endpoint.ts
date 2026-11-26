@@ -29,10 +29,16 @@ export type StoredEndpoint =
       readonly clientCertificate: string
     }
 
-/** The stored endpoint (state only: no logic). */
+/** The VM host chosen in the dsh-bots settings: where, and in which project. */
+export interface StoredScope {
+  readonly endpoint: StoredEndpoint
+  readonly project: string
+}
+
+/** The chosen VM host (state only: no logic); none stored means this machine's socket by default. */
 export interface EndpointStore {
-  read(): Promise<StoredEndpoint | undefined>
-  write(endpoint: StoredEndpoint): Promise<void>
+  read(): Promise<StoredScope | undefined>
+  write(scope: StoredScope): Promise<void>
   clear(): Promise<void>
 }
 
@@ -50,6 +56,16 @@ export interface IncusScope {
 }
 
 const SHA256 = /^[0-9a-f]{64}$/
+/** Incus project names (no slash, no leading dot), at most 63 characters. */
+const PROJECT = /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}$/
+
+/** A project bot VMs may use. @throws on an invalid name or "default". */
+export function parseProjectName(value: string): string {
+  const name = value.trim()
+  if (!PROJECT.test(name)) throw new Error(`"${value}" is not an Incus project name`)
+  if (name === "default") throw new Error('bot VMs never use the Incus project "default"')
+  return name
+}
 
 /** A server certificate fingerprint as Incus prints it, normalized (lowercase, no colons). */
 export function normalizeSha256(value: string): string {
@@ -83,19 +99,14 @@ function field(record: Readonly<Record<string, unknown>>, key: string, what: str
   return value
 }
 
-/** The stored endpoint as written by {@link serializeStoredEndpoint}. @throws on anything else. */
-export function parseStoredEndpoint(text: string, what = "the stored VM host"): StoredEndpoint {
-  let value: unknown
-  try {
-    value = JSON.parse(text)
-  } catch {
-    throw new Error(`${what} is not JSON`)
-  }
+function objectOf(value: unknown, what: string): Readonly<Record<string, unknown>> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`${what} is not an object`)
   }
-  const record = value as Record<string, unknown>
-  if (record.version !== 1) throw new Error(`${what} has an unknown version`)
+  return value as Record<string, unknown>
+}
+
+function endpointOfRecord(record: Readonly<Record<string, unknown>>, what: string): StoredEndpoint {
   switch (record.kind) {
     case "local": {
       const socket = field(record, "socket", what)
@@ -120,8 +131,31 @@ export function parseStoredEndpoint(text: string, what = "the stored VM host"): 
   }
 }
 
-export function serializeStoredEndpoint(endpoint: StoredEndpoint): string {
-  return `${JSON.stringify({ version: 1, ...endpoint }, null, 2)}\n`
+const SCOPE_VERSION = 2
+
+/** The chosen VM host as written by {@link serializeStoredScope}. @throws on anything else. */
+export function parseStoredScope(text: string, what = "the stored VM host"): StoredScope {
+  let value: unknown
+  try {
+    value = JSON.parse(text)
+  } catch {
+    throw new Error(`${what} is not JSON`)
+  }
+  const record = objectOf(value, what)
+  if (record.version === 1) {
+    throw new Error(
+      `${what} was written by an earlier development version (no project); choose the VM host again in the dsh-bots settings`,
+    )
+  }
+  if (record.version !== SCOPE_VERSION) throw new Error(`${what} has an unknown version`)
+  return {
+    endpoint: endpointOfRecord(objectOf(record.endpoint, `${what}: the endpoint`), what),
+    project: parseProjectName(field(record, "project", what)),
+  }
+}
+
+export function serializeStoredScope(scope: StoredScope): string {
+  return `${JSON.stringify({ version: SCOPE_VERSION, project: scope.project, endpoint: scope.endpoint }, null, 2)}\n`
 }
 
 /** The stored endpoint made connectable. @throws when a remote endpoint's key is missing. */

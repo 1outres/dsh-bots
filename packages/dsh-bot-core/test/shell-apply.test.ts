@@ -326,6 +326,7 @@ function fakeContext(options: FakeOptions = {}) {
       botSkills: { watch: vi.fn() },
       botNotes: { watch: vi.fn() },
       botEnvironment: { watch: vi.fn() },
+      botEnvironmentHost: { watch: vi.fn() },
       botOnboarding: {
         watch: vi.fn(() => ({
           dispose() {},
@@ -964,6 +965,7 @@ describe("client apply(): bot-core's Remote", () => {
         "botSkills",
         "botNotes",
         "botEnvironment",
+        "botEnvironmentHost",
         "botOnboarding",
         "botVaults",
       ]),
@@ -1055,6 +1057,7 @@ describe("client apply(): bot-core's Remote", () => {
     const global = injectedBy<GlobalSettingsScreenFace>(overlay)
     expect(global.sections.getSnapshot().map((section) => section.id)).toEqual([
       "bot-core.web",
+      "bot-core.vm-host",
       "bot-core.mains",
       "bot-core.connections",
       "bot-core.vaults",

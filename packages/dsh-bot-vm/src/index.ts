@@ -11,13 +11,14 @@ import { execFile } from "node:child_process"
 import { createHash, randomBytes } from "node:crypto"
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs"
 import { chmod, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises"
-import { homedir } from "node:os"
+import { homedir, hostname } from "node:os"
 import { join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import type { Bot } from "@1outres/dsh-bot-core"
 import type { Context } from "@deepseek-ai/cordis"
 import z from "@deepseek-ai/schemastery"
-import { endpointOf, type IncusEndpoint } from "./host/endpoint"
+import { type IncusEndpoint, parseProjectName } from "./host/endpoint"
+import { createEndpointScope } from "./host/endpoint-scope"
 import {
   clientKeyRecord,
   ENDPOINT_FILE,
@@ -38,9 +39,12 @@ import { releaseOf } from "./host/image/release"
 import { DSH_VERSION } from "./host/image/release-env"
 import { createIncusClient } from "./host/incus"
 import { decideOwner, OWNER_FILE } from "./host/owner"
-import { endpointTransport } from "./node/endpoint-transport"
+import { switchableIncusClient } from "./host/switchable-incus"
+import { createVmHost, type VmHost } from "./host/vm-host"
+import { certificateFingerprint, createSelfSignedIdentity } from "./node/client-identity"
 import { startGuestRelay } from "./node/guest-relay"
 import { nodeImageFiles, nodeImageHttp, sha256 } from "./node/image-io"
+import { createIncusTransport } from "./node/incus-transport"
 
 export const name = "bot-vm"
 /**
@@ -306,7 +310,6 @@ export function settingsOf(config: Config, owner: string): EnvironmentSettings {
   const stateDir = expandHome(config.stateDir)
   return {
     stateDir,
-    project: config.incusProject,
     rootDiskGiB: config.rootDiskGiB,
     owner,
     orphanGraceMs: config.orphanGraceMs,
@@ -336,22 +339,8 @@ interface CredentialServices {
   credentials: SecretRecords
 }
 
-/**
- * The stored endpoint (`<stateDir>/endpoint.json`), or this machine's socket
- * while none is stored. A paired VM host's client key is read from DSH's
- * credential store; without that service a paired endpoint cannot be used.
- */
-function storedEndpoint(
-  stateDir: string,
-  socket: string,
-  records: () => SecretRecords | undefined,
-): () => Promise<IncusEndpoint> {
-  const store = fileEndpointStore(join(stateDir, ENDPOINT_FILE), nodeFiles)
-  const secrets: SecretRecords = {
-    readRecord: (key) => required().readRecord(key),
-    modifyRecord: (key, mutate) => required().modifyRecord(key, mutate),
-    deleteRecord: (key) => required().deleteRecord(key),
-  }
+/** DSH's secret records, while the `credentials` service is there; a paired VM host cannot be used without it. */
+function credentialRecords(records: () => SecretRecords | undefined): SecretRecords {
   function required(): SecretRecords {
     const found = records()
     if (found === undefined) {
@@ -361,8 +350,11 @@ function storedEndpoint(
     }
     return found
   }
-  const keys = recordClientKeyStore(secrets, clientKeyRecord(name))
-  return async () => endpointOf((await store.read()) ?? { kind: "local", socket }, keys)
+  return {
+    readRecord: (key) => required().readRecord(key),
+    modifyRecord: (key, mutate) => required().modifyRecord(key, mutate),
+    deleteRecord: (key) => required().deleteRecord(key),
+  }
 }
 
 /** Downloads of the base image stall when no byte arrives for this long. */
@@ -407,8 +399,10 @@ export function apply(ctx: Context, config: Config): void {
   const stateDir = expandHome(config.stateDir)
   const settings = settingsOf(config, config.owner === "" ? ownerOf(stateDir) : config.owner)
   let records: SecretRecords | undefined
+  let host: VmHost | undefined
   ctx.inject(["credentials"], (scope) => {
     records = (scope as unknown as CredentialServices).credentials
+    void host?.check().catch(() => {})
     scope.effect(
       () => () => {
         records = undefined
@@ -416,26 +410,48 @@ export function apply(ctx: Context, config: Config): void {
       "bot-vm: credentials",
     )
   })
-  const transport = endpointTransport(storedEndpoint(stateDir, config.incusSocket, () => records))
-  ctx.effect(() => () => transport.close(), "bot-vm: Incus connections")
-  const incus = createIncusClient({
-    transport,
-    project: config.incusProject,
-    operationTimeoutMs: config.operationTimeoutMs,
-    requestTimeoutMs: config.incusTimeoutMs,
+  const clientOf = (endpoint: IncusEndpoint, project: string) => {
+    const transport = createIncusTransport(endpoint)
+    return {
+      incus: createIncusClient({
+        transport,
+        project,
+        operationTimeoutMs: config.operationTimeoutMs,
+        requestTimeoutMs: config.incusTimeoutMs,
+      }),
+      close: () => transport.close(),
+    }
+  }
+  const scope = createEndpointScope({
+    store: fileEndpointStore(join(stateDir, ENDPOINT_FILE), nodeFiles),
+    keys: recordClientKeyStore(
+      credentialRecords(() => records),
+      clientKeyRecord(name),
+    ),
+    defaults: {
+      endpoint: { kind: "local", socket: config.incusSocket },
+      project: parseProjectName(config.incusProject),
+    },
+    connect: clientOf,
   })
+  ctx.effect(() => () => scope.close(), "bot-vm: Incus connections")
+  const incus = switchableIncusClient(async () => (await scope.current()).incus)
   const images = imageManagerOf(
     config,
     stateDir,
     incus,
-    () => config.incusProject,
+    () => scope.project(),
     (message) => ctx.logger.info(`bot-vm: ${message}`),
   )
   ctx.effect(() => () => images.close(), "bot-vm: base image")
   const environment = createVmEnvironment(settings, {
     incus,
     image: images,
-    endpointKind: () => transport.kind(),
+    async scope() {
+      const active = await scope.current()
+      return { kind: active.kind, project: active.project }
+    },
+    egress: (botId, report) => host?.egress(botId, report),
     hostRipgrep,
     files: nodeFiles,
     run: runCommand,
@@ -443,6 +459,29 @@ export function apply(ctx: Context, config: Config): void {
     now: Date.now,
     log: (message) => ctx.logger.info(message),
   })
+  host = createVmHost({
+    scope,
+    image: images,
+    rehome: () => environment.rehome(),
+    pairing: {
+      createIdentity: async (commonName) =>
+        createSelfSignedIdentity({ commonName, now: new Date(), usage: "client" }),
+      connect: (endpoint) => clientOf(endpoint, scope.defaults.project),
+      now: Date.now,
+    },
+    clientName: `dsh-bots@${hostname()}`,
+    fingerprintOf: certificateFingerprint,
+    now: Date.now,
+    log: (message) => ctx.logger.info(message),
+  })
+  const vmHost = host
+  ctx.effect(() => () => vmHost.dispose(), "bot-vm: VM host")
+  void vmHost
+    .check()
+    .then(() => images.refresh())
+    .catch((error: unknown) =>
+      ctx.logger.warn(`bot-vm: looking at the VM host failed: ${String(error)}`),
+    )
   const bot = botOf(ctx)
   ctx.effect(() => {
     const relay = startGuestRelay({
@@ -456,7 +495,7 @@ export function apply(ctx: Context, config: Config): void {
     )
     return () => relay.then((started) => started.close()).catch(() => {})
   }, "bot-vm: guest relay")
-  ctx.effect(() => bot.registerEnvironment(environment), "bot-vm: environment")
+  ctx.effect(() => bot.registerEnvironment({ ...environment, host: vmHost }), "bot-vm: environment")
 
   const lifetime = new AbortController()
   ctx.effect(() => () => lifetime.abort(), "bot-vm: upkeep")

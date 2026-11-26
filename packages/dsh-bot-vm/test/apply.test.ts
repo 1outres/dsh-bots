@@ -98,8 +98,9 @@ describe("@1outres/dsh-bot-vm", () => {
   })
 
   it("uses the dsh-bots project and a 16 GiB root disk, sharing nothing from the Host", () => {
-    const settings = vm.settingsOf(vm.Config({} as never), "0".repeat(16))
-    expect(settings.project).toBe("dsh-bots")
+    const config = vm.Config({} as never)
+    const settings = vm.settingsOf(config, "0".repeat(16))
+    expect(config.incusProject).toBe("dsh-bots")
     expect(settings.rootDiskGiB).toBe(16)
     expect(settings).not.toHaveProperty("hostRoot")
   })

@@ -337,6 +337,7 @@ ProxyCommand は DSH のプロセスの中で中継する（§5.2）ので、Inc
 3. `feat/workspace-volume`: volume の作成・接続・拡張・削除、cloud-init の mount、`hostRoot`/`raw.idmap`/`guestUid` 周りを消す。プロファイルをやめ、インスタンスに直接書く。`default` project を拒む。ここで確認用 DSH（形 1）で bot-core の一通りを試す。
 4. `feat/image-import`: プラグインからのイメージの取り込み（Host 側の状態とコントラクトまで。画面は 5）。
 5. `feat/endpoint-ui`: 設定画面（VM ホストの選択、token、検査結果、ACL の警告）。2〜4 と並べられる（画面だけ。API が固まってから）。
+   - 実装（2026-11-26）: bot-core の `BotEnvironment.host`（`BotEnvironmentHost`）と Remote `botEnvironmentHost`、dsh-bots 設定の「VM host」（docs/specs/ui-design.md）。保存は `endpoint.json` の version 2（endpoint と project）。実行中の切り替えは scope ごとの IncusClient に委譲し、切り替え後にボットを ensure し直す。ACL の実測は ensure の最後（`src/host/egress-probe.ts`）。確認済み（確認用 DSH、project `dsh-eui`）: 形 1 の検査・project の変更と問題の表示・ボット作成後の実測「隔離されています」、`core.https_address=127.0.0.1:8443` での形 2 のペアリング（指紋の表示、制限付き証明書の登録、HTTPS 越しの exec/SSH）、解除と trust remove の案内、指紋が違う token の拒否。未検証: 別のマシンからの形 2・3、取り込み中の切り替え。
 6. `feat/installer-split`: install.sh / host-setup.sh / 新しい管理者スクリプト / 文書（§7）。
 7. 別のマシンでの形 2・形 3 の通しの確認と §9 の未検証の解消。
 

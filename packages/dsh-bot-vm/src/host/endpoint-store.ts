@@ -3,7 +3,7 @@
  * key in a secret record of DSH's store (docs/specs/incus-endpoint.md §6.2).
  */
 import type { ClientKeyStore, EndpointStore } from "./endpoint"
-import { parseStoredEndpoint, serializeStoredEndpoint } from "./endpoint"
+import { parseStoredScope, serializeStoredScope } from "./endpoint"
 
 /** Files as src/index.ts provides them (atomic writes). */
 export interface StoreFiles {
@@ -18,9 +18,9 @@ export function fileEndpointStore(path: string, files: StoreFiles): EndpointStor
   return {
     async read() {
       const text = await files.read(path)
-      return text === undefined ? undefined : parseStoredEndpoint(text, path)
+      return text === undefined ? undefined : parseStoredScope(text, path)
     },
-    write: (endpoint) => files.write(path, serializeStoredEndpoint(endpoint), 0o600),
+    write: (scope) => files.write(path, serializeStoredScope(scope), 0o600),
     clear: () => files.remove(path),
   }
 }

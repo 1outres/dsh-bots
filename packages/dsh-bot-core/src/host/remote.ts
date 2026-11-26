@@ -45,6 +45,12 @@ import type {
   BotEnvironmentView,
 } from "../shared/environment"
 import type {
+  BotEnvironmentHostApi,
+  BotEnvironmentHostState,
+  EnvironmentHostPairing,
+  TrustTokenPreview,
+} from "../shared/environment-host"
+import type {
   BotByteReadOptions,
   BotDirectoryListing,
   BotFileBytes,
@@ -123,6 +129,7 @@ import type { ConnectionPanel } from "./connections/panel"
 import type { ConnectorApprovals } from "./connectors/approvals"
 import type { ConnectorPanel } from "./connectors/panel"
 import type { ConnectorStreams } from "./connectors/streams"
+import type { EnvironmentHostPanel } from "./environment-host/panel"
 import type { EnvironmentPanel } from "./environment-spec/panel"
 import type { BotFiles } from "./files"
 import type { InteractionPanel } from "./interactions/panel"
@@ -901,6 +908,78 @@ export class BotEnvironmentRemoteService extends TypertRemoteService implements 
   }
 }
 
+export const BOT_ENVIRONMENT_HOST_REMOTE = "botEnvironmentHost" satisfies RemoteNamespace
+
+const ENVIRONMENT_HOST = Symbol("botEnvironmentHostPanel")
+
+/** The VM host of the dsh-bots settings: which one bots run on, its check, pairing, the base image. */
+export class BotEnvironmentHostRemoteService
+  extends TypertRemoteService
+  implements BotEnvironmentHostApi
+{
+  [ENVIRONMENT_HOST]: EnvironmentHostPanel
+
+  constructor(ctx: Context, panel: EnvironmentHostPanel) {
+    super(ctx, BOT_ENVIRONMENT_HOST_REMOTE)
+    this[ENVIRONMENT_HOST] = panel
+  }
+
+  @Remote({ mode: "stream" })
+  async *watch(signal?: AbortSignal): AsyncIterable<BotEnvironmentHostState> {
+    const panel = this[ENVIRONMENT_HOST]
+    yield* watchStream(
+      () => panel.state(),
+      (listener) => panel.subscribe(listener),
+      signal,
+    )
+  }
+
+  @Remote
+  check(): Promise<BotEnvironmentHostState> {
+    return this[ENVIRONMENT_HOST].check()
+  }
+
+  @Remote
+  async previewToken(token: string): Promise<TrustTokenPreview> {
+    return this[ENVIRONMENT_HOST].previewToken(token)
+  }
+
+  @Remote
+  pair(pairing: EnvironmentHostPairing): Promise<BotEnvironmentHostState> {
+    return this[ENVIRONMENT_HOST].pair(pairing)
+  }
+
+  @Remote
+  useLocal(project: string): Promise<BotEnvironmentHostState> {
+    return this[ENVIRONMENT_HOST].useLocal(project)
+  }
+
+  @Remote
+  setProject(project: string): Promise<BotEnvironmentHostState> {
+    return this[ENVIRONMENT_HOST].setProject(project)
+  }
+
+  @Remote
+  forget(): Promise<BotEnvironmentHostState> {
+    return this[ENVIRONMENT_HOST].forget()
+  }
+
+  @Remote
+  refreshImage(): Promise<BotEnvironmentHostState> {
+    return this[ENVIRONMENT_HOST].refreshImage()
+  }
+
+  @Remote
+  startImage(): Promise<BotEnvironmentHostState> {
+    return this[ENVIRONMENT_HOST].startImage()
+  }
+
+  @Remote
+  cancelImage(): Promise<BotEnvironmentHostState> {
+    return this[ENVIRONMENT_HOST].cancelImage()
+  }
+}
+
 export const BOT_ONBOARDING_REMOTE = "botOnboarding" satisfies RemoteNamespace
 
 const ONBOARDING = Symbol("botOnboardingPanel")
@@ -1043,6 +1122,7 @@ export const REMOTE_SERVICES = {
   botSkills: BotSkillsRemoteService,
   botNotes: BotNotesRemoteService,
   botEnvironment: BotEnvironmentRemoteService,
+  botEnvironmentHost: BotEnvironmentHostRemoteService,
   botOnboarding: BotOnboardingRemoteService,
   botVaults: BotVaultsRemoteService,
 } as const satisfies {
