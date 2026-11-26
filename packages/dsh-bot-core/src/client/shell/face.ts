@@ -10,6 +10,7 @@ import type { Observable } from "../observable"
 import type { BotsState, RegistrationStatus, SessionClass } from "../session-classification"
 import type { ShellMenu } from "../shell-menu"
 import type { BotStatus } from "../status"
+import type { SettingsScreenId } from "../wiring/screens"
 import type { NoticeDismissal } from "./notice-dismissal"
 import type { ShellPopovers } from "./popovers"
 import type { SidePanels } from "./side-panels"
@@ -40,8 +41,12 @@ export interface ShellFace {
   readonly actionsWidth: PanelWidth
   /** The Notes, Actions or connector panel each session shows beside the chat. */
   readonly panels: SidePanels
-  /** The connector panel each session shows over the chat. */
+  /** The connector panel each session shows as a popover over the app. */
   readonly popovers: ShellPopovers
+  /** The open settings screens, which open over a popover. */
+  readonly settingsStack: Observable<readonly SettingsScreenId[]>
+  /** Where the popovers are drawn, once bot-core's `shell.overlay` entry is mounted. */
+  readonly popoverHost: Observable<HTMLElement | null>
   /** Connectors' panels beside the chat. */
   readonly connectorPanels: ConnectorPanelsFace
   /** Unacknowledged credential incidents per bot (docs/specs/bot-vaults.md §7.3). */

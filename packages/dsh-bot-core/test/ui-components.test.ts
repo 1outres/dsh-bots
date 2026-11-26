@@ -265,7 +265,12 @@ describe("secret editor", () => {
 })
 
 describe("layer stack", () => {
-  const layer = (trap: boolean) => ({ element: () => null, trap, escape: vi.fn() })
+  const layer = (trap: boolean) => ({
+    element: () => null,
+    trap,
+    yields: () => false,
+    escape: vi.fn(),
+  })
 
   it("gives Escape to the top layer and focus to the top trapping one", () => {
     const stack = createLayerStack()

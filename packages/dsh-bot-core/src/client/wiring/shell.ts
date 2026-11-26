@@ -9,6 +9,7 @@ import { createStore, type Observable } from "../observable"
 import type { BotsState, RegistrationStatus } from "../session-classification"
 import type { ShellFace } from "../shell/face"
 import { createNoticeDismissal } from "../shell/notice-dismissal"
+import { createPopoverHost, type PopoverHostFace, PopoverHostView } from "../shell/popover-host"
 import type { ShellPopovers } from "../shell/popovers"
 import { ShellRoot } from "../shell/ShellRoot"
 import type { SidePanels } from "../shell/side-panels"
@@ -17,6 +18,7 @@ import { createSlotRegistration } from "../slot-registration"
 import type { ClientContext } from "../types"
 import type { BotActions } from "./bots-face"
 import type { Classification } from "./classification"
+import { overlay } from "./dialogs"
 import { NAMESPACE } from "./plugin"
 
 export interface ShellSources {
@@ -31,6 +33,7 @@ export interface ShellSources {
   readonly approvals: ActionsHub
   readonly panels: SidePanels
   readonly popovers: ShellPopovers
+  readonly settingsStack: ShellFace["settingsStack"]
   readonly connectorPanels: ConnectorPanelsFace
   readonly incidents: ShellFace["incidents"]
 }
@@ -58,6 +61,14 @@ export function wireShell(
     }
   }, "bot-core: bot session menu bar entries")
 
+  const popoverHost = createPopoverHost()
+  overlay(
+    ctx,
+    "bot-core.popovers",
+    () => ({ host: popoverHost }) satisfies PopoverHostFace,
+    PopoverHostView,
+  )
+
   const face: ShellFace = {
     classification: classification.main,
     bots: sources.bots,
@@ -75,6 +86,8 @@ export function wireShell(
     actionsWidth: createPanelWidth(ACTIONS_PANEL_WIDTH),
     panels: sources.panels,
     popovers: sources.popovers,
+    settingsStack: sources.settingsStack,
+    popoverHost,
     connectorPanels: sources.connectorPanels,
     incidents: sources.incidents,
   }

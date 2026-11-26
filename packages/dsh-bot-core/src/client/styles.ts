@@ -10,6 +10,7 @@ import { INTERACTIONS_CSS } from "./styles-interactions"
 import { LIFECYCLE_CSS } from "./styles-lifecycle"
 import { NOTES_CSS } from "./styles-notes"
 import { ONBOARDING_CSS } from "./styles-onboarding"
+import { OVERLAY_CSS } from "./styles-overlay"
 import { ROWS_CSS } from "./styles-rows"
 import { SETTINGS_CSS } from "./styles-settings"
 import { SHELL_CSS } from "./styles-shell"
@@ -33,6 +34,7 @@ export const BOTS_CSS =
   CONNECTIONS_CSS +
   INTERACTIONS_CSS +
   APPROVALS_CSS +
+  OVERLAY_CSS +
   SETTINGS_CSS +
   WEB_CSS +
   SKILLS_CSS +

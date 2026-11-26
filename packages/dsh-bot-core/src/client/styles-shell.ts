@@ -391,45 +391,28 @@ export const SHELL_CSS = `
   color: var(--dsw-alias-label-tertiary);
 }
 
-/* Popovers (a connector's screen): over the chat by the menu bar, as large as their body; a sheet on a compact window. */
-.dshb-popover-area {
-  position: absolute;
-  top: 8px;
-  right: 60px;
-  bottom: 8px;
-  left: 16px;
-  z-index: 25;
-  display: flex;
-  justify-content: flex-end;
-  align-items: flex-start;
-  container-type: size;
-  pointer-events: none;
-}
-.dshb-popover-area[data-layout='sheet'] { inset: 0; z-index: 30; }
+/* Popovers (a connector's screen) in the overlay frame (styles-overlay.ts): as large as their body, within the bounds it is given. */
+.dshb-popover-host { display: contents; }
 .dshb-popover {
-  --dshb-popover-body-width: calc(100cqw - 1px);
-  --dshb-popover-body-height: calc(100cqh - 51px);
-  pointer-events: auto;
+  --dshb-overlay-body-width: calc(100vw - 48px);
+  --dshb-overlay-body-height: calc(100dvh - 2 * max(24px, var(--dsh-frame-overlay-top, 24px)) - 56px);
   display: flex;
   flex-direction: column;
-  box-sizing: border-box;
-  min-width: min(400px, 100%);
+  min-width: min(480px, 100%);
   max-width: 100%;
   max-height: 100%;
-  overflow: hidden;
-  border: 0.5px solid var(--dsw-alias-border-l3);
-  border-radius: var(--dsw-radius-lg);
-  background: var(--dsw-alias-bg-base);
-  color: var(--dsw-alias-label-primary);
-  box-shadow: var(--dsw-elevation-prominent);
 }
-.dshb-popover:focus { outline: none; }
-.dshb-popover-area[data-layout='sheet'] .dshb-popover {
-  width: 100%;
-  height: 100%;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
+.dshb-overlay-root[data-layout="compact"] .dshb-popover {
+  --dshb-overlay-body-width: 100vw;
+  --dshb-overlay-body-height: calc(100dvh - var(--dsh-frame-chrome-top, 0px) - 56px);
+  min-width: 0;
+}
+.dshb-popover-body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .dshb-shell-error {

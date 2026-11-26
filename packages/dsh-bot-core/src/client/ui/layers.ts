@@ -4,6 +4,8 @@ import { type RefObject, useEffect, useRef } from "react"
 export interface Layer {
   element(): HTMLElement | null
   readonly trap: boolean
+  /** While true, Escape and Tab go to what has focus in it (a person typing into a remote screen). */
+  yields(): boolean
   escape(): void
 }
 
@@ -91,14 +93,18 @@ function stackOf(doc: Document): LayerStack {
     if (event.isComposing || event.ctrlKey || event.altKey || event.metaKey) return
     if (event.key === "Escape") {
       const layer = stack.top()
-      if (layer === undefined || inForeignDialog(event.target, layer.element())) return
+      if (layer === undefined || layer.yields() || inForeignDialog(event.target, layer.element())) {
+        return
+      }
       event.preventDefault()
       event.stopPropagation()
       if (!event.repeat) layer.escape()
       return
     }
     if (event.key !== "Tab") return
-    const container = stack.topTrap()?.element()
+    const trapping = stack.topTrap()
+    if (trapping === undefined || trapping.yields()) return
+    const container = trapping.element()
     if (container === null || container === undefined) return
     if (inForeignDialog(event.target, container)) return
     event.stopPropagation()
@@ -147,6 +153,8 @@ export interface LayerOptions {
   onEscape(): void
   /** Whether Tab cycles inside the element and focus is held in it (dialogs), or not (popovers, a field's draft). */
   readonly trap: boolean
+  /** While true, Escape and Tab go to what has focus in the layer instead; false when omitted. */
+  readonly yieldKeys?: boolean
   /** Where focus goes once a trapping layer closes; the element focused when it opened when omitted. */
   restore?(): HTMLElement | null
 }
@@ -168,6 +176,7 @@ export function useLayer(ref: RefObject<HTMLElement | null>, options: LayerOptio
     const pop = stackOf(doc).push({
       element: () => ref.current,
       trap,
+      yields: () => latest.current.yieldKeys === true,
       escape: () => latest.current.onEscape(),
     })
     if (trap && !element.contains(doc.activeElement)) focusHome(element)

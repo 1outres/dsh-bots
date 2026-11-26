@@ -9,13 +9,14 @@ import {
   useState,
 } from "react"
 import { useObservable, useOptionalObservable } from "../hooks"
-import { IconChevronLeft, IconChevronRight, IconClose } from "../icons"
+import { IconChevronLeft, IconChevronRight } from "../icons"
 import { barKey } from "../shell/ShellMenuBar"
 import type { Translate } from "../types"
 import { BackRow } from "../ui/BackRow"
 import { Button } from "../ui/Button"
-import { focusHome, useLayer } from "../ui/layers"
+import { focusHome } from "../ui/layers"
 import type { DataMarks } from "../ui/marks"
+import { OverlayFrame, OverlayTitle } from "../ui/OverlayFrame"
 import { PendingEditsContext } from "../ui/pending-edits"
 import { useCompactLayout } from "../ui/viewport"
 import { DiscardConfirm, StepConfirm } from "./confirmations"
@@ -57,8 +58,8 @@ const callsForUser = (badge: SettingsBadge | null | undefined): badge is Setting
   badge !== null && badge !== undefined && (badge.tone === "warning" || badge.tone === "danger")
 
 /**
- * A settings screen as a large popover over the app, in the frame-wide
- * `shell.overlay` layer: a one-line header, the sections' nav and the open
+ * A settings screen as a large popover over the app ({@link OverlayFrame}), in
+ * the frame-wide `shell.overlay` layer: a one-line header, the sections' nav and the open
  * section's page (a sheet with the nav as its first page on a compact
  * window). Escape leaves a detail page, then the section (compact), then the
  * screen; × and the mask close it. Mount it once per opened screen (`key` it
@@ -72,10 +73,6 @@ export function SettingsFrame<Props extends FrameSectionProps, Subject>(
   const guard = useObservable(controls.guard)
   const asking = useObservable(controls.asking)
   const compact = useCompactLayout()
-  const [opener] = useState(() =>
-    typeof document === "undefined" ? null : (document.activeElement as HTMLElement | null),
-  )
-  const [returnTo] = useState(() => props.returnFocusTo)
   const dialogRef = useRef<HTMLDivElement>(null)
   const id = useId()
   const titleId = `${id}-title`
@@ -88,15 +85,6 @@ export function SettingsFrame<Props extends FrameSectionProps, Subject>(
     else if (compact && !listed) controls.showNav()
     else controls.close()
   }
-  useLayer(dialogRef, {
-    active: true,
-    trap: true,
-    onEscape: leaveOneLevel,
-    restore: () =>
-      [opener, ...returnTo().map((selector) => document.querySelector<HTMLElement>(selector))].find(
-        (element) => element?.isConnected === true,
-      ) ?? null,
-  })
 
   const shownList = useRef(listed)
   useEffect(() => {
@@ -110,125 +98,111 @@ export function SettingsFrame<Props extends FrameSectionProps, Subject>(
     [target.detail, controls],
   )
   const close = useCallback(() => controls.dismiss(), [controls])
-  const inert = covered ? { inert: "" } : {}
 
   return (
-    <div
-      className="dshb-settings-root"
-      data-layout={compact ? "compact" : "wide"}
-      data-covered={covered ? "" : undefined}
-      {...inert}
-    >
-      <div className="dshb-settings-mask" aria-hidden="true" onClick={() => controls.close()} />
-      <div
-        ref={dialogRef}
-        className="dshb-settings"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        tabIndex={-1}
-        {...props.marks}
-      >
-        <header className="dshb-settings-header">
-          {compact && !listed && section !== null ? (
-            <>
-              <Button
-                variant="icon"
-                label={t("settings.back")}
-                onClick={() => (target.detail === null ? controls.showNav() : controls.back())}
-                marks={{ "data-dshb-settings-nav-back": "" }}
-              >
-                <IconChevronLeft />
-              </Button>
-              <h2 id={titleId} className="dshb-settings-title">
-                {section.label(t)}
-              </h2>
-            </>
-          ) : (
-            <>
-              {heading.leading}
-              <h2 id={titleId} className="dshb-settings-title" title={heading.title}>
-                {heading.title}
-              </h2>
-            </>
-          )}
-          <Button
-            variant="icon"
-            label={t("settings.close")}
-            onClick={() => controls.close()}
-            marks={{ "data-dshb-settings-close": "" }}
-          >
-            <IconClose size={14} />
-          </Button>
-        </header>
-        {section === null ? (
-          <div className="dshb-settings-page" data-dshb-settings-empty="">
-            {view.kind === "empty" && view.message}
-          </div>
+    <OverlayFrame
+      surfaceRef={dialogRef}
+      titleId={titleId}
+      heading={
+        compact && !listed && section !== null ? (
+          <>
+            <Button
+              variant="icon"
+              label={t("settings.back")}
+              onClick={() => (target.detail === null ? controls.showNav() : controls.back())}
+              marks={{ "data-dshb-settings-nav-back": "" }}
+            >
+              <IconChevronLeft />
+            </Button>
+            <OverlayTitle id={titleId} title={section.label(t)} />
+          </>
         ) : (
           <>
-            {listed ? (
-              <CompactNav
+            {heading.leading}
+            <OverlayTitle id={titleId} title={heading.title} hint={heading.title} />
+          </>
+        )
+      }
+      closeLabel={t("settings.close")}
+      closeMarks={{ "data-dshb-settings-close": "" }}
+      onClose={() => controls.close()}
+      dismissible
+      onEscape={leaveOneLevel}
+      yieldKeys={false}
+      covered={covered}
+      returnFocusTo={props.returnFocusTo}
+      surfaceClass="dshb-settings"
+      marks={props.marks}
+      over={
+        guard.leaving !== null ? (
+          <DiscardConfirm
+            t={t}
+            leaving={guard.leaving}
+            section={section?.label(t) ?? heading.title}
+            onKeep={() => controls.keepEditing()}
+            onDiscard={() => controls.discard()}
+          />
+        ) : (
+          asking !== null && (
+            <StepConfirm
+              t={t}
+              request={asking}
+              onAnswer={(confirmed) => controls.answer(confirmed)}
+            />
+          )
+        )
+      }
+    >
+      {section === null ? (
+        <div className="dshb-settings-page" data-dshb-settings-empty="">
+          {view.kind === "empty" && view.message}
+        </div>
+      ) : (
+        <>
+          {listed ? (
+            <CompactNav
+              t={t}
+              subject={subject}
+              sections={sections}
+              current={section.id}
+              onSelect={(item) => controls.select(item.id)}
+            />
+          ) : (
+            !compact && (
+              <SectionNav
                 t={t}
                 subject={subject}
                 sections={sections}
                 current={section.id}
+                tabId={tabId}
+                panelId={panelId}
                 onSelect={(item) => controls.select(item.id)}
               />
-            ) : (
-              !compact && (
-                <SectionNav
-                  t={t}
-                  subject={subject}
-                  sections={sections}
-                  current={section.id}
-                  tabId={tabId}
-                  panelId={panelId}
-                  onSelect={(item) => controls.select(item.id)}
-                />
-              )
-            )}
-            {!listed && (
-              <section
-                className="dshb-settings-page"
-                role={compact ? undefined : "tabpanel"}
-                id={panelId}
-                aria-labelledby={compact ? titleId : tabId(section)}
-                data-dshb-settings-section={section.id}
-                data-dshb-settings-detail={target.detail ?? undefined}
+            )
+          )}
+          {!listed && (
+            <section
+              className="dshb-settings-page"
+              role={compact ? undefined : "tabpanel"}
+              id={panelId}
+              aria-labelledby={compact ? titleId : tabId(section)}
+              data-dshb-settings-section={section.id}
+              data-dshb-settings-detail={target.detail ?? undefined}
+            >
+              <FramePageView
+                key={section.id}
+                detail={target.detail}
+                back={compact ? null : { label: section.label(t), onBack: () => controls.back() }}
               >
-                <FramePageView
-                  key={section.id}
-                  detail={target.detail}
-                  back={compact ? null : { label: section.label(t), onBack: () => controls.back() }}
-                >
-                  <PendingEditsContext.Provider value={controls.edits}>
-                    {props.renderSection(section, { t, page, close, confirm: controls.confirm })}
-                  </PendingEditsContext.Provider>
-                </FramePageView>
-              </section>
-            )}
-          </>
-        )}
-      </div>
-      {guard.leaving !== null ? (
-        <DiscardConfirm
-          t={t}
-          leaving={guard.leaving}
-          section={section?.label(t) ?? heading.title}
-          onKeep={() => controls.keepEditing()}
-          onDiscard={() => controls.discard()}
-        />
-      ) : (
-        asking !== null && (
-          <StepConfirm
-            t={t}
-            request={asking}
-            onAnswer={(confirmed) => controls.answer(confirmed)}
-          />
-        )
+                <PendingEditsContext.Provider value={controls.edits}>
+                  {props.renderSection(section, { t, page, close, confirm: controls.confirm })}
+                </PendingEditsContext.Provider>
+              </FramePageView>
+            </section>
+          )}
+        </>
       )}
-    </div>
+    </OverlayFrame>
   )
 }
 

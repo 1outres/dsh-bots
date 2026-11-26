@@ -18,6 +18,7 @@ import { createSidePanels, type SidePanels } from "../src/client/shell/side-pane
 import { builtinShellEntries, createShellMenu } from "../src/client/shell-menu"
 import type { SessionListState, SessionSummary } from "../src/client/types"
 import { createViewer, type Viewer } from "../src/client/viewer"
+import type { SettingsScreenId } from "../src/client/wiring/screens"
 import { bot, idleApprovals, idleConnectorPanels, t, value } from "./support/client"
 import { notesFace } from "./support/notes"
 
@@ -95,6 +96,8 @@ function props(overrides: Partial<ShellSlotProps> = {}) {
     actionsWidth: { ...value(420), resize: () => {} },
     panels,
     popovers,
+    settingsStack: value<readonly SettingsScreenId[]>([]),
+    popoverHost: value<HTMLElement | null>(null),
     connectorPanels: idleConnectorPanels,
     incidents: value<Readonly<Record<string, number>>>({}),
     renderSlot: () => null,

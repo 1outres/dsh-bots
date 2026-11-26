@@ -482,8 +482,9 @@ export function isConnectorPanelIcon(value: unknown): value is ConnectorPanelIco
 
 /**
  * Where the shell shows a connector's panel: `side` in the side panel frame
- * beside the chat (Files, Actions); `popover` floating over the chat by the
- * menu bar, as large as its body, for a body of a fixed aspect (a screen).
+ * beside the chat (Files, Actions); `popover` a large popover over the app,
+ * as the settings screens, as large as its body, for a body of a fixed aspect
+ * (a screen).
  */
 export const CONNECTOR_PANEL_PRESENTATIONS = ["side", "popover"] as const
 

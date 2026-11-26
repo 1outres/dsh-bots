@@ -1,16 +1,32 @@
+import type { KeyboardEvent, ReactNode, Ref } from "react"
 import { useElementWidth } from "../files/element-width"
 import { type PanelWidth, widthBounds } from "../files/panel-width"
 import { ResizeHandle } from "../files/ResizeHandle"
 import { useObservable } from "../hooks"
-import { useCompactLayout } from "../ui"
-import { type PanelFrameProps, PanelHeader } from "./PanelHeader"
+import { IconClose } from "../icons"
+import { type DataMarks, useCompactLayout } from "../ui"
 import { panelLayout } from "./panel-layout"
 
-export interface SidePanelFrameProps extends PanelFrameProps {
+export interface SidePanelFrameProps {
+  /** The panel's accessible name. */
+  readonly label: string
+  readonly title: string
+  /** The title's tooltip, when it differs from the title (a file's path). */
+  readonly titleHint?: string
+  readonly titleRef?: Ref<HTMLHeadingElement>
+  /** Before the title (a back button). */
+  readonly leading?: ReactNode
+  /** Between the title and the close button (a state, a refresh button). */
+  readonly trailing?: ReactNode
+  readonly closeLabel: string
   readonly resizeLabel: string
+  onClose(): void
   readonly width: PanelWidth
   /** The shell, whose width the panel shares. */
   readonly containerRef: { readonly current: HTMLElement | null }
+  readonly onKeyDown?: (event: KeyboardEvent<HTMLElement>) => void
+  readonly marks: DataMarks
+  readonly children: ReactNode
 }
 
 /**
@@ -44,7 +60,27 @@ export function SidePanelFrame(props: SidePanelFrameProps) {
           onResize={resize}
         />
       )}
-      <PanelHeader {...props} />
+      <header className="dshb-panel-header">
+        {props.leading}
+        <h2
+          ref={props.titleRef}
+          className="dshb-panel-title"
+          tabIndex={-1}
+          title={props.titleHint ?? props.title}
+        >
+          {props.title}
+        </h2>
+        {props.trailing}
+        <button
+          type="button"
+          className="dshb-shell-button"
+          aria-label={props.closeLabel}
+          title={props.closeLabel}
+          onClick={props.onClose}
+        >
+          <IconClose size={16} />
+        </button>
+      </header>
       <div className="dshb-panel-body">{props.children}</div>
     </section>
   )

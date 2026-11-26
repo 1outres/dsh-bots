@@ -15,7 +15,6 @@ import type { ConnectorsFeed } from "../connectors-hub"
 import type { PanelWidth } from "../files/panel-width"
 import { useObservable } from "../hooks"
 import { IconAlert } from "../icons"
-import type { PanelFrameProps } from "../shell/PanelHeader"
 import { POPOVER_BODY_BOUNDS, PopoverPanelFrame } from "../shell/PopoverPanelFrame"
 import { SidePanelFrame } from "../shell/SidePanelFrame"
 import type { Translate } from "../types"
@@ -32,14 +31,23 @@ export type RenderShellSlot = (
   options: { readonly entryKey: string; readonly fallback: ReactNode },
 ) => ReactNode
 
-/** Where the panel is drawn: in the side panel frame, which shares the shell's width, or a popover. */
+/**
+ * Where the panel is drawn: in the side panel frame, which shares the shell's
+ * width, or a popover over the app, which `mount` puts in bot-core's
+ * `shell.overlay` entry (a portal), hidden while a settings screen is
+ * `covered` over it.
+ */
 export type ConnectorPanelPlacement =
   | {
       readonly presentation: "side"
       readonly width: PanelWidth
       readonly containerRef: { readonly current: HTMLElement | null }
     }
-  | { readonly presentation: "popover" }
+  | {
+      readonly presentation: "popover"
+      readonly covered: boolean
+      mount(popover: ReactNode): ReactNode
+    }
 
 const FRAMES: {
   readonly [Presentation in ConnectorPanelPresentation]: Extract<
@@ -68,8 +76,8 @@ export interface ConnectorPanelViewProps {
 /**
  * A connector's panel: the frame its presentation asks for (title, the
  * connector's note, close) around the connector's readiness, or, once it is
- * ready, the body its browser part registers. Escape closes it, except
- * while a person operates the connector (the keys are theirs).
+ * ready, the body its browser part registers. Escape closes it, except while
+ * a person operates the connector (the keys are theirs).
  */
 export function ConnectorPanelView(props: ConnectorPanelViewProps) {
   const { t, text, connectorId, placement } = props
@@ -81,62 +89,79 @@ export function ConnectorPanelView(props: ConnectorPanelViewProps) {
   const panel = view?.connector.panel
   const title = panel === undefined ? connectorId : text(panel.title)
   const note = view?.status.note
-  const operated = view?.status.operatedBy === "person"
-  const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.key !== "Escape" || event.defaultPrevented || operated) return
-    event.preventDefault()
-    props.close()
+  const held = view?.status.operatedBy === "person"
+  const trailing = note !== undefined && (
+    <span className="dshb-cpanel-note" title={text(note)} data-dshb-cpanel-note="">
+      {text(note)}
+    </span>
+  )
+  const closeLabel = t("connectorPanel.close", { title })
+  const marks = {
+    "data-dshb-connector-panel": connectorId,
+    "data-dshb-cpanel-presentation": placement.presentation,
   }
-  const frame: PanelFrameProps = {
-    label: title,
-    title,
-    trailing: note !== undefined && (
-      <span className="dshb-cpanel-note" title={text(note)} data-dshb-cpanel-note="">
-        {text(note)}
-      </span>
-    ),
-    closeLabel: t("connectorPanel.close", { title }),
-    onClose: props.close,
-    onKeyDown,
-    marks: {
-      "data-dshb-connector-panel": connectorId,
-      "data-dshb-cpanel-presentation": placement.presentation,
-    },
-    children: (
-      <div className="dshb-cpanel-body">
-        {state.status === "loading" && <p className="dshb-panel-note">{t("files.loading")}</p>}
-        {state.status === "failed" && (
-          <div className="dshb-panel-note">
-            <ErrorText>
-              {t("connectorPanel.feedFailed", { message: state.failure.message })}
-            </ErrorText>
-          </div>
-        )}
-        {state.status === "ready" && (view === undefined || panel === undefined) && (
-          <EmptyState
-            icon={<IconAlert size={28} />}
-            title={t("connectorPanel.gone", { title })}
-            marks={{ "data-dshb-cpanel-state": "gone" }}
-          />
-        )}
-        {view !== undefined && panel !== undefined && (
-          <PanelBody {...props} view={view} title={title} />
-        )}
-      </div>
-    ),
-  }
+  const content = (
+    <div className="dshb-cpanel-body">
+      {state.status === "loading" && <p className="dshb-panel-note">{t("files.loading")}</p>}
+      {state.status === "failed" && (
+        <div className="dshb-panel-note">
+          <ErrorText>
+            {t("connectorPanel.feedFailed", { message: state.failure.message })}
+          </ErrorText>
+        </div>
+      )}
+      {state.status === "ready" && (view === undefined || panel === undefined) && (
+        <EmptyState
+          icon={<IconAlert size={28} />}
+          title={t("connectorPanel.gone", { title })}
+          marks={{ "data-dshb-cpanel-state": "gone" }}
+        />
+      )}
+      {view !== undefined && panel !== undefined && (
+        <PanelBody {...props} view={view} title={title} />
+      )}
+    </div>
+  )
   switch (placement.presentation) {
     case "side":
       return (
         <SidePanelFrame
-          {...frame}
+          label={title}
+          title={title}
+          trailing={trailing}
+          closeLabel={closeLabel}
           resizeLabel={t("connectorPanel.resize", { title })}
+          onClose={props.close}
           width={placement.width}
           containerRef={placement.containerRef}
-        />
+          onKeyDown={(event: KeyboardEvent<HTMLElement>) => {
+            if (event.key !== "Escape" || event.defaultPrevented || held) return
+            event.preventDefault()
+            props.close()
+          }}
+          marks={marks}
+        >
+          {content}
+        </SidePanelFrame>
       )
     case "popover":
-      return <PopoverPanelFrame {...frame} />
+      return placement.mount(
+        <PopoverPanelFrame
+          title={title}
+          trailing={trailing}
+          closeLabel={closeLabel}
+          onClose={props.close}
+          held={held}
+          covered={placement.covered}
+          returnFocusTo={() => [
+            `[data-dshb-shell-entry="${CSS.escape(`connector:${connectorId}`)}"]`,
+            "[data-dshb-shell-menu-button]",
+          ]}
+          marks={marks}
+        >
+          {content}
+        </PopoverPanelFrame>,
+      )
   }
 }
 

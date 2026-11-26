@@ -1,4 +1,4 @@
-import { createElement } from "react"
+import { createElement, type ReactNode } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it, vi } from "vitest"
 import {
@@ -122,23 +122,35 @@ describe("ConnectorPanelView", () => {
     expect(renderSlot.mock.calls[0]?.[1].frame).toEqual({ presentation: "side" })
   })
 
-  it("draws the same readiness in a popover, whose body gets the popover's bounds", () => {
-    const html = render({ state: "failed", reason: "apt broke", at: 1 }, () => null, {
+  it("draws the same readiness in a popover over the app, whose body gets the popover's bounds", () => {
+    const mounted: ReactNode[] = []
+    const popover = (covered: boolean): ConnectorPanelPlacement => ({
       presentation: "popover",
+      covered,
+      mount: (node) => {
+        mounted.push(node)
+        return node
+      },
     })
-    expect(html).toContain('class="dshb-popover"')
-    expect(html).toContain('role="dialog"')
+    const html = render({ state: "failed", reason: "apt broke", at: 1 }, () => null, popover(false))
+    expect(mounted).toHaveLength(1)
+    expect(html).toContain('class="dshb-overlay-mask"')
+    expect(html).toContain('class="dshb-overlay dshb-popover"')
+    expect(html).toContain('role="dialog" aria-modal="true"')
     expect(html).toContain('data-dshb-cpanel-presentation="popover"')
+    expect(html).toContain("A person is operating")
     expect(html).not.toContain("connectorPanel.resize")
+    expect(html).not.toContain("data-covered")
     expect(html).toContain("apt broke")
     expect(html).toContain("connectorPanel.retry")
+    expect(render({ state: "disabled" }, () => null, popover(true))).toContain("data-covered")
     const renderSlot = vi.fn<RenderShellSlot>(() => null)
-    render({ state: "ready", since: 1 }, renderSlot, { presentation: "popover" })
+    render({ state: "ready", since: 1 }, renderSlot, popover(false))
     expect(renderSlot.mock.calls[0]?.[1].frame).toEqual({
       presentation: "popover",
       bounds: {
-        width: "var(--dshb-popover-body-width)",
-        height: "var(--dshb-popover-body-height)",
+        width: "var(--dshb-overlay-body-width)",
+        height: "var(--dshb-overlay-body-height)",
       },
     })
   })

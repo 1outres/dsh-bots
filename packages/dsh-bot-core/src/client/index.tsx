@@ -146,6 +146,7 @@ export function apply(ctx: ClientContext): void {
     approvals,
     panels: surfaces.panels,
     popovers: surfaces.popovers,
+    settingsStack: screens.stack,
     connectorPanels: wireConnectorPanels(ctx, { remote, connectors, surfaces }),
     incidents,
   })

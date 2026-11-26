@@ -1,10 +1,8 @@
 import { type ReactNode, useCallback, useMemo, useRef } from "react"
+import { createPortal } from "react-dom"
 import type { BotView } from "../../shared/bots"
 import { ActionsPanel } from "../approvals/ActionsPanel"
-import {
-  type ConnectorPanelPlacement,
-  ConnectorPanelView,
-} from "../connector-panels/ConnectorPanel"
+import { ConnectorPanelView } from "../connector-panels/ConnectorPanel"
 import { connectorEntries } from "../connector-panels/entries"
 import type { ConversationContentInput, ConversationViewsProps } from "../dsh/conversation"
 import { FACTORY, SLOT } from "../dsh/slots"
@@ -53,8 +51,6 @@ export interface BotSessionShellProps extends Omit<ShellSlotProps, "sessionId" |
   readonly sessionId: string
   readonly bot: ShellBot
 }
-
-const POPOVER_PLACEMENT: ConnectorPanelPlacement = { presentation: "popover" }
 
 /** The menu's entries for a known bot: bot-core's, then the panels of the connectors it has on. */
 function useKnownEntries(props: KnownProps, bot: BotView) {
@@ -194,7 +190,7 @@ export function BotSessionShell(props: BotSessionShellProps) {
       {known !== undefined && (
         <OpenSidePanel {...props} bot={known} containerRef={shellRef} returnFocus={focusEntry} />
       )}
-      {known !== undefined && <OpenPopover {...props} bot={known} returnFocus={focusEntry} />}
+      {known !== undefined && <OpenPopover {...props} bot={known} />}
       {known === undefined ? (
         <PendingShellBar {...props} compact={compact} />
       ) : (
@@ -365,16 +361,13 @@ function OpenSidePanel(
   }
 }
 
-/** The connector panel floating over the session's chat, if any. */
-function OpenPopover(
-  props: KnownProps & {
-    readonly bot: BotView
-    readonly returnFocus: (entryId: string) => void
-  },
-) {
+/** The connector panel the session shows as a popover over the app, if any. */
+function OpenPopover(props: KnownProps & { readonly bot: BotView }) {
   const { t, bot, sessionId, connectorPanels, popovers } = props
   const popover = useObservable(popovers)[sessionId]
-  if (popover === undefined) return null
+  const covered = useObservable(props.settingsStack).length > 0
+  const host = useObservable(props.popoverHost)
+  if (popover === undefined || host === null) return null
   return (
     <ConnectorPanelView
       key={popover.connectorId}
@@ -383,15 +376,16 @@ function OpenPopover(
       bot={bot}
       sessionId={sessionId}
       connectorId={popover.connectorId}
-      placement={POPOVER_PLACEMENT}
+      placement={{
+        presentation: "popover",
+        covered,
+        mount: (node) => createPortal(node, host),
+      }}
       feed={connectorPanels.connectors.feed(bot.id)}
       renderSlot={props.renderSlot}
       openStream={connectorPanels.openStream}
       openSettings={() => props.openSettings(bot.id, SETTINGS_SECTION.connectors)}
-      close={() => {
-        popovers.close(sessionId)
-        props.returnFocus(`connector:${popover.connectorId}`)
-      }}
+      close={() => popovers.close(sessionId)}
     />
   )
 }
