@@ -1,6 +1,8 @@
 import type {
   BotEnvironmentHostState,
+  CustomConnectRequest,
   EnvironmentHostSettingsView,
+  ProblemFix,
   TrustTokenPreview,
 } from "../../shared/environment-host"
 import type { BotEnvironmentImageView } from "../../shared/environment-image"
@@ -65,18 +67,42 @@ export function pairingRequest(
   form: PairingForm,
   token: string,
   now: number,
-): { readonly token: string; readonly url: string; readonly project: string } | null {
+): CustomConnectRequest | null {
   const { preview, address } = form
   if (preview === null || address === null) return null
   if (preview.expiresAt !== undefined && preview.expiresAt <= now) return null
   if (!endpointUrlAllowed(address.url) || !projectAllowed(form.project)) return null
-  return { token: token.trim(), url: address.url.trim(), project: form.project.trim() }
+  return {
+    backend: "incus",
+    token: token.trim(),
+    url: address.url.trim(),
+    project: form.project.trim(),
+  }
+}
+
+export type FixShown =
+  | { readonly kind: "command"; readonly text: string }
+  | { readonly kind: "text"; readonly text: string }
+  | { readonly kind: "label"; readonly key: "fix.repair" | "fix.choose-host" }
+
+export function fixShown(fix: ProblemFix): FixShown {
+  switch (fix.kind) {
+    case "command":
+    case "text":
+      return fix
+    case "repair":
+      return { kind: "label", key: "fix.repair" }
+    case "choose-host":
+      return { kind: "label", key: "fix.choose-host" }
+  }
 }
 
 export function vmHostBadge(state: FeedState<BotEnvironmentHostState>): SettingsBadge | null {
   if (state.status !== "ready" || state.value.status !== "ready") return null
   const host = state.value.host
-  if (host.check.state === "failed") return { tone: "danger", label: (t) => t("vmHost.badge") }
+  if (host.check.state === "failed" || placementMissing(host)) {
+    return { tone: "danger", label: (t) => t("vmHost.badge") }
+  }
   if (egressOpen(host)) return { tone: "warning", label: (t) => t("egress.badge") }
   if (host.image !== undefined && imageNeedsImport(host.image)) {
     return { tone: "warning", label: (t) => t("image.badge") }
@@ -84,9 +110,16 @@ export function vmHostBadge(state: FeedState<BotEnvironmentHostState>): Settings
   return null
 }
 
+const placementMissing = (host: EnvironmentHostSettingsView): boolean =>
+  host.placement.kind === "none" ||
+  host.placement.kind === "migration-required" ||
+  host.placement.kind === "unreadable"
+
 export const egressOpen = (host: EnvironmentHostSettingsView): boolean =>
   host.egress.some((report) => report.measure.state === "open") ||
-  (host.check.state === "ready" && host.check.declaration.egressAcl === undefined)
+  (host.check.state === "ready" &&
+    host.check.declaration.kind === "incus" &&
+    host.check.declaration.egressAcl === undefined)
 
 export const imageNeedsImport = (image: BotEnvironmentImageView): boolean =>
   image.status.kind === "missing" || image.status.kind === "failed"

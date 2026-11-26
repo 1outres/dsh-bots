@@ -1,4 +1,16 @@
 import { describe, expect, it } from "vitest"
+import type { WorkspaceRecord } from "../src/host/backend/contract"
+import { createIncusBackend } from "../src/host/backend/incus/backend"
+import type {
+  IncusClient,
+  IncusInstance,
+  IncusVolume,
+  InstanceSpec,
+  StateAction,
+} from "../src/host/backend/incus/client"
+import { layoutOf } from "../src/host/backend/incus/layout"
+import { reconfigure } from "../src/host/backend/incus/reconfigure"
+import { sizeBytesOf } from "../src/host/backend/incus/sizes"
 import { type EgressReport, egressProbeScript } from "../src/host/egress-probe"
 import {
   type CommandResult,
@@ -7,16 +19,6 @@ import {
   type EnvironmentFiles,
   type EnvironmentSettings,
 } from "../src/host/environment"
-import type {
-  IncusClient,
-  IncusInstance,
-  IncusVolume,
-  InstanceSpec,
-  StateAction,
-} from "../src/host/incus"
-import { layoutOf } from "../src/host/layout"
-import { reconfigure } from "../src/host/reconfigure"
-import { sizeBytesOf } from "../src/host/spec"
 import { volumePlan } from "../src/host/workspace-volume"
 import { incusWith } from "./support/incus"
 
@@ -53,12 +55,14 @@ const volumeName = "dsh-bot-1a2b3c4d-workspace"
 const dir = "/state/bots/1a2b3c4d"
 const OWNED = { "user.dsh-bot.id": target.id, "user.dsh-bot.owner": "owner-a" }
 
-const LAYOUT = layoutOf({
-  spec: SPEC,
-  placement: { pool: "dsh", network: "dshbr0" },
-  volume: volumeName,
-  rootDiskGiB: 16,
-})
+const LAYOUT = layoutOf(
+  {
+    name: alias,
+    resources: { cpus: SPEC.cpus, memoryMiB: SPEC.memoryMiB, rootDiskGiB: 16 },
+    workspace: volumeName,
+  },
+  { pool: "dsh", network: "dshbr0" },
+)
 
 type FakeInstance = IncusInstance & { config: Record<string, string> }
 type FakeVolume = IncusVolume & { config: Record<string, string> }
@@ -232,9 +236,8 @@ function setup(
   const environment = createVmEnvironment(
     { ...settings, ...change },
     {
-      incus: h.incus.client,
+      backend: async () => incusBackend(h.incus.client, "dsh-bots"),
       image: { ready: async () => {} },
-      scope: async () => ({ kind: "remote", project: "dsh-bots" }),
       egress: (botId, report) => h.egress.push({ botId, report }),
       files: h.files.api,
       hostRipgrep: async () => HOST_RG,
@@ -267,6 +270,9 @@ function setup(
   )
   return { h, environment }
 }
+
+const incusBackend = (incus: IncusClient, project: string) =>
+  createIncusBackend({ incus, project, origin: "custom", uploadTimeoutMs: 60_000 })
 
 function must<T>(value: T | undefined): T {
   if (value === undefined) throw new Error("missing in the fake")
@@ -416,7 +422,7 @@ describe("incus-vm environment", () => {
     await expect(environment.ensure(target)).rejects.toThrow(
       'the Incus project "dsh-bots" cannot hold bot VMs: the project "dsh-bots" names no storage pool (user.dsh-bots.pool) (incus project set dsh-bots user.dsh-bots.pool=<pool>); ',
     )
-    const local = setup({}, { scope: async () => ({ kind: "local", project: "default" }) })
+    const local = setup({}, { backend: async () => incusBackend(fakeIncus().client, "default") })
     await expect(local.environment.ensure(target)).rejects.toThrow(
       'never use the Incus project "default"',
     )
@@ -624,7 +630,7 @@ describe("incus-vm environment", () => {
       "user.dsh-bot.owner": "b",
     })
     await expect(volume.environment.ensure(target)).rejects.toThrow(
-      `the Incus volume "${volumeName}" exists but was not created by this installation`,
+      `the workspace volume "${volumeName}" exists but was not created by this installation`,
     )
     expect(volume.h.incus.log).toEqual([])
 
@@ -910,25 +916,19 @@ describe("reconfigure", () => {
   })
 
   it("changes nothing for an instance that has the layout", () => {
-    expect(reconfigure(instance(), LAYOUT)).toEqual({ stop: false, change: undefined })
+    expect(reconfigure(instance(), LAYOUT)).toEqual({ restarts: false, change: undefined })
   })
 
-  it("stops a running instance for a device or a value that differs, not for one written differently", () => {
+  it("restarts for a device or a value that differs, not for one written differently", () => {
     expect(
-      reconfigure(instance({ config: { ...LAYOUT.config, "limits.cpu": "2" } }), LAYOUT).stop,
+      reconfigure(instance({ config: { ...LAYOUT.config, "limits.cpu": "2" } }), LAYOUT).restarts,
     ).toBe(true)
     expect(
       reconfigure(instance({ config: { ...LAYOUT.config, "limits.memory": "6GiB" } }), LAYOUT),
     ).toEqual({
-      stop: false,
+      restarts: false,
       change: { config: { "limits.memory": "6144MiB" } },
     })
-    expect(
-      reconfigure(
-        instance({ status: "Stopped", config: { ...LAYOUT.config, "limits.cpu": "2" } }),
-        LAYOUT,
-      ).stop,
-    ).toBe(false)
   })
 
   it("refuses to shrink the root disk", () => {
@@ -941,16 +941,20 @@ describe("reconfigure", () => {
 })
 
 describe("workspace volume plan", () => {
-  const volume = (size: string): IncusVolume => ({
+  const volume = (size: string): WorkspaceRecord => ({
     name: volumeName,
-    contentType: "block",
-    config: { size },
-    usedBy: [],
+    botId: target.id,
+    owner: "owner-a",
+    orphanedSince: undefined,
+    block: true,
+    sizeBytes: sizeBytesOf(size),
+    sizeText: size,
+    attached: false,
   })
   it("creates, keeps, grows and never shrinks", () => {
     expect(volumePlan(undefined, 20, () => true)).toEqual({ kind: "create" })
     expect(volumePlan(volume("20GiB"), 20, () => true)).toEqual({ kind: "keep" })
-    expect(volumePlan(volume("20GiB"), 25, () => true)).toEqual({ kind: "grow", size: "25GiB" })
+    expect(volumePlan(volume("20GiB"), 25, () => true)).toEqual({ kind: "grow", sizeGiB: 25 })
     expect(() => volumePlan(volume("20GiB"), 10, () => true)).toThrow("cannot shrink")
     expect(() => volumePlan(volume("20GiB"), 20, () => false)).toThrow(
       "not created by this installation",

@@ -1,9 +1,9 @@
-import type { IncusDevice, IncusInstance, InstanceUpdate } from "./incus"
+import type { IncusDevice, IncusInstance, InstanceUpdate } from "./client"
 import { type InstanceLayout, ROOT_DEVICE } from "./layout"
-import { CPU_KEY, MEMORY_KEY, sizeBytesOf } from "./spec"
+import { CPU_KEY, MEMORY_KEY, sizeBytesOf } from "./sizes"
 
 export interface Reconfiguration {
-  readonly stop: boolean
+  readonly restarts: boolean
   readonly change: InstanceUpdate | undefined
 }
 
@@ -49,7 +49,7 @@ export function reconfigure(instance: IncusInstance, layout: InstanceLayout): Re
     ...(Object.keys(devices).length > 0 ? { devices } : {}),
   }
   return {
-    stop: instance.status !== "Stopped" && restarts,
+    restarts,
     change: Object.keys(change).length > 0 ? change : undefined,
   }
 }

@@ -1,11 +1,11 @@
 import { createHash, randomBytes } from "node:crypto"
 import { Agent, type ClientRequest, type IncomingMessage, request } from "node:http"
-import { isIP, connect as netConnect, type Socket } from "node:net"
+import { isIP, type Socket } from "node:net"
 import { Readable } from "node:stream"
 import { pipeline } from "node:stream/promises"
 import { connect as tlsConnect } from "node:tls"
-import type { IncusEndpoint } from "../host/endpoint"
-import type { ByteChannel, IncusResponse, IncusTransport } from "../host/incus"
+import type { ByteChannel, IncusResponse, IncusTransport } from "../host/backend/incus/client"
+import type { IncusEndpoint } from "../host/backend/incus/endpoint"
 import { websocketAccept, websocketChannel } from "./websocket"
 
 export class CertificatePinError extends Error {
@@ -23,20 +23,7 @@ export class CertificatePinError extends Error {
 
 type Connector = (callback: (error: Error | null, socket?: Socket) => void) => void
 
-function localConnector(socketPath: string): Connector {
-  return (callback) => {
-    const socket = netConnect({ path: socketPath })
-    const failed = (error: Error) =>
-      callback(new Error(`Incus socket ${socketPath}: ${error.message}`, { cause: error }))
-    socket.once("error", failed)
-    socket.once("connect", () => {
-      socket.off("error", failed)
-      callback(null, socket)
-    })
-  }
-}
-
-function remoteConnector(endpoint: IncusEndpoint & { kind: "remote" }): Connector {
+function httpsConnector(endpoint: IncusEndpoint): Connector {
   const url = new URL(endpoint.url)
   const host = url.hostname.replace(/^\[|\]$/g, "")
   const port = Number(url.port === "" ? 8443 : url.port)
@@ -100,8 +87,7 @@ export interface ClosableIncusTransport extends IncusTransport {
 }
 
 export function createIncusTransport(endpoint: IncusEndpoint): ClosableIncusTransport {
-  const connect =
-    endpoint.kind === "local" ? localConnector(endpoint.socket) : remoteConnector(endpoint)
+  const connect = httpsConnector(endpoint)
   const pooled = agentOf(connect, true)
   const single = agentOf(connect, false)
   const upgraded = new Set<Socket>()

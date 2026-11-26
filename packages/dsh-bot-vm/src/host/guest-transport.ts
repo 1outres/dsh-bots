@@ -4,8 +4,6 @@ export interface GuestProxy {
   readonly socket: string
 }
 
-export const SSHD_COMMAND = ["/usr/sbin/sshd", "-i"] as const
-
 export const RELAY_READY = "ok"
 export const RELAY_REFUSED = "error"
 

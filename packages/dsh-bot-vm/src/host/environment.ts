@@ -1,25 +1,33 @@
 import type {
   BotEnvironment,
   BotEnvironmentCapacity,
+  BotEnvironmentSpec,
   BotEnvironmentTarget,
   EnsureOptions,
   EnvironmentPhase,
+  ProblemFix,
 } from "@1outres/dsh-bot-core"
-import { capacityOf } from "./capacity"
+import type {
+  GuestChannel,
+  InstanceChange,
+  InstanceRecord,
+  InstanceShape,
+  Tagged,
+  VmBackend,
+  WorkspaceRecord,
+} from "./backend/contract"
+import { CONFIG_BOT_ID, CONFIG_ORPHANED, CONFIG_OWNER } from "./backend/tags"
 import { BOOT_FINISHED, isCanonicalPath, userDataText } from "./cloud-init"
 import { type EgressReport, egressProbeScript, egressReportOf } from "./egress-probe"
-import { checkEndpoint, type ProjectDeclaration } from "./endpoint-check"
-import { checkInstanceName, type GuestProxy, proxyCommandOf, SSHD_COMMAND } from "./guest-transport"
+import { checkInstanceName, type GuestProxy, proxyCommandOf } from "./guest-transport"
 import type { ImageGate } from "./image/manager"
-import type { ExecSession, IncusClient, IncusInstance, IncusVolume } from "./incus"
-import { layoutOf, WORKSPACE_BY_ID } from "./layout"
 import { createLimiter } from "./limit"
-import { type Reconfiguration, reconfigure } from "./reconfigure"
 import { environmentRows, hostAliasOf, ISOLATED_SERVICES, type RowSettings } from "./rows"
 import { createSerializer } from "./serial"
-import { CPU_KEY, instanceSizesOf, MEMORY_KEY, SIZE_KEY, specOf } from "./spec"
 import { knownHostsText, MANAGED_HEADER, shellQuote, sshConfigText } from "./ssh-config"
 import { type VolumePlan, volumeNameOf, volumePlan } from "./workspace-volume"
+
+export { CONFIG_BOT_ID, CONFIG_ORPHANED, CONFIG_OWNER }
 
 export const ENVIRONMENT_ID = "incus-vm"
 
@@ -45,9 +53,8 @@ export type RunCommand = (
 ) => Promise<CommandResult>
 
 export interface EnvironmentDeps {
-  readonly incus: IncusClient
+  readonly backend: () => Promise<VmBackend>
   readonly image: ImageGate
-  readonly scope: () => Promise<{ readonly kind: "local" | "remote"; readonly project: string }>
   readonly egress: (botId: string, report: EgressReport) => void
   readonly hostRipgrep: () => Promise<string>
   readonly files: EnvironmentFiles
@@ -90,7 +97,7 @@ export interface VmEnvironment extends BotEnvironment {
   onChange(listener: (botId: string) => void): () => void
   poll(signal?: AbortSignal): Promise<void>
   reconcile(keep: Iterable<string>, signal?: AbortSignal): Promise<ReconcileResult>
-  openGuest(instance: string, signal?: AbortSignal): Promise<ExecSession>
+  openGuest(instance: string, signal?: AbortSignal): Promise<GuestChannel>
   rehome(): void
 }
 
@@ -98,10 +105,6 @@ export interface ReconcileResult {
   readonly marked: readonly string[]
   readonly removed: readonly string[]
 }
-
-export const CONFIG_BOT_ID = "user.dsh-bot.id"
-export const CONFIG_OWNER = "user.dsh-bot.owner"
-export const CONFIG_ORPHANED = "user.dsh-bot.orphaned"
 
 export function createVmEnvironment(
   settings: EnvironmentSettings,
@@ -129,7 +132,7 @@ export function createVmEnvironment(
   let polling = false
   const busy = new Map<string, number>()
   const listeners = new Set<(botId: string) => void>()
-  const { incus, files } = deps
+  const { files } = deps
   const botsDir = `${settings.stateDir}/bots`
   const sshDir = sshConfigDirOf(settings.stateDir)
 
@@ -147,16 +150,18 @@ export function createVmEnvironment(
 
   const instanceOf = (botId: string) => `${settings.instancePrefix}${botId}`
   const volumeOf = (botId: string) => volumeNameOf(instanceOf(botId))
-  const tags = (botId: string) => ({ [CONFIG_BOT_ID]: botId, [CONFIG_OWNER]: settings.owner })
+  const shapeOf = (botId: string, spec: BotEnvironmentTarget["spec"]): InstanceShape => ({
+    name: instanceOf(botId),
+    resources: { cpus: spec.cpus, memoryMiB: spec.memoryMiB, rootDiskGiB: settings.rootDiskGiB },
+    workspace: volumeOf(botId),
+  })
 
-  async function placement(
-    signal?: AbortSignal,
-  ): Promise<ProjectDeclaration & { readonly project: string }> {
-    const { kind, project } = await deps.scope()
-    const check = await checkEndpoint({ incus, kind, project }, signal)
-    if (check.ok) return { ...check.declaration, project }
+  async function placement(signal?: AbortSignal): Promise<VmBackend> {
+    const backend = await deps.backend()
+    const check = await backend.check(signal)
+    if (check.ok) return backend
     throw new Error(
-      `the Incus project "${project}" cannot hold bot VMs: ${check.problems.map((problem) => `${problem.message} (${problem.fix})`).join("; ")}`,
+      `${backend.where} cannot hold bot VMs: ${check.problems.map((problem) => `${problem.message}${fixText(problem.fix)}`).join("; ")}`,
     )
   }
 
@@ -214,17 +219,18 @@ export function createVmEnvironment(
     return { privateKey, publicKey: publicKey.trim() }
   }
 
-  async function start(instance: IncusInstance, signal?: AbortSignal): Promise<void> {
-    switch (instance.status) {
-      case "Running":
-        return
-      case "Frozen":
-        deps.log(`unfreezing ${instance.name}`)
-        return incus.setState(instance.name, "unfreeze", signal)
-      default:
-        deps.log(`starting ${instance.name} (was ${instance.status})`)
-        return incus.setState(instance.name, "start", signal)
-    }
+  async function start(
+    backend: VmBackend,
+    instance: InstanceRecord,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    if (instance.status === "running") return
+    deps.log(
+      instance.status === "frozen"
+        ? `unfreezing ${instance.name}`
+        : `starting ${instance.name} (was ${instance.statusText})`,
+    )
+    await backend.instances.start(instance.name, signal)
   }
 
   const sshArgs = (alias: string, command: string) => [
@@ -286,13 +292,13 @@ export function createVmEnvironment(
     }
   }
 
-  const tagged = (config: Readonly<Record<string, string>>, botId: string) =>
-    config[CONFIG_BOT_ID] === botId && config[CONFIG_OWNER] === settings.owner
-  const ours = (instance: IncusInstance, botId: string) =>
-    instance.name === instanceOf(botId) && tagged(instance.config, botId)
-  const oursVolume = (volume: IncusVolume, botId: string) =>
-    volume.name === volumeOf(botId) && tagged(volume.config, botId)
-  const orphanedSince = (config: Readonly<Record<string, string>>) => config[CONFIG_ORPHANED] ?? ""
+  const tagged = (record: Tagged, botId: string) =>
+    record.botId === botId && record.owner === settings.owner
+  const ours = (instance: InstanceRecord, botId: string) =>
+    instance.name === instanceOf(botId) && tagged(instance, botId)
+  const oursVolume = (volume: WorkspaceRecord, botId: string) =>
+    volume.name === volumeOf(botId) && tagged(volume, botId)
+  const nowText = () => new Date(deps.now()).toISOString()
 
   async function removeConf(botId: string): Promise<void> {
     const conf = paths(botId).conf
@@ -305,16 +311,15 @@ export function createVmEnvironment(
     await files.remove(paths(botId).dir)
   }
 
-  async function markVolume(pool: string, botId: string, signal?: AbortSignal): Promise<void> {
-    const volume = await incus.volume(pool, volumeOf(botId), signal)
-    if (volume === undefined || !oursVolume(volume, botId) || orphanedSince(volume.config) !== "")
+  async function markVolume(
+    backend: VmBackend,
+    botId: string,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const volume = await backend.workspaces.get(volumeOf(botId), signal)
+    if (volume === undefined || !oursVolume(volume, botId) || volume.orphanedSince !== undefined)
       return
-    await incus.patchVolume(
-      pool,
-      volume.name,
-      { [CONFIG_ORPHANED]: new Date(deps.now()).toISOString() },
-      signal,
-    )
+    await backend.workspaces.markOrphaned(volume.name, nowText(), signal)
   }
 
   async function ensureOnce(target: BotEnvironmentTarget, options: EnsureOptions): Promise<void> {
@@ -324,30 +329,30 @@ export function createVmEnvironment(
     const name = instanceOf(botId)
     const alias = hostAliasOf(settings, botId)
     const file = paths(botId)
-    const where = await placement(signal)
+    const backend = await placement(signal)
     await files.mkdir(settings.stateDir, 0o700)
     await files.mkdir(file.dir, 0o700)
     await files.mkdir(sshDir, 0o700)
 
     const state = await readState(file.state)
-    const instance = await incus.instance(name, signal)
+    const instance = await backend.instances.get(name, signal)
     if (instance !== undefined && !ours(instance, botId)) {
       throw new Error(
-        `Incus instance "${name}" exists but was not created by this installation for bot ${botId} (${CONFIG_OWNER} differs); rename or delete it`,
+        `the VM "${name}" exists in ${backend.where} but was not created by this installation for bot ${botId} (${CONFIG_OWNER} differs); rename or delete it`,
       )
     }
     if (instance !== undefined && state === undefined) {
       throw new Error(
-        `Incus instance "${name}" exists but its state under ${file.dir} is missing; delete it (incus delete --force ${name} --project ${where.project}) to provision it again`,
+        `the VM "${name}" exists in ${backend.where} but its state under ${file.dir} is missing; delete it there to provision it again`,
       )
     }
-    const volume = await incus.volume(where.pool, volumeOf(botId), signal)
+    const volume = await backend.workspaces.get(volumeOf(botId), signal)
     const volumeChange = volumePlan(volume, target.spec.diskGiB, (found) =>
       oursVolume(found, botId),
     )
-    if (volume !== undefined && orphanedSince(volume.config) !== "") {
+    if (volume?.orphanedSince !== undefined) {
       deps.log(`${volume.name} belongs to an existing bot again; clearing its orphan mark`)
-      await incus.patchVolume(where.pool, volume.name, { [CONFIG_ORPHANED]: "" }, signal)
+      await backend.workspaces.markOrphaned(volume.name, undefined, signal)
     }
 
     const fresh = instance === undefined
@@ -355,24 +360,18 @@ export function createVmEnvironment(
     const host = await keyPair(file.hostKey, `${alias} host key`, fresh, signal)
     await files.write(file.knownHosts, knownHostsText(alias, host.publicKey), 0o600)
 
-    const layout = layoutOf({
-      spec: target.spec,
-      placement: where,
-      volume: volumeOf(botId),
-      rootDiskGiB: settings.rootDiskGiB,
-    })
+    const shape = shapeOf(botId, target.spec)
     const existing =
-      instance === undefined ? undefined : { instance, plan: reconfigure(instance, layout) }
-    const stopsForVolume =
-      volumeChange.kind === "grow" && instance !== undefined && instance.status !== "Stopped"
+      instance === undefined
+        ? undefined
+        : { instance, change: await backend.instances.change(shape, signal) }
     const needsBoot =
       existing === undefined ||
-      existing.instance.status !== "Running" ||
-      existing.plan.stop ||
-      stopsForVolume
+      existing.instance.status !== "running" ||
+      stopsFor(existing.instance, existing.change, volumeChange)
     const bring = () =>
       bringUp(
-        { target, pool: where.pool, layout, existing, volumeChange, keys: { client, host } },
+        { backend, target, shape, existing, volumeChange, keys: { client, host } },
         report,
         signal,
       )
@@ -389,8 +388,11 @@ export function createVmEnvironment(
     } else await bring()
   }
 
+  const stopsFor = (instance: InstanceRecord, change: InstanceChange, volume: VolumePlan) =>
+    instance.status !== "stopped" && (change.kind === "restart" || volume.kind === "grow")
+
   async function applyVolume(
-    pool: string,
+    backend: VmBackend,
     botId: string,
     change: VolumePlan,
     diskGiB: number,
@@ -398,65 +400,63 @@ export function createVmEnvironment(
   ): Promise<void> {
     if (change.kind === "create") {
       deps.log(`creating the workspace volume ${volumeOf(botId)} (${diskGiB}GiB)`)
-      await incus.createVolume(
+      await backend.workspaces.create(
         {
-          pool,
           name: volumeOf(botId),
-          contentType: "block",
+          botId,
+          owner: settings.owner,
           description: `dsh bot ${botId} workspace`,
-          config: { [SIZE_KEY]: `${diskGiB}GiB`, ...tags(botId) },
+          sizeGiB: diskGiB,
         },
         signal,
       )
     } else if (change.kind === "grow") {
-      deps.log(`growing the workspace volume ${volumeOf(botId)} to ${change.size}`)
-      await incus.patchVolume(pool, volumeOf(botId), { [SIZE_KEY]: change.size }, signal)
+      deps.log(`growing the workspace volume ${volumeOf(botId)} to ${change.sizeGiB}GiB`)
+      await backend.workspaces.grow(volumeOf(botId), change.sizeGiB, signal)
     }
   }
 
   async function reconfigureInstance(
-    instance: IncusInstance,
-    plan: Reconfiguration,
-    volume: {
-      readonly pool: string
+    backend: VmBackend,
+    work: {
+      readonly instance: InstanceRecord
+      readonly change: InstanceChange
+      readonly shape: InstanceShape
       readonly botId: string
-      readonly change: VolumePlan
+      readonly volume: VolumePlan
       readonly diskGiB: number
     },
     signal?: AbortSignal,
-  ): Promise<IncusInstance> {
+  ): Promise<InstanceRecord> {
+    const { instance, change, volume } = work
     const { name } = instance
-    const { change } = plan
-    const grows = volume.change.kind === "grow"
-    if (change === undefined && !grows) return instance
-    const stop = plan.stop || (grows && instance.status !== "Stopped")
+    const grows = volume.kind === "grow"
+    if (change.kind === "none" && !grows) return instance
+    const stop = stopsFor(instance, change, volume)
     const what = [
-      ...[CPU_KEY, MEMORY_KEY].flatMap((key) =>
-        change?.config?.[key] === undefined ? [] : [`${key} ${change.config[key]}`],
-      ),
-      ...Object.keys(change?.devices ?? {}).map((device) => `device ${device}`),
-      ...(grows ? [`workspace ${volume.diskGiB}GiB`] : []),
+      ...(change.kind === "none" ? [] : change.what),
+      ...(grows ? [`workspace ${work.diskGiB}GiB`] : []),
     ]
     deps.log(`${name}: ${what.join(", ") || "own config"}${stop ? " (restarts the VM)" : ""}`)
-    if (stop) await incus.setState(name, "stop", signal)
+    if (stop) await backend.instances.stop(name, signal)
     try {
-      if (change !== undefined) await incus.update(name, change, signal)
-      await applyVolume(volume.pool, volume.botId, volume.change, volume.diskGiB, signal)
+      if (change.kind !== "none") await backend.instances.conform(work.shape, signal)
+      await applyVolume(backend, work.botId, volume, work.diskGiB, signal)
     } catch (error) {
-      if (stop) await incus.setState(name, "start")
+      if (stop) await backend.instances.start(name)
       throw error
     }
-    const updated = await incus.instance(name, signal)
-    if (updated === undefined) throw new Error(`Incus instance "${name}" disappeared`)
+    const updated = await backend.instances.get(name, signal)
+    if (updated === undefined) throw new Error(`the VM "${name}" disappeared`)
     return updated
   }
 
   interface BringUp {
+    readonly backend: VmBackend
     readonly target: BotEnvironmentTarget
-    readonly pool: string
-    readonly layout: ReturnType<typeof layoutOf>
+    readonly shape: InstanceShape
     readonly existing:
-      | { readonly instance: IncusInstance; readonly plan: Reconfiguration }
+      | { readonly instance: InstanceRecord; readonly change: InstanceChange }
       | undefined
     readonly volumeChange: VolumePlan
     readonly keys: {
@@ -470,57 +470,58 @@ export function createVmEnvironment(
     report: (phase: EnvironmentPhase) => void,
     signal?: AbortSignal,
   ): Promise<void> {
-    const { target, pool, layout, existing, volumeChange, keys } = work
+    const { backend, target, shape, existing, volumeChange, keys } = work
     const botId = target.id
     const name = instanceOf(botId)
     const alias = hostAliasOf(settings, botId)
     const file = paths(botId)
-    let instance: IncusInstance | undefined
+    let instance: InstanceRecord | undefined
     if (existing === undefined) {
       await writeState(file.state, { version: 1 })
       report("creating")
-      await applyVolume(pool, botId, volumeChange, target.spec.diskGiB, signal)
+      await applyVolume(backend, botId, volumeChange, target.spec.diskGiB, signal)
       deps.log(`creating ${name} for bot ${target.id} (${target.name})`)
-      await incus.create(
+      await backend.instances.create(
         {
-          name,
+          ...shape,
+          botId,
+          owner: settings.owner,
           description: `dsh bot ${target.id}`,
           image: settings.image,
-          profiles: [],
-          config: {
-            ...layout.config,
-            "cloud-init.user-data": userDataText({
-              workspaceDevice: WORKSPACE_BY_ID,
-              user: settings.guestUser,
-              workspace: settings.workspace,
-              authorizedKey: keys.client.publicKey,
-              hostPrivateKey: keys.host.privateKey,
-              hostPublicKey: keys.host.publicKey,
-            }),
-            ...tags(botId),
-          },
-          devices: layout.devices,
-          start: false,
+          userData: userDataText({
+            workspaceDevice: backend.workspaceDevice,
+            user: settings.guestUser,
+            workspace: settings.workspace,
+            authorizedKey: keys.client.publicKey,
+            hostPrivateKey: keys.host.privateKey,
+            hostPublicKey: keys.host.publicKey,
+          }),
         },
         signal,
       )
-      instance = await incus.instance(name, signal)
-      if (instance === undefined) throw new Error(`Incus did not create "${name}"`)
+      instance = await backend.instances.get(name, signal)
+      if (instance === undefined) throw new Error(`${backend.where} did not create "${name}"`)
       report("booting")
     } else {
-      if (orphanedSince(existing.instance.config) !== "") {
+      if (existing.instance.orphanedSince !== undefined) {
         deps.log(`${name} belongs to an existing bot again; clearing its orphan mark`)
-        await incus.patchConfig(name, { [CONFIG_ORPHANED]: "" }, signal)
+        await backend.instances.markOrphaned(name, undefined, signal)
       }
       instance = await reconfigureInstance(
-        existing.instance,
-        existing.plan,
-        { pool, botId, change: volumeChange, diskGiB: target.spec.diskGiB },
+        backend,
+        {
+          instance: existing.instance,
+          change: existing.change,
+          shape,
+          botId,
+          volume: volumeChange,
+          diskGiB: target.spec.diskGiB,
+        },
         signal,
       )
-      if (instance.status !== "Running") report("booting")
+      if (instance.status !== "running") report("booting")
     }
-    await start(instance, signal)
+    await start(backend, instance, signal)
 
     report("connecting")
     await files.write(
@@ -582,47 +583,50 @@ export function createVmEnvironment(
     }
   }
 
-  async function retire(botId: string, signal?: AbortSignal): Promise<void> {
+  async function retire(backend: VmBackend, botId: string, signal?: AbortSignal): Promise<void> {
     const name = instanceOf(botId)
-    const instance = await incus.instance(name, signal)
+    const instance = await backend.instances.get(name, signal)
     if (instance !== undefined && !ours(instance, botId)) {
       deps.log(`not deleting ${name}: it was not created by this installation for bot ${botId}`)
     } else if (instance !== undefined) {
       deps.log(`deleting ${name}`)
-      await incus.destroy(name, signal)
+      await backend.instances.remove(name, signal)
     }
     await forgetFiles(botId)
   }
 
+  const graceOver = (mark: string) => {
+    const since = Date.parse(mark)
+    return !Number.isNaN(since) && deps.now() - since >= settings.orphanGraceMs
+  }
+
   async function reconcileVolumes(
-    pool: string,
+    backend: VmBackend,
     kept: ReadonlySet<string>,
     signal: AbortSignal | undefined,
     outcome: { marked: Set<string>; removed: Set<string> },
   ): Promise<void> {
-    for (const listed of await incus.volumes(pool, signal)) {
-      const botId = listed.config[CONFIG_BOT_ID]
+    for (const listed of await backend.workspaces.list(settings.owner, signal)) {
+      const botId = listed.botId
       if (botId === undefined || !BOT_ID.test(botId) || !oursVolume(listed, botId)) continue
       await serial.run(botId, async () => {
-        const volume = await incus.volume(pool, listed.name, signal)
+        const volume = await backend.workspaces.get(listed.name, signal)
         if (volume === undefined || !oursVolume(volume, botId)) return
-        const mark = orphanedSince(volume.config)
+        const mark = volume.orphanedSince
         if (kept.has(botId) || seen.has(botId)) {
-          if (mark !== "")
-            await incus.patchVolume(pool, volume.name, { [CONFIG_ORPHANED]: "" }, signal)
+          if (mark !== undefined)
+            await backend.workspaces.markOrphaned(volume.name, undefined, signal)
           return
         }
-        if (mark === "") {
+        if (mark === undefined) {
           deps.log(`bot ${botId} no longer exists: marking ${volume.name} orphaned`)
-          await markVolume(pool, botId, signal)
+          await markVolume(backend, botId, signal)
           outcome.marked.add(botId)
           return
         }
-        const since = Date.parse(mark)
-        if (Number.isNaN(since) || deps.now() - since < settings.orphanGraceMs) return
-        if (volume.usedBy.length > 0) return
+        if (!graceOver(mark) || volume.attached) return
         deps.log(`deleting ${volume.name}, orphaned since ${mark}`)
-        await incus.deleteVolume(pool, volume.name, signal)
+        await backend.workspaces.remove(volume.name, signal)
         outcome.removed.add(botId)
       })
     }
@@ -666,9 +670,9 @@ export function createVmEnvironment(
       seen.delete(botId)
       healthy.delete(botId)
       return serial.run(botId, async () => {
-        const { pool } = await placement()
-        await retire(botId)
-        await markVolume(pool, botId)
+        const backend = await placement()
+        await retire(backend, botId)
+        await markVolume(backend, botId)
       })
     },
     rows(bot) {
@@ -680,57 +684,35 @@ export function createVmEnvironment(
       if (!name.startsWith(settings.instancePrefix) || !BOT_ID.test(botId)) {
         throw new Error(`"${name}" is not a bot VM`)
       }
-      const found = await incus.instance(name, signal)
+      const backend = await deps.backend()
+      const found = await backend.instances.get(name, signal)
       if (found === undefined || !ours(found, botId)) {
         throw new Error(`"${name}" is not a bot VM of this installation`)
       }
-      if (found.status !== "Running") throw new Error(`"${name}" is ${found.status}`)
-      return incus.exec(name, { command: SSHD_COMMAND, user: 0, group: 0, environment: {} }, signal)
+      if (found.status !== "running") throw new Error(`"${name}" is ${found.statusText}`)
+      return backend.guest.open(name, signal)
     },
     async capacity(botId, signal) {
       checkId(botId)
-      const { pool } = await placement(signal)
-      const [host, project, poolBytes, instances] = await Promise.all([
-        incus.hostResources(signal),
-        incus.projectConfig(signal),
-        incus.poolSpace(pool, signal),
-        incus.instances(signal),
-      ])
-      const othersMemoryBytes =
-        project[MEMORY_KEY] === undefined
-          ? 0
-          : instances
-              .filter((instance) => instance.name !== instanceOf(botId))
-              .reduce((sum, instance) => {
-                const bytes = instanceSizesOf(instance).memoryBytes
-                if (bytes === undefined) {
-                  throw new Error(`cannot read the memory of Incus instance "${instance.name}"`)
-                }
-                return sum + bytes
-              }, 0)
-      return capacityOf({
-        hostCpus: host.cpus,
-        hostMemoryBytes: host.memoryBytes,
-        project,
-        othersMemoryBytes,
-        pool,
-        poolBytes,
-        rootDiskGiB: settings.rootDiskGiB,
-      })
+      const backend = await placement(signal)
+      return backend.capacity(
+        { instance: instanceOf(botId), rootDiskGiB: settings.rootDiskGiB },
+        signal,
+      )
     },
     async inspect(botId, signal) {
       checkId(botId)
-      const instance = await incus.instance(instanceOf(botId), signal)
+      const backend = await placement(signal)
+      const instance = await backend.instances.get(instanceOf(botId), signal)
       if (instance === undefined) return undefined
       if (!ours(instance, botId)) {
         throw new Error(
-          `Incus instance "${instance.name}" exists but was not created by this installation for bot ${botId}`,
+          `the VM "${instance.name}" exists but was not created by this installation for bot ${botId}`,
         )
       }
-      const { pool } = await placement(signal)
-      const volume = await incus.volume(pool, volumeOf(botId), signal)
+      const volume = await backend.workspaces.get(volumeOf(botId), signal)
       if (volume === undefined || !oursVolume(volume, botId)) {
-        throw new Error(`the workspace volume of Incus instance "${instance.name}" is missing`)
+        throw new Error(`the workspace volume of the VM "${instance.name}" is missing`)
       }
       return specOf(instance, volume)
     },
@@ -750,9 +732,10 @@ export function createVmEnvironment(
       if (polling || healthy.size === 0 || listeners.size === 0) return
       polling = true
       try {
+        const backend = await deps.backend()
         const running = new Set(
-          (await incus.instances(signal))
-            .filter((instance) => instance.status === "Running")
+          (await backend.instances.list(settings.owner, signal))
+            .filter((instance) => instance.status === "running")
             .map((instance) => instance.name),
         )
         for (const botId of [...healthy]) {
@@ -767,41 +750,65 @@ export function createVmEnvironment(
     async reconcile(keep, signal) {
       const kept = new Set([...keep, ...seen])
       const outcome = { marked: new Set<string>(), removed: new Set<string>() }
-      const { pool } = await placement(signal)
-      for (const listed of await incus.instances(signal)) {
-        const botId = listed.config[CONFIG_BOT_ID]
+      const backend = await placement(signal)
+      for (const listed of await backend.instances.list(settings.owner, signal)) {
+        const botId = listed.botId
         if (botId === undefined || !BOT_ID.test(botId) || !ours(listed, botId)) continue
         await serial.run(botId, async () => {
-          const instance = await incus.instance(listed.name, signal)
+          const instance = await backend.instances.get(listed.name, signal)
           if (instance === undefined || !ours(instance, botId)) return
-          const mark = orphanedSince(instance.config)
+          const mark = instance.orphanedSince
           if (kept.has(botId) || seen.has(botId)) {
-            if (mark !== "")
-              await incus.patchConfig(instance.name, { [CONFIG_ORPHANED]: "" }, signal)
+            if (mark !== undefined)
+              await backend.instances.markOrphaned(instance.name, undefined, signal)
             return
           }
-          if (mark === "") {
+          if (mark === undefined) {
             deps.log(
               `bot ${botId} no longer exists: stopping ${instance.name} and marking it orphaned`,
             )
-            if (instance.status !== "Stopped") await incus.setState(instance.name, "stop", signal)
-            await incus.patchConfig(
-              instance.name,
-              { [CONFIG_ORPHANED]: new Date(deps.now()).toISOString() },
-              signal,
-            )
+            if (instance.status !== "stopped") await backend.instances.stop(instance.name, signal)
+            await backend.instances.markOrphaned(instance.name, nowText(), signal)
             outcome.marked.add(botId)
             return
           }
-          const since = Date.parse(mark)
-          if (Number.isNaN(since) || deps.now() - since < settings.orphanGraceMs) return
+          if (!graceOver(mark)) return
           deps.log(`deleting ${instance.name}, orphaned since ${mark}`)
-          await retire(botId, signal)
+          await retire(backend, botId, signal)
           outcome.removed.add(botId)
         })
       }
-      await reconcileVolumes(pool, kept, signal, outcome)
+      await reconcileVolumes(backend, kept, signal, outcome)
       return { marked: [...outcome.marked], removed: [...outcome.removed] }
     },
+  }
+}
+
+function fixText(fix: ProblemFix): string {
+  switch (fix.kind) {
+    case "command":
+    case "text":
+      return ` (${fix.text})`
+    case "repair":
+      return " (repair the VM host in the dsh-bots settings)"
+    case "choose-host":
+      return " (choose the VM host in the dsh-bots settings)"
+  }
+}
+
+const GIB = 1024 ** 3
+
+function specOf(instance: InstanceRecord, volume: WorkspaceRecord): BotEnvironmentSpec {
+  const whole = (value: number | undefined, what: string) => {
+    if (value === undefined || !Number.isSafeInteger(value) || value < 1) {
+      throw new Error(`cannot read the ${what} of the VM "${instance.name}"`)
+    }
+    return value
+  }
+  const diskGiB = volume.sizeBytes === undefined ? undefined : volume.sizeBytes / GIB
+  return {
+    cpus: whole(instance.cpus, "CPU count"),
+    memoryMiB: whole(instance.memoryMiB, "memory in MiB"),
+    diskGiB: whole(diskGiB, "workspace volume size in GiB"),
   }
 }

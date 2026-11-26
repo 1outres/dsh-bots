@@ -241,10 +241,8 @@ export const REMOTE_METHODS: {
   botEnvironmentHost: {
     watch: { parameters: [], stream: true, cancellable: true },
     check: { parameters: [] },
-    previewToken: { parameters: [{ name: "token" }] },
-    pair: { parameters: [{ name: "pairing" }] },
-    useLocal: { parameters: [{ name: "project" }] },
-    setProject: { parameters: [{ name: "project" }] },
+    previewCustom: { parameters: [{ name: "credential" }] },
+    connectCustom: { parameters: [{ name: "request" }] },
     forget: { parameters: [] },
     refreshImage: { parameters: [] },
     startImage: { parameters: [] },

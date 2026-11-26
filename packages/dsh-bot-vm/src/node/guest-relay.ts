@@ -1,13 +1,13 @@
 import { chmod, mkdir, rm } from "node:fs/promises"
 import { connect, createServer, type Server, type Socket } from "node:net"
 import { dirname } from "node:path"
+import type { GuestChannel } from "../host/backend/contract"
 import { answerLine } from "../host/guest-transport"
-import type { ExecSession } from "../host/incus"
 import { readLine } from "./line"
 
 export interface GuestRelayOptions {
   readonly socket: string
-  open(instance: string, signal: AbortSignal): Promise<ExecSession>
+  open(instance: string, signal: AbortSignal): Promise<GuestChannel>
   readonly log: (message: string) => void
   readonly requestTimeoutMs: number
 }
@@ -18,20 +18,21 @@ export interface GuestRelay {
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
-async function relay(connection: Socket, session: ExecSession, log: (message: string) => void) {
+async function relay(connection: Socket, session: GuestChannel, log: (message: string) => void) {
   const toGuest = (async () => {
-    for await (const chunk of connection) await session.stdin.write(chunk as Buffer)
-    await session.stdin.end()
+    for await (const chunk of connection) await session.input.write(chunk as Buffer)
+    await session.input.end()
   })()
   const fromGuest = (async () => {
-    for await (const chunk of session.stdout) {
+    for await (const chunk of session.output) {
       if (!connection.write(chunk))
         await new Promise((resolve) => connection.once("drain", resolve))
     }
     connection.end()
   })()
   const diagnostics = (async () => {
-    for await (const chunk of session.stderr) log(Buffer.from(chunk).toString("utf8").trimEnd())
+    for await (const chunk of session.diagnostics)
+      log(Buffer.from(chunk).toString("utf8").trimEnd())
   })()
   await Promise.allSettled([toGuest, fromGuest, diagnostics])
 }
@@ -39,14 +40,14 @@ async function relay(connection: Socket, session: ExecSession, log: (message: st
 export async function startGuestRelay(options: GuestRelayOptions): Promise<GuestRelay> {
   const lifetime = new AbortController()
   const connections = new Set<Socket>()
-  const sessions = new Set<ExecSession>()
+  const sessions = new Set<GuestChannel>()
   const server: Server = createServer({ allowHalfOpen: true }, (connection) => {
     connections.add(connection)
     connection.once("close", () => connections.delete(connection))
     connection.on("error", () => {})
     void (async () => {
       let instance = ""
-      let session: ExecSession | undefined
+      let session: GuestChannel | undefined
       try {
         instance = await readLine(connection, options.requestTimeoutMs)
         session = await options.open(instance, lifetime.signal)
@@ -61,7 +62,7 @@ export async function startGuestRelay(options: GuestRelayOptions): Promise<Guest
       try {
         await relay(connection, session, (line) => options.log(`guest relay: ${instance}: ${line}`))
       } finally {
-        session.destroy()
+        session.close()
         sessions.delete(session)
         connection.destroy()
       }
@@ -74,7 +75,7 @@ export async function startGuestRelay(options: GuestRelayOptions): Promise<Guest
     async close() {
       lifetime.abort(new Error("the guest relay is closing"))
       await new Promise<void>((resolve) => server.close(() => resolve()))
-      for (const session of sessions) session.destroy()
+      for (const session of sessions) session.close()
       for (const connection of connections) connection.destroy()
     },
   }

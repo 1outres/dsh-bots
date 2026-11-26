@@ -1,23 +1,7 @@
-import type { ClientKeyStore, EndpointStore } from "./endpoint"
-import { parseStoredScope, serializeStoredScope } from "./endpoint"
-
-export interface StoreFiles {
-  read(path: string): Promise<string | undefined>
-  write(path: string, content: string, mode: number): Promise<void>
-  remove(path: string): Promise<void>
-}
-
-export const ENDPOINT_FILE = "endpoint.json"
-
-export function fileEndpointStore(path: string, files: StoreFiles): EndpointStore {
-  return {
-    async read() {
-      const text = await files.read(path)
-      return text === undefined ? undefined : parseStoredScope(text, path)
-    },
-    write: (scope) => files.write(path, serializeStoredScope(scope), 0o600),
-    clear: () => files.remove(path),
-  }
+export interface ClientKeyStore {
+  read(): Promise<string | undefined>
+  write(key: string): Promise<void>
+  clear(): Promise<void>
 }
 
 export interface SecretRecords {

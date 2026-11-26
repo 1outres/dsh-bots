@@ -1,15 +1,13 @@
 import type { BotEnvironmentImageHost, BotEnvironmentImageView } from "@1outres/dsh-bot-core"
 import { describe, expect, it } from "vitest"
-import type {
-  ClientKeyStore,
-  EndpointStore,
-  IncusEndpoint,
-  StoredScope,
-} from "../src/host/endpoint"
-import { createEndpointScope } from "../src/host/endpoint-scope"
-import type { IncusClient } from "../src/host/incus"
-import { switchableIncusClient } from "../src/host/switchable-incus"
+import { createIncusBackend } from "../src/host/backend/incus/backend"
+import type { IncusClient } from "../src/host/backend/incus/client"
+import type { StoredPlacement } from "../src/host/placement/placement"
+import { createPlacementScope } from "../src/host/placement/scope"
+import type { ClientKeyStore } from "../src/host/placement/secrets"
+import type { PlacementReading, PlacementStore } from "../src/host/placement/store"
 import { createVmHost } from "../src/host/vm-host"
+import { hostKeyFingerprint } from "../src/index"
 import { certificateFingerprint, createSelfSignedIdentity } from "../src/node/client-identity"
 import { incusWith } from "./support/incus"
 
@@ -82,20 +80,20 @@ function fakeImage(): BotEnvironmentImageHost & { readonly calls: string[] } {
   }
 }
 
-function setup(options: { unreadable?: boolean } = {}) {
-  let stored: StoredScope | undefined
+function setup(options: { reading?: PlacementReading; unreadable?: boolean } = {}) {
+  let reading: PlacementReading = options.reading ?? { kind: "none" }
   let key: string | undefined
   const calls: string[] = []
-  const store: EndpointStore = {
+  const store: PlacementStore = {
     async read() {
       if (options.unreadable === true) throw new Error("bad version")
-      return stored
+      return reading
     },
-    async write(scope) {
-      stored = scope
+    async write(placement) {
+      reading = { kind: "placed", placement }
     },
     async clear() {
-      stored = undefined
+      reading = { kind: "none" }
     },
   }
   const keys: ClientKeyStore = {
@@ -108,16 +106,25 @@ function setup(options: { unreadable?: boolean } = {}) {
       key = undefined
     },
   }
-  const scope = createEndpointScope({
+  const scope = createPlacementScope({
     store,
-    keys,
-    defaults: {
-      endpoint: { kind: "local", socket: "/var/lib/incus/unix.socket" },
-      project: "dsh-bots",
+    secretOf: (kind) => {
+      if (kind !== "incus") throw new Error("incus only")
+      return keys
     },
-    connect: (endpoint: IncusEndpoint, project: string) => {
-      calls.push(`connect ${endpoint.kind} ${project}`)
-      return { incus: healthy(project, calls), close: () => calls.push(`close ${project}`) }
+    connect: (placement: StoredPlacement) => {
+      if (placement.backend.kind !== "incus") throw new Error("incus only")
+      const { project } = placement.backend
+      calls.push(`connect ${placement.backend.url} ${project}`)
+      return {
+        backend: createIncusBackend({
+          incus: healthy(project, calls),
+          project,
+          origin: placement.origin.kind,
+          uploadTimeoutMs: 1,
+        }),
+        close: () => calls.push(`close ${project}`),
+      }
     },
   })
   const image = fakeImage()
@@ -136,77 +143,101 @@ function setup(options: { unreadable?: boolean } = {}) {
     },
     clientName: "dsh-bots@test",
     fingerprintOf: certificateFingerprint,
+    hostKeyFingerprintOf: hostKeyFingerprint,
+    setupUpdate: (setup) => (setup.bundleSha256 === "c".repeat(64) ? "current" : "available"),
     now: () => 1_000,
     log: () => {},
   })
-  return { host, scope, image, calls, stored: () => stored, key: () => key, rehomed: () => rehomed }
+  const setKey = (next: string | undefined) => {
+    key = next
+  }
+  return {
+    host,
+    scope,
+    image,
+    calls,
+    reading: () => reading,
+    key: () => key,
+    setKey,
+    rehomed: () => rehomed,
+  }
 }
 
+const connectRequest = (token = tokenText()) => ({
+  backend: "incus" as const,
+  token,
+  url: "https://vm-host:8443",
+  project: "dsh-bots",
+})
+
+const HOST_KEY = `ssh-ed25519 ${Buffer.from("host key bytes").toString("base64")}`
+
 describe("VM host", () => {
-  it("is this machine with the configured project until one is chosen, and checks it", async () => {
+  it("is nothing until a VM host is chosen, and says so in the check", async () => {
     const { host } = setup()
     expect(host.view().placement).toEqual({ kind: "reading" })
     const view = await host.check()
-    expect(view.placement).toEqual({
-      kind: "local",
-      socket: "/var/lib/incus/unix.socket",
-      project: "dsh-bots",
-      chosen: false,
-    })
-    expect(view.check).toEqual({
-      state: "ready",
-      at: 1_000,
-      declaration: { pool: "dsh", network: "dshbr0", egressAcl: "dsh-bot-egress" },
-    })
-  })
-
-  it("moves to another project: stored, reconnected there, the bots ensured again", async () => {
-    const t = setup()
-    await t.host.check()
-    const view = await t.host.useLocal(" bots-2 ")
-    expect(t.stored()?.project).toBe("bots-2")
-    expect(t.scope.project()).toBe("bots-2")
-    expect(view.placement).toMatchObject({ kind: "local", project: "bots-2", chosen: true })
-    expect(t.calls).toContain("close dsh-bots")
-    expect(t.calls).toContain("connect local bots-2")
-    expect(t.rehomed()).toBe(1)
-    expect(t.image.calls).toEqual(["cancel", "refresh"])
-    await expect(t.host.useLocal("default")).rejects.toThrow('"default"')
-    const missing = await t.host.setProject("missing")
-    expect(missing.check).toMatchObject({
+    expect(view.placement).toEqual({ kind: "none" })
+    expect(view.check).toMatchObject({
       state: "failed",
-      problems: [{ code: "project-missing" }],
+      problems: [{ scope: "placement", code: "placement-none", fix: { kind: "choose-host" } }],
     })
   })
 
-  it("pairs with a VM host, and on leaving it tells what to run there", async () => {
+  it("asks for the move of this machine's socket and never connects to it", async () => {
+    const t = setup({
+      reading: {
+        kind: "migration-required",
+        from: { socket: "/var/lib/incus/unix.socket", project: "dsh-bots" },
+      },
+    })
+    const view = await t.host.check()
+    expect(view.placement).toEqual({
+      kind: "migration-required",
+      from: { kind: "incus-socket", socket: "/var/lib/incus/unix.socket", project: "dsh-bots" },
+    })
+    expect(view.check).toMatchObject({ problems: [{ code: "migration-required" }] })
+    expect(t.calls.filter((call) => call.startsWith("connect"))).toEqual([])
+  })
+
+  it("connects to an existing Incus server, and on leaving it tells what to run there", async () => {
     const t = setup()
-    const preview = t.host.previewToken(tokenText())
+    const preview = t.host.custom.preview({ backend: "incus", trustToken: tokenText() })
     expect(preview).toEqual({
+      backend: "incus",
       clientName: "dsh-bots-test",
       serverFingerprint: SERVER,
       urls: ["https://vm-host:8443"],
     })
-    const paired = await t.host.pair({
-      token: tokenText(),
-      url: "https://vm-host:8443",
-      project: "dsh-bots",
-    })
+    const paired = await t.host.custom.connect(connectRequest())
     expect(t.calls).toContain(`trust ${tokenText().length}`)
     expect(t.key()).toContain("PRIVATE KEY")
-    const stored = t.stored()
-    if (stored?.endpoint.kind !== "remote") throw new Error("not paired")
-    const fingerprint = certificateFingerprint(stored.endpoint.clientCertificate)
+    const stored = t.reading()
+    if (stored.kind !== "placed" || stored.placement.backend.kind !== "incus") {
+      throw new Error("not placed")
+    }
+    expect(stored.placement.origin).toEqual({ kind: "custom" })
+    const fingerprint = certificateFingerprint(stored.placement.backend.clientCertificate)
     expect(paired.placement).toEqual({
-      kind: "remote",
-      url: "https://vm-host:8443",
-      project: "dsh-bots",
-      serverFingerprint: SERVER,
-      clientFingerprint: fingerprint,
+      kind: "placed",
+      backend: {
+        kind: "incus",
+        url: "https://vm-host:8443",
+        project: "dsh-bots",
+        serverFingerprint: SERVER,
+        clientFingerprint: fingerprint,
+      },
+      origin: { kind: "custom" },
     })
-    expect(t.calls).toContain("connect remote dsh-bots")
+    expect(paired.check).toEqual({
+      state: "ready",
+      at: 1_000,
+      declaration: { kind: "incus", pool: "dsh", network: "dshbr0", egressAcl: "dsh-bot-egress" },
+    })
+    expect(t.calls).toContain("connect https://vm-host:8443 dsh-bots")
+    expect(t.image.calls).toEqual(["cancel", "refresh"])
     const left = await t.host.forget()
-    expect(left.placement).toMatchObject({ kind: "local", chosen: false })
+    expect(left.placement).toEqual({ kind: "none" })
     expect(left.released).toEqual([
       {
         url: "https://vm-host:8443",
@@ -214,21 +245,98 @@ describe("VM host", () => {
         command: `incus config trust remove ${fingerprint.slice(0, 12)}`,
       },
     ])
+    expect(t.calls).toContain("close dsh-bots")
     expect(t.key()).toBeUndefined()
     expect(t.rehomed()).toBe(2)
   })
 
-  it("refuses an expired token before anything is sent", async () => {
+  it("refuses an expired token before anything is sent, and the default project", async () => {
     const t = setup()
     await expect(
-      t.host.pair({
-        token: tokenText("1970-01-01T00:00:00Z"),
-        url: "https://vm-host:8443",
-        project: "dsh-bots",
-      }),
+      t.host.custom.connect(connectRequest(tokenText("1970-01-01T00:00:00Z"))),
     ).rejects.toThrow("expired")
+    await expect(
+      t.host.custom.connect({ ...connectRequest(), project: "default" }),
+    ).rejects.toThrow('"default"')
     expect(t.calls.filter((call) => call.startsWith("trust"))).toEqual([])
-    expect(t.stored()).toBeUndefined()
+    expect(t.reading()).toEqual({ kind: "none" })
+  })
+
+  it("does not connect to Proxmox yet, and has no setup yet", async () => {
+    const t = setup()
+    expect(() =>
+      t.host.custom.preview({
+        backend: "proxmox",
+        url: "https://pve:8006",
+        tokenId: "u@pve!t",
+        serverFingerprint: SERVER,
+      }),
+    ).toThrow("not available")
+    expect(() =>
+      t.host.setup.start({ inspectionId: "i", project: "p", httpsPort: 8443, consents: [] }),
+    ).toThrow("not available")
+  })
+
+  it("shows a VM host dsh-bots built with its site, and whether its setup is current", async () => {
+    const t = setup({
+      reading: {
+        kind: "placed",
+        placement: {
+          version: 3,
+          backend: {
+            kind: "incus",
+            url: "https://vm-host:8443",
+            serverCertificateSha256: SERVER,
+            clientCertificate: createSelfSignedIdentity({
+              commonName: "c",
+              now: new Date(),
+              usage: "client",
+            }).certificate,
+            project: "dsh-bots",
+          },
+          origin: {
+            kind: "managed",
+            site: {
+              kind: "ssh",
+              host: "vm-host",
+              port: 22,
+              user: "admin",
+              hostKey: HOST_KEY,
+              identity: "kept",
+            },
+            setup: { jobId: "j", completedAt: 7, bundleSha256: "d".repeat(64) },
+          },
+        },
+      },
+    })
+    t.setKey("key")
+    const view = await t.host.check()
+    expect(view.placement).toMatchObject({
+      kind: "placed",
+      origin: {
+        kind: "managed",
+        site: {
+          kind: "ssh",
+          host: "vm-host",
+          port: 22,
+          user: "admin",
+          hostKeyFingerprint: hostKeyFingerprint(HOST_KEY),
+          identity: "kept",
+        },
+        completedAt: 7,
+        update: "available",
+      },
+    })
+    expect(hostKeyFingerprint(HOST_KEY)).toMatch(/^SHA256:[A-Za-z0-9+/]{43}$/)
+  })
+
+  it("reports a missing key as its own problem", async () => {
+    const t = setup()
+    await t.host.custom.connect(connectRequest())
+    t.setKey(undefined)
+    t.scope.close()
+    const view = await t.host.check()
+    expect(view.check).toMatchObject({ problems: [{ code: "secret-missing" }] })
   })
 
   it("shows a stored choice it cannot read as the problem to fix", async () => {
@@ -249,18 +357,7 @@ describe("VM host", () => {
       { botId: "a", measure: { state: "open", at: 5, reached: ["10.0.0.1:22"] } },
       { botId: "b", measure: { state: "isolated", at: 6 } },
     ])
-    await t.host.useLocal("bots-2")
+    await t.host.custom.connect(connectRequest())
     expect(t.host.view().egress).toEqual([])
-  })
-})
-
-describe("switchable Incus client", () => {
-  it("sends every call to the client chosen at that moment", async () => {
-    const only = (alias: IncusClient["alias"]) => ({ alias }) as unknown as IncusClient
-    let current = only(async () => "first")
-    const incus = switchableIncusClient(async () => current)
-    expect(await incus.alias("x")).toBe("first")
-    current = only(async (name) => `second ${name}`)
-    expect(await incus.alias("x")).toBe("second x")
   })
 })

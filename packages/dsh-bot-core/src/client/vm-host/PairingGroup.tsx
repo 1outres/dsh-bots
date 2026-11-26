@@ -55,7 +55,9 @@ export function PairingGroup(props: {
             return
           }
           try {
-            const preview = await host.previewToken(trimmed)
+            const preview = await host.previewCustom({ backend: "incus", trustToken: trimmed })
+            if (preview.backend !== "incus")
+              throw new Error("the VM host read another kind of token")
             setForm((before) => previewed(before, preview))
           } catch (cause) {
             setForm((before) => emptyPairing(before.project))
@@ -81,7 +83,7 @@ export function PairingGroup(props: {
     setBusy(true)
     setFailure(null)
     try {
-      await host.pair(request)
+      await host.connectCustom(request)
       props.onDone()
     } catch (cause) {
       setFailure(t("pairing.failed", { message: messageOf(cause) }))

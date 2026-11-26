@@ -1,7 +1,16 @@
 import type { BotEnvironmentImageView } from "./environment-image"
+import type { HostSiteView, SetupJobView } from "./vm-host-setup"
 
-export const ENVIRONMENT_HOST_PROBLEM_CODES = [
+export type VmBackendKind = "incus" | "proxmox"
+
+export const PLACEMENT_PROBLEM_CODES = [
   "stored-unreadable",
+  "placement-none",
+  "migration-required",
+  "secret-missing",
+] as const
+
+export const INCUS_PROBLEM_CODES = [
   "project-default",
   "unreachable",
   "untrusted",
@@ -16,36 +25,89 @@ export const ENVIRONMENT_HOST_PROBLEM_CODES = [
   "profile-foreign-device",
 ] as const
 
-export type EnvironmentHostProblemCode = (typeof ENVIRONMENT_HOST_PROBLEM_CODES)[number]
+export const PROXMOX_PROBLEM_CODES = ["unreachable", "untrusted", "token-rejected"] as const
 
-export interface EnvironmentHostProblem {
-  readonly code: EnvironmentHostProblemCode
-  readonly message: string
-  readonly fix: string
-}
+export type PlacementProblemCode = (typeof PLACEMENT_PROBLEM_CODES)[number]
+export type IncusProblemCode = (typeof INCUS_PROBLEM_CODES)[number]
+export type ProxmoxProblemCode = (typeof PROXMOX_PROBLEM_CODES)[number]
 
-export type EnvironmentHostPlacement =
-  | { readonly kind: "reading" }
+export type ProblemFix =
+  | { readonly kind: "command"; readonly text: string }
+  | { readonly kind: "text"; readonly text: string }
+  | { readonly kind: "repair" }
+  | { readonly kind: "choose-host" }
+
+export type EnvironmentHostProblem =
   | {
-      readonly kind: "local"
-      readonly socket: string
-      readonly project: string
-      readonly chosen: boolean
+      readonly scope: "placement"
+      readonly code: PlacementProblemCode
+      readonly message: string
+      readonly fix: ProblemFix
     }
   | {
-      readonly kind: "remote"
+      readonly scope: "incus"
+      readonly code: IncusProblemCode
+      readonly message: string
+      readonly fix: ProblemFix
+    }
+  | {
+      readonly scope: "proxmox"
+      readonly code: ProxmoxProblemCode
+      readonly message: string
+      readonly fix: ProblemFix
+    }
+
+export type HostOriginView =
+  | { readonly kind: "custom" }
+  | {
+      readonly kind: "managed"
+      readonly site: HostSiteView
+      readonly completedAt: number
+      readonly update: "current" | "available"
+    }
+
+export type BackendPlacementView =
+  | {
+      readonly kind: "incus"
       readonly url: string
       readonly project: string
       readonly serverFingerprint: string
       readonly clientFingerprint: string
     }
+  | {
+      readonly kind: "proxmox"
+      readonly url: string
+      readonly node: string
+      readonly pool: string
+      readonly tokenId: string
+      readonly serverFingerprint: string
+    }
+
+export interface LegacyPlacementView {
+  readonly kind: "incus-socket"
+  readonly socket: string
+  readonly project: string
+}
+
+export type EnvironmentHostPlacement =
+  | { readonly kind: "reading" }
+  | { readonly kind: "none" }
+  | { readonly kind: "migration-required"; readonly from: LegacyPlacementView }
+  | {
+      readonly kind: "placed"
+      readonly backend: BackendPlacementView
+      readonly origin: HostOriginView
+    }
   | { readonly kind: "unreadable"; readonly problem: EnvironmentHostProblem }
 
-export interface EnvironmentHostDeclaration {
-  readonly pool: string
-  readonly network: string
-  readonly egressAcl?: string
-}
+export type EnvironmentHostDeclaration =
+  | {
+      readonly kind: "incus"
+      readonly pool: string
+      readonly network: string
+      readonly egressAcl?: string
+    }
+  | { readonly kind: "proxmox"; readonly node: string; readonly pool: string }
 
 export type EnvironmentHostCheck =
   | { readonly state: "unchecked" }
@@ -82,6 +144,7 @@ export interface EnvironmentHostView {
   readonly check: EnvironmentHostCheck
   readonly egress: readonly EnvironmentEgressReport[]
   readonly released: readonly EnvironmentHostRelease[]
+  readonly setup?: SetupJobView
   readonly image?: BotEnvironmentImageView
 }
 
@@ -104,19 +167,46 @@ export interface TrustTokenPreview {
   readonly expiresAt?: number
 }
 
-export interface EnvironmentHostPairing {
-  readonly token: string
-  readonly url: string
-  readonly project: string
-}
+export type CustomCredential =
+  | { readonly backend: "incus"; readonly trustToken: string }
+  | {
+      readonly backend: "proxmox"
+      readonly url: string
+      readonly tokenId: string
+      readonly serverFingerprint: string
+    }
+
+export type CustomPreview =
+  | ({ readonly backend: "incus" } & TrustTokenPreview)
+  | {
+      readonly backend: "proxmox"
+      readonly url: string
+      readonly tokenId: string
+      readonly serverFingerprint: string
+    }
+
+export type CustomConnectRequest =
+  | {
+      readonly backend: "incus"
+      readonly token: string
+      readonly url: string
+      readonly project: string
+    }
+  | {
+      readonly backend: "proxmox"
+      readonly url: string
+      readonly tokenId: string
+      readonly tokenSecret: string
+      readonly serverFingerprint: string
+      readonly node: string
+      readonly pool: string
+    }
 
 export interface BotEnvironmentHostApi {
   watch(signal?: AbortSignal): AsyncIterable<BotEnvironmentHostState>
   check(): Promise<BotEnvironmentHostState>
-  previewToken(token: string): Promise<TrustTokenPreview>
-  pair(pairing: EnvironmentHostPairing): Promise<BotEnvironmentHostState>
-  useLocal(project: string): Promise<BotEnvironmentHostState>
-  setProject(project: string): Promise<BotEnvironmentHostState>
+  previewCustom(credential: CustomCredential): Promise<CustomPreview>
+  connectCustom(request: CustomConnectRequest): Promise<BotEnvironmentHostState>
   forget(): Promise<BotEnvironmentHostState>
   refreshImage(): Promise<BotEnvironmentHostState>
   startImage(): Promise<BotEnvironmentHostState>

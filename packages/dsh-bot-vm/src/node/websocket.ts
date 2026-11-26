@@ -1,6 +1,6 @@
 import { createHash, randomFillSync } from "node:crypto"
 import type { Duplex } from "node:stream"
-import type { ByteChannel } from "../host/incus"
+import type { ByteChannel } from "../host/backend/incus/client"
 
 const OP_CONTINUATION = 0x0
 const OP_TEXT = 0x1

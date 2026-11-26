@@ -1,5 +1,5 @@
 import { createHash, generateKeyPairSync, randomBytes, sign, X509Certificate } from "node:crypto"
-import type { ClientIdentity } from "../host/pairing"
+import type { ClientIdentity } from "../host/backend/incus/pairing"
 
 function length(size: number): Buffer {
   if (size < 0x80) return Buffer.from([size])

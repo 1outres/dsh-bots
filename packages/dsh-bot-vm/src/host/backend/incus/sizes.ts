@@ -1,5 +1,5 @@
-import type { BotEnvironmentSpec } from "@1outres/dsh-bot-core"
-import type { IncusInstance, IncusVolume } from "./incus"
+import type { InstanceResources } from "../contract"
+import type { IncusInstance } from "./client"
 
 export const CPU_KEY = "limits.cpu"
 export const MEMORY_KEY = "limits.memory"
@@ -32,8 +32,10 @@ export function sizeBytesOf(value: string | undefined): number | undefined {
   return unit === undefined ? undefined : Number(match[1]) * unit
 }
 
-export function specConfigOf(spec: BotEnvironmentSpec): Readonly<Record<string, string>> {
-  return { [CPU_KEY]: String(spec.cpus), [MEMORY_KEY]: `${spec.memoryMiB}MiB` }
+export function resourceConfigOf(
+  resources: Pick<InstanceResources, "cpus" | "memoryMiB">,
+): Readonly<Record<string, string>> {
+  return { [CPU_KEY]: String(resources.cpus), [MEMORY_KEY]: `${resources.memoryMiB}MiB` }
 }
 
 export const gibText = (gib: number) => `${gib}GiB`
@@ -49,20 +51,5 @@ export function instanceSizesOf(instance: IncusInstance): InstanceSizes {
   return {
     cpus: cpu === undefined ? INCUS_VM_DEFAULT_CPUS : /^\d+$/.test(cpu) ? Number(cpu) : undefined,
     memoryBytes: sizeBytesOf(config[MEMORY_KEY] ?? INCUS_VM_DEFAULT_MEMORY),
-  }
-}
-
-export function specOf(instance: IncusInstance, volume: IncusVolume): BotEnvironmentSpec {
-  const sizes = instanceSizesOf(instance)
-  const whole = (value: number | undefined, unit: number, what: string) => {
-    if (value === undefined || !Number.isSafeInteger(value / unit) || value / unit < 1) {
-      throw new Error(`cannot read the ${what} of Incus instance "${instance.name}"`)
-    }
-    return value / unit
-  }
-  return {
-    cpus: whole(sizes.cpus, 1, `CPU count (${CPU_KEY})`),
-    memoryMiB: whole(sizes.memoryBytes, MIB, `memory in MiB (${MEMORY_KEY})`),
-    diskGiB: whole(sizeBytesOf(volume.config[SIZE_KEY]), GIB, "workspace volume size in GiB"),
   }
 }

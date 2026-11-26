@@ -1,4 +1,4 @@
-import type { IncusClient } from "../../src/host/incus"
+import type { IncusClient } from "../../src/host/backend/incus/client"
 
 export function incusWith(methods: Partial<IncusClient>): IncusClient {
   return new Proxy(methods as IncusClient, {

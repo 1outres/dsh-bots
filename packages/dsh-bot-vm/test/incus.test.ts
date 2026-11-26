@@ -4,7 +4,7 @@ import {
   createIncusClient,
   type IncusResponse,
   type IncusTransport,
-} from "../src/host/incus"
+} from "../src/host/backend/incus/client"
 
 type Call = { method: string; path: string; body?: unknown }
 

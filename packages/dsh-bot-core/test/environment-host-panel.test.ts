@@ -4,12 +4,7 @@ import { createEnvironmentHostPanel } from "../src/host/environment-host/panel"
 import type { EnvironmentHostView } from "../src/shared/environment-host"
 
 const VIEW: EnvironmentHostView = {
-  placement: {
-    kind: "local",
-    socket: "/var/lib/incus/unix.socket",
-    project: "dsh-bots",
-    chosen: false,
-  },
+  placement: { kind: "none" },
   check: { state: "unchecked" },
   egress: [
     { botId: "a", measure: { state: "isolated", at: 1 } },
@@ -27,16 +22,30 @@ function hostWith(calls: string[]): BotEnvironmentHost {
       return () => listeners.delete(listener)
     },
     check: async () => VIEW,
-    previewToken: (token) => ({ clientName: token, serverFingerprint: "f", urls: [] }),
-    async pair(pairing) {
-      calls.push(`pair ${pairing.url} ${pairing.project}`)
-      return VIEW
+    setup: new Proxy({} as BotEnvironmentHost["setup"], {
+      get: () => () => {
+        throw new Error("not used here")
+      },
+    }),
+    custom: {
+      preview(credential) {
+        if (credential.backend !== "incus") throw new Error("incus only")
+        return {
+          backend: "incus",
+          clientName: credential.trustToken,
+          serverFingerprint: "f",
+          urls: [],
+        }
+      },
+      async connect(request) {
+        calls.push(
+          request.backend === "incus"
+            ? `incus ${request.url} ${request.project}`
+            : `proxmox ${request.url} ${request.node} ${request.pool}`,
+        )
+        return VIEW
+      },
     },
-    async useLocal(project) {
-      calls.push(`local ${project}`)
-      return VIEW
-    },
-    setProject: async () => VIEW,
     forget: async () => VIEW,
   }
 }
@@ -89,13 +98,36 @@ describe("environment host panel", () => {
     const calls: string[] = []
     const { panel, register } = setup(hostWith(calls))
     register()
-    await expect(panel.pair({ token: "t", url: "", project: "p" })).rejects.toThrow("url is empty")
-    await expect(panel.pair("x")).rejects.toThrow("pairing must be an object")
-    await expect(panel.useLocal(3)).rejects.toThrow("project must be text")
-    expect(() => panel.previewToken("x".repeat(9000))).toThrow("longer than")
-    await panel.pair({ token: " t ", url: " https://h:8443 ", project: " p " })
-    await panel.useLocal(" bots ")
-    expect(calls).toEqual(["pair https://h:8443 p", "local bots"])
+    await expect(
+      panel.connectCustom({ backend: "incus", token: "t", url: "", project: "p" }),
+    ).rejects.toThrow("url is empty")
+    await expect(panel.connectCustom("x")).rejects.toThrow("request must be an object")
+    await expect(panel.connectCustom({ backend: "lxd" })).rejects.toThrow("incus or proxmox")
+    await expect(
+      panel.connectCustom({ backend: "incus", token: "t", url: "https://h", project: 3 }),
+    ).rejects.toThrow("project must be text")
+    expect(() => panel.previewCustom({ backend: "incus", trustToken: "x".repeat(9000) })).toThrow(
+      "longer than",
+    )
+    expect(panel.previewCustom({ backend: "incus", trustToken: " t " })).toMatchObject({
+      clientName: "t",
+    })
+    await panel.connectCustom({
+      backend: "incus",
+      token: " t ",
+      url: " https://h:8443 ",
+      project: " p ",
+    })
+    await panel.connectCustom({
+      backend: "proxmox",
+      url: "https://pve:8006",
+      tokenId: "u@pve!t",
+      tokenSecret: "s",
+      serverFingerprint: "f",
+      node: "n1",
+      pool: "bots",
+    })
+    expect(calls).toEqual(["incus https://h:8443 p", "proxmox https://pve:8006 n1 bots"])
     await expect(panel.startImage()).rejects.toThrow("does not import its base image")
   })
 })

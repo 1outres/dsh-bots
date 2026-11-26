@@ -51,8 +51,9 @@ import type {
 import type {
   BotEnvironmentHostApi,
   BotEnvironmentHostState,
-  EnvironmentHostPairing,
-  TrustTokenPreview,
+  CustomConnectRequest,
+  CustomCredential,
+  CustomPreview,
 } from "../shared/environment-host"
 import type {
   BotByteReadOptions,
@@ -1065,23 +1066,13 @@ export class BotEnvironmentHostRemoteService
   }
 
   @Remote
-  async previewToken(token: string): Promise<TrustTokenPreview> {
-    return this[ENVIRONMENT_HOST].previewToken(token)
+  async previewCustom(credential: CustomCredential): Promise<CustomPreview> {
+    return this[ENVIRONMENT_HOST].previewCustom(credential)
   }
 
   @Remote
-  pair(pairing: EnvironmentHostPairing): Promise<BotEnvironmentHostState> {
-    return this[ENVIRONMENT_HOST].pair(pairing)
-  }
-
-  @Remote
-  useLocal(project: string): Promise<BotEnvironmentHostState> {
-    return this[ENVIRONMENT_HOST].useLocal(project)
-  }
-
-  @Remote
-  setProject(project: string): Promise<BotEnvironmentHostState> {
-    return this[ENVIRONMENT_HOST].setProject(project)
+  connectCustom(request: CustomConnectRequest): Promise<BotEnvironmentHostState> {
+    return this[ENVIRONMENT_HOST].connectCustom(request)
   }
 
   @Remote

@@ -2,9 +2,10 @@ import { RemoteError } from "@deepseek-ai/dsh-typert-protocol"
 import type { BotEnvironmentHost } from "../../contract"
 import type {
   BotEnvironmentHostState,
-  EnvironmentHostPairing,
+  CustomConnectRequest,
+  CustomCredential,
+  CustomPreview,
   EnvironmentHostView,
-  TrustTokenPreview,
 } from "../../shared/environment-host"
 import type { BotEnvironmentImageHost } from "../../shared/environment-image"
 import type { EnvironmentKeeper } from "../environment"
@@ -13,10 +14,8 @@ export interface EnvironmentHostPanel {
   state(): BotEnvironmentHostState
   subscribe(listener: () => void): () => void
   check(): Promise<BotEnvironmentHostState>
-  previewToken(token: unknown): TrustTokenPreview
-  pair(pairing: unknown): Promise<BotEnvironmentHostState>
-  useLocal(project: unknown): Promise<BotEnvironmentHostState>
-  setProject(project: unknown): Promise<BotEnvironmentHostState>
+  previewCustom(credential: unknown): CustomPreview
+  connectCustom(request: unknown): Promise<BotEnvironmentHostState>
   forget(): Promise<BotEnvironmentHostState>
   refreshImage(): Promise<BotEnvironmentHostState>
   startImage(): Promise<BotEnvironmentHostState>
@@ -42,15 +41,55 @@ function text(value: unknown, what: string, limit = MAX_FIELD_LENGTH): string {
   return trimmed
 }
 
-function parsePairing(value: unknown): EnvironmentHostPairing {
+function recordOf(value: unknown, what: string): Readonly<Record<string, unknown>> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw bad("pairing must be an object")
+    throw bad(`${what} must be an object`)
   }
-  const { token, url, project } = value as Record<string, unknown>
-  return {
-    token: text(token, "token", MAX_TRUST_TOKEN_LENGTH),
-    url: text(url, "url"),
-    project: text(project, "project"),
+  return value as Record<string, unknown>
+}
+
+export function parseCustomCredential(value: unknown): CustomCredential {
+  const record = recordOf(value, "credential")
+  switch (record.backend) {
+    case "incus":
+      return {
+        backend: "incus",
+        trustToken: text(record.trustToken, "trustToken", MAX_TRUST_TOKEN_LENGTH),
+      }
+    case "proxmox":
+      return {
+        backend: "proxmox",
+        url: text(record.url, "url"),
+        tokenId: text(record.tokenId, "tokenId"),
+        serverFingerprint: text(record.serverFingerprint, "serverFingerprint"),
+      }
+    default:
+      throw bad("credential.backend must be incus or proxmox")
+  }
+}
+
+export function parseCustomConnectRequest(value: unknown): CustomConnectRequest {
+  const record = recordOf(value, "request")
+  switch (record.backend) {
+    case "incus":
+      return {
+        backend: "incus",
+        token: text(record.token, "token", MAX_TRUST_TOKEN_LENGTH),
+        url: text(record.url, "url"),
+        project: text(record.project, "project"),
+      }
+    case "proxmox":
+      return {
+        backend: "proxmox",
+        url: text(record.url, "url"),
+        tokenId: text(record.tokenId, "tokenId"),
+        tokenSecret: text(record.tokenSecret, "tokenSecret"),
+        serverFingerprint: text(record.serverFingerprint, "serverFingerprint"),
+        node: text(record.node, "node"),
+        pool: text(record.pool, "pool"),
+      }
+    default:
+      throw bad("request.backend must be incus or proxmox")
   }
 }
 
@@ -97,10 +136,9 @@ export function createEnvironmentHostPanel(deps: EnvironmentHostPanelDeps): Envi
       }
     },
     check: async () => stateOf(await required().check()),
-    previewToken: (token) => required().previewToken(text(token, "token", MAX_TRUST_TOKEN_LENGTH)),
-    pair: async (pairing) => stateOf(await required().pair(parsePairing(pairing))),
-    useLocal: async (project) => stateOf(await required().useLocal(text(project, "project"))),
-    setProject: async (project) => stateOf(await required().setProject(text(project, "project"))),
+    previewCustom: (credential) => required().custom.preview(parseCustomCredential(credential)),
+    connectCustom: async (request) =>
+      stateOf(await required().custom.connect(parseCustomConnectRequest(request))),
     forget: async () => stateOf(await required().forget()),
     async refreshImage() {
       await imageOf().refresh()

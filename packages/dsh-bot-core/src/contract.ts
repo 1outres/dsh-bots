@@ -15,9 +15,10 @@ import type {
 } from "./shared/connectors"
 import type { BotEnvironmentCapacity, BotEnvironmentSpec } from "./shared/environment"
 import type {
-  EnvironmentHostPairing,
+  CustomConnectRequest,
+  CustomCredential,
+  CustomPreview,
   EnvironmentHostView,
-  TrustTokenPreview,
 } from "./shared/environment-host"
 import type { BotEnvironmentImageHost } from "./shared/environment-image"
 import type {
@@ -34,6 +35,16 @@ import type {
   BotTemplate,
   PluginRow,
 } from "./shared/preset"
+import type {
+  HostKeyScan,
+  SetupBrief,
+  SetupInspection,
+  SetupJobView,
+  SetupSite,
+  SetupStartRequest,
+  SshIdentityView,
+  SshTarget,
+} from "./shared/vm-host-setup"
 import type { BotWebStatus } from "./shared/web"
 import type { BotVaultProvider, VaultKit } from "./vault-contract"
 import type { BotWebBackend } from "./web-contract"
@@ -83,12 +94,26 @@ export interface BotEnvironmentHost {
   view(): EnvironmentHostView
   subscribe(listener: () => void): () => void
   check(signal?: AbortSignal): Promise<EnvironmentHostView>
-  previewToken(token: string): TrustTokenPreview
-  pair(pairing: EnvironmentHostPairing, signal?: AbortSignal): Promise<EnvironmentHostView>
-  useLocal(project: string): Promise<EnvironmentHostView>
-  setProject(project: string): Promise<EnvironmentHostView>
+  readonly setup: VmHostSetup
+  readonly custom: VmHostCustom
   forget(): Promise<EnvironmentHostView>
   readonly image?: BotEnvironmentImageHost
+}
+
+export interface VmHostSetup {
+  identity(): Promise<SshIdentityView>
+  removeIdentity(scope: "remote-and-local" | "local"): Promise<SshIdentityView>
+  scanHostKey(target: SshTarget, signal?: AbortSignal): Promise<HostKeyScan>
+  inspect(site: SetupSite, signal?: AbortSignal): Promise<SetupInspection>
+  start(request: SetupStartRequest): SetupJobView
+  cancel(jobId: string): SetupJobView
+  dismiss(jobId: string): void
+  brief(jobId: string): SetupBrief
+}
+
+export interface VmHostCustom {
+  preview(credential: CustomCredential): CustomPreview
+  connect(request: CustomConnectRequest, signal?: AbortSignal): Promise<EnvironmentHostView>
 }
 
 export interface BotEnvironmentInfo {

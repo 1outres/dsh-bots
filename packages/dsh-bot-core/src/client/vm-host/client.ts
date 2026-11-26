@@ -1,7 +1,8 @@
 import type {
   BotEnvironmentHostState,
-  EnvironmentHostPairing,
-  TrustTokenPreview,
+  CustomConnectRequest,
+  CustomCredential,
+  CustomPreview,
 } from "../../shared/environment-host"
 import type { Observable } from "../observable"
 import type { BotEnvironmentHostRemote, RemoteMount } from "../remote"
@@ -10,10 +11,8 @@ import type { RemoteResult } from "../types"
 
 export interface VmHostClient extends Observable<FeedState<BotEnvironmentHostState>> {
   check(): Promise<BotEnvironmentHostState>
-  previewToken(token: string): Promise<TrustTokenPreview>
-  pair(pairing: EnvironmentHostPairing): Promise<BotEnvironmentHostState>
-  useLocal(project: string): Promise<BotEnvironmentHostState>
-  setProject(project: string): Promise<BotEnvironmentHostState>
+  previewCustom(credential: CustomCredential): Promise<CustomPreview>
+  connectCustom(request: CustomConnectRequest): Promise<BotEnvironmentHostState>
   forget(): Promise<BotEnvironmentHostState>
   refreshImage(): Promise<BotEnvironmentHostState>
   startImage(): Promise<BotEnvironmentHostState>
@@ -35,10 +34,8 @@ export function createVmHostClient(mount: Promise<RemoteMount>): VmHostClient {
     getSnapshot: feed.getSnapshot,
     subscribe: feed.subscribe,
     check: () => call((remote) => remote.check()),
-    previewToken: (token) => call((remote) => remote.previewToken(token)),
-    pair: (pairing) => call((remote) => remote.pair(pairing)),
-    useLocal: (project) => call((remote) => remote.useLocal(project)),
-    setProject: (project) => call((remote) => remote.setProject(project)),
+    previewCustom: (credential) => call((remote) => remote.previewCustom(credential)),
+    connectCustom: (request) => call((remote) => remote.connectCustom(request)),
     forget: () => call((remote) => remote.forget()),
     refreshImage: () => call((remote) => remote.refreshImage()),
     startImage: () => call((remote) => remote.startImage()),

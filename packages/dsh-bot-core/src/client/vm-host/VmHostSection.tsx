@@ -1,7 +1,9 @@
 import { useState } from "react"
 import type {
+  BackendPlacementView,
   EnvironmentEgressReportView,
   EnvironmentHostCheck,
+  EnvironmentHostDeclaration,
   EnvironmentHostPlacement,
   EnvironmentHostProblem,
   EnvironmentHostSettingsView,
@@ -15,23 +17,19 @@ import {
   BlockRow,
   Button,
   ButtonRow,
-  COMMITTED,
   Code,
-  type CommitResult,
-  commitWith,
   EmptyState,
   ErrorText,
   Group,
   type PillTone,
   Row,
-  Segmented,
   StatusPill,
-  TextFieldRow,
+  Tag,
 } from "../ui"
 import { Command } from "./Command"
 import type { VmHostClient } from "./client"
 import { ImageGroup } from "./ImageGroup"
-import { DEFAULT_PROJECT, projectAllowed, shortFingerprint } from "./model"
+import { DEFAULT_PROJECT, fixShown, shortFingerprint } from "./model"
 import { PairingGroup } from "./PairingGroup"
 
 export interface VmHostSectionDeps {
@@ -70,61 +68,28 @@ function VmHostBody(props: Props & { readonly view: EnvironmentHostSettingsView 
     void work().catch((cause: unknown) => setFailure(messageOf(cause)))
   }
   const placement = view.placement
-  const remote = placement.kind === "remote"
-  const mode = remote || pairing ? "remote" : "local"
-  const projectOf = (current: EnvironmentHostPlacement) =>
-    current.kind === "local" || current.kind === "remote" ? current.project : DEFAULT_PROJECT
   return (
     <div className="dshb-settings-groups" data-dshb-vm-host={placement.kind}>
-      <Group>
-        <Row
-          label={t("vmHost.runsOn")}
-          trailing={
-            <Segmented
-              label={t("vmHost.runsOn")}
-              value={mode}
-              disabled={placement.kind === "reading"}
-              choices={[
-                { value: "local", label: t("vmHost.local") },
-                { value: "remote", label: t("vmHost.remote") },
-              ]}
-              onChange={(next) => {
-                if (next === "remote") {
-                  if (!remote) setPairing(true)
-                  return
-                }
-                setPairing(false)
-                if (placement.kind !== "remote") return
-                run(async () => {
-                  const confirmed = await props.confirm({
-                    title: t("vmHost.toLocal.title"),
-                    description: t("vmHost.toLocal.description", { url: placement.url }),
-                    confirm: t("vmHost.toLocal.accept"),
-                    tone: "danger",
-                  })
-                  if (confirmed) await props.host.useLocal(placement.project)
-                })
-              }}
-              marks={{ "data-dshb-vm-host-mode": mode }}
-            />
-          }
-        />
-        {!pairing && <PlacementRows {...props} placement={placement} />}
-        {remote && !pairing && (
-          <>
+      {!pairing && (
+        <Group>
+          <PlacementRows t={t} placement={placement} />
+          {placement.kind !== "reading" && (
             <ButtonRow
-              label={t("vmHost.pairAnother")}
+              label={placement.kind === "placed" ? t("vmHost.pairAnother") : t("vmHost.pair")}
               onClick={() => setPairing(true)}
               marks={{ "data-dshb-vm-host-pair-another": "" }}
             />
+          )}
+          {placement.kind === "placed" && (
             <ButtonRow
               label={t("vmHost.forget")}
               tone="danger"
               onClick={() =>
                 run(async () => {
+                  const url = placement.backend.url
                   const confirmed = await props.confirm({
-                    title: t("vmHost.forget.title", { url: placement.url }),
-                    description: t("vmHost.forget.description", { url: placement.url }),
+                    title: t("vmHost.forget.title", { url }),
+                    description: t("vmHost.forget.description", { url }),
                     confirm: t("vmHost.forget.accept"),
                     tone: "danger",
                   })
@@ -133,9 +98,9 @@ function VmHostBody(props: Props & { readonly view: EnvironmentHostSettingsView 
               }
               marks={{ "data-dshb-vm-host-forget": "" }}
             />
-          </>
-        )}
-      </Group>
+          )}
+        </Group>
+      )}
       {pairing && (
         <PairingGroup
           t={t}
@@ -149,6 +114,17 @@ function VmHostBody(props: Props & { readonly view: EnvironmentHostSettingsView 
       {!pairing && <PlacedGroups {...props} view={view} run={run} onFailure={setFailure} />}
     </div>
   )
+}
+
+function projectOf(placement: EnvironmentHostPlacement): string {
+  switch (placement.kind) {
+    case "migration-required":
+      return placement.from.project
+    case "placed":
+      return placement.backend.kind === "incus" ? placement.backend.project : DEFAULT_PROJECT
+    default:
+      return DEFAULT_PROJECT
+  }
 }
 
 function PlacedGroups(
@@ -182,34 +158,22 @@ function PlacedGroups(
   )
 }
 
-function PlacementRows(props: Props & { readonly placement: EnvironmentHostPlacement }) {
+function PlacementRows(props: {
+  readonly t: Translate
+  readonly placement: EnvironmentHostPlacement
+}) {
   const { t, placement } = props
-  const project = (current: string) => (
-    <ProjectRow
-      t={t}
-      value={current}
-      commit={async (next) => {
-        const confirmed = await props.confirm({
-          title: t("vmHost.project.title", { project: next }),
-          description: t("vmHost.project.description", { current }),
-          confirm: t("vmHost.project.accept"),
-          tone: "danger",
-        })
-        return confirmed
-          ? commitWith(
-              () =>
-                placement.kind === "local" && !placement.chosen
-                  ? props.host.useLocal(next)
-                  : props.host.setProject(next),
-              messageOf,
-            )
-          : "kept"
-      }}
-    />
-  )
   switch (placement.kind) {
     case "reading":
       return <Row label={t("vmHost.reading")} />
+    case "none":
+      return (
+        <Row
+          label={t("vmHost.runsOn")}
+          trailing={<StatusPill tone="danger" label={t("vmHost.unchosen")} />}
+          marks={{ "data-dshb-vm-host-none": "" }}
+        />
+      )
     case "unreadable":
       return (
         <Row
@@ -219,59 +183,85 @@ function PlacementRows(props: Props & { readonly placement: EnvironmentHostPlace
           marks={{ "data-dshb-vm-host-unreadable": "" }}
         />
       )
-    case "local":
+    case "migration-required":
       return (
         <>
-          <Row label={t("vmHost.socket")} trailing={<Code>{placement.socket}</Code>} />
-          {project(placement.project)}
+          <Row
+            label={t("vmHost.move")}
+            trailing={<StatusPill tone="warning" label={t("vmHost.move.needed")} />}
+            marks={{ "data-dshb-vm-host-move": "" }}
+          />
+          <Row label={t("vmHost.socket")} trailing={<Code>{placement.from.socket}</Code>} />
+          <Row label={t("vmHost.project")} trailing={<Code>{placement.from.project}</Code>} />
         </>
       )
-    case "remote":
+    case "placed":
       return (
         <>
           <Row
-            label={t("vmHost.address")}
-            trailing={<Code>{placement.url}</Code>}
-            marks={{ "data-dshb-vm-host-url": placement.url }}
+            label={t("vmHost.runsOn")}
+            trailing={
+              <span className="dshb-vm-host-tags">
+                <Tag marks={{ "data-dshb-vm-host-origin": placement.origin.kind }}>
+                  {t(`vmHost.origin.${placement.origin.kind}`)}
+                </Tag>
+                <Tag marks={{ "data-dshb-vm-host-backend": placement.backend.kind }}>
+                  {t(`vmHost.backend.${placement.backend.kind}`)}
+                </Tag>
+              </span>
+            }
           />
-          <Row
-            label={t("vmHost.serverCertificate")}
-            description={placement.serverFingerprint}
-            trailing={<Code>{shortFingerprint(placement.serverFingerprint)}</Code>}
-          />
-          <Row
-            label={t("vmHost.clientCertificate")}
-            description={placement.clientFingerprint}
-            trailing={<Code>{shortFingerprint(placement.clientFingerprint)}</Code>}
-          />
-          {project(placement.project)}
+          <BackendRows t={t} backend={placement.backend} />
         </>
       )
   }
 }
 
-function ProjectRow(props: {
-  readonly t: Translate
-  readonly value: string
-  commit(project: string): Promise<CommitResult | "kept">
-}) {
-  const { t } = props
-  const [generation, setGeneration] = useState(0)
-  return (
-    <TextFieldRow
-      key={generation}
-      label={t("vmHost.project")}
-      value={props.value}
-      validate={(text) => (projectAllowed(text) ? null : t("vmHost.project.invalid"))}
-      commit={async (text) => {
-        const result = await props.commit(text.trim())
-        if (result !== "kept") return result
-        setGeneration((before) => before + 1)
-        return COMMITTED
-      }}
-      marks={{ "data-dshb-vm-host-project": "" }}
+function BackendRows(props: { readonly t: Translate; readonly backend: BackendPlacementView }) {
+  const { t, backend } = props
+  const address = (
+    <Row
+      label={t("vmHost.address")}
+      trailing={<Code>{backend.url}</Code>}
+      marks={{ "data-dshb-vm-host-url": backend.url }}
     />
   )
+  const server = (
+    <Row
+      label={t("vmHost.serverCertificate")}
+      description={backend.serverFingerprint}
+      trailing={<Code>{shortFingerprint(backend.serverFingerprint)}</Code>}
+    />
+  )
+  switch (backend.kind) {
+    case "incus":
+      return (
+        <>
+          {address}
+          {server}
+          <Row
+            label={t("vmHost.clientCertificate")}
+            description={backend.clientFingerprint}
+            trailing={<Code>{shortFingerprint(backend.clientFingerprint)}</Code>}
+          />
+          <Row
+            label={t("vmHost.project")}
+            trailing={<Code>{backend.project}</Code>}
+            marks={{ "data-dshb-vm-host-project": backend.project }}
+          />
+        </>
+      )
+    case "proxmox":
+      return (
+        <>
+          {address}
+          {server}
+          <Row label={t("vmHost.node")} trailing={<Code>{backend.node}</Code>} />
+          <Row label={t("vmHost.pool")} trailing={<Code>{backend.pool}</Code>} />
+          <Row label={t("vmHost.tokenId")} trailing={<Code>{backend.tokenId}</Code>} />
+        </>
+      )
+  }
 }
 
 function checkPill(t: Translate, check: EnvironmentHostCheck): { tone: PillTone; label: string } {
@@ -320,18 +310,36 @@ function CheckGroup(props: {
         }
         trailing={<StatusPill tone={pill.tone} label={pill.label} />}
       />
-      {check.state === "ready" && (
-        <>
-          <Row label={t("check.pool")} trailing={<Code>{check.declaration.pool}</Code>} />
-          <Row label={t("check.network")} trailing={<Code>{check.declaration.network}</Code>} />
-        </>
-      )}
+      {check.state === "ready" && <DeclarationRows t={t} declaration={check.declaration} />}
       {check.state === "failed" &&
         check.problems.map((problem, index) => (
           <ProblemRow key={`${problem.code}-${index}`} t={t} problem={problem} />
         ))}
     </Group>
   )
+}
+
+function DeclarationRows(props: {
+  readonly t: Translate
+  readonly declaration: EnvironmentHostDeclaration
+}) {
+  const { t, declaration } = props
+  switch (declaration.kind) {
+    case "incus":
+      return (
+        <>
+          <Row label={t("check.pool")} trailing={<Code>{declaration.pool}</Code>} />
+          <Row label={t("check.network")} trailing={<Code>{declaration.network}</Code>} />
+        </>
+      )
+    case "proxmox":
+      return (
+        <>
+          <Row label={t("vmHost.node")} trailing={<Code>{declaration.node}</Code>} />
+          <Row label={t("vmHost.pool")} trailing={<Code>{declaration.pool}</Code>} />
+        </>
+      )
+  }
 }
 
 function ProblemRow({
@@ -341,14 +349,19 @@ function ProblemRow({
   readonly t: Translate
   readonly problem: EnvironmentHostProblem
 }) {
+  const fix = fixShown(problem.fix)
   return (
     <BlockRow
-      label={t(`problem.${problem.code}`)}
+      label={t(`problem.${problem.scope}.${problem.code}`)}
       meta={problem.message}
       metaTone="danger"
       marks={{ "data-dshb-vm-host-problem": problem.code }}
     >
-      <Command t={t} text={problem.fix} />
+      {fix.kind === "command" ? (
+        <Command t={t} text={fix.text} />
+      ) : (
+        <span className="dshb-vm-host-fix">{fix.kind === "text" ? fix.text : t(fix.key)}</span>
+      )}
     </BlockRow>
   )
 }
@@ -377,7 +390,7 @@ function EgressGroup(props: {
   const { t, check, reports } = props
   return (
     <Group title={t("egress.title")} marks={{ "data-dshb-vm-host-egress": "" }}>
-      {check.state === "ready" && (
+      {check.state === "ready" && check.declaration.kind === "incus" && (
         <Row
           label={t("egress.acl")}
           trailing={

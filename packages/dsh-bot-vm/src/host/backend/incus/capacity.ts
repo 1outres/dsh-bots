@@ -1,5 +1,5 @@
 import type { BotEnvironmentCapacity } from "@1outres/dsh-bot-core"
-import { GIB, MIB, sizeBytesOf } from "./spec"
+import { GIB, MIB, sizeBytesOf } from "./sizes"
 
 export const MIN_MEMORY_MIB = 1024
 export const MEMORY_STEP_MIB = 512

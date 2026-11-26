@@ -5,18 +5,13 @@ import { chmod, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises"
 import { homedir, hostname } from "node:os"
 import { join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
-import type { Bot } from "@1outres/dsh-bot-core"
+import type { Bot, VmBackendKind } from "@1outres/dsh-bot-core"
 import type { Context } from "@deepseek-ai/cordis"
 import z from "@deepseek-ai/schemastery"
-import { type IncusEndpoint, parseProjectName } from "./host/endpoint"
-import { createEndpointScope } from "./host/endpoint-scope"
-import {
-  clientKeyRecord,
-  ENDPOINT_FILE,
-  fileEndpointStore,
-  recordClientKeyStore,
-  type SecretRecords,
-} from "./host/endpoint-store"
+import type { ImageBackend } from "./host/backend/contract"
+import { createIncusBackend } from "./host/backend/incus/backend"
+import { createIncusClient } from "./host/backend/incus/client"
+import { type IncusEndpoint, parseProjectName } from "./host/backend/incus/endpoint"
 import {
   type CommandResult,
   createVmEnvironment,
@@ -28,9 +23,16 @@ import { createImporter } from "./host/image/importer"
 import { createImageManager, type ImageManager } from "./host/image/manager"
 import { releaseOf } from "./host/image/release"
 import { DSH_VERSION } from "./host/image/release-env"
-import { createIncusClient } from "./host/incus"
 import { decideOwner, OWNER_FILE } from "./host/owner"
-import { switchableIncusClient } from "./host/switchable-incus"
+import type { StoredPlacement } from "./host/placement/placement"
+import { type BackendConnection, createPlacementScope } from "./host/placement/scope"
+import {
+  type ClientKeyStore,
+  clientKeyRecord,
+  recordClientKeyStore,
+  type SecretRecords,
+} from "./host/placement/secrets"
+import { filePlacementStore, type StoreFiles } from "./host/placement/store"
 import { createVmHost, type VmHost } from "./host/vm-host"
 import { certificateFingerprint, createSelfSignedIdentity } from "./node/client-identity"
 import { startGuestRelay } from "./node/guest-relay"
@@ -52,8 +54,8 @@ export const HELPER_SHA256 = "8cf436d3657343765ea0031bcc6e78edb20580fb9c2595fd7b
 
 export interface Config {
   stateDir: string
-  incusSocket: string
   incusProject: string
+  setupHttpsPort: number
   image: string
   manageImage: boolean
   imageBaseUrl: string
@@ -87,18 +89,16 @@ export const Config: z<Config> = z.object({
     .description(
       "Keys, known_hosts, each bot's ssh config (ssh/<bot>.conf) and the SSH relay's socket (run/guest.sock). A leading ~ is your home.",
     ),
-  incusSocket: z
-    .string()
-    .default("/var/lib/incus/unix.socket")
-    .description(
-      "Incus API socket of this machine, used while no other VM host is paired (<stateDir>/endpoint.json).",
-    ),
   incusProject: z
     .string()
     .default("dsh-bots")
     .description(
-      'Incus project of the bot VMs and workspace volumes, made for dsh-bots (docs/specs/incus-endpoint.md §3.4); "default" is refused.',
+      'The Incus project a VM host built by dsh-bots gets unless another is chosen (docs/specs/incus-endpoint.md §3.4); "default" is refused.',
     ),
+  setupHttpsPort: z
+    .number()
+    .default(8443)
+    .description("The HTTPS port a VM host built by dsh-bots gets unless another is chosen."),
   image: z.string().default("dsh-bot-base").description("Incus image alias bot VMs start from."),
   manageImage: z
     .boolean()
@@ -227,7 +227,7 @@ function expandHome(path: string): string {
   return path === "~" || path.startsWith("~/") ? resolve(homedir(), `.${path.slice(1)}`) : path
 }
 
-export const nodeFiles: EnvironmentFiles = {
+export const nodeFiles: EnvironmentFiles & StoreFiles = {
   async read(path) {
     try {
       return await readFile(path, "utf8")
@@ -248,6 +248,9 @@ export const nodeFiles: EnvironmentFiles = {
   },
   async remove(path) {
     await rm(path, { recursive: true, force: true })
+  },
+  async rename(from, to) {
+    await rename(from, to)
   },
 }
 
@@ -344,7 +347,7 @@ const IMAGE_STALL_MS = 60_000
 export function imageManagerOf(
   config: Config,
   stateDir: string,
-  incus: ReturnType<typeof createIncusClient>,
+  images: () => Promise<ImageBackend>,
   project: () => string | undefined,
   log: (message: string) => void,
 ): ImageManager {
@@ -359,13 +362,12 @@ export function imageManagerOf(
     },
     {
       importer: createImporter({
-        incus,
+        images,
         files: nodeImageFiles,
         http: nodeImageHttp({ stallMs: IMAGE_STALL_MS, userAgent: `dsh-bot-vm/${DSH_VERSION}` }),
         sha256,
         dir: join(stateDir, "images"),
         dshVersion: DSH_VERSION,
-        uploadTimeoutMs: config.imageUploadTimeoutMs,
         log,
       }),
       project,
@@ -390,6 +392,8 @@ export function apply(ctx: Context, config: Config): void {
       "bot-vm: credentials",
     )
   })
+  parseProjectName(config.incusProject)
+  const log = (message: string) => ctx.logger.info(`bot-vm: ${message}`)
   const clientOf = (endpoint: IncusEndpoint, project: string) => {
     const transport = createIncusTransport(endpoint)
     return {
@@ -402,35 +406,46 @@ export function apply(ctx: Context, config: Config): void {
       close: () => transport.close(),
     }
   }
-  const scope = createEndpointScope({
-    store: fileEndpointStore(join(stateDir, ENDPOINT_FILE), nodeFiles),
-    keys: recordClientKeyStore(
-      credentialRecords(() => records),
-      clientKeyRecord(name),
-    ),
-    defaults: {
-      endpoint: { kind: "local", socket: config.incusSocket },
-      project: parseProjectName(config.incusProject),
+  const incusKey = recordClientKeyStore(
+    credentialRecords(() => records),
+    clientKeyRecord(name),
+  )
+  const scope = createPlacementScope({
+    store: filePlacementStore(stateDir, nodeFiles, log),
+    secretOf: (kind: VmBackendKind): ClientKeyStore => {
+      if (kind === "incus") return incusKey
+      throw new Error("Proxmox VM hosts are not supported in this version of @1outres/dsh-bot-vm")
     },
-    connect: clientOf,
+    connect: (placement: StoredPlacement, secret: string): BackendConnection => {
+      const { backend } = placement
+      if (backend.kind !== "incus") {
+        throw new Error("Proxmox VM hosts are not supported in this version of @1outres/dsh-bot-vm")
+      }
+      const { kind: _, project, ...endpoint } = backend
+      const connection = clientOf({ ...endpoint, clientKey: secret }, project)
+      return {
+        backend: createIncusBackend({
+          incus: connection.incus,
+          project,
+          origin: placement.origin.kind,
+          uploadTimeoutMs: config.imageUploadTimeoutMs,
+        }),
+        close: connection.close,
+      }
+    },
   })
-  ctx.effect(() => () => scope.close(), "bot-vm: Incus connections")
-  const incus = switchableIncusClient(async () => (await scope.current()).incus)
+  ctx.effect(() => () => scope.close(), "bot-vm: VM host connections")
   const images = imageManagerOf(
     config,
     stateDir,
-    incus,
+    async () => (await scope.backend()).images,
     () => scope.project(),
-    (message) => ctx.logger.info(`bot-vm: ${message}`),
+    log,
   )
   ctx.effect(() => () => images.close(), "bot-vm: base image")
   const environment = createVmEnvironment(settings, {
-    incus,
+    backend: () => scope.backend(),
     image: images,
-    async scope() {
-      const active = await scope.current()
-      return { kind: active.kind, project: active.project }
-    },
     egress: (botId, report) => host?.egress(botId, report),
     hostRipgrep,
     files: nodeFiles,
@@ -446,11 +461,13 @@ export function apply(ctx: Context, config: Config): void {
     pairing: {
       createIdentity: async (commonName) =>
         createSelfSignedIdentity({ commonName, now: new Date(), usage: "client" }),
-      connect: (endpoint) => clientOf(endpoint, scope.defaults.project),
+      connect: clientOf,
       now: Date.now,
     },
     clientName: `dsh-bots@${hostname()}`,
     fingerprintOf: certificateFingerprint,
+    hostKeyFingerprintOf: hostKeyFingerprint,
+    setupUpdate: () => "current",
     now: Date.now,
     log: (message) => ctx.logger.info(message),
   })
@@ -524,4 +541,11 @@ export function apply(ctx: Context, config: Config): void {
     timer.unref()
     ctx.effect(() => () => clearInterval(timer), "bot-vm: watch")
   }
+}
+
+export function hostKeyFingerprint(hostKey: string): string {
+  const body = hostKey.trim().split(/\s+/)[1]
+  if (body === undefined) throw new Error(`"${hostKey}" is not "<type> <base64>"`)
+  const digest = createHash("sha256").update(Buffer.from(body, "base64")).digest("base64")
+  return `SHA256:${digest.replace(/=+$/, "")}`
 }

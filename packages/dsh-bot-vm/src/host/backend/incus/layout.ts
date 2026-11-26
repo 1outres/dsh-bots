@@ -1,7 +1,7 @@
-import type { BotEnvironmentSpec } from "@1outres/dsh-bot-core"
-import type { ProjectDeclaration } from "./endpoint-check"
-import type { IncusDevice } from "./incus"
-import { gibText, specConfigOf } from "./spec"
+import type { InstanceShape } from "../contract"
+import type { IncusDeclaration } from "./check"
+import type { IncusDevice } from "./client"
+import { gibText, resourceConfigOf } from "./sizes"
 
 export const ROOT_DEVICE = "root"
 export const NIC_DEVICE = "eth0"
@@ -13,24 +13,20 @@ export interface InstanceLayout {
   readonly devices: Readonly<Record<string, IncusDevice>>
 }
 
-export interface LayoutInput {
-  readonly spec: BotEnvironmentSpec
-  readonly placement: Pick<ProjectDeclaration, "pool" | "network">
-  readonly volume: string
-  readonly rootDiskGiB: number
-}
-
-export function layoutOf(input: LayoutInput): InstanceLayout {
-  const { pool, network } = input.placement
+export function layoutOf(
+  shape: InstanceShape,
+  declaration: Pick<IncusDeclaration, "pool" | "network">,
+): InstanceLayout {
+  const { pool, network } = declaration
   return {
     config: {
-      ...specConfigOf(input.spec),
+      ...resourceConfigOf(shape.resources),
       "security.guestapi": "false",
       "security.secureboot": "false",
       "boot.autostart": "true",
     },
     devices: {
-      [ROOT_DEVICE]: { type: "disk", path: "/", pool, size: gibText(input.rootDiskGiB) },
+      [ROOT_DEVICE]: { type: "disk", path: "/", pool, size: gibText(shape.resources.rootDiskGiB) },
       [NIC_DEVICE]: {
         type: "nic",
         name: NIC_DEVICE,
@@ -39,7 +35,7 @@ export function layoutOf(input: LayoutInput): InstanceLayout {
         "security.mac_filtering": "true",
         "security.ipv4_filtering": "true",
       },
-      [WORKSPACE_DEVICE]: { type: "disk", pool, source: input.volume },
+      [WORKSPACE_DEVICE]: { type: "disk", pool, source: shape.workspace },
     },
   }
 }

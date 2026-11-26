@@ -4,18 +4,17 @@ import type {
   ImageProblem,
   ImageProblemCode,
 } from "@1outres/dsh-bot-core"
-import type { IncusClient } from "../incus"
+import type { ImageBackend } from "../backend/contract"
 import type { Hasher, ImageFiles, ImageHttp } from "./io"
 import { type ImageManifest, type ImagePart, MANIFEST_FILE, parseManifest } from "./manifest"
 
 export interface ImporterDeps {
-  readonly incus: IncusClient
+  readonly images: () => Promise<ImageBackend>
   readonly files: ImageFiles
   readonly http: ImageHttp
   readonly sha256: () => Hasher
   readonly dir: string
   readonly dshVersion: string
-  readonly uploadTimeoutMs: number
   readonly log: (message: string) => void
 }
 
@@ -52,7 +51,7 @@ const messageOf = (error: unknown) => (error instanceof Error ? error.message : 
 const gib = (bytes: number) => `${(bytes / GIB).toFixed(2)} GiB`
 
 export function createImporter(deps: ImporterDeps): Importer {
-  const { incus, files, http } = deps
+  const { files, http } = deps
   const manifestsDir = `${deps.dir}/manifests`
   const downloadsDir = `${deps.dir}/downloads`
 
@@ -76,7 +75,7 @@ export function createImporter(deps: ImporterDeps): Importer {
       throw problem(
         step,
         "incus",
-        `Incus could not ${what}: ${messageOf(error)}`,
+        `the VM host could not ${what}: ${messageOf(error)}`,
         "check the VM host's connection and the project's settings",
       )
     }
@@ -365,23 +364,17 @@ export function createImporter(deps: ImporterDeps): Importer {
         }
       }
     }
-    return incusStep("upload", "import the image", signal, () =>
-      incus.importImage(body(), { timeoutMs: deps.uploadTimeoutMs, signal }),
+    return incusStep("upload", "import the image", signal, async () =>
+      (await deps.images()).upload({ bytes: total, body: body() }, signal),
     )
   }
 
-  async function dropUnnamed(fingerprint: string, signal?: AbortSignal): Promise<void> {
-    const image = await incus.image(fingerprint, signal)
-    if (image !== undefined && image.aliases.length === 0)
-      await incus.deleteImage(fingerprint, signal)
-  }
-
   async function pointAlias(alias: string, fingerprint: string, signal?: AbortSignal) {
-    const old = await incus.alias(alias, signal)
-    await incus.setAlias(alias, fingerprint, signal)
+    const images = await deps.images()
+    const old = await images.point(alias, fingerprint, signal)
     if (old !== undefined && old !== fingerprint) {
       deps.log(`${alias} moved from ${old} to ${fingerprint}`)
-      await dropUnnamed(old, signal)
+      await images.discard(old, signal)
     }
   }
   async function clearOthers(keep: string): Promise<void> {
@@ -393,15 +386,17 @@ export function createImporter(deps: ImporterDeps): Importer {
   return {
     manifest,
     target: (alias, signal) =>
-      incusStep("check", `read the image alias ${alias}`, signal, () => incus.alias(alias, signal)),
+      incusStep("check", `read the image alias ${alias}`, signal, async () =>
+        (await deps.images()).target(alias, signal),
+      ),
     async run(release, manifestValue, alias, progress, signal) {
       const { fingerprint, bytes } = manifestValue.image
       const dir = `${downloadsDir}/${release.manifestSha256}`
       await clearOthers(release.manifestSha256)
-      const present = await incusStep("download", "read the project's images", signal, () =>
-        incus.image(fingerprint, signal),
+      const present = await incusStep("download", "read the project's images", signal, async () =>
+        (await deps.images()).has(fingerprint, signal),
       )
-      if (present === undefined) {
+      if (!present) {
         await files.mkdir(dir)
         const joined = await download(release, manifestValue, dir, progress, signal)
         if (joined !== fingerprint) {
@@ -413,16 +408,16 @@ export function createImporter(deps: ImporterDeps): Importer {
             "import again to download it anew; if it persists, report it",
           )
         }
-        deps.log(`uploading ${manifestValue.image.name} (${gib(bytes)}) to Incus`)
+        deps.log(`uploading ${manifestValue.image.name} (${gib(bytes)}) to the VM host`)
         const imported = await upload(manifestValue, dir, progress, signal)
         if (imported !== fingerprint) {
-          await incusStep("upload", "delete the unexpected image", undefined, () =>
-            dropUnnamed(imported, undefined),
+          await incusStep("upload", "delete the unexpected image", undefined, async () =>
+            (await deps.images()).discard(imported),
           )
           throw problem(
             "upload",
             "fingerprint-mismatch",
-            `Incus imported the image as ${imported}, the manifest names ${fingerprint}`,
+            `the VM host imported the image as ${imported}, the manifest names ${fingerprint}`,
             "import again; if it persists, report it",
           )
         }

@@ -3,8 +3,9 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { PassThrough } from "node:stream"
 import { afterEach, describe, expect, it } from "vitest"
+import type { GuestChannel } from "../src/host/backend/contract"
+import type { ByteChannel } from "../src/host/backend/incus/client"
 import { proxyCommandOf } from "../src/host/guest-transport"
-import type { ByteChannel, ExecSession } from "../src/host/incus"
 import { runGuestProxy } from "../src/node/guest-proxy-client"
 import { startGuestRelay } from "../src/node/guest-relay"
 
@@ -44,20 +45,18 @@ function echoSession() {
   const stderr = channel(async function* () {
     yield new TextEncoder().encode("sshd: diagnostics\n")
   })
-  const session: ExecSession = {
-    stdin,
-    stdout,
-    stderr,
-    signal: async () => {},
-    exitCode: async () => 0,
-    destroy: () => {
+  const session: GuestChannel = {
+    input: stdin,
+    output: stdout,
+    diagnostics: stderr,
+    close: () => {
       destroyed = true
     },
   }
   return { session, destroyed: () => destroyed }
 }
 
-async function relayIn(open: (instance: string) => Promise<ExecSession>) {
+async function relayIn(open: (instance: string) => Promise<GuestChannel>) {
   const dir = mkdtempSync(join(tmpdir(), "relay-"))
   dirs.push(dir)
   const socket = join(dir, "run", "guest.sock")

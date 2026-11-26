@@ -7,13 +7,14 @@ import { join } from "node:path"
 import type { BotEnvironmentImageRelease, BotEnvironmentImageView } from "@1outres/dsh-bot-core"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { readReleaseEnv } from "../../../scripts/release/release-env.mjs"
+import { createIncusBackend } from "../src/host/backend/incus/backend"
+import type { IncusClient, IncusImage } from "../src/host/backend/incus/client"
 import { createImporter, ImageStepError, type Importer } from "../src/host/image/importer"
 import type { ImageFiles } from "../src/host/image/io"
 import { createImageManager } from "../src/host/image/manager"
 import { parseManifest } from "../src/host/image/manifest"
 import { releaseOf } from "../src/host/image/release"
 import { DSH_VERSION, IMAGE_TAG, MANIFEST_SHA256 } from "../src/host/image/release-env"
-import type { IncusClient, IncusImage } from "../src/host/incus"
 import { nodeImageFiles, nodeImageHttp, sha256 } from "../src/node/image-io"
 import { incusWith } from "./support/incus"
 
@@ -236,13 +237,18 @@ describe("image import", () => {
 
   const importer = (): Importer =>
     createImporter({
-      incus: incus.client,
+      images: async () =>
+        createIncusBackend({
+          incus: incus.client,
+          project: "dsh-bots",
+          origin: "custom",
+          uploadTimeoutMs: 10_000,
+        }).images,
       files,
       http: nodeImageHttp({ stallMs: 5_000, userAgent: "test" }),
       sha256,
       dir,
       dshVersion: DSH_VERSION,
-      uploadTimeoutMs: 10_000,
       log: (message) => logs.push(message),
     })
 

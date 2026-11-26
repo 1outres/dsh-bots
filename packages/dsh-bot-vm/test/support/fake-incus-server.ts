@@ -1,10 +1,5 @@
 import { createHash, X509Certificate } from "node:crypto"
-import {
-  createServer as createHttpServer,
-  type IncomingMessage,
-  type Server,
-  type ServerResponse,
-} from "node:http"
+import type { IncomingMessage, ServerResponse } from "node:http"
 import { createServer as createHttpsServer } from "node:https"
 import type { AddressInfo, Socket } from "node:net"
 import type { TLSSocket } from "node:tls"
@@ -39,9 +34,7 @@ const sync = (metadata: unknown) => ({
 const failure = (code: number, error: string) => ({ type: "error", error, error_code: code })
 
 function peerFingerprint(req: IncomingMessage): string | undefined {
-  const socket = req.socket as TLSSocket
-  if (typeof socket.getPeerCertificate !== "function") return "local"
-  const raw = socket.getPeerCertificate().raw
+  const raw = (req.socket as TLSSocket).getPeerCertificate().raw
   return raw === undefined ? undefined : createHash("sha256").update(raw).digest("hex")
 }
 
@@ -65,9 +58,7 @@ function echoWebsocket(req: IncomingMessage, socket: Socket, head: Buffer) {
   if (head.length > 0) handle(head)
 }
 
-export async function startFakeIncus(
-  options: { readonly unixSocket?: string } = {},
-): Promise<FakeIncus> {
+export async function startFakeIncus(): Promise<FakeIncus> {
   const identity = createSelfSignedIdentity({
     commonName: "fake-incus",
     now: new Date(),
@@ -85,7 +76,7 @@ export async function startFakeIncus(
     const path = req.url ?? ""
     requests.push(`${req.method} ${path}`)
     const client = peerFingerprint(req)
-    const isTrusted = client === "local" || (client !== undefined && trusted.has(client))
+    const isTrusted = client !== undefined && trusted.has(client)
     const chunks: Buffer[] = []
     req.on("data", (chunk: Buffer) => chunks.push(chunk))
     req.on("end", () => {
@@ -119,30 +110,21 @@ export async function startFakeIncus(
     })
   }
 
-  let server: Server
-  if (options.unixSocket === undefined) {
-    server = createHttpsServer(
-      {
-        cert: identity.certificate,
-        key: identity.key,
-        requestCert: true,
-        rejectUnauthorized: false,
-      },
-      handler,
-    )
-  } else {
-    server = createHttpServer(handler)
-  }
+  const server = createHttpsServer(
+    {
+      cert: identity.certificate,
+      key: identity.key,
+      requestCert: true,
+      rejectUnauthorized: false,
+    },
+    handler,
+  )
   server.on("upgrade", (req: IncomingMessage, socket: Socket, head: Buffer) => {
     requests.push(`WS ${req.url}`)
     echoWebsocket(req, socket, head)
   })
-  await new Promise<void>((resolve) => {
-    if (options.unixSocket === undefined) server.listen(0, "127.0.0.1", resolve)
-    else server.listen(options.unixSocket, resolve)
-  })
-  const address = server.address() as AddressInfo | string
-  const url = typeof address === "string" ? "" : `https://127.0.0.1:${address.port}`
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
+  const url = `https://127.0.0.1:${(server.address() as AddressInfo).port}`
   return {
     url,
     fingerprint,

@@ -1,27 +1,34 @@
 import type {
+  BackendPlacementView,
   BotEnvironmentHost,
   BotEnvironmentImageHost,
   EnvironmentEgressMeasure,
   EnvironmentHostCheck,
   EnvironmentHostPlacement,
-  EnvironmentHostProblem,
   EnvironmentHostRelease,
   EnvironmentHostView,
+  HostOriginView,
+  HostSiteView,
+  VmHostCustom,
+  VmHostSetup,
 } from "@1outres/dsh-bot-core"
+import { parseProjectName } from "./backend/incus/endpoint"
+import { type PairingDeps, pair, untrustCommand } from "./backend/incus/pairing"
+import { parseTrustToken, tokenUrls } from "./backend/incus/trust-token"
 import type { EgressReport } from "./egress-probe"
-import { parseProjectName, type StoredScope } from "./endpoint"
-import { checkEndpoint } from "./endpoint-check"
-import type { EndpointScope } from "./endpoint-scope"
-import { type PairingDeps, pair, untrustCommand } from "./pairing"
-import { parseTrustToken, tokenUrls } from "./trust-token"
+import type { StoredOrigin, StoredPlacement, StoredSetup, StoredSite } from "./placement/placement"
+import { type PlacementScope, problemOf } from "./placement/scope"
+import type { PlacementReading } from "./placement/store"
 
 export interface VmHostDeps {
-  readonly scope: EndpointScope
+  readonly scope: PlacementScope
   readonly image?: BotEnvironmentImageHost
   readonly rehome: () => void
   readonly pairing: PairingDeps
   readonly clientName: string
   readonly fingerprintOf: (certificate: string) => string
+  readonly hostKeyFingerprintOf: (hostKey: string) => string
+  readonly setupUpdate: (setup: StoredSetup) => "current" | "available"
   readonly now: () => number
   readonly log: (message: string) => void
 }
@@ -33,8 +40,6 @@ export interface VmHost extends BotEnvironmentHost {
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
-const CHOOSE_AGAIN = "choose the VM host again in the dsh-bots settings"
-
 function measureOf(report: EgressReport): EnvironmentEgressMeasure {
   switch (report.state) {
     case "isolated":
@@ -44,6 +49,21 @@ function measureOf(report: EgressReport): EnvironmentEgressMeasure {
     case "unmeasured":
       return { state: "unmeasured", at: report.at, reason: report.reason }
   }
+}
+
+const notYet = (what: string) => () => {
+  throw new Error(`${what} is not available in this version of @1outres/dsh-bot-vm`)
+}
+
+const UNBUILT_SETUP: VmHostSetup = {
+  identity: notYet("building a VM host"),
+  removeIdentity: notYet("building a VM host"),
+  scanHostKey: notYet("building a VM host"),
+  inspect: notYet("building a VM host"),
+  start: notYet("building a VM host"),
+  cancel: notYet("building a VM host"),
+  dismiss: notYet("building a VM host"),
+  brief: notYet("building a VM host"),
 }
 
 export function createVmHost(deps: VmHostDeps): VmHost {
@@ -67,34 +87,68 @@ export function createVmHost(deps: VmHostDeps): VmHost {
     ...(image === undefined ? {} : { image: image.view() }),
   })
 
-  function placementOf(stored: StoredScope, chosen: boolean): EnvironmentHostPlacement {
-    const { endpoint, project } = stored
-    return endpoint.kind === "local"
-      ? { kind: "local", socket: endpoint.socket, project, chosen }
-      : {
-          kind: "remote",
-          url: endpoint.url,
-          project,
-          serverFingerprint: endpoint.serverCertificateSha256,
-          clientFingerprint: deps.fingerprintOf(endpoint.clientCertificate),
-        }
+  function siteOf(site: StoredSite): HostSiteView {
+    if (site.kind === "this-machine") return site
+    const { hostKey, ...rest } = site
+    return { ...rest, hostKeyFingerprint: deps.hostKeyFingerprintOf(hostKey) }
   }
 
-  const unreadable = (error: unknown): EnvironmentHostProblem => ({
-    code: "stored-unreadable",
-    message: `the chosen VM host cannot be used: ${messageOf(error)}`,
-    fix: CHOOSE_AGAIN,
-  })
+  function originOf(origin: StoredOrigin): HostOriginView {
+    if (origin.kind === "custom") return origin
+    return {
+      kind: "managed",
+      site: siteOf(origin.site),
+      completedAt: origin.setup.completedAt,
+      update: deps.setupUpdate(origin.setup),
+    }
+  }
 
-  async function readPlacement(): Promise<StoredScope | undefined> {
+  function backendOf(stored: StoredPlacement): BackendPlacementView {
+    const { backend } = stored
+    switch (backend.kind) {
+      case "incus":
+        return {
+          kind: "incus",
+          url: backend.url,
+          project: backend.project,
+          serverFingerprint: backend.serverCertificateSha256,
+          clientFingerprint: deps.fingerprintOf(backend.clientCertificate),
+        }
+      case "proxmox":
+        return {
+          kind: "proxmox",
+          url: backend.url,
+          node: backend.node,
+          pool: backend.pool,
+          tokenId: backend.tokenId,
+          serverFingerprint: backend.serverCertificateSha256,
+        }
+    }
+  }
+
+  function placementOf(reading: PlacementReading): EnvironmentHostPlacement {
+    switch (reading.kind) {
+      case "none":
+        return { kind: "none" }
+      case "migration-required":
+        return { kind: "migration-required", from: { kind: "incus-socket", ...reading.from } }
+      case "placed":
+        return {
+          kind: "placed",
+          backend: backendOf(reading.placement),
+          origin: originOf(reading.placement.origin),
+        }
+    }
+  }
+
+  async function readPlacement(): Promise<PlacementReading | undefined> {
     try {
-      const stored = await scope.stored()
-      placement =
-        stored === undefined ? placementOf(scope.defaults, false) : placementOf(stored, true)
-      return stored
+      const reading = await scope.reading()
+      placement = placementOf(reading)
+      return reading
     } catch (error) {
-      placement = { kind: "unreadable", problem: unreadable(error) }
-      throw error
+      placement = { kind: "unreadable", problem: problemOf(error) }
+      return undefined
     }
   }
 
@@ -104,29 +158,13 @@ export function createVmHost(deps: VmHostDeps): VmHost {
     notify()
     let next: EnvironmentHostCheck
     try {
-      const active = await scope.current()
-      placement = placementOf(active.stored, active.chosen)
-      const result = await checkEndpoint(
-        { incus: active.incus, kind: active.kind, project: active.project },
-        signal,
-      )
+      const { backend } = await scope.current()
+      const result = await backend.check(signal)
       next = result.ok
-        ? {
-            state: "ready",
-            at: deps.now(),
-            declaration: {
-              pool: result.declaration.pool,
-              network: result.declaration.network,
-              ...(result.declaration.egressAcl === undefined
-                ? {}
-                : { egressAcl: result.declaration.egressAcl }),
-            },
-          }
+        ? { state: "ready", at: deps.now(), declaration: result.declaration }
         : { state: "failed", at: deps.now(), problems: result.problems }
     } catch (error) {
-      const problem = unreadable(error)
-      placement = { kind: "unreadable", problem }
-      next = { state: "failed", at: deps.now(), problems: [problem] }
+      next = { state: "failed", at: deps.now(), problems: [problemOf(error)] }
     }
     if (mine === checks) {
       check = next
@@ -136,17 +174,13 @@ export function createVmHost(deps: VmHostDeps): VmHost {
   }
 
   async function leaving(): Promise<void> {
-    let stored: StoredScope | undefined
-    try {
-      stored = await scope.stored()
-    } catch {
-      return
-    }
-    if (stored?.endpoint.kind !== "remote") return
-    const clientFingerprint = deps.fingerprintOf(stored.endpoint.clientCertificate)
+    const reading = await scope.reading().catch(() => undefined)
+    if (reading?.kind !== "placed" || reading.placement.backend.kind !== "incus") return
+    const { backend } = reading.placement
+    const clientFingerprint = deps.fingerprintOf(backend.clientCertificate)
     if (released.some((release) => release.clientFingerprint === clientFingerprint)) return
     released.push({
-      url: stored.endpoint.url,
+      url: backend.url,
       clientFingerprint,
       command: untrustCommand(clientFingerprint),
     })
@@ -155,7 +189,7 @@ export function createVmHost(deps: VmHostDeps): VmHost {
   async function switched(what: string): Promise<EnvironmentHostView> {
     deps.log(`bot-vm: ${what}`)
     egress.clear()
-    await readPlacement().catch(() => {})
+    await readPlacement()
     deps.rehome()
     if (image !== undefined) {
       if (image.view().status.kind === "importing") image.cancel()
@@ -164,6 +198,38 @@ export function createVmHost(deps: VmHostDeps): VmHost {
       })
     }
     return runCheck()
+  }
+
+  const custom: VmHostCustom = {
+    preview(credential) {
+      if (credential.backend !== "incus") return notYet("a Proxmox VM host")()
+      const token = parseTrustToken(credential.trustToken)
+      return {
+        backend: "incus",
+        clientName: token.clientName,
+        serverFingerprint: token.fingerprint,
+        urls: tokenUrls(token),
+        ...(token.expiresAt === undefined ? {} : { expiresAt: token.expiresAt }),
+      }
+    },
+    async connect(request, signal) {
+      if (request.backend !== "incus") return notYet("a Proxmox VM host")()
+      const token = parseTrustToken(request.token)
+      const project = parseProjectName(request.project)
+      await scope.secretUsable("incus")
+      const endpoint = await pair(
+        { token, url: request.url, project, name: deps.clientName },
+        deps.pairing,
+        signal,
+      )
+      await leaving()
+      const { clientKey, ...stored } = endpoint
+      await scope.choose(
+        { version: 3, backend: { kind: "incus", ...stored, project }, origin: { kind: "custom" } },
+        clientKey,
+      )
+      return switched(`paired with the VM host ${endpoint.url} (project ${project})`)
+    },
   }
 
   const offImage = image?.subscribe(notify)
@@ -178,52 +244,15 @@ export function createVmHost(deps: VmHostDeps): VmHost {
       }
     },
     async check(signal) {
-      await readPlacement().catch(() => {})
+      await readPlacement()
       return runCheck(signal)
     },
-    previewToken(text) {
-      const token = parseTrustToken(text)
-      return {
-        clientName: token.clientName,
-        serverFingerprint: token.fingerprint,
-        urls: tokenUrls(token),
-        ...(token.expiresAt === undefined ? {} : { expiresAt: token.expiresAt }),
-      }
-    },
-    async pair(pairing, signal) {
-      const token = parseTrustToken(pairing.token)
-      const project = parseProjectName(pairing.project)
-      await scope.keysUsable()
-      const paired = await pair(
-        { token, url: pairing.url, name: deps.clientName },
-        deps.pairing,
-        signal,
-      )
-      const previous = await scope.stored().catch(() => undefined)
-      if (
-        previous?.endpoint.kind !== "remote" ||
-        previous.endpoint.clientCertificate !== paired.endpoint.clientCertificate
-      ) {
-        await leaving()
-      }
-      await scope.choose({ endpoint: paired.endpoint, project }, paired.clientKey)
-      return switched(`paired with the VM host ${paired.endpoint.url} (project ${project})`)
-    },
-    async useLocal(text) {
-      const project = parseProjectName(text)
-      await leaving()
-      await scope.choose({ endpoint: scope.defaults.endpoint, project })
-      return switched(`using this machine's Incus (project ${project})`)
-    },
-    async setProject(text) {
-      const project = parseProjectName(text)
-      await scope.setProject(project)
-      return switched(`using the project ${project}`)
-    },
+    setup: UNBUILT_SETUP,
+    custom,
     async forget() {
       await leaving()
       await scope.clear()
-      return switched("forgot the chosen VM host; this machine's Incus is used by default")
+      return switched("forgot the chosen VM host; bots wait until another one is chosen")
     },
     ...(image === undefined ? {} : { image }),
     egress(botId, report) {

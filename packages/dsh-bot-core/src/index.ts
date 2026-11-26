@@ -364,7 +364,11 @@ export {
   DEFAULT_BOT_ENVIRONMENT_SPEC,
 } from "./shared/environment"
 export type * from "./shared/environment-host"
-export { ENVIRONMENT_HOST_PROBLEM_CODES } from "./shared/environment-host"
+export {
+  INCUS_PROBLEM_CODES,
+  PLACEMENT_PROBLEM_CODES,
+  PROXMOX_PROBLEM_CODES,
+} from "./shared/environment-host"
 export type * from "./shared/files"
 export { BOT_FILE_ERROR_CODES } from "./shared/files"
 export type * from "./shared/managed-sessions"
@@ -382,6 +386,12 @@ export type * from "./shared/preset"
 export { BOT_PRESET_PREFIX, botPresetId, DEFAULT_TEMPLATE_ID } from "./shared/preset"
 export type * from "./shared/prompt"
 export { BOT_PROMPT_EXCLUSIONS } from "./shared/prompt"
+export type * from "./shared/vm-host-setup"
+export {
+  HOST_SETUP_FAILURE_CODES,
+  PREFLIGHT_CHECK_IDS,
+  SETUP_FAILURE_CODES,
+} from "./shared/vm-host-setup"
 export type * from "./shared/web"
 export {
   BOT_WEB_CAPABILITIES,

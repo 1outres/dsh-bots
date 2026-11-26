@@ -3,6 +3,7 @@ import {
   emptyPairing,
   endpointUrlAllowed,
   fingerprintText,
+  fixShown,
   pairingRequest,
   previewed,
   progressOf,
@@ -14,8 +15,22 @@ import type { EnvironmentHostSettingsView } from "../src/shared/environment-host
 const PREVIEW = { clientName: "c", serverFingerprint: "ab".repeat(32), urls: ["https://h:8443"] }
 
 const host = (change: Partial<EnvironmentHostSettingsView>): EnvironmentHostSettingsView => ({
-  placement: { kind: "local", socket: "/s", project: "dsh-bots", chosen: false },
-  check: { state: "ready", at: 0, declaration: { pool: "p", network: "n", egressAcl: "acl" } },
+  placement: {
+    kind: "placed",
+    backend: {
+      kind: "incus",
+      url: "https://h:8443",
+      project: "dsh-bots",
+      serverFingerprint: "a".repeat(64),
+      clientFingerprint: "b".repeat(64),
+    },
+    origin: { kind: "custom" },
+  },
+  check: {
+    state: "ready",
+    at: 0,
+    declaration: { kind: "incus", pool: "p", network: "n", egressAcl: "acl" },
+  },
   egress: [],
   released: [],
   ...change,
@@ -40,6 +55,7 @@ describe("VM host model", () => {
     expect(pairingRequest(empty, "t", 0)).toBeNull()
     const read = previewed(empty, PREVIEW)
     expect(pairingRequest(read, " t ", 0)).toEqual({
+      backend: "incus",
       token: "t",
       url: "https://h:8443",
       project: "dsh-bots",
@@ -50,12 +66,31 @@ describe("VM host model", () => {
     expect(previewed(empty, { ...PREVIEW, urls: [] }).address).toEqual({ kind: "other", url: "" })
   })
 
-  it("marks the nav: danger for a failed check, warning for open egress or a missing image", () => {
+  it("marks the nav: danger for a failed check or no usable placement, warning for open egress or a missing image", () => {
     expect(badgeOf(host({}))).toBeNull()
     expect(badgeOf(host({ check: { state: "failed", at: 0, problems: [] } }))).toBe("danger")
     expect(
-      badgeOf(host({ check: { state: "ready", at: 0, declaration: { pool: "p", network: "n" } } })),
+      badgeOf(
+        host({
+          check: {
+            state: "ready",
+            at: 0,
+            declaration: { kind: "incus", pool: "p", network: "n" },
+          },
+        }),
+      ),
     ).toBe("warning")
+    expect(badgeOf(host({ placement: { kind: "none" } }))).toBe("danger")
+    expect(
+      badgeOf(
+        host({
+          placement: {
+            kind: "migration-required",
+            from: { kind: "incus-socket", socket: "/s", project: "dsh-bots" },
+          },
+        }),
+      ),
+    ).toBe("danger")
     expect(
       badgeOf(
         host({
@@ -68,6 +103,15 @@ describe("VM host model", () => {
     expect(
       badgeOf(host({ image: { alias: "a", managed: true, status: { kind: "missing" } } })),
     ).toBe("warning")
+  })
+
+  it("shows a fix as a command, a sentence or the action it names", () => {
+    expect(fixShown({ kind: "command", text: "incus x" })).toEqual({
+      kind: "command",
+      text: "incus x",
+    })
+    expect(fixShown({ kind: "repair" })).toEqual({ kind: "label", key: "fix.repair" })
+    expect(fixShown({ kind: "choose-host" })).toEqual({ kind: "label", key: "fix.choose-host" })
   })
 
   it("shows progress in GiB to a tenth", () => {
