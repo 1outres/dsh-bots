@@ -7,7 +7,7 @@ Bots for [DeepSeek Harness](https://www.npmjs.com/package/@deepseek-ai/dsh). Eac
 1. **In DSH** (DeepSeek Harness 0.2.2-rc.5 on any system it runs on, NixOS, Arch, WSL and macOS too, with OpenSSH's `ssh`): add `@1outres/dsh-bots` in DSH's **Plugins** screen, or
 
    ```sh
-   dsh plugin --profile web add @1outres/dsh-bots@0.4.0
+   dsh plugin --profile web add @1outres/dsh-bots@0.4.1
    ```
 
 2. **A VM host** for the bots' VMs (x86_64 with KVM: Debian 13 or 12, Ubuntu 24.04 or Fedora 42+; the same machine as DSH or another one):

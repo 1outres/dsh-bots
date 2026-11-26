@@ -73,6 +73,21 @@ tag is released.
    DSH, `dsh plugin --profile <profile> add @1outres/dsh-bots@<version>`, pairing with that VM
    host and importing the image.
 
+## A version npm will not publish
+
+npm sometimes accepts an upload and then never serves it: the publish waits until
+`--publish-wait-timeout` and fails, and a retry fails with `409 Cannot publish over previously
+staged version` although nothing was staged (npm/cli#9889; seen with 0.4.0's
+`dsh-bot-connector-desktop`). The failed run's summary lists what npm serves.
+
+1. Look under **Staged Packages** on npmjs.com. If the version is listed, approve it and run the
+   failed jobs again.
+2. If it is not listed, that version can never be published. Release the next patch version
+   (every `version`, the bot-core peers and `DSH_BOTS_VERSION`), merge it and push its tag.
+   Packages are published one at a time in dependency order, so the bundle of the wedged version
+   was never published and no install picks it up; deprecate the versions it did publish
+   (`npm deprecate @1outres/<package>@<version> "use <next>"`).
+
 ## 1Password CLI
 
 `@1outres/dsh-bot-vault-1password` downloads one pinned 1Password CLI (`packages/dsh-bot-vault-1password/src/cli/release.ts`). To raise it:

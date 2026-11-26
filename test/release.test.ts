@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url"
 import { describe, expect, it } from "vitest"
 import { packedManifestProblems, packedProblems } from "../scripts/release/packed.mjs"
+import { publishReport, registryStates } from "../scripts/release/registry.mjs"
 import { parseReleaseEnv, readReleaseEnv } from "../scripts/release/release-env.mjs"
 import { versionProblems } from "../scripts/release/versions.mjs"
 import { workspaceManifests } from "../scripts/release/workspace.mjs"
@@ -79,4 +80,38 @@ describe("the workspace's tarballs", () => {
   it("name the release version for every @1outres dependency", () => {
     expect(packedProblems(root, readReleaseEnv(root).DSH_BOTS_VERSION)).toEqual([])
   }, 120_000)
+})
+
+describe("the report after a failed publish", () => {
+  const manifests = [
+    { path: "packages/a/package.json", manifest: { name: "@1outres/a", version: "1.0.1" } },
+    { path: "packages/b/package.json", manifest: { name: "@1outres/b", version: "1.0.1" } },
+    { path: "packages/c/package.json", manifest: { name: "@1outres/c", version: "1.0.1" } },
+  ]
+  const packuments: Record<string, { versions: Record<string, unknown> } | null> = {
+    "@1outres/a": { versions: { "1.0.0": {}, "1.0.1": {} } },
+    "@1outres/b": { versions: { "1.0.0": {} } },
+    "@1outres/c": null,
+  }
+
+  it("names what npm serves and what it does not", async () => {
+    const states = await registryStates(manifests, async (name) => packuments[name] ?? null)
+    expect(states.map((state) => state.served)).toEqual([true, false, false])
+    const report = publishReport(states)
+    expect(report.lines).toEqual([
+      "- @1outres/a@1.0.1: on npm",
+      "- @1outres/b@1.0.1: not on npm",
+      "- @1outres/c@1.0.1: not on npm",
+    ])
+    expect(report.advice.join(" ")).toContain("@1outres/b@1.0.1")
+    expect(report.advice.join(" ")).toContain("Staged Packages")
+  })
+
+  it("has no advice once npm serves every package", async () => {
+    const states = await registryStates(
+      manifests.slice(0, 1),
+      async (name) => packuments[name] ?? null,
+    )
+    expect(publishReport(states).advice).toEqual([])
+  })
 })

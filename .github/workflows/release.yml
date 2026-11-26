@@ -71,6 +71,9 @@ jobs:
           pnpm -r --filter './packages/*' publish
           --access public --provenance --no-git-checks
           --publish-wait-timeout 600000 --report-summary
+      - name: Report what npm serves
+        if: failure()
+        run: node scripts/release/check-published.mjs
       - name: Summarize
         if: always()
         run: |
