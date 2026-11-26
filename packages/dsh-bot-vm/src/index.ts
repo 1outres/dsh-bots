@@ -486,7 +486,7 @@ export function apply(ctx: Context, config: Config): void {
     setup: (vmHost) =>
       createVmHostSetup(
         {
-          store: fileSetupJobStore(join(stateDir, "setup", "jobs"), nodeSetupFiles, log),
+          store: fileSetupJobStore(resolve(stateDir, "setup", "jobs"), nodeSetupFiles, log),
           ssh: createSetupSsh({
             paths: sshPaths,
             files: nodeSetupFiles,

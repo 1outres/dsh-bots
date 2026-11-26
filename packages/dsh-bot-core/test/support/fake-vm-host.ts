@@ -407,8 +407,14 @@ export function createFakeVmHost(options: FakeVmHostOptions = {}): FakeVmHost {
       job = undefined
       notify()
     },
-    brief() {
-      throw new Error("investigating a build comes in a later version")
+    async brief(jobId) {
+      if (job === undefined || job.id !== jobId) throw new Error(`no job ${jobId}`)
+      if (job.failure === undefined) throw new Error(`the job ${jobId} did not fail`)
+      return {
+        title: `VM host setup failed: ${job.failure.code}`,
+        cwd: `/state/setup/jobs/${job.id}`,
+        message: `${job.failure.what}\n${job.failure.fix}`,
+      }
     },
   }
 

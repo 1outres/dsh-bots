@@ -28,7 +28,21 @@ export interface SetupSsh {
   scan(target: SshTarget, signal?: AbortSignal): Promise<HostKeyScan>
   resolve(target: SshTarget, key: PinnedHostKey, known: readonly SshSite[]): SshSite
   point(site: SshSite): Promise<void>
+  clientConfig(site: SshSite, knownHosts: string): SshClientConfig
   removeLocal(): Promise<SshIdentityView>
+}
+
+export interface SshClientConfig {
+  readonly config: string
+  readonly knownHosts: string
+}
+
+function clientConfigOf(paths: SetupSshPaths, site: SshSite): SshClientConfig {
+  const type = hostKeyLine(site.hostKey).split(" ")[0] as string
+  return {
+    config: setupSshConfigText(paths, site, type),
+    knownHosts: setupKnownHostsText(site.hostKey),
+  }
 }
 
 const targetKey = (target: SshTarget) => `${target.user}@${target.host}:${target.port}`
@@ -93,11 +107,12 @@ export function createSetupSsh(deps: SetupSshDeps): SetupSsh {
       return { kind: "ssh", ...target, hostKey: hostKeyLine(line) }
     },
     async point(site) {
-      const type = hostKeyLine(site.hostKey).split(" ")[0] as string
+      const client = clientConfigOf(paths, site)
       await files.mkdir(paths.dir, 0o700)
-      await files.write(paths.knownHosts, setupKnownHostsText(site.hostKey), 0o600)
-      await files.write(paths.config, setupSshConfigText(paths, site, type), 0o600)
+      await files.write(paths.knownHosts, client.knownHosts, 0o600)
+      await files.write(paths.config, client.config, 0o600)
     },
+    clientConfig: (site, knownHosts) => clientConfigOf({ ...paths, knownHosts }, site),
     async removeLocal() {
       await files.remove(paths.identity)
       await files.remove(paths.publicKey)

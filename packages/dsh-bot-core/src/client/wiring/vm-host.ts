@@ -24,7 +24,11 @@ export function wireVmHost(
         label: (t) => t("vmHost.title"),
         icon: IconServer,
         component: (props: GlobalSettingsSectionProps) =>
-          createElement(VmHostSection, { ...props, host }),
+          createElement(VmHostSection, {
+            ...props,
+            host,
+            openSession: (sessionId) => ctx.uiWorkspace.openSession(sessionId),
+          }),
         badge: () => badge,
       }),
     "bot-core: VM host section",

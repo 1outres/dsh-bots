@@ -4,6 +4,7 @@ import type {
   HostSiteView,
   SetupInspection,
   SetupInspectRequest,
+  SetupInvestigation,
   SetupJobView,
   SetupStartRequest,
   SshIdentityView,
@@ -231,6 +232,7 @@ export interface BotEnvironmentHostApi {
   startSetup(request: SetupStartRequest): Promise<BotEnvironmentHostState>
   cancelSetup(jobId: string): Promise<BotEnvironmentHostState>
   dismissSetup(jobId: string): Promise<BotEnvironmentHostState>
+  investigateSetup(jobId: string): Promise<SetupInvestigation>
   forget(): Promise<BotEnvironmentHostState>
   refreshImage(): Promise<BotEnvironmentHostState>
   startImage(): Promise<BotEnvironmentHostState>

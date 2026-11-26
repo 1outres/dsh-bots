@@ -32,8 +32,15 @@ export interface StoredJob {
   readonly lines: number
 }
 
+export interface JobFile {
+  readonly path: string
+  readonly content: string
+  readonly mode: number
+}
+
 export interface SetupJobStore {
   dir(jobId: string): string
+  attach(jobId: string, files: readonly JobFile[]): Promise<void>
   load(): Promise<readonly StoredJob[]>
   save(job: SetupJob, lines: number): Promise<void>
   append(jobId: string, lines: readonly SetupLogLine[]): Promise<void>
@@ -46,6 +53,8 @@ export const LOG_FILE = "log.txt"
 export const LOG_CAP_BYTES = 2 * 1024 * 1024
 const JOB_VERSION = 1
 const JOB_ID = /^[0-9a-f]{16,64}$/
+const ATTACHED_PATH = /^[a-z0-9][a-z0-9._-]*(\/[a-z0-9][a-z0-9._-]*)*$/
+const RESERVED = new Set([JOB_FILE, LOG_FILE])
 
 type Fields = Readonly<Record<string, unknown>>
 
@@ -323,6 +332,20 @@ export function fileSetupJobStore(
         })
         .slice(-wanted)
     },
+    attach: (jobId, attached) =>
+      serial(async () => {
+        await ensureDir(jobId)
+        for (const file of attached) {
+          if (!ATTACHED_PATH.test(file.path) || RESERVED.has(file.path)) {
+            throw new Error(`"${file.path}" cannot be attached to a setup job`)
+          }
+          const parts = file.path.split("/")
+          for (let depth = 1; depth < parts.length; depth++) {
+            await files.mkdir(`${dir(jobId)}/${parts.slice(0, depth).join("/")}`, 0o700)
+          }
+          await files.write(`${dir(jobId)}/${file.path}`, file.content, file.mode)
+        }
+      }),
     remove: (jobId) => serial(() => files.remove(dir(jobId))),
   }
 }

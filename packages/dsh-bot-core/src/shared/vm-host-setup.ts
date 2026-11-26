@@ -187,3 +187,7 @@ export interface SetupBrief {
   readonly cwd: string
   readonly message: string
 }
+
+export interface SetupInvestigation {
+  readonly sessionId: string
+}

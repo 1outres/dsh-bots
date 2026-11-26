@@ -13,7 +13,7 @@ export interface SetupJobActions {
   retry(): void
   dismiss(): void
   openLog(): void
-  readonly investigate?: () => void
+  investigate(): void
 }
 
 export function SetupJobGroup(props: {
@@ -82,8 +82,8 @@ export function SetupJobGroup(props: {
           {(job.state === "failed" || job.state === "interrupted") && (
             <Button
               variant="row"
-              disabled={props.busy || actions.investigate === undefined}
-              onClick={() => actions.investigate?.()}
+              disabled={props.busy}
+              onClick={actions.investigate}
               marks={{ "data-dshb-setup-investigate": "" }}
             >
               {t("setup.investigate")}

@@ -12,6 +12,14 @@ import type {
 } from "@1outres/dsh-bot-core"
 import { type IncusEndpoint, parseProjectName } from "../backend/incus/endpoint"
 import type { StoredPlacement } from "../placement/placement"
+import {
+  BRIEF_FILE,
+  BRIEF_LOG_LINES,
+  BRIEF_SCRIPTS_DIR,
+  BRIEF_SSH_DIR,
+  type HostAccess,
+  setupBriefOf,
+} from "./brief"
 import { type HostSetupEvent, parseHostSetupEvent } from "./events"
 import {
   isFinished,
@@ -35,8 +43,13 @@ import {
 } from "./shell"
 import { type PinHostKey, type SetupTarget, sameSite, siteViewOf, type TargetSite } from "./site"
 import type { SetupSsh, SshSite } from "./ssh"
-import { manualRemovalCommand, publicKeyBody, removeAuthorizedKeyScript } from "./ssh-files"
-import type { SetupJobStore } from "./store"
+import {
+  manualRemovalCommand,
+  publicKeyBody,
+  removeAuthorizedKeyScript,
+  VM_HOST_ALIAS,
+} from "./ssh-files"
+import { type JobFile, logLineText, type SetupJobStore } from "./store"
 
 export const KEPT_JOBS = 5
 const TAIL_LINES = 200
@@ -51,6 +64,7 @@ export type SetupRequestErrorCode =
   | "job-running"
   | "identity-missing"
   | "identity-unauthorized"
+  | "job-not-failed"
 
 export class SetupRequestError extends Error {
   constructor(
@@ -116,6 +130,8 @@ interface Entry {
 }
 
 const RETRYABLE = new Set(["failed", "cancelled", "interrupted"])
+const INVESTIGABLE = new Set(["failed", "interrupted"])
+const decoder = new TextDecoder()
 const UNAUTHORIZED = /Permission denied \(publickey/
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
@@ -356,6 +372,27 @@ export function createVmHostSetup(deps: SetupDeps, host: SetupHost): ManagedSetu
     })
   }
 
+  async function accessOf(
+    site: TargetSite,
+    dir: string,
+  ): Promise<{
+    readonly access: HostAccess
+    readonly files: readonly JobFile[]
+  }> {
+    if (site.kind === "this-machine") return { access: site, files: [] }
+    if ((await deps.ssh.publicKey()) === undefined) {
+      return { access: { kind: "ssh-without-key" }, files: [] }
+    }
+    const client = deps.ssh.clientConfig(site, `${dir}/${BRIEF_SSH_DIR}/known_hosts`)
+    return {
+      access: { kind: "ssh", config: `${dir}/${BRIEF_SSH_DIR}/config`, alias: VM_HOST_ALIAS },
+      files: [
+        { path: `${BRIEF_SSH_DIR}/config`, content: client.config, mode: 0o600 },
+        { path: `${BRIEF_SSH_DIR}/known_hosts`, content: client.knownHosts, mode: 0o600 },
+      ],
+    }
+  }
+
   const viewOfEntry = (entry: Entry): SetupJobView =>
     viewOf(entry.job, { tail: [...entry.tail], lines: entry.lines })
 
@@ -514,10 +551,36 @@ export function createVmHostSetup(deps: SetupDeps, host: SetupHost): ManagedSetu
       apply(entry, { kind: "dismiss" })
       host.notify()
     },
-    brief() {
-      throw new Error(
-        "investigating a setup in a session is not available in this version of @1outres/dsh-bot-vm",
-      )
+    async brief(jobId) {
+      const entry = entryOf(jobId)
+      const { failure } = entry.job
+      if (!INVESTIGABLE.has(entry.job.state) || failure === undefined) {
+        throw new SetupRequestError("job-not-failed", `the setup job ${jobId} did not fail`)
+      }
+      flushTimer?.()
+      flush()
+      const cwd = deps.store.dir(jobId)
+      const bundle = deps.bundle()
+      const { access, files } = await accessOf(entry.job.target.site, cwd)
+      const brief = setupBriefOf({
+        job: entry.job,
+        failure,
+        cwd,
+        logTail: entry.tail.slice(-BRIEF_LOG_LINES).map(logLineText),
+        logLines: entry.lines,
+        bundleSha256: bundle.sha256,
+        access,
+      })
+      await deps.store.attach(jobId, [
+        ...bundle.files.map((file) => ({
+          path: `${BRIEF_SCRIPTS_DIR}/${file.path}`,
+          content: decoder.decode(file.content),
+          mode: 0o600,
+        })),
+        ...files,
+        { path: BRIEF_FILE, content: `${brief.message}\n`, mode: 0o600 },
+      ])
+      return brief
     },
   }
 }

@@ -158,6 +158,7 @@ import type {
   HostKeyScan,
   SetupInspection,
   SetupInspectRequest,
+  SetupInvestigation,
   SetupStartRequest,
   SshIdentityView,
   SshTarget,
@@ -1192,6 +1193,11 @@ export class BotEnvironmentHostRemoteService
   @Remote
   dismissSetup(jobId: string): Promise<BotEnvironmentHostState> {
     return this[ENVIRONMENT_HOST].dismissSetup(jobId)
+  }
+
+  @Remote
+  investigateSetup(jobId: string): Promise<SetupInvestigation> {
+    return this[ENVIRONMENT_HOST].investigateSetup(jobId)
   }
 
   @Remote

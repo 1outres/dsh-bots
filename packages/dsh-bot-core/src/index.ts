@@ -889,10 +889,9 @@ interface HostServices {
     }[]
   }
   sessionController: {
-    create(request: {
-      workspaceId: string
-      agentPreset: string
-    }): Promise<{ sessionId: string; agentPreset?: string }>
+    create(
+      request: { workspaceId: string; agentPreset: string } | { cwd: string },
+    ): Promise<{ sessionId: string; agentPreset?: string }>
     rename(request: { sessionId: string; title: string }): Promise<unknown>
     resolveAgent(sessionId: string): Promise<{ agent: AgentLike } | { error: unknown }>
     prompt(
@@ -3693,6 +3692,20 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
       pluginVersion: manifest.version,
       botName: (botId) => registry.get(botId)?.name,
       onBots: (listener) => registry.subscribe(() => listener()),
+      async investigate(brief) {
+        const { sessionId } = await services.sessionController.create({ cwd: brief.cwd })
+        await services.sessionController.rename({ sessionId, title: brief.title })
+        await services.sessionController.prompt(
+          {
+            requestId: randomUUID(),
+            sessionId,
+            mode: "queue",
+            content: [{ type: "text", text: brief.message }],
+          },
+          new AbortController().signal,
+        )
+        return { sessionId }
+      },
     }),
   )
   new BotEnvironmentRemoteService(ctx, environmentPanel, (listener) => {

@@ -5,7 +5,13 @@ import type {
   EnvironmentHostView,
 } from "../../shared/environment-host"
 import type { BotEnvironmentImageHost } from "../../shared/environment-image"
-import type { HostKeyScan, SetupInspection, SshIdentityView } from "../../shared/vm-host-setup"
+import type {
+  HostKeyScan,
+  SetupBrief,
+  SetupInspection,
+  SetupInvestigation,
+  SshIdentityView,
+} from "../../shared/vm-host-setup"
 import type { EnvironmentKeeper } from "../environment"
 import {
   parseCustomConnectRequest,
@@ -30,6 +36,7 @@ export interface EnvironmentHostPanel {
   startSetup(request: unknown): Promise<BotEnvironmentHostState>
   cancelSetup(jobId: unknown): Promise<BotEnvironmentHostState>
   dismissSetup(jobId: unknown): Promise<BotEnvironmentHostState>
+  investigateSetup(jobId: unknown): Promise<SetupInvestigation>
   forget(): Promise<BotEnvironmentHostState>
   refreshImage(): Promise<BotEnvironmentHostState>
   startImage(): Promise<BotEnvironmentHostState>
@@ -41,6 +48,7 @@ export interface EnvironmentHostPanelDeps {
   readonly pluginVersion: string
   botName(botId: string): string | undefined
   onBots(listener: () => void): () => void
+  investigate(brief: SetupBrief): Promise<SetupInvestigation>
 }
 
 export function createEnvironmentHostPanel(deps: EnvironmentHostPanelDeps): EnvironmentHostPanel {
@@ -112,6 +120,8 @@ export function createEnvironmentHostPanel(deps: EnvironmentHostPanelDeps): Envi
       host.setup.dismiss(parseJobId(jobId))
       return stateOf(host.view())
     },
+    investigateSetup: async (jobId) =>
+      deps.investigate(await required().setup.brief(parseJobId(jobId))),
     forget: async () => stateOf(await required().forget()),
     async refreshImage() {
       await imageOf().refresh()

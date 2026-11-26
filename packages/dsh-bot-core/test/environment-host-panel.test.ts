@@ -68,6 +68,7 @@ function setup(host: BotEnvironmentHost | undefined) {
       bots.add(listener)
       return () => bots.delete(listener)
     },
+    investigate: async () => ({ sessionId: "s" }),
   })
   const register = () => {
     environment = { host } as unknown as BotEnvironment

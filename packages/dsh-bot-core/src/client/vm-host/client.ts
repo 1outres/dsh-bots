@@ -9,6 +9,7 @@ import type {
   HostKeyScan,
   SetupInspection,
   SetupInspectRequest,
+  SetupInvestigation,
   SetupStartRequest,
   SshIdentityView,
   SshTarget,
@@ -29,6 +30,7 @@ export interface VmHostClient extends Observable<FeedState<BotEnvironmentHostSta
   startSetup(request: SetupStartRequest): Promise<BotEnvironmentHostState>
   cancelSetup(jobId: string): Promise<BotEnvironmentHostState>
   dismissSetup(jobId: string): Promise<BotEnvironmentHostState>
+  investigateSetup(jobId: string): Promise<SetupInvestigation>
   forget(): Promise<BotEnvironmentHostState>
   refreshImage(): Promise<BotEnvironmentHostState>
   startImage(): Promise<BotEnvironmentHostState>
@@ -59,6 +61,7 @@ export function createVmHostClient(mount: Promise<RemoteMount>): VmHostClient {
     startSetup: (request) => call((remote) => remote.startSetup(request)),
     cancelSetup: (jobId) => call((remote) => remote.cancelSetup(jobId)),
     dismissSetup: (jobId) => call((remote) => remote.dismissSetup(jobId)),
+    investigateSetup: (jobId) => call((remote) => remote.investigateSetup(jobId)),
     forget: () => call((remote) => remote.forget()),
     refreshImage: () => call((remote) => remote.refreshImage()),
     startImage: () => call((remote) => remote.startImage()),

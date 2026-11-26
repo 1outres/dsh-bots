@@ -1,6 +1,6 @@
 # VM ホストの形（managed / custom、場所、backend）
 
-状態: 仕様（段階 3b と 4 の画面、段階 6 の install.sh の廃止まで実装）。docs/specs/incus-endpoint.md の形 1〜3 と docs/specs/installer.md の install.sh を、この文書で改める（§11 の段階で実装する）。
+状態: 仕様（段階 3b〜6 まで実装）。docs/specs/incus-endpoint.md の形 1〜3 と docs/specs/installer.md の install.sh を、この文書で改める（§11 の段階で実装する）。
 
 この文書では「確認済み」は実際に動かすか、コードや型を読んで確かめたこと、「未検証」は試していないこと、「推測」は根拠が文書や一般的な知識だけのことを指す。読んだものは本文に書く。
 
@@ -348,7 +348,7 @@ interface VmHostSetup {
   start(request: SetupStartRequest): SetupJobView
   cancel(jobId: string): SetupJobView
   dismiss(jobId: string): void
-  brief(jobId: string): SetupBrief
+  brief(jobId: string): Promise<SetupBrief>
 }
 
 interface VmHostCustom {
@@ -397,6 +397,7 @@ type CustomConnectRequest =
 - `ProblemFix` の `repair` は origin が managed のときだけ使う。managed で `unreachable` などになったら、custom 向けの「管理者に頼む」ではなく修復を出す。
 - Remote（`botEnvironmentHost`）は上のメソッドをそのまま並べ、加えて `investigateSetup(jobId): { sessionId }`（§7）を持つ。`BotEnvironmentHostState` は `EnvironmentHostSettingsView` に `setup` が増えるだけ。段階 2 の Remote は `custom` の 2 つを `previewCustom(credential)` と `connectCustom(request)` として並べ、今の `previewToken` / `pair` / `useLocal` / `setProject` を消した。段階 4 で `setup` を `setupIdentity()`、`removeSetupIdentity(scope)`、`scanHostKey(target)`、`inspectSetup(request)`、`startSetup(request)`、`cancelSetup(jobId)`、`dismissSetup(jobId)` として足した（`brief` は Remote に出さず、段階 5 の `investigateSetup` だけが使う。`start` / `cancel` / `dismiss` は他の変更と同じく `BotEnvironmentHostState` を返す）。引数は `host/environment-host/input.ts` が Host に渡す前に形を確かめる（sudo のパスワードは trim せず、1 行で 1024 文字まで）。`BotEnvironmentHostState` の ready には `pluginVersion` も足した（判断: §4.1 の create-project.sh のコマンドの版。bot-core の版は `DSH_BOTS_VERSION` と同じ）。画面の判断: SSH の修復・再実行は固定済みの `hostKey` でそのまま始める（scan し直さない）。再実行の HTTPS のポートは placement の URL のポート、placement が無ければ既定の 8443（`SetupJobView` はポートを持たない）。SSH 鍵の「消す…」はまず `remote-and-local`、それが失敗したら同じ行に「ここだけ消す…」（`local`）を出す。
 - 段階 2 では `setup` の Host 側（`VmHostSetup`）は型だけで、どのメソッドも「この版では使えない」で失敗した。段階 3b で `brief` 以外を実装した（`brief` は段階 5）。段階 3b で契約を 2 つ改めた: `inspect` は `SetupInspectRequest`（site と HTTPS のポート。preflight の `port` の検査に要る。画面でポートを変えたら検査し直す）を受け、`HostSiteView` の ssh は指紋の文字列の代わりに固定した鍵 `hostKey: PinnedHostKey` を持つ。`custom` の proxmox の枝も同じ（段階 7）。setup 系の型は `shared/vm-host-setup.ts` に置いた（§5.6 の型と `SetupBrief`）。
+- 段階 5 で `brief` を実装し、`Promise<SetupBrief>` に改めた（判断: 資料のファイル（§7.2）を書いてから返すため）。`brief` は状態が `failed` か `interrupted` で failure のあるジョブだけを受け、それ以外は `SetupRequestError`（`job-not-failed`）。Remote の `investigateSetup(jobId)` は `SetupInvestigation`（`{ sessionId }`、`shared/vm-host-setup.ts`）を返す。セッションを作る処理は `index.ts` が `createEnvironmentHostPanel` の `investigate(brief)` として渡す（design rule 1）。
 - 段階 2 の `EnvironmentHostDeclaration` の proxmox の枝は仮に `{ kind: "proxmox", node, pool }`。
 - 画面の問題の見出しの鍵は `problem.<scope>.<code>`（`unreachable` などが Incus と Proxmox で重なるため）。
 
@@ -873,8 +874,9 @@ interface SetupBrief {
 - 使い方: bot-core の `index.ts` が Remote の `botEnvironmentHost.investigateSetup(jobId)` を受け、`environment.host.setup.brief(jobId)` で SetupBrief を得て、`sessionController.create({ cwd: brief.cwd })` → `rename({ title: brief.title })` → `prompt({ mode: "queue", content: [{ type: "text", text: brief.message }] })` を行い、`sessionId` を返す。クライアントはそれを開く。
   - design rule 1（`sessionController.create()` は `host/preset/session.ts` と `index.ts` だけ）の範囲に入る。rule 1 の文（ボットのセッションは Bot.createSession）は「ボットのセッション」についてで、これはボットのセッションではない。docs/design-rules.md の rule 1 の行に「VM ホストの構築を調べるセッション（docs/specs/vm-host-modes.md §7）」を例外の理由として足す。
   - dsh-bot-vm は `sessionController` を使わない（design rule 17）。
-- 未検証: `cwd` だけで作ったセッションが DSH の画面のどこ（どの Workspace）に並ぶか。cwd ごとに Workspace ができる可能性がある（推測）。cwd を `<stateDir>/setup/jobs/<id>/` にすると、ジョブごとに Workspace が増えるかもしれない。段階 5 で確かめ、増えるなら cwd を `<stateDir>/setup/` 1 つにして資料のパスをメッセージで渡す。
-- 未検証: bot-core のサイドバーがこのセッションをボットのものと誤らないこと（bot-core はボットのセッションを preset と記録で見分ける。コードは読んでいない）。
+- 確認済み（コードを読み、確認用 DSH で動かした。2026-11-27）: `cwd` だけの `create` は `attachSession` を呼ばない（`dsh-api-session-controller` の `create` は `workspaceId` のときだけ attach する。docs/subsystems/workspace.md「sessions created afterwards join a workspace only through attachSession」）。セッションは Workspace に入らず、サイドバーの「グループなし」に並ぶ。ジョブごとに Workspace は増えない（2 つのジョブで調べた後も workspace の storage の `workspaceIds` は空）。cwd は `<stateDir>/setup/jobs/<id>/` のまま。
+- 確認済み（同上）: bot-core はこのセッションをボットのものとみなさない。サイドバーはボットの記録（`botSessionIds`）にあるセッションだけを隠し、既定の preset のセッションは `stock` に分ける（`client/session-classification.ts`、`client/hide-sessions.ts`）。画面でも「グループなし」に見えた。
+- 注意（確認用 DSH で見た）: DSH の `workspace-write` のサンドボックスは `/tmp` を tmpfs にするので、`stateDir` が `/tmp` の下にあると、セッションの bash から cwd の外（`<stateDir>/setup/ssh/id_ed25519`）が見えず `ssh -F` が使えない。既定の `~/.dsh/bots-vm` では問題にならない（読み取りは制限されない）。
 
 ### 7.2 初めのメッセージ
 
@@ -885,13 +887,13 @@ interface SetupBrief {
 3. 失敗: ステップ、code、what、fix、コマンド、場所（ファイルと行）、終了コード。
 4. ログの末尾（マスク済み、最後の 80 行）と、全体のログのパス（cwd の `log.txt`）。
 5. 直し方の候補: code ごとに用意した文（例: `firewall-drops` なら見つかった chain と ufw / firewalld の許可の仕方、`port-in-use` なら `ss -ltnp` で使っているものを調べる）。
-6. README の要点: infra/vm/README.md の「What gets set up」と「Network isolation」の要約（プール、ブリッジ、ACL、project、ファイアウォールの扱い、`nftables.service` を有効にしないこと）。束に入れた文書から作る。
+6. README の要点: infra/vm/README.md の「What gets set up」と「Network isolation」の要約（プール、ブリッジ、ACL、project、ファイアウォールの扱い、`nftables.service` を有効にしないこと）。束に入れた文書から作る。 判断: 実装は README から作らず、dsh-bot-vm の `src/host/setup/brief.ts` に要約の文を持つ（README を束に入れると束の sha256 が変わり、文書の変更だけで「更新があります」が出るため）。README の「What gets set up」「Network isolation」を変えたら、この要約も直す。
 7. 使えるもの:
-   - SSH（site が ssh で鍵が残っているとき）: 「`ssh -F <stateDir>/setup/ssh/config dsh-bots-vm-host <command>` で VM ホストに入れる。プラグインが管理する設定なので、`~/.ssh/config` を変えないこと」。
+   - SSH（site が ssh で手元に鍵があるとき）: 「`ssh -F <cwd>/ssh/config dsh-bots-vm-host <command>` で VM ホストに入れる。`~/.ssh/config` を変えないこと」。判断: `<stateDir>/setup/ssh/config` は次に検査する VM ホストへ書き換わる（走っているジョブもそれを使う）ので、ジョブの site を固定した config と known_hosts をセッションの cwd の `ssh/` に別に書く（鍵は `<stateDir>/setup/ssh/id_ed25519` をそのまま指す）。鍵が消されていれば、VM ホストで利用者にコマンドを実行してもらうよう書く。
    - このマシン: そのまま実行できる。
 8. 守ること: sudo のパスワードは渡していない。root が要るコマンドは利用者に実行を頼む。ネットワークの ACL、ブリッジの規則、project の制限を弱めない（docs/agent-setup.md の「Never」と同じ）。直したら、設定画面の「もう一度」で続きから進むこと。
 
-cwd（`<stateDir>/setup/jobs/<id>/`）には `log.txt` と、メッセージと同じ `brief.md` を置く。
+cwd（`<stateDir>/setup/jobs/<id>/`）には `log.txt` と、メッセージと同じ `brief.md`、`host-setup/`（プラグインの版の束のスクリプトの写し。失敗の「場所」`host-setup.sh:<行>` を読むため）、SSH のときは `ssh/config` と `ssh/known_hosts` を置く（すべて 0600、ジョブと一緒に 5 つの枠で消える）。メッセージの見出しは英語の Markdown（Target、Failure、Log、Where to look、What the setup makes、Access、Rules）、題は `VM host setup failed: <code> (<host か this machine>)`。
 
 ## 8. 移行
 
@@ -999,7 +1001,6 @@ cwd（`<stateDir>/setup/jobs/<id>/`）には `log.txt` と、メッセージと�
 - 未検証: sudo `-S` がパスワードを拒んだときの読み直しと、`requiretty` の OS（§5.4）。sudoers に入っていない一般ユーザの判定（`sudo -n true` はどちらも「パスワードが要る」を返す、推測）。
 - 未検証: SSH が切れたときに VM ホストの root のプロセスが stdin の EOF を受けて止まること（§5.5）。apt の途中で止めずに済むこと（bash は前景のコマンドが終わってから trap を実行する、推測）。DSH の再起動で中断した apt の後の `dpkg --configure -a` の要否。
 - 未検証: Remote の引数（sudo のパスワード）が DSH の gateway のログに残るか（§6.1）。
-- 未検証: `cwd` で作ったセッションの Workspace と bot-core のサイドバーでの扱い（§7.1）。
 - 未決: managed の VM ホストをやめるとき（「Stop using this VM host」）に、プラグインが root で自分の証明書を外し、作ったもの（ブリッジ、ACL、project）を片付けるか。この文書では custom と同じく案内だけにする。やめた後の placement は `none`（段階 2 で決めた）。
 - 未決: remote の managed で ufw の HTTPS のポートを DSH ホストのアドレス（`$SSH_CLIENT`）だけに開けるか。今は全体に開ける（今の `phase_remote` と同じ）。証明書の認証で守られる。
 - 未決: create-project.sh の配布物の sha256 での固定（§9.2）。

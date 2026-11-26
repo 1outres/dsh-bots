@@ -13,6 +13,7 @@ import type {
   EnvironmentHostCheck,
   EnvironmentHostPlacement,
   HostSiteView,
+  SetupInspectRequest,
 } from "@1outres/dsh-bot-core"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import type { StoredPlacement } from "../src/host/placement/placement"
@@ -20,7 +21,7 @@ import { createVmHostSetup, type SetupHost } from "../src/host/setup/setup"
 import type { HostSetupBundle, ShellRun } from "../src/host/setup/shell"
 import { createSetupSsh, type SshSite } from "../src/host/setup/ssh"
 import { setupSshPaths } from "../src/host/setup/ssh-files"
-import { fileSetupJobStore } from "../src/host/setup/store"
+import { fileSetupJobStore, type SetupJobStore } from "../src/host/setup/store"
 import { nodeSetupFiles } from "../src/node/setup-files"
 import { hostKeyFingerprint, pinnedHostKey } from "../src/node/ssh-tools"
 import { ev, fakeHostShell, newShellRecord, type ShellScript } from "./support/fake-host-shell"
@@ -124,11 +125,14 @@ function harness(options: Options = {}) {
     },
   }
   const imported: string[] = []
+  const disk = storeOnDisk(
+    fileSetupJobStore(join(stateDir, "setup", "jobs"), nodeSetupFiles, (message) =>
+      logs.push(message),
+    ),
+  )
   const setup = createVmHostSetup(
     {
-      store: fileSetupJobStore(join(stateDir, "setup", "jobs"), nodeSetupFiles, (message) =>
-        logs.push(message),
-      ),
+      store: disk.store,
       ssh: createSetupSsh({
         paths,
         files: nodeSetupFiles,
@@ -186,7 +190,49 @@ function harness(options: Options = {}) {
     )
     return readFileSync(file, "utf8")
   }
-  return { setup, host, record, adopted, logs, timers, settled, stateDir, paths, logText, imported }
+  return {
+    setup,
+    host,
+    record,
+    adopted,
+    logs,
+    timers,
+    settled,
+    stateDir,
+    paths,
+    logText,
+    imported,
+    written: disk.written,
+    stop: disk.stop,
+  }
+}
+
+function storeOnDisk(store: SetupJobStore) {
+  const writes: Promise<unknown>[] = []
+  let stopped = false
+  const write =
+    <A extends unknown[]>(run: (...args: A) => Promise<void>) =>
+    (...args: A): Promise<void> => {
+      if (stopped) return Promise.resolve()
+      const done = run(...args)
+      writes.push(done.catch(() => {}))
+      return done
+    }
+  return {
+    store: {
+      ...store,
+      save: write(store.save),
+      append: write(store.append),
+      attach: write(store.attach),
+      remove: write(store.remove),
+    } satisfies SetupJobStore,
+    async written() {
+      while (writes.length > 0) await Promise.all(writes.splice(0))
+    },
+    stop() {
+      stopped = true
+    },
+  }
 }
 
 const thisMachine = { site: { kind: "this-machine" as const }, httpsPort: 8443 }
@@ -540,6 +586,9 @@ describe("building a VM host", () => {
       sudoPassword: PASSWORD,
     })
     await vi.waitFor(() => expect(first.setup.view()?.steps[0]?.state).toBe("done"))
+    for (const timer of first.timers.splice(0)) timer()
+    await first.written()
+    first.stop()
     const record = JSON.parse(
       readFileSync(join(first.stateDir, "setup", "jobs", id, "job.json"), "utf8"),
     )
@@ -669,5 +718,112 @@ describe("building another machine over SSH", () => {
         httpsPort: 8443,
       }),
     ).rejects.toMatchObject({ code: "identity-missing" })
+  })
+})
+
+describe("investigating a failed setup", () => {
+  const failing = () => ({
+    stdout: [
+      ev.hello(),
+      ev.start("packages"),
+      ev.fact("os", "Debian GNU/Linux 13 (trixie)"),
+      ev.done("packages", true),
+      ev.start("incus"),
+      JSON.stringify({
+        v: 1,
+        type: "phase-failed",
+        phase: "incus",
+        code: "command-failed",
+        what: "This command failed: incus storage create dsh btrfs size=80GiB (host-setup.sh, line 262).",
+        fix: "See the log just above it, fix the cause, then run this again.",
+        command: "incus storage create dsh btrfs size=80GiB",
+        location: "host-setup.sh:262",
+        exit: 1,
+      }),
+      ev.end(false),
+    ],
+    stderr: [`sudo said ${PASSWORD}`, "Error: Failed to create the pool"],
+    exit: { code: 1, signal: null },
+  })
+
+  const start = async (t: ReturnType<typeof harness>, site: SetupInspectRequest = thisMachine) => {
+    await t.setup.load()
+    const inspection = await t.setup.inspect(site)
+    const { id } = t.setup.start({
+      inspectionId: inspection.id,
+      project: "dsh-bots",
+      httpsPort: 8443,
+      consents: [],
+      sudoPassword: PASSWORD,
+    })
+    expect(await t.settled()).toMatchObject({ state: "failed" })
+    return id
+  }
+
+  it("writes the brief, the masked log and the scripts into the job's folder", async () => {
+    const t = harness({ root: failing })
+    const id = await start(t)
+    const brief = await t.setup.brief(id)
+    const dir = join(t.stateDir, "setup", "jobs", id)
+    expect(brief.cwd).toBe(dir)
+    expect(brief.title).toBe("VM host setup failed: command-failed (this machine)")
+    expect(brief.message).toContain("- Step: incus")
+    expect(brief.message).toContain("- Location: host-setup.sh:262")
+    expect(brief.message).toContain("- OS: Debian GNU/Linux 13 (trixie)")
+    expect(brief.message).toContain("host: Error: Failed to create the pool")
+    expect(brief.message).toContain("host: sudo said [redacted]")
+    expect(brief.message).toContain(`${dir}/log.txt`)
+    expect(brief.message).toContain("The VM host is this machine")
+    expect(brief.message).not.toContain("ssh -F")
+    expect(brief.message).not.toContain(PASSWORD)
+    expect(readFileSync(join(dir, "brief.md"), "utf8")).toBe(`${brief.message}\n`)
+    expect(statSync(join(dir, "brief.md")).mode & 0o777).toBe(0o600)
+    expect(readFileSync(join(dir, "log.txt"), "utf8")).toContain("Failed to create the pool")
+    expect(readFileSync(join(dir, "log.txt"), "utf8")).not.toContain(PASSWORD)
+  })
+
+  it("gives an SSH site its own pinned config while the key is kept", async () => {
+    const t = harness({ root: failing })
+    await t.setup.load()
+    await t.setup.identity()
+    const target = { host: "vm.example", port: 2222, user: "admin" }
+    const scan = await t.setup.scanHostKey(target)
+    const site = {
+      kind: "ssh" as const,
+      target,
+      hostKey: scan.keys[0] as { type: string; fingerprint: string },
+    }
+    const id = await start(t, { site, httpsPort: 8443 })
+    const dir = join(t.stateDir, "setup", "jobs", id)
+    const brief = await t.setup.brief(id)
+    expect(brief.title).toBe("VM host setup failed: command-failed (vm.example)")
+    expect(brief.message).toContain(`ssh -F ${dir}/ssh/config dsh-bots-vm-host <command>`)
+    const config = readFileSync(join(dir, "ssh", "config"), "utf8")
+    expect(config).toContain("HostName vm.example")
+    expect(config).toContain(`UserKnownHostsFile ${dir}/ssh/known_hosts`)
+    expect(config).toContain(`IdentityFile ${t.paths.identity}`)
+    expect(readFileSync(join(dir, "ssh", "known_hosts"), "utf8")).toBe(
+      `dsh-bots-vm-host ${HOST_KEY}\n`,
+    )
+    await t.setup.removeIdentity("local")
+    const without = await t.setup.brief(id)
+    expect(without.message).toContain("this installation's SSH key has been removed")
+    expect(without.message).not.toContain("ssh -F")
+  })
+
+  it("refuses a job that did not fail", async () => {
+    const done = harness()
+    await done.setup.load()
+    const inspection = await done.setup.inspect(thisMachine)
+    const started = done.setup.start({
+      inspectionId: inspection.id,
+      project: "dsh-bots",
+      httpsPort: 8443,
+      consents: [],
+      sudoPassword: PASSWORD,
+    })
+    expect(await done.settled()).toMatchObject({ state: "succeeded" })
+    await expect(done.setup.brief(started.id)).rejects.toMatchObject({ code: "job-not-failed" })
+    await expect(done.setup.brief("f".repeat(32))).rejects.toMatchObject({ code: "job-unknown" })
   })
 })

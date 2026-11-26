@@ -52,6 +52,7 @@ import {
 
 export interface VmHostSectionDeps {
   readonly host: VmHostClient
+  openSession(sessionId: string): void
 }
 
 type Props = GlobalSettingsSectionProps & VmHostSectionDeps
@@ -171,6 +172,12 @@ function VmHostBody(
             retry: () => open("retry"),
             dismiss: () => run(() => props.host.dismissSetup(job.id)),
             openLog: () => open("log"),
+            investigate: () =>
+              run(async () => {
+                const { sessionId } = await props.host.investigateSetup(job.id)
+                props.close()
+                props.openSession(sessionId)
+              }),
           }}
         />
       )}

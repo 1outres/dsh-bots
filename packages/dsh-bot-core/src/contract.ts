@@ -108,7 +108,7 @@ export interface VmHostSetup {
   start(request: SetupStartRequest): SetupJobView
   cancel(jobId: string): SetupJobView
   dismiss(jobId: string): void
-  brief(jobId: string): SetupBrief
+  brief(jobId: string): Promise<SetupBrief>
 }
 
 export interface VmHostCustom {

@@ -25,7 +25,12 @@ import type {
   BotEnvironmentHostState,
   EnvironmentHostPlacement,
 } from "../src/shared/environment-host"
-import type { SetupInspection, SetupJobView, SetupSite } from "../src/shared/vm-host-setup"
+import type {
+  SetupBrief,
+  SetupInspection,
+  SetupJobView,
+  SetupSite,
+} from "../src/shared/vm-host-setup"
 import { t } from "./support/client"
 import { createFakeVmHost, type FakeVmHostOptions } from "./support/fake-vm-host"
 
@@ -207,7 +212,7 @@ describe("VM host setup model", () => {
   })
 })
 
-function panelOf(host: ReturnType<typeof createFakeVmHost>) {
+function panelOf(host: ReturnType<typeof createFakeVmHost>, briefs: SetupBrief[] = []) {
   return createEnvironmentHostPanel({
     environment: {
       current: () => ({ host }) as unknown as BotEnvironment,
@@ -216,6 +221,10 @@ function panelOf(host: ReturnType<typeof createFakeVmHost>) {
     pluginVersion: "1.2.3",
     botName: () => undefined,
     onBots: () => () => {},
+    async investigate(brief) {
+      briefs.push(brief)
+      return { sessionId: `session-${briefs.length}` }
+    },
   })
 }
 
@@ -318,6 +327,27 @@ describe("VM host setup over the panel", () => {
     expect(jobOf(panel.state())).toBeUndefined()
   })
 
+  it("opens a session on a failed job's brief and refuses a job that did not fail", async () => {
+    const { host, timers } = fakeHost()
+    const briefs: SetupBrief[] = []
+    const panel = panelOf(host, briefs)
+    const inspection = await panel.inspectSetup({ site: THIS_MACHINE, httpsPort: 8443 })
+    const started = jobOf(
+      await panel.startSetup({
+        inspectionId: inspection.id,
+        project: "p-busy",
+        httpsPort: 8443,
+        sudoPassword: "pw",
+        consents: ["zabbly"],
+      }),
+    )
+    timers.drain()
+    await expect(panel.investigateSetup(started?.id)).resolves.toEqual({ sessionId: "session-1" })
+    expect(briefs[0]).toMatchObject({ cwd: `/state/setup/jobs/${started?.id}` })
+    expect(briefs[0]?.message).not.toContain("pw")
+    await expect(panel.investigateSetup(42)).rejects.toThrow("jobId must be text")
+  })
+
   it("cancels where the current step ends", async () => {
     const { host, timers } = fakeHost()
     const panel = panelOf(host)
@@ -348,6 +378,7 @@ function render(state: BotEnvironmentHostState, detail: string | null = null) {
     createElement(VmHostSection, {
       t,
       host: client,
+      openSession() {},
       page: { detail, open() {}, back() {} },
       close() {},
       confirm: async () => false,
@@ -375,7 +406,7 @@ describe("VM host section", () => {
     expect(existing).toContain("existing.proxmox")
   })
 
-  it("shows a failed job with its steps, the fix and the actions, the investigation still off", async () => {
+  it("shows a failed job with its steps, the fix and the actions", async () => {
     const { host, timers } = fakeHost()
     const inspection = await host.setup.inspect({ site: THIS_MACHINE, httpsPort: 8443 })
     host.setup.start({
@@ -394,7 +425,8 @@ describe("VM host section", () => {
     const failed = render(ready(host))
     expect(failed).toContain('data-dshb-setup-failure="project-in-use"')
     expect(failed).toContain("data-dshb-setup-retry")
-    expect(failed).toMatch(
+    expect(failed).toContain("data-dshb-setup-investigate")
+    expect(failed).not.toMatch(
       /data-dshb-setup-investigate=""[^>]*disabled|disabled=""[^>]*data-dshb-setup-investigate/,
     )
     expect(render(ready(host), "log")).toContain("data-dshb-setup-log-page")

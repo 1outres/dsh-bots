@@ -263,6 +263,7 @@ export const REMOTE_METHODS: {
     startSetup: { parameters: [{ name: "request" }] },
     cancelSetup: { parameters: [{ name: "jobId" }] },
     dismissSetup: { parameters: [{ name: "jobId" }] },
+    investigateSetup: { parameters: [{ name: "jobId" }] },
     forget: { parameters: [] },
     refreshImage: { parameters: [] },
     startImage: { parameters: [] },
