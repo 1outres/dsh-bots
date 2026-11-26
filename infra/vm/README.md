@@ -2,15 +2,18 @@
 
 Each dsh bot runs its tools (bash, file I/O, ripgrep) inside its own small
 QEMU/KVM virtual machine managed by [Incus](https://linuxcontainers.org/incus/),
-on a **VM host**: this machine (DSH talks to Incus' Unix socket) or another one
-(DSH talks to its HTTPS API with a client certificate restricted to one project).
+on a **VM host**: this machine or another one. Either way DSH talks to Incus' HTTPS API with a
+client certificate restricted to one project.
 DSH reaches a VM with SSH carried through Incus' exec API (`sshd -i` in the VM,
 docs/specs/incus-endpoint.md §5.2): there is no network path from the host into
 a VM, and nothing in the VM listens. VMs, not containers: the bot gets its own kernel.
 
-Users prepare a VM host with the repository's `install.sh` ([README](../../README.md));
-the spec is `docs/specs/installer.md`. An Incus server that runs other things gets a
-project from its administrator instead (`../incus/create-project.sh`).
+Users build a VM host from the plugin's settings (dsh-bots settings → VM host → **Build on this
+machine** or **Build on another machine**, [README](../../README.md)): the plugin runs the
+`host-setup.sh` it ships, with sudo, on this machine or over SSH (docs/specs/vm-host-modes.md §3).
+An Incus server that runs other things gets a project from its administrator instead
+(`../incus/create-project.sh`, **Use an existing server**). `host-setup.sh` also runs by hand
+from a checkout (Usage).
 
 | file                     | what                                                                                                                                                                                                                    |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -50,7 +53,7 @@ x86_64 with KVM, systemd, Incus 6.0.4 or newer.
 | kernel module | `vhost_vsock` (`/etc/modules-load.d/dsh-bots.conf`): Incus' exec reaches a VM's incus-agent over vsock                                                                                                                                                                                   |
 | https         | `core.https_address` when unset: `127.0.0.1:<port>` (`HTTPS_SCOPE=loopback`) or `:<port>` and the port in ufw / firewalld (`all`, the default); `HTTPS_PORT` (8443)                                                                                                                      |
 | token         | a trust token for one client certificate restricted to the project (`CLIENT_NAME`, `dsh-bots`); `REPLACE_CLIENT` removes a previous certificate first                                                                                                                                    |
-| firewall      | ufw / firewalld / Docker: `dshbr0` allowed (below); another forward filter that drops: the installer stops                                                                                                                                                                               |
+| firewall      | ufw / firewalld / Docker: `dshbr0` allowed (below); another forward filter that drops: the build stops                                                                                                                                                                                   |
 
 No profile: the plugin writes every VM's config and devices into the instance itself
 (docs/specs/incus-endpoint.md §3.4), and the bots' files are on a block volume per bot in the
@@ -93,22 +96,41 @@ with `flush ruleset` and would wipe Incus' tables (and any other service's).
 
 ### Incus access
 
-- **This machine** (local): `/var/lib/incus/unix.socket` (root:incus-admin 0660). install.sh
-  adds the DSH user to `incus-admin`; a running DSH keeps the groups it started with, so the
-  installer says to restart DSH. Access to that socket is root-equivalent on the host; the plugin
-  confines itself to the project in its code (§6.1).
-- **Another machine** (remote): DSH pairs with the token and keeps a client certificate that Incus
-  restricts to the project (`restricted: true`, `projects: [dsh-bots]`). It cannot see or change
-  anything outside the project, nor the network, the ACL or the project's own config. To end it:
-  `incus config trust list` and `incus config trust remove <fingerprint>` on the VM host.
+- DSH pairs with a trust token and keeps a client certificate that Incus restricts to the project
+  (`restricted: true`, `projects: [dsh-bots]`). It cannot see or change anything outside the
+  project, nor the network, the ACL or the project's own config. This machine too: Incus listens
+  on `127.0.0.1:<port>` (`HTTPS_SCOPE=loopback`), and the DSH user is not put in `incus-admin`.
+  To end it: `incus config trust list` and `incus config trust remove <fingerprint>` on the VM host.
+- A build (managed) issues the token and pairs by itself; a rebuild removes this installation's
+  previous certificate first (`REPLACE_CLIENT`). With **Use an existing server** (custom) the
+  administrator gives the token and removes the certificate.
+- Building on another machine uses the plugin's own SSH key (`<stateDir>/setup/ssh/`, a
+  `restrict` line in the VM host's `authorized_keys`, the host key pinned when the user trusts it).
+  Kept after the build, it repairs and updates; removed, a repair needs the line again.
 - While DSH has an SSH connection open to a bot, an incusd stop or restart waits for it up to
   `core.shutdown_timeout` (5 minutes by default; §8.2); the plugin closes connections idle for 5 minutes.
 
 ## Usage
 
+Users build the VM host from the dsh-bots settings. By hand, from a checkout on the VM host (root,
+non-interactive, idempotent; settings are environment variables, see the top of the script):
+
 ```sh
-curl -fsSL https://raw.githubusercontent.com/1outres/dsh-bots/main/install.sh | bash   # users
-sudo ./host-setup.sh all https token        # the same from a checkout (another machine; install.sh grants incus-admin itself for this machine)
+./host-setup.sh preflight                                     # what the settings check first, without root
+sudo ./host-setup.sh all                                      # packages, incus (pool, bridge, ACL, project), firewall
+sudo ./host-setup.sh all https token                          # and Incus' HTTPS on :8443 (opened in ufw / firewalld), then a trust token
+sudo env HTTPS_SCOPE=loopback ./host-setup.sh all https token # for a DSH on this machine: 127.0.0.1:8443 only
+```
+
+On Debian 12 and Ubuntu 24.04 `packages` needs `DSH_BOTS_THIRD_PARTY=yes` (`sudo env DSH_BOTS_THIRD_PARTY=yes …`) (the Zabbly
+repository). Paste the token in dsh-bots settings → VM host → **Use an existing server** →
+Incus: a VM host prepared by hand is custom (the plugin does not repair it); choosing **Build on
+…** later for the same machine makes it managed and pairs again.
+
+`incus` itself (the scripts below) needs root or a member of `incus-admin`; the plugin never adds
+anyone to that group.
+
+```sh
 ./check-vm.sh                               # after the plugin imported the base image
 ./build-base-image.sh                       # author: ~25 min; rebuild whenever packages / DSH version change
 ./export-image.sh image-YYYYMMDD            # author: parts + manifest for a release (infra/RELEASING.md)
@@ -232,13 +254,14 @@ incus project delete dsh-bots
 incus network delete dshbr0
 incus network acl delete dsh-bot-egress
 incus storage delete dsh
-incus config trust list            # remote: remove the DSH's certificate, and unset core.https_address if nothing else uses it
+incus config trust list            # remove the DSH's certificate, and unset core.https_address if nothing else uses it
 sudo systemctl disable --now dsh-bots-docker-forward.service
 sudo rm -f /etc/systemd/system/dsh-bots-docker-forward.service /etc/modules-load.d/dsh-bots.conf
 sudo systemctl daemon-reload
 # ufw: ufw delete allow in on dshbr0; ufw route delete allow in on dshbr0; ufw route delete allow out on dshbr0; ufw delete allow 8443/tcp
 # firewalld: firewall-cmd --permanent --zone=trusted --remove-interface=dshbr0; firewall-cmd --permanent --remove-port=8443/tcp; firewall-cmd --reload
-# on the DSH host: dsh plugin --profile <profile> remove @1outres/dsh-bots; rm -rf ~/.dsh/bots-vm
+# built on another machine with the SSH key kept: remove the line ending in dsh-bots@<DSH host> from ~/.ssh/authorized_keys there
+# on the DSH host: dsh plugin --profile <profile> remove @1outres/dsh-bots; rm -rf ~/.dsh/bots-vm (also the build's jobs, logs and SSH key in setup/)
 ```
 
 ### From an earlier version

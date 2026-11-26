@@ -11,9 +11,9 @@ NAME=dsh-bots-host-check
 p=(--project "$PROJECT")
 
 pool=$(incus project get "$PROJECT" user.dsh-bots.pool) ||
-  fail project-missing "There is no project $PROJECT." "Prepare this VM host with install.sh first."
+  fail project-missing "There is no project $PROJECT." "Build this VM host in the dsh-bots settings (Build on this machine) or with sudo infra/vm/host-setup.sh all."
 network=$(incus project get "$PROJECT" user.dsh-bots.network)
-[[ -n $pool && -n $network ]] || fail project-undeclared "The project $PROJECT declares no user.dsh-bots.pool / network." "Run install.sh again."
+[[ -n $pool && -n $network ]] || fail project-undeclared "The project $PROJECT declares no user.dsh-bots.pool / network." "Build this VM host in the dsh-bots settings (Build on this machine) or with sudo infra/vm/host-setup.sh all (it declares them)."
 [[ -n $(alias_target "$PROJECT" "$IMAGE") ]] ||
   fail image-missing "The project $PROJECT has no image $IMAGE yet." "Import it in DSH: dsh-bots settings → VM host → Base image."
 
@@ -48,6 +48,6 @@ code=$(incus exec "${p[@]}" "$NAME" -- curl -sS -m 20 -o /dev/null -w '%{http_co
     "A firewall drops forwarding for $network (iptables-legacy rules are not visible to nft); allow $network there."
 gateway=$(incus exec "${p[@]}" "$NAME" -- sh -c "ip -4 route show default | awk '{print \$3; exit}'")
 if incus exec "${p[@]}" "$NAME" -- timeout 5 bash -c "exec 3<>/dev/tcp/$gateway/22" >/dev/null 2>&1; then
-  fail vm-check-failed "The test VM reached its gateway $gateway on port 22." "Put the egress ACL on $network (install.sh does)."
+  fail vm-check-failed "The test VM reached its gateway $gateway on port 22." "Put the egress ACL on $network (host-setup.sh incus does)."
 fi
 note "exec, internet, gateway closed"

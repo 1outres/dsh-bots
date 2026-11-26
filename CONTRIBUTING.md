@@ -20,7 +20,7 @@ pnpm test
 
 `pnpm-workspace.yaml` turns off the native builds of `@deepseek-ai/dsh-subprocess-local`, `koffi` and `node-pty` in `allowBuilds`: they are peers of `@deepseek-ai/dsh-ssh`, installed only for type checking, so this repository never needs their builds.
 
-Install a local checkout into DSH with **Plugins** > **Add plugin**, giving the directory of `packages/dsh-bots` or of a single plugin package. The bots' VMs need a VM host: prepare one with `install.sh` (on this machine with `DSH_BOTS_ACCESS=local`, or a throw-away VM) and choose it in dsh-bots settings → VM host; [infra/vm/README.md](infra/vm/README.md) describes what it sets up, [docs/specs/installer.md](docs/specs/installer.md) the installer, and `infra/incus/create-project.sh` the project for an Incus server that runs other things.
+Install a local checkout into DSH with **Plugins** > **Add plugin**, giving the directory of `packages/dsh-bots` or of a single plugin package. The bots' VMs need a VM host: build one in dsh-bots settings → VM host (**Build on another machine** with a throw-away VM keeps your own machine's Incus as it is), or use an existing server's trust token; [infra/vm/README.md](infra/vm/README.md) describes what the build sets up and how to run `infra/vm/host-setup.sh` by hand, [docs/specs/vm-host-modes.md](docs/specs/vm-host-modes.md) the build, and `infra/incus/create-project.sh` the project for an Incus server that runs other things.
 
 ## Packages
 

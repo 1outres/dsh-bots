@@ -4,19 +4,25 @@ A release is the npm packages `@1outres/*` of one version plus the base image th
 `infra/release.env` names. GitHub Actions publishes the packages; the author builds and
 uploads the image, which is too large for Actions (about 1.6 GiB).
 
-Users add `@1outres/dsh-bots@<version>` to DSH; the plugin imports the image `release.env`
-names into the VM host's project. The VM host installer reads `release.env` from the **latest
-GitHub release** (`v<version>`, via `releases/latest`), not from `main`, and the Release
-workflow creates that GitHub release only after npm has the packages and the image checks out.
-So `main` may name an unpublished version at any time; a piped install never sees it until its
-tag is released.
+Users add `@1outres/dsh-bots@<version>` to DSH; the plugin builds the VM host with the
+`host-setup.sh` it ships (a copy of `infra/vm/`, `infra/incus/objects.sh` and `release.env` made
+by `pnpm build`) and imports the image `release.env` names into the VM host's project. Nothing
+reads `main`: an Incus administrator takes `infra/incus/create-project.sh` from the source of
+the tag `v<version>` of the plugin they pair with (the README's and the settings' command). So
+`main` may name an unpublished version at any time.
 
 ## Flow
 
 1. **Image** (only when it changes: `provision-base.sh`, the desktop connector's
    `debian-packages.txt` or apt source, the browser connector's MCP shrinkwrap, a new DSH),
-   on a VM host prepared by `install.sh` for DSH on the same machine (the build runs in its
-   project `dsh-bots`; `PROJECT` names another), with `gh` signed in:
+   on a VM host whose project declares its pool and network (`dsh-bots`; `PROJECT` names
+   another), with `gh` signed in. Build that VM host with your own DSH's **Build on this
+   machine**, or from the checkout with `sudo infra/vm/host-setup.sh all` (infra/vm/README.md,
+   Usage). The scripts use the `incus` client, which needs root or the group `incus-admin`; the
+   plugin adds nobody to it, so join it yourself (`sudo usermod -aG incus-admin "$USER"`, then log
+   in again). `export-image.sh` writes `dist/` and `release.env` in the checkout and
+   `publish-image.sh` uses your `gh` sign-in, so run them as yourself; `build-base-image.sh` and
+   `check-vm.sh` write nothing there and also run as `sudo -E`:
 
    ```sh
    infra/vm/build-base-image.sh                 # ~25 min
@@ -34,7 +40,7 @@ tag is released.
    bot-core `workspace:^<version>`, `DSH_BOTS_VERSION` in `infra/release.env` and the
    `dsh plugin … add @1outres/dsh-bots@<version>` line in `README.md` the same value (for a new
    DSH also every `engines.dsh`, `DSH_VERSION` and the README's DeepSeek Harness version;
-   `test/installer.test.ts` checks the README). `pnpm build && pnpm typecheck && pnpm lint &&
+   `test/release-env.test.ts` checks the README, `packages/dsh-bot-core/test/create-project-command.test.ts` its `create-project.sh` command). `pnpm build && pnpm typecheck && pnpm lint &&
    pnpm test`, then merge to `main`.
 3. **Release notes**, in English, before tagging: they are what every dsh-bots Web UI shows
    once it runs the new version (bot-core reads the published `v<version>` releases after the
@@ -68,10 +74,11 @@ tag is released.
    Any failed check stops it before npm. If a run fails part-way, fix the cause outside the
    tag (npm, the image, a secret) and use **Re-run failed jobs**: published versions are
    skipped. A fix in the tree needs a new version: npm never takes the same version twice.
-6. **Check**: `npm view @1outres/dsh-bots@<version> dependencies`; on a clean VM host
-   `curl -fsSL https://raw.githubusercontent.com/1outres/dsh-bots/main/install.sh | bash`; in a
-   DSH, `dsh plugin --profile <profile> add @1outres/dsh-bots@<version>`, pairing with that VM
-   host and importing the image.
+6. **Check**: `npm view @1outres/dsh-bots@<version> dependencies`; in a verification DSH,
+   `dsh plugin --profile <profile> add @1outres/dsh-bots@<version>`, then dsh-bots settings → VM
+   host → **Build on another machine** with a clean throw-away VM (nested KVM) as the VM host,
+   through to the base image; and the README's `create-project.sh` command, which reads the
+   new tag.
 
 ## A version npm is slow to serve
 
@@ -105,8 +112,9 @@ On the next start each DSH installs the new version under its data directory and
 
 ### Repository
 
-- The repository and its releases must be public: the installer downloads the source tarball
-  and the image without credentials, and npm provenance requires a public repository.
+- The repository and its releases must be public: the plugin downloads the image and Incus
+  administrators the tag's source (`create-project.sh`) without credentials, and npm provenance
+  requires a public repository.
 - **Environment** `npm` (Settings → Environments → New environment): under _Deployment
   branches and tags_ choose _Selected branches and tags_ and add the tag pattern `v*`.
   Optionally add yourself as a required reviewer (public repositories) to approve each publish.
@@ -158,15 +166,10 @@ where no trusted publisher accepts it, and with trusted publishing provenance co
 
 ## Trying it before anything is public
 
-`install.sh` takes a local tree (on the VM host):
-
-```sh
-DSH_BOTS_SOURCE=$PWD bash install.sh
-```
-
 In DSH, add the checkout's bundle instead of the npm one (`dsh plugin --profile <profile> add
-link:$PWD/packages/dsh-bots`, or packed tarballs from a local registry such as Verdaccio), and
-point `bot-vm`'s `imageBaseUrl` / `imageManifestSha256` at an export that is not published
+link:$PWD/packages/dsh-bots`, or packed tarballs from a local registry such as Verdaccio): the
+plugin ships the `host-setup.sh` of the tree it was built from, so a VM host it builds uses the
+checkout's scripts. Point `bot-vm`'s `imageBaseUrl` / `imageManifestSha256` at an export that is not published
 yet (`dist/image-YYYYMMDD` served over HTTP).
 
 `node scripts/release/check-versions.mjs v<version>` and `node scripts/release/check-packed.mjs`

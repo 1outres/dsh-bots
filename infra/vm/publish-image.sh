@@ -35,7 +35,7 @@ else
   log "Creating the draft release $IMAGE_TAG"
   commit=$(git -C "$HERE" rev-parse --verify HEAD)
   gh release create "$IMAGE_TAG" --draft --latest=false --title "Base image $IMAGE_TAG" \
-    --notes "dsh-bots base image for DSH $DSH_VERSION, built from commit $commit. Not a dsh-bots release: install.sh downloads it for the release whose infra/release.env names $IMAGE_TAG."
+    --notes "dsh-bots base image for DSH $DSH_VERSION, built from commit $commit. Not a dsh-bots release: the plugin imports it for the release whose infra/release.env names $IMAGE_TAG."
 fi
 log "Uploading ${#files[@]} files"
 gh release upload "$IMAGE_TAG" "${files[@]}" --clobber

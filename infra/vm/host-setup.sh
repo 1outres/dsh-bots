@@ -391,8 +391,6 @@ phase_token() {
   mark_changed
   if ((EVENTS)); then
     event token "token=$TOKEN"
-  elif [[ -n ${DSH_BOTS_TOKEN_FILE:-} ]]; then
-    printf '%s\n' "$TOKEN" >"$DSH_BOTS_TOKEN_FILE"
   else
     printf '%s\n' "$TOKEN"
   fi

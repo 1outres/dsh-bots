@@ -1,14 +1,19 @@
-# インストーラ（install.sh）: VM ホストの準備
+# インストーラ（install.sh）: VM ホストの準備（廃止）
 
-ボットの VM を動かすマシン（VM ホスト）を、次の 1 行で dsh-bots が使える状態にする。DSH のホストではインストーラを使わない（プラグインを入れて設定画面で VM ホストを選ぶだけ。docs/specs/incus-endpoint.md §2、§3）。
+状態: **廃止**（docs/specs/vm-host-modes.md §9、段階 6 で install.sh を消した）。VM ホストの準備は、プラグインの設定画面が同梱の host-setup.sh を VM ホスト（このマシンか SSH の先）へ送ってフェーズごとに実行する managed のジョブ（同 §3、§5.5）。
+
+この文書の扱い:
+
+- 今も有効（host-setup.sh と create-project.sh の中身の記録）: §2 の root のステップの中身（packages / incus / firewall と project の中身）、§3 の OS、§4 のファイアウォール、§6 の create-project.sh（入口は改めた）、§8 のイメージの配布（作者の VM ホストの用意は改めた）。
+- 廃止の記録（install.sh に固有）: §1 の形の選択、§2 のステップ 2 と 6 と完了時の表示、§5 の sudo と出力、§7 の `install.env` とソースの取得、§9 の `install.sh`、§10 の試験の形 2。
+
+以下は install.sh があったときの記述のまま残し、改めたところに「改めた」を付ける。かつての入口:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/1outres/dsh-bots/main/install.sh | bash
 ```
 
-main の `install.sh` は入口だけで、最新の公開済みリリースのソースを取ってその `install.sh` を実行する（§7、§10）。
-
-改めた（docs/specs/vm-host-modes.md）: install.sh は廃止する。VM ホストの準備は、プラグインの設定画面が同梱の host-setup.sh を VM ホスト（このマシンか SSH の先）へ送ってフェーズごとに実行する managed のジョブにする（同 §3、§5.5）。この文書は host-setup.sh の中身（§2 の root のステップ、§3 の OS、§4 のファイアウォール、§6 の create-project.sh、§8 のイメージの配布）の記録として残す。install.sh に固有の節（§1 の形の選択、§2 のステップ 2 と 6、§5 の sudo と出力、§7 の `install.env` とソースの取得、§9 の `install.sh`）は改めた。
+main の `install.sh` は入口だけで、最新の公開済みリリースのソースを取ってその `install.sh` を実行した（§7、§10）。
 
 ## 1. 対象と前提
 
@@ -33,7 +38,7 @@ main の `install.sh` は入口だけで、最新の公開済みリリースの�
 | 6   | Letting DSH use Incus（local）  | DSH のユーザを `incus-admin` に入れる                                                                    | ✓    |
 | 6   | Issuing a trust token（remote） | `core.https_address`（未設定なら `:8443`）、ufw / firewalld でそのポート、制限付き token の発行          | ✓    |
 
-中身は `infra/vm/host-setup.sh <phase>`（`packages` / `incus` / `firewall` / `all` / `local` / `remote`）。改めた: host-setup.sh の phase は `preflight` / `packages` / `incus` / `firewall` / `https` / `token` / `all` になった（docs/specs/vm-host-modes.md §5.5）。install.sh の local のステップ 6 は install.sh 自身が `sudo usermod -aG incus-admin` を行い、remote は `HTTPS_SCOPE=all host-setup.sh https token`（install.sh は段階 6 で消す）。host-setup.sh は root で非対話・冪等に動く単体のスクリプトで、直接使ってもよい。Incus の資源（ACL、ブリッジ、project、token）の作り方は `infra/incus/objects.sh` にあり、形 3 のスクリプトと共有する。
+中身は `infra/vm/host-setup.sh <phase>`（`packages` / `incus` / `firewall` / `all` / `local` / `remote`）。改めた: host-setup.sh の phase は `preflight` / `packages` / `incus` / `firewall` / `https` / `token` / `all` になった（docs/specs/vm-host-modes.md §5.5）。install.sh の local のステップ 6 は install.sh 自身が `sudo usermod -aG incus-admin` を行い、remote は `HTTPS_SCOPE=all host-setup.sh https token` だった（段階 6 で install.sh を消し、install.sh だけが使った `DSH_BOTS_REPORT` / `DSH_BOTS_NOTE` / `DSH_BOTS_TOKEN_FILE` も消した。`--events` が無いとき token は stdout に出る）。host-setup.sh は root で非対話・冪等に動く単体のスクリプトで、直接使ってもよい。Incus の資源（ACL、ブリッジ、project、token）の作り方は `infra/incus/objects.sh` にあり、形 3 のスクリプトと共有する。
 
 完了時:
 
@@ -100,7 +105,7 @@ It pairs one DSH, once. Run this again for a new token (it replaces an unused on
 
 ## 6. 既存の Incus サーバ（形 3）: infra/incus/create-project.sh
 
-管理者が自分の Incus に対して実行する（root 不要、`incus` のクライアントだけ。`--remote <名前>` で incus の remote に対して）。入口は `install.sh incus-project <オプション>` でもよい（リリースのソースを取って実行する）。改めた: install.sh の廃止で、入口はリリースのタグのソースから `infra/` を取って実行する形にする（docs/specs/vm-host-modes.md §9.2）。
+管理者が自分の Incus に対して実行する（root 不要、`incus` のクライアントだけ。`--remote <名前>` で incus の remote に対して）。入口は `install.sh incus-project <オプション>` でもよかった。改めた: 入口はリリースのタグのソースから `infra/` を取って実行する形（docs/specs/vm-host-modes.md §4.1、§9.2。README と設定画面の「既存のサーバを使う」に同じコマンド）。完了の文は「Use an existing server → Incus」に貼るよう示す。
 
 - 引数: `--pool`（必須）、`--network <既存>` か `--bridge <名前> --cidr <ゲートウェイ/長さ>`、`--acl <既存>` か `--create-acl <名前>`（勧める ACL。新しいブリッジには付け、既存のネットワークには `--attach-acl` のときだけ付ける。そのネットワークの他のインスタンスにも効くため）、`--cpu` / `--memory` / `--disk`（必須。共有のサーバではホストの資源を上限にできない、docs/specs/incus-endpoint.md §5.6）、`--vms`、`--project`（既定 `dsh-bots`）、`--client-name`、`--no-token`。
 - サーバの検査: Incus 6.0.4 以上、qemu ドライバ、`core.https_address` が設定済み（無ければ設定の仕方を示して止まる。サーバの設定は変えない）。
@@ -111,23 +116,23 @@ It pairs one DSH, once. Run this again for a new token (it replaces an unused on
 
 - 正は実機の状態（パッケージ、Incus の資源）。各ステップはまず調べ、済みなら飛ばす。だから途中で止まっても再実行で続きから進む。
 - `~/.local/state/dsh-bots/`（`XDG_STATE_HOME`）: `install.env`（選んだ形 `access`）、`logs/install-<時刻>.log`、`source/<ref>/`（パイプ実行で取ったソース）。
-- `infra/release.env`（`DSH_BOTS_VERSION`、`DSH_VERSION`、`IMAGE_TAG`、`IMAGE_MANIFEST_SHA256`）: インストーラは版の表示と完了時のプラグインの指定にだけ使う。`DSH_BOTS_VERSION` と `DSH_VERSION` は `packages/dsh-bots/package.json` の `version` と `engines.dsh`、README の指定に一致させ、`test/installer.test.ts` が確かめる。`IMAGE_*` は `export-image.sh` が書き、プラグインの `src/host/image/release-env.ts` と一致する。
+- `infra/release.env`（`DSH_BOTS_VERSION`、`DSH_VERSION`、`IMAGE_TAG`、`IMAGE_MANIFEST_SHA256`）: インストーラは版の表示と完了時のプラグインの指定にだけ使った。`DSH_BOTS_VERSION` と `DSH_VERSION` は `packages/dsh-bots/package.json` の `version` と `engines.dsh`、README の指定に一致させる。改めた: 検査は `test/release-env.test.ts`。README の create-project.sh のコマンドは `packages/dsh-bot-core/test/create-project-command.test.ts`。`IMAGE_*` は `export-image.sh` が書き、プラグインの `src/host/image/release-env.ts` と一致する。
 - 取るソース: 既定は最新の公開済みリリース（GitHub API `repos/1outres/dsh-bots/releases/latest` の `tag_name`、`v<版>`）。Release ワークフローが npm への公開とイメージの確認を済ませてから作るので、main が先に進んでも影響しない。latest が `v<版>` でなければ、何が起きたかと `DSH_BOTS_REF=<タグ>` を示して止まる。`DSH_BOTS_SOURCE=<dir>` ならその checkout。
 
 ## 8. イメージの配布
 
-- 作者: VM ホストとして準備したマシン（形 1）で `infra/vm/build-base-image.sh`（project `dsh-bots` の中で、宣言されたプールとネットワークでビルダーを動かし、別名 `dsh-bot-base` に公開）→ `infra/vm/export-image.sh <tag>`（1900 MiB ごとに分け、`manifest.txt` を作り、`release.env` とプラグインの `release-env.ts` を書く）→ `infra/vm/publish-image.sh`（`infra/RELEASING.md`）。
+- 作者: VM ホストとして準備したマシン（形 1。改めた: 作者の DSH の「このマシンに構築」か `sudo infra/vm/host-setup.sh all` で用意し、incus のクライアントは root か `incus-admin` で使う。infra/RELEASING.md）で `infra/vm/build-base-image.sh`（project `dsh-bots` の中で、宣言されたプールとネットワークでビルダーを動かし、別名 `dsh-bot-base` に公開）→ `infra/vm/export-image.sh <tag>`（1900 MiB ごとに分け、`manifest.txt` を作り、`release.env` とプラグインの `release-env.ts` を書く）→ `infra/vm/publish-image.sh`（`infra/RELEASING.md`）。
 - Release ワークフローは公開の前に `infra/vm/check-image-release.sh` で、`IMAGE_TAG` のリリースと `manifest.txt` の sha256 を確かめる。
 - 取り込みはプラグインが行う（docs/specs/incus-endpoint.md §5.5）。
 
 ## 9. 構成
 
-- `install.sh`（ルート）: 1 ファイル。パイプで実行されたときは `DSH_BOTS_REF` のソースの tarball を取り、展開した `install.sh` を `DSH_BOTS_SOURCE=<展開先>` で実行し直す。`incus-project` は `infra/incus/create-project.sh` に渡す。
+- `install.sh`（ルート、消した）: 1 ファイル。パイプで実行されたときは `DSH_BOTS_REF` のソースの tarball を取り、展開した `install.sh` を `DSH_BOTS_SOURCE=<展開先>` で実行し直す。`incus-project` は `infra/incus/create-project.sh` に渡す。
 - `infra/vm/host-setup.sh`: root の設定（§2）。`infra/vm/lib.sh`: OS の判別と失敗の報告。`infra/incus/objects.sh`: ACL・ブリッジ・project・token（host-setup.sh と create-project.sh が共有）。
 - `infra/vm/check-vm.sh`: VM ホストの手での検査。
 - `infra/vm/build-base-image.sh` / `provision-base.sh` / `export-image.sh` / `publish-image.sh`: 作者用。`check-image-release.sh`: 作者と Release ワークフロー。
 
 ## 10. 試験
 
-- 静的: `bash -n`、shellcheck（CI が公式のバイナリで実行）、`pnpm test` に `release.env` とパッケージ・README の一致。
+- 静的: `bash -n`、shellcheck（CI が公式のバイナリで実行）、`pnpm test` に `release.env` とパッケージ・README の一致。改めた: `test/shell-syntax.test.ts`（`infra/vm`、`infra/incus` の `bash -n`）と `test/release-env.test.ts`。
 - 動作: Incus の専用 project に Debian 13 / 12、Ubuntu 24.04、Fedora の使い捨ての VM（入れ子の KVM）を作り、それぞれで形 2 を最後まで（token の発行まで）通す。少なくとも 1 つで、確認用 DSH から token でペアリングし、イメージを取り込み、ボットを作って会話するところまで。形 3 のスクリプトは別の VM の Incus に対して remote で通す。

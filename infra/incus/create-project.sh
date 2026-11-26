@@ -128,6 +128,6 @@ EOF
 
 if ((TOKEN)); then
   issue_token "$CLIENT_NAME" "$PROJECT"
-  printf '\nPaste this trust token in DSH: dsh-bots settings → VM host → Another machine.\n\n%s\n\n' "$TOKEN"
+  printf '\nPaste this trust token in DSH: dsh-bots settings → VM host → Use an existing server → Incus.\n\n%s\n\n' "$TOKEN"
   printf 'It pairs one DSH, once. To end it later: incus config trust remove %s<first 12 of its fingerprint>.\n' "$(server)"
 fi

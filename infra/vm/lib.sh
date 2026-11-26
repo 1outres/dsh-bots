@@ -113,7 +113,6 @@ fail() {
   trap '' USR1
   local code=$1 what=$2 fix=$3
   shift 3
-  if [[ -n ${DSH_BOTS_REPORT:-} ]]; then printf '%s\n%s\n' "$what" "$fix" >"$DSH_BOTS_REPORT"; fi
   printf 'error: %s\n  fix: %s\n' "$what" "$fix" >&2
   if ((EVENTS)); then
     [[ -z $EVENT_PHASE ]] || event phase-failed "phase=$EVENT_PHASE" "code=$code" "what=$what" "fix=$fix" "$@"
@@ -132,7 +131,6 @@ on_error() {
 }
 
 note() {
-  if [[ -n ${DSH_BOTS_NOTE:-} ]]; then printf '%s\n' "$*" >"$DSH_BOTS_NOTE"; fi
   PHASE_NOTE=$*
   printf '%s\n' "$*"
 }

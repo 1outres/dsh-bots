@@ -124,11 +124,11 @@ Where the VMs run is chosen in the dsh-bots settings, section **VM host** (bot-c
 
 ## Requirements
 
-On the DSH host (any system DSH runs on): OpenSSH's client (`ssh`, `ssh-keygen`) on DSH's PATH. Nothing in `~/.ssh/config`, no Incus, no root.
+On the DSH host (any system DSH runs on): OpenSSH's client (`ssh`, `ssh-keygen`, and `ssh-keyscan` to build on another machine) on DSH's PATH. Nothing in `~/.ssh/config`, no Incus, no root.
 
-A VM host (docs/specs/incus-endpoint.md §2, §3), prepared by the repository's `install.sh` (Debian 13 / 12, Ubuntu 24.04, Fedora 42+; `infra/vm/README.md`) or, on an Incus server that runs other things, by its administrator with `infra/incus/create-project.sh`:
+A VM host (docs/specs/vm-host-modes.md §2), either built by this plugin from the settings (managed: x86_64 with KVM and systemd, Debian 13 / 12, Ubuntu 24.04 or Fedora 42+; this machine with the sudo password, or another one over SSH as root or a sudo user; the plugin runs its bundled `lib/host-setup/`, a copy of the repository's `infra/vm/host-setup.sh`, `infra/vm/README.md`), or an existing server (custom) whose administrator ran `infra/incus/create-project.sh` or `host-setup.sh` by hand and gives a trust token:
 
-- Incus 6.0.4 or later with VM support, its HTTPS API reachable from the DSH host (`127.0.0.1:8443` when it is this machine) and a trust token restricted to the project. The plugin no longer talks to Incus' Unix socket.
+- Incus 6.0.4 or later with VM support, its HTTPS API reachable from the DSH host (`127.0.0.1:8443` when it is this machine) and a trust token restricted to the project (a build issues and uses it itself). The plugin never talks to Incus' Unix socket.
 - The project (`incusProject`, or the one chosen when pairing) with `user.dsh-bots.pool` and `user.dsh-bots.network` naming a pool and a network it may use (and `user.dsh-bots.egress-acl` the ACL on that network).
 - The `dsh-bot-base` image, which the plugin imports itself (The base image): user `bot` with `/home/bot/workspace`, Node 24, `/usr/sbin/sshd` (run as `sshd -i` through Incus' exec), the cloud-init seed made root-only on every boot (it carries the host's private key), `/opt/dsh-ssh-helper` (dsh-ssh 0.2.2-rc.5), ripgrep at `/usr/bin/rg`, passwordless sudo for `bot` (the ripgrep link).
 
