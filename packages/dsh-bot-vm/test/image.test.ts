@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto"
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { createServer, type Server } from "node:http"
 import type { AddressInfo } from "node:net"
 import { tmpdir } from "node:os"
@@ -312,10 +312,15 @@ describe("image import", () => {
     const error = await failure(run())
     expect(error.problem.code).toBe("part-unreachable")
     expect(error.step).toBe("download")
+    const kept = statSync(
+      join(dir, "downloads", made.manifestSha256, "base.tar.zst.part00.partial"),
+    ).size
+    expect(kept).toBeGreaterThan(0)
+    expect(kept).toBeLessThanOrEqual(700_000)
     await run()
     expect(served.requests.filter((request) => request.startsWith("base.tar.zst.part00"))).toEqual([
       "base.tar.zst.part00 -",
-      "base.tar.zst.part00 bytes=700000-",
+      `base.tar.zst.part00 bytes=${kept}-`,
     ])
     expect(incus.aliases.get("dsh-bot-base")).toBe(made.fingerprint)
   })
