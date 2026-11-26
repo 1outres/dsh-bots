@@ -1,6 +1,6 @@
 {
   "name": "dsh_bots",
-  "version": 3,
+  "version": 4,
   "tables": {
     "bots": {
       "name": {
@@ -53,7 +53,7 @@
       },
       "workspaceFiles": {
         "required": false,
-        "type": "1"
+        "type": "1 | 2"
       },
       "initialNotes": {
         "required": false,

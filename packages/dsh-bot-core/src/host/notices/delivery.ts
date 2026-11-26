@@ -7,6 +7,7 @@ export const NOTICE_SOURCES = {
   event: "bot-connector-event",
   file: "bot-file",
   session: "bot-session",
+  heartbeat: "bot-heartbeat",
 } as const satisfies Record<NoticeTopic, string>
 
 export type NoticeSourceKind = (typeof NOTICE_SOURCES)[NoticeTopic]
@@ -21,6 +22,7 @@ export const NOTICE_DELIVERY = {
   event: "next-turn",
   file: "next-turn",
   session: "next-turn",
+  heartbeat: "next-turn",
 } as const satisfies Record<NoticeTopic, NoticeTiming>
 
 export function handOffOf(

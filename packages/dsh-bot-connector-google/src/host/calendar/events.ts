@@ -75,7 +75,7 @@ export function calendarEvents(google: Google, own: OwnChanges): BotConnectorEve
         label: { en: "Event cancelled or deleted", ja: "予定の取り消し・削除" },
       },
     ],
-    delivery: "notify",
+    delivery: "queue",
     intervalMs: 120_000,
     poll: (source, value) =>
       google.as(source.connection, async ({ calendar }) => {

@@ -146,6 +146,7 @@ export function createEventStore(deps: EventStoreDeps): EventStore {
           own: event.own === true,
           gap: false,
           state: event.own === true ? "acked" : "new",
+          ...(event.sender === undefined ? {} : { sender: event.sender }),
         })
         if (event.own !== true) fresh.add(botId)
       }

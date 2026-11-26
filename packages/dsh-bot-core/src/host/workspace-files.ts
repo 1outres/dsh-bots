@@ -1,5 +1,6 @@
 import type { WorkspaceFilesVersion } from "./domain"
 import type { EnvironmentFileSystem, FileTarget } from "./files"
+import { HEARTBEAT_FILE } from "./heartbeat/file"
 
 export const AGENTS_MD = `# AGENTS.md — How I work
 
@@ -23,6 +24,7 @@ My working rules. My personality and voice live in SOUL.md.
 
 ## Being proactive
 - Recurring checks, reminders and follow-ups belong in schedule jobs, not in promises.
+- Loose standing checks my owner wants go in HEARTBEAT.md; anything at a set time goes in a schedule job.
 - Stay quiet when nothing is new, when the last check was moments ago, or late at night unless it is urgent.
 
 ## My notes on this setup
@@ -45,12 +47,25 @@ Concise when that is enough, thorough when it matters. Warm, plain, never a syco
 Every session starts fresh; my files are how I persist. This file is mine to evolve as I learn who I am, and I tell my owner when I change it.
 `
 
+export const HEARTBEAT_MD = `# HEARTBEAT.md
+
+<!--
+Standing checks I run on my heartbeat, while my owner wants them.
+Write each one as a short list item, for example:
+- Check the build status page and tell my owner when it turns red.
+Remove a check when it is no longer needed. Anything at a set time belongs in a schedule job instead.
+While this file holds only headings and comments, the heartbeat does not wake me for it.
+-->
+`
+
 export const INITIAL_WORKSPACE_FILES: readonly {
   readonly name: string
   readonly content: string
+  readonly since: WorkspaceFilesVersion
 }[] = [
-  { name: "AGENTS.md", content: AGENTS_MD },
-  { name: "SOUL.md", content: SOUL_MD },
+  { name: "AGENTS.md", content: AGENTS_MD, since: 1 },
+  { name: "SOUL.md", content: SOUL_MD, since: 1 },
+  { name: HEARTBEAT_FILE, content: HEARTBEAT_MD, since: 2 },
 ]
 
 export interface WritableFileSystem extends EnvironmentFileSystem {
@@ -66,7 +81,7 @@ export interface WorkspaceFilesDeps {
   fsOf(botId: string): WritableFileSystem | undefined
   workspace(): string | undefined
   readonly version: WorkspaceFilesVersion
-  placed(botId: string, version: WorkspaceFilesVersion): boolean
+  placed(botId: string): WorkspaceFilesVersion | undefined
   mark(botId: string, version: WorkspaceFilesVersion): Promise<void>
 }
 
@@ -83,7 +98,9 @@ export function createWorkspaceFiles(deps: WorkspaceFilesDeps): WorkspaceFiles {
     if (fs === undefined || workspace === undefined) {
       throw new Error(`the environment of bot "${botId}" is not available`)
     }
+    const placed = deps.placed(botId) ?? 0
     for (const file of INITIAL_WORKSPACE_FILES) {
+      if (file.since <= placed) continue
       if ((await fs.lstat(file.name, { cwd: workspace }, signal)) !== undefined) continue
       const target = await fs.resolve(file.name, { cwd: workspace, signal })
       await fs.writeText(target, file.content, { kind: "createIfAbsent" }, signal)
@@ -93,7 +110,7 @@ export function createWorkspaceFiles(deps: WorkspaceFilesDeps): WorkspaceFiles {
 
   return {
     ensure(botId, signal) {
-      if (deps.placed(botId, deps.version)) return Promise.resolve()
+      if (deps.placed(botId) === deps.version) return Promise.resolve()
       const current = running.get(botId)
       if (current !== undefined) return current
       const attempt = place(botId, signal).finally(() => {

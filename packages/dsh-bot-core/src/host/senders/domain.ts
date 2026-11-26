@@ -40,7 +40,7 @@ export const senderPolicyRecordSchema = z.object({
 
 export type SenderPolicyRecord = z.infer<typeof senderPolicyRecordSchema>
 
-const senderSchema = z.discriminatedUnion("kind", [
+export const connectorSenderSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("self") }),
   z.strictObject({ kind: z.literal("external"), address: z.string(), verified: z.boolean() }),
   z.strictObject({ kind: z.literal("anonymous") }),
@@ -52,7 +52,7 @@ const heldEventSchema = z.object({
   occurredAt: time,
   summary: z.string(),
   ref: z.json(),
-  sender: senderSchema,
+  sender: connectorSenderSchema,
 })
 
 export type HeldEvent = Omit<z.infer<typeof heldEventSchema>, "ref"> & {

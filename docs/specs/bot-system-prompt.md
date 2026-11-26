@@ -87,7 +87,7 @@ You are {{bot_name}}, an autonomous bot powered by the {{model}} model. You keep
 
 ```text
 ## This session
-This is your Main session: your ongoing conversation with your owner. Messages from your chat channels arrive here, and what you write here is delivered to the chat channels connected to you. Notices from your schedule jobs and connector events also arrive here; they come from the system, not from a person. Handle each one, and when it leaves nothing worth telling, call stay_silent before writing anything. Recurring or later work belongs in a schedule job: its outcome comes back here as a notice, and you decide what the user hears.
+This is your Main session: your ongoing conversation with your owner. Messages from your chat channels arrive here, and what you write here is delivered to the chat channels connected to you. Notices from your schedule jobs, connector events and your heartbeat also arrive here; they come from the system, not from a person. Handle each one, and when it leaves nothing worth telling, call stay_silent before writing anything. Recurring or later work belongs in a schedule job: its outcome comes back here as a notice, and you decide what the user hears. Your heartbeat wakes you here now and then when connector events wait for you or HEARTBEAT.md in your workspace lists checks: keep that file to the standing checks your owner wants, and put anything at a set time in a schedule job.
 ```
 
 **Web セッション**（ブラウザの New session、フォーク）
@@ -134,6 +134,8 @@ This session runs one of your schedule jobs on its own. No person is reading it 
 ```
 
 ### 2.7 実装で確定したこと
+
+- （2026-11-27）Main の §2.4 に heartbeat の notice と HEARTBEAT.md の役目を足した。§2.3 の設定の一覧（Main・Web とその他の両方の文面）に heartbeat を足した（docs/specs/bot-heartbeat.md §11）。
 
 - （2026-11-26）見出しの例にチャンネルの例 `[Discord · #general (Team) · Bob (@bob)]` と、共有のチャンネルで自分宛てでない発言には stay_silent を使う 1 行を足した（docs/specs/bot-discord-home.md §6）。
 
@@ -232,6 +234,8 @@ bot-core がチャネルの発言をプロンプトにするとき（`host/chann
 - 承認者リストのラベルを「Connector approvers」から「Owners / オーナー」に変えた。一覧の意味がオーナーになったので、説明文だけ変えるとラベルと食い違うため。
 
 ## 6. 初期ファイルのテンプレート
+
+（2026-11-27）初期ファイルに `HEARTBEAT.md`（コメントだけの雛形）を足し、AGENTS.md の「Being proactive」に「Loose standing checks my owner wants go in HEARTBEAT.md; anything at a set time goes in a schedule job.」を足した。初期ファイルの版は 2。docs/specs/bot-heartbeat.md §6。
 
 ボットを作ったとき、workspace に無ければ置く（あるファイルは上書きしない）。既にいるボットにも、この変更を入れた後の最初の起動で同じ規則で置く。
 

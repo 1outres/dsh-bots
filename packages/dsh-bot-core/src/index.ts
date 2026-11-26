@@ -109,6 +109,7 @@ import { type CursorRecord, EVENTS_DOMAIN, type EventRecord } from "./host/event
 import { createEventPoller } from "./host/events/poller"
 import { createEventStore } from "./host/events/store"
 import { createConnectorOwnTools } from "./host/events/tools"
+import { visibleEvents } from "./host/events/visibility"
 import {
   createBotFiles,
   createEnvironmentFilesKeeper,
@@ -116,6 +117,12 @@ import {
   type EnvironmentFileSystem,
   type EnvironmentSubprocess,
 } from "./host/files"
+import type { HeartbeatFileRead, HeartbeatWaiting } from "./host/heartbeat/decide"
+import { HEARTBEATS_DOMAIN, type HeartbeatSettingsRecord } from "./host/heartbeat/domain"
+import { HEARTBEAT_FILE, readHeartbeatFile } from "./host/heartbeat/file"
+import { createHeartbeats } from "./host/heartbeat/heartbeats"
+import { createHeartbeatPanel } from "./host/heartbeat/panel"
+import { createHeartbeatStore } from "./host/heartbeat/store"
 import { createApprovalAnswerer, createQuestionAnswerer } from "./host/interactions/answerers"
 import { createInteractionBoard, type InteractionPlace } from "./host/interactions/board"
 import { createContinuedQuestions } from "./host/interactions/continued"
@@ -220,6 +227,7 @@ import {
   BotEnvironmentRemoteService,
   BotFilesRemoteService,
   BotGroupsRemoteService,
+  BotHeartbeatRemoteService,
   BotInteractionsRemoteService,
   BotMainsRemoteService,
   BotMainViewRemoteService,
@@ -259,6 +267,7 @@ import { channelAreas } from "./host/settings/areas/channels"
 import { BOT_SETTINGS_PLACE, placeIn } from "./host/settings/areas/common"
 import { connectorAreas } from "./host/settings/areas/connectors"
 import { createGeneralArea } from "./host/settings/areas/general"
+import { createHeartbeatArea } from "./host/settings/areas/heartbeat"
 import { createModelsArea } from "./host/settings/areas/models"
 import {
   createEnvironmentArea,
@@ -438,6 +447,7 @@ declare module "@deepseek-ai/dsh-llm" {
     "bot-main": { kind: "bot-main"; form: "notice"; summary: string }
     "bot-file": { kind: "bot-file"; form: "notice"; summary: string }
     "bot-session": { kind: "bot-session"; form: "notice"; summary: string }
+    "bot-heartbeat": { kind: "bot-heartbeat"; form: "notice"; summary: string }
     "bot-main-relay": { kind: "bot-main-relay"; form: "relay" }
     "working-directory": { kind: "working-directory" }
   }
@@ -654,6 +664,11 @@ interface SettingsDomain {
   close(): Promise<void>
 }
 
+interface HeartbeatsDomain {
+  table(name: "settings"): BotTable<HeartbeatSettingsRecord>
+  close(): Promise<void>
+}
+
 interface OnboardingDomain {
   table(name: "state"): BotTable<OnboardingRecord>
   close(): Promise<void>
@@ -825,6 +840,7 @@ interface HostServices {
     open(spec: typeof ENVIRONMENT_SPECS_DOMAIN): Promise<EnvironmentSpecsDomain>
     open(spec: typeof ONBOARDING_DOMAIN): Promise<OnboardingDomain>
     open(spec: typeof SETTINGS_DOMAIN): Promise<SettingsDomain>
+    open(spec: typeof HEARTBEATS_DOMAIN): Promise<HeartbeatsDomain>
   }
   workspaceRegistry: {
     readonly archivedSessionIds: readonly string[]
@@ -1033,6 +1049,7 @@ const SKILL_SWEEP_LIMIT_MS = 2 * 60_000
 const SKILL_READ_LIMIT_MS = 60_000
 const SETTINGS_READ_MS = 20_000
 const NOTES_READ_LIMIT_MS = 60_000
+const HEARTBEAT_READ_LIMIT_MS = 30_000
 
 const ENVIRONMENT_WAIT_MS = 3 * 60_000
 const ENVIRONMENT_INTERVAL_MS = 3_000
@@ -1136,6 +1153,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     spec: (botId) => specStore.get(botId),
     now: Date.now,
   })
+  await connectorSettings.migrateDeliveries()
   const connectorNeeds = (botId: string) =>
     environmentNeeds(connectorCatalog.list(), (connectorId) =>
       connectorSettings.enabled(botId, connectorId),
@@ -1882,7 +1900,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     fsOf: (botId) => environmentOf(botId)?.fs as WritableFileSystem | undefined,
     workspace: () => environments.current()?.workspace,
     version: WORKSPACE_FILES_VERSION,
-    placed: (botId, version) => registry.hasWorkspaceFiles(botId, version),
+    placed: (botId) => registry.workspaceFilesOf(botId),
     mark: (botId, version) => registry.markWorkspaceFiles(botId, version),
   })
   const notesPlaceOf = (botId: string, token: string): NotesPlace | undefined => {
@@ -1933,8 +1951,8 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
   })
   const initialPlacements = [
     {
-      what: "the initial AGENTS.md and SOUL.md",
-      placed: (botId: string) => registry.hasWorkspaceFiles(botId, WORKSPACE_FILES_VERSION),
+      what: "the initial AGENTS.md, SOUL.md and HEARTBEAT.md",
+      placed: (botId: string) => registry.workspaceFilesOf(botId) === WORKSPACE_FILES_VERSION,
       ensure: (botId: string, signal: AbortSignal) => workspaceFiles.ensure(botId, signal),
     },
     {
@@ -2724,6 +2742,10 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     retentionMs: EVENT_RETENTION_MS,
     unreadRetentionMs: UNREAD_EVENT_RETENTION_MS,
   })
+  const shownEvents = visibleEvents(eventStore, {
+    screened: (connectorId) => connectorCatalog.get(connectorId)?.senders !== undefined,
+    policy: (connectionId) => senderStore.policy(connectionId),
+  })
   const eventSubscribers = (connectionId: string, connector: { readonly id: string }) =>
     botIds().filter(
       (botId) =>
@@ -2745,7 +2767,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     warn,
   })
   const eventDelivery = createEventDelivery({
-    store: eventStore,
+    store: shownEvents,
     delivery: (botId, connectorId) => connectorSettings.delivery(botId, connectorId),
     connectors: () =>
       connectorCatalog
@@ -2797,6 +2819,9 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
         void pruneEvents()
       }),
       registry.subscribe(() => eventPoller.sync()),
+      senderStore.subscribe(() => {
+        for (const botId of botIds()) eventDelivery.sync(botId)
+      }),
       connectionProviders.subscribe(() => {
         for (const provider of connectionProviders.list()) {
           if (credentialRecords !== undefined) void oauthClients.load(provider.id)
@@ -3319,6 +3344,106 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     now: Date.now,
   })
   new BotGroupsRemoteService(ctx, createPeerPanel({ groups: peerGroups }))
+  const heartbeatsDomain = await services.storageDomain.open(HEARTBEATS_DOMAIN)
+  ctx.effect(() => () => void heartbeatsDomain.close(), "bot-core: heartbeats storage domain")
+  const heartbeatStore = createHeartbeatStore({
+    heartbeatSettings: heartbeatsDomain.table("settings"),
+  })
+  const mainIdle = (botId: string) => {
+    const sessionId = table.get(botId)?.mainSessionId
+    if (sessionId === undefined) return false
+    const agent = host.agents.get(sessionId)
+    return (
+      (agent === undefined ||
+        (agent.status === "idle" &&
+          agent.inbox.nextTurn.length === 0 &&
+          agent.inbox.nextStep.length === 0)) &&
+      interactions.mainOf(botId).length === 0 &&
+      outbox.pending(botId).length === 0 &&
+      mains.maintenance(botId) === "idle"
+    )
+  }
+  const waitingEvents = (botId: string): HeartbeatWaiting[] =>
+    connectorCatalog
+      .list()
+      .filter(
+        (connector) =>
+          connector.events !== undefined &&
+          connectorSettings.delivery(botId, connector.id) === "queue",
+      )
+      .flatMap((connector) => {
+        const counts = new Map<string, number>()
+        for (const event of shownEvents.unread(botId, connector.id)) {
+          counts.set(event.connectionId, (counts.get(event.connectionId) ?? 0) + 1)
+        }
+        return [...counts].map(([connectionId, count]) => ({
+          connector: { id: connector.id, name: connector.name },
+          account: accountName(connectionId),
+          count,
+        }))
+      })
+  const readHeartbeat = async (botId: string): Promise<HeartbeatFileRead> => {
+    const fs = environmentOf(botId)?.fs
+    const workspace = environments.current()?.workspace
+    if (fs === undefined || workspace === undefined) {
+      return { kind: "unavailable", reason: "the bot's environment is not available" }
+    }
+    try {
+      return await readHeartbeatFile(
+        fs as EnvironmentFileSystem,
+        workspace,
+        AbortSignal.any([AbortSignal.timeout(HEARTBEAT_READ_LIMIT_MS), unload.signal]),
+      )
+    } catch (error) {
+      return { kind: "unavailable", reason: `could not read ${HEARTBEAT_FILE}: ${String(error)}` }
+    }
+  }
+  const heartbeats = createHeartbeats({
+    bots: botIds,
+    settings: (botId) => heartbeatStore.get(botId),
+    timezone: (botId) => registry.timezoneOf(botId),
+    idle: mainIdle,
+    waiting: waitingEvents,
+    read: readHeartbeat,
+    async enqueue(botId, notice) {
+      await outbox.enqueue(botId, "heartbeat", notice)
+    },
+    now: Date.now,
+    later: (ms, work) => later(work, ms),
+    maxDelayMs: MAX_TIMER_MS,
+    warn,
+  })
+  const heartbeatPanel = createHeartbeatPanel({
+    store: heartbeatStore,
+    heartbeats,
+    exists: (botId) => table.get(botId) !== undefined,
+  })
+  new BotHeartbeatRemoteService(ctx, heartbeatPanel, (listener) => {
+    const offs = [heartbeatStore.subscribe(listener), heartbeats.subscribe(listener)]
+    return () => {
+      for (const off of offs) off()
+    }
+  })
+  ctx.effect(() => {
+    const offs = [
+      heartbeatStore.subscribe((botId) => heartbeats.sync(botId)),
+      registry.subscribe(() => heartbeats.sync()),
+      interactions.subscribe(() => heartbeats.nudgeAll()),
+      mains.subscribe((botId) => heartbeats.nudge(botId)),
+      environmentServices.subscribe((botId: string) => heartbeats.nudge(botId)),
+      realizer.subscribe((botId: string) => heartbeats.nudge(botId)),
+      environments.subscribe((botId: string) => heartbeats.nudge(botId)),
+    ]
+    return () => {
+      for (const off of offs) off()
+      heartbeats.dispose()
+    }
+  }, "bot-core: heartbeats")
+  events.on("agent/status", ({ agent, status }: { agent: { id: string }; status: string }) => {
+    if (status !== "idle") return
+    const bot = registry.botOfMain(agent.id)
+    if (bot !== undefined) heartbeats.nudge(bot.id)
+  })
   const forgetDeleted = () => {
     const exists = (botId: string) => table.get(botId) !== undefined
     Promise.all([
@@ -3336,6 +3461,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
       skillStore.purge(exists),
       managed.purge(exists),
       grants.purge(exists),
+      heartbeatStore.purge(exists),
     ]).catch((error: unknown) => {
       warn(
         `bot-core: could not forget the connector and schedule data of deleted bots: ${String(error)}`,
@@ -3351,6 +3477,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
   delivery.start()
   void registered.then(() => mains.pokeAll())
   scheduler.sync()
+  heartbeats.sync()
   skillCuration.sync()
   void pruneEvents()
   pruneEventsLater()
@@ -3378,9 +3505,13 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     readiness,
     permissions: connectorPermissions,
     accounts: connectorAccounts,
-    waiting: (botId, connectorId) => eventStore.unread(botId, connectorId).length,
+    waiting: (botId, connectorId) => shownEvents.unread(botId, connectorId).length,
     subscribeAccounts(listener) {
-      const offs = [connectionStore.subscribe(listener), eventStore.subscribe(() => listener())]
+      const offs = [
+        connectionStore.subscribe(listener),
+        eventStore.subscribe(() => listener()),
+        senderStore.subscribe(listener),
+      ]
       return () => {
         for (const off of offs) off()
       }
@@ -3411,7 +3542,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     own: createConnectorOwnTools({
       catalog: connectorCatalog,
       accounts: connectorAccounts,
-      store: eventStore,
+      store: shownEvents,
       account: accountName,
       newNonce: () => randomBytes(8).toString("hex"),
     }),
@@ -3542,6 +3673,10 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
       workspaces: (botId) => grants.granted(botId).map(({ workspace }) => workspace.title),
     }),
     createMainsArea({ effective: (botId) => mainPanel.view(botId).effective }),
+    createHeartbeatArea({
+      view: (botId) => heartbeatPanel.view(botId),
+      configure: (botId, settings) => heartbeatPanel.configure(botId, settings),
+    }),
     createWebArea({ status: () => webState.status() }),
   ])
   const settingsDomain = await services.storageDomain.open(SETTINGS_DOMAIN)

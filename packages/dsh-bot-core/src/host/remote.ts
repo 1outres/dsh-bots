@@ -66,6 +66,7 @@ import type {
   BotFileText,
 } from "../shared/files"
 import type { BotFilesApi } from "../shared/files-api"
+import type { BotHeartbeatApi, BotHeartbeatView, HeartbeatSettings } from "../shared/heartbeat"
 import type {
   BotAnswerResult,
   BotInteractionAnswer,
@@ -171,6 +172,7 @@ import type { ConnectorStreams } from "./connectors/streams"
 import type { EnvironmentHostPanel } from "./environment-host/panel"
 import type { EnvironmentPanel } from "./environment-spec/panel"
 import type { BotFiles } from "./files"
+import type { HeartbeatPanel } from "./heartbeat/panel"
 import type { InteractionPanel } from "./interactions/panel"
 import type { BotLifecycle } from "./lifecycle"
 import type { MainView } from "./main-view/panel"
@@ -821,6 +823,38 @@ export class BotMainsRemoteService extends TypertRemoteService implements BotMai
   }
 }
 
+export const BOT_HEARTBEAT_REMOTE = "botHeartbeat" satisfies RemoteNamespace
+
+const HEARTBEAT = Symbol("botHeartbeatPanel")
+const HEARTBEAT_CHANGES = Symbol("botHeartbeatChanges")
+
+export class BotHeartbeatRemoteService extends TypertRemoteService implements BotHeartbeatApi {
+  [HEARTBEAT]: HeartbeatPanel;
+  [HEARTBEAT_CHANGES]: (listener: () => void) => () => void
+
+  constructor(
+    ctx: Context,
+    panel: HeartbeatPanel,
+    subscribe: (listener: () => void) => () => void,
+  ) {
+    super(ctx, BOT_HEARTBEAT_REMOTE)
+    this[HEARTBEAT] = panel
+    this[HEARTBEAT_CHANGES] = subscribe
+  }
+
+  @Remote({ mode: "stream" })
+  async *watch(botId: string, signal?: AbortSignal): AsyncIterable<BotHeartbeatView> {
+    const panel = this[HEARTBEAT]
+    panel.view(botId)
+    yield* watchStream(() => panel.view(botId), this[HEARTBEAT_CHANGES], signal)
+  }
+
+  @Remote
+  configure(botId: string, settings: HeartbeatSettings): Promise<BotHeartbeatView> {
+    return this[HEARTBEAT].configure(botId, settings)
+  }
+}
+
 export const BOT_MAIN_VIEW_REMOTE = "botMainView" satisfies RemoteNamespace
 
 const MAIN_VIEW = Symbol("botMainView")
@@ -1405,6 +1439,7 @@ export const REMOTE_SERVICES = {
   botManagedSessions: BotManagedSessionsRemoteService,
   botWorkspaces: BotWorkspacesRemoteService,
   botMains: BotMainsRemoteService,
+  botHeartbeat: BotHeartbeatRemoteService,
   botMainView: BotMainViewRemoteService,
   botSkills: BotSkillsRemoteService,
   botSettings: BotSettingsRemoteService,

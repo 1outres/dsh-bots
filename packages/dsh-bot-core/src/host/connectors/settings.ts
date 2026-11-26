@@ -28,6 +28,7 @@ export interface ConnectorSettingsView {
 }
 
 export interface ConnectorSettings {
+  migrateDeliveries(): Promise<void>
   view(botId: string, connector: CatalogConnector): ConnectorSettingsView
   enabled(botId: string, connectorId: string): boolean
   delivery(botId: string, connectorId: string): ConnectorEventDelivery
@@ -44,6 +45,16 @@ export function createConnectorSettings(deps: ConnectorSettingsDeps): ConnectorS
   }
   const recordOf = (botId: string, connectorId: string) =>
     deps.records.get(settingsRecordKey(botId, connectorId))
+  const deliveryOf = (record: SettingsRecord): ConnectorEventDelivery => {
+    if (record.events === undefined) {
+      throw new Error(
+        `the settings of connector "${record.connectorId}" of bot "${record.botId}" have no event delivery: migrateDeliveries() did not run`,
+      )
+    }
+    return record.events
+  }
+  const initialDelivery = (connector: CatalogConnector): ConnectorEventDelivery =>
+    connector.events?.delivery ?? "off"
   const subjectOf = (botId: string, connector: CatalogConnector): ConnectorSwitchSubject => ({
     id: connector.id,
     name: connector.name,
@@ -62,12 +73,22 @@ export function createConnectorSettings(deps: ConnectorSettingsDeps): ConnectorS
   }
 
   return {
+    migrateDeliveries() {
+      return serial(async () => {
+        for (const [key, record] of [...deps.records.entries()]) {
+          if (record.events !== undefined) continue
+          await deps.records.put(key, { ...record, events: "off" })
+        }
+      })
+    },
     view(botId, connector) {
       const record = recordOf(botId, connector.id)
       return {
         enabled: record?.enabled ?? false,
         values: connectorSettingValuesOf(connector.settings ?? [], record?.values ?? {}),
-        ...(connector.events === undefined ? {} : { events: record?.events ?? "off" }),
+        ...(connector.events === undefined
+          ? {}
+          : { events: record === undefined ? initialDelivery(connector) : deliveryOf(record) }),
       }
     },
     enabled: (botId, connectorId) =>
@@ -76,17 +97,20 @@ export function createConnectorSettings(deps: ConnectorSettingsDeps): ConnectorS
       const record = recordOf(botId, connectorId)
       if (deps.catalog.get(connectorId)?.events === undefined || record?.enabled !== true)
         return "off"
-      return record.events ?? "off"
+      return deliveryOf(record)
     },
     configure(botId, connector, change) {
       return serial(async () => {
         admit(botId, connector, change.enabled)
+        const record = recordOf(botId, connector.id)
+        const events =
+          change.events ?? (record === undefined ? initialDelivery(connector) : deliveryOf(record))
         await deps.records.put(settingsRecordKey(botId, connector.id), {
           botId,
           connectorId: connector.id,
           enabled: change.enabled,
           values: { ...connectorSettingValuesOf(connector.settings ?? [], change.values) },
-          ...(change.events === undefined ? {} : { events: change.events }),
+          events,
           updatedAt: deps.now(),
         })
         changed(botId, connector.id)

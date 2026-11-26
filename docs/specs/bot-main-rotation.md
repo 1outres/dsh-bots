@@ -33,7 +33,7 @@
 - **アイドル**: Main の Agent が `idle`、inbox（nextTurn / nextStep）が空、Main の interaction（質問・承認・プランレビュー）が
   開いていない、bot-core の入力（チャネルのメッセージ、notice の受け渡し）が途中でない、メンテナンスが走っていない。
   Agent がまだ読み込まれていなければ再開して確かめる。
-- **入力**: bot-core が Main に届けるもの。チャネルのメッセージと notice（connector / schedule / event）。
+- **入力**: bot-core が Main に届けるもの。チャネルのメッセージと notice（connector / schedule / event / heartbeat）。
   Web UI で Main に直接書いたものは DSH の composer から届くので bot-core は事前に止められない（下の制約）。
 
 ## 2. 設定
@@ -140,6 +140,7 @@ type MainRotationOverride = {
 | コマンド（`/stop` `/status` `/new`）                          | その時点の Main                                                                          |
 | notice outbox（`host/notices/delivery.ts`）                   | 入力ゲートを通る。旧 Main に渡したが記録されていないものは、新 Main に同じ id で送り直す |
 | schedule の `main` モード                                     | notice outbox 経由なので上と同じ。`schedule` ツールの呼び出し元判定もその時点の Main     |
+| heartbeat（`host/heartbeat/`）                                | notice outbox 経由。idle の判定と送る前の確かめ直しもその時点の Main                     |
 | コネクター（`sessions: "main"`、呼び出し元の `main` / `bot`） | その時点の Main                                                                          |
 | `stay_silent` / present（チャネルへのファイル）               | その時点の Main のものだけが届く                                                         |
 | interaction の「Main」（`InteractionPlace.main`）             | 開いている間は切り替えないので、新 Main で開いたものだけが Main のもの                   |
@@ -327,6 +328,8 @@ interface Bot {
   `replaceMain` の直後にもう一度適用する（最初の入力の前）。モデルの記録はボット単位で、Main かどうかはその時点の `mainSessionId` で決まるので、
   過去の Main を復元して読み込んでも `main` は適用されない。新 Main の最初のターンは新 Main のモデル（`main`）で走る。
 - **既定値**: `quietMinutes` 10、アイドル compaction 50%、毎日 04:00、長い無操作 360 分、compaction 3 回。
+- **heartbeat**（docs/specs/bot-heartbeat.md §9）: heartbeat の notice は入力ゲートを通る普通のターンで、`lastTurnAt` を進める。
+  モデルを呼ばずに見送った回は Main に何も送らないので活動に数えず、手入れを妨げない。メンテナンス中の Main は idle でないので、heartbeat は終わるまで待つ。
 - **確認で分かった制約**: Web UI で Main に直接書いた入力は「長い無操作」の対象外（§8）。
 - **記憶の書き出し**（§9、`feat/main-memory-flush`）:
   - 参加者は bot-core の `host/notes/flush.ts`（`createMemoryFlush`、id `bot-core/memory-flush`、order 0）。ノートの仕組みと同じく

@@ -7,7 +7,7 @@ export interface TurnInput {
   readonly source: { readonly kind: string; readonly principal?: unknown }
 }
 
-const OUTSIDE_SOURCES: readonly string[] = ["bot-connector-event"]
+const OUTSIDE_SOURCES: readonly string[] = ["bot-connector-event", "bot-heartbeat"]
 
 export function fromOwnerSide(input: TurnInput): boolean {
   const { source } = input

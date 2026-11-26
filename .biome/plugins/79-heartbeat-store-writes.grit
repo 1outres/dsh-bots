@@ -1,0 +1,8 @@
+JsCallExpression(callee = $callee) as $call where {
+  $callee <: or { `$receiver.put`, `$receiver.delete`, `$receiver?.put`, `$receiver?.delete` },
+  $receiver <: or { `heartbeatSettings`, `$_.heartbeatSettings`, `$_?.heartbeatSettings` },
+  register_diagnostic(
+    span = $call,
+    message = "Design rule 79: do not write the heartbeat settings table here; go through the heartbeat store (host/heartbeat/store.ts), which serializes writes and tells the heartbeats."
+  )
+}

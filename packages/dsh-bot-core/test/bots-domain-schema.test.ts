@@ -7,6 +7,7 @@ import { CONNECTIONS_DOMAIN } from "../src/host/connections/domain"
 import { CONNECTORS_DOMAIN } from "../src/host/connectors/domain"
 import { BOTS_DOMAIN } from "../src/host/domain"
 import { EVENTS_DOMAIN } from "../src/host/events/domain"
+import { HEARTBEATS_DOMAIN } from "../src/host/heartbeat/domain"
 import { MAINS_DOMAIN } from "../src/host/mains/domain"
 import { MANAGED_SESSIONS_DOMAIN } from "../src/host/managed/domain"
 import { MODELS_DOMAIN } from "../src/host/models/domain"
@@ -59,6 +60,12 @@ const DOMAINS = [
     source: "src/host/peers/domain.ts",
     domain: PEERS_DOMAIN,
     file: "peers-domain",
+  },
+  {
+    label: "HEARTBEATS_DOMAIN",
+    source: "src/host/heartbeat/domain.ts",
+    domain: HEARTBEATS_DOMAIN,
+    file: "heartbeats-domain",
   },
   {
     label: "MAINS_DOMAIN",

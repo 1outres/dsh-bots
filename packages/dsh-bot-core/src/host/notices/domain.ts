@@ -1,6 +1,13 @@
 import { z } from "zod"
 
-export const NOTICE_TOPICS = ["connector", "schedule", "event", "file", "session"] as const
+export const NOTICE_TOPICS = [
+  "connector",
+  "schedule",
+  "event",
+  "file",
+  "session",
+  "heartbeat",
+] as const
 
 export type NoticeTopic = (typeof NOTICE_TOPICS)[number]
 
@@ -17,8 +24,8 @@ export type NoticeRecord = z.infer<typeof noticeRecordSchema>
 
 export const NOTICES_DOMAIN = {
   name: "dsh_bot_notices",
-  version: 5,
-  compatibleVersions: [1, 2, 3, 4],
+  version: 6,
+  compatibleVersions: [1, 2, 3, 4, 5],
   invalidRecords: "backup-and-skip",
   tables: {
     notices: { valueSchema: noticeRecordSchema },

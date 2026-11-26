@@ -54,6 +54,10 @@
       "state": {
         "required": true,
         "type": "\"new\" | \"notified\" | \"acked\""
+      },
+      "sender": {
+        "required": false,
+        "type": "{ kind: \"self\" } | { kind: \"external\"; address: string; verified: boolean } | { kind: \"anonymous\" }"
       }
     },
     "cursors": {

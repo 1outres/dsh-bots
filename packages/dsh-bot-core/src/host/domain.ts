@@ -5,8 +5,9 @@ import { MAIN_ROTATION_REASONS } from "../shared/mains"
 import type { BotOverlay } from "../shared/preset"
 import { overlayPluginProblem } from "./preset/compose"
 
-export const WORKSPACE_FILES_VERSION = 1
-export type WorkspaceFilesVersion = typeof WORKSPACE_FILES_VERSION
+export const WORKSPACE_FILES_VERSIONS = [1, 2] as const
+export type WorkspaceFilesVersion = (typeof WORKSPACE_FILES_VERSIONS)[number]
+export const WORKSPACE_FILES_VERSION: WorkspaceFilesVersion = 2
 
 export const INITIAL_NOTES_VERSION = 1
 export type InitialNotesVersion = typeof INITIAL_NOTES_VERSION
@@ -65,7 +66,7 @@ export const botRecordSchema = z.object({
     .optional(),
   timezone: z.string().min(1).optional(),
   language: z.string().min(1).optional(),
-  workspaceFiles: z.literal(WORKSPACE_FILES_VERSION).optional(),
+  workspaceFiles: z.literal(WORKSPACE_FILES_VERSIONS).optional(),
   initialNotes: z.literal(INITIAL_NOTES_VERSION).optional(),
   createdAt: z.number().int().nonnegative(),
   updatedAt: z.number().int().nonnegative(),
@@ -129,8 +130,8 @@ export function parseOverlay(overlay: unknown, source: OverlaySource): BotOverla
 
 export const BOTS_DOMAIN = {
   name: "dsh_bots",
-  version: 3,
-  compatibleVersions: [1, 2],
+  version: 4,
+  compatibleVersions: [1, 2, 3],
   invalidRecords: "backup-and-skip",
   tables: {
     bots: { valueSchema: botRecordSchema },

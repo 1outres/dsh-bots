@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest"
-import { WORKSPACE_FILES_VERSION } from "../src/host/domain"
+import { WORKSPACE_FILES_VERSION, type WorkspaceFilesVersion } from "../src/host/domain"
 import { createPromptFacts } from "../src/host/prompt/facts"
 import { BOT_PROMPT_SECTIONS } from "../src/host/prompt/sections"
 import { sessionKindOf } from "../src/host/prompt/session-kind"
 import { renderStatus } from "../src/host/prompt/status"
 import type { WritableFileSystem } from "../src/host/workspace-files"
-import { AGENTS_MD, createWorkspaceFiles, SOUL_MD } from "../src/host/workspace-files"
+import { AGENTS_MD, createWorkspaceFiles, HEARTBEAT_MD, SOUL_MD } from "../src/host/workspace-files"
 import type { BotPromptFacts } from "../src/internal"
 import type { BotConnectorView } from "../src/shared/connectors"
 
@@ -232,24 +232,29 @@ function memoryFs(files: Map<string, string>, fail?: string): WritableFileSystem
 }
 
 describe("createWorkspaceFiles", () => {
-  const setup = (files: Map<string, string>, options: { fail?: string; fs?: boolean } = {}) => {
+  const setup = (
+    files: Map<string, string>,
+    options: { fail?: string; fs?: boolean; placed?: WorkspaceFilesVersion } = {},
+  ) => {
     const marked: string[] = []
-    const placed = new Set<string>()
+    const placed = new Map<string, WorkspaceFilesVersion>(
+      options.placed === undefined ? [] : [["a", options.placed]],
+    )
     const workspaceFiles = createWorkspaceFiles({
       fsOf: () => (options.fs === false ? undefined : memoryFs(files, options.fail)),
       workspace: () => "/home/bot/workspace",
       version: WORKSPACE_FILES_VERSION,
-      placed: (botId) => placed.has(botId),
-      async mark(botId) {
+      placed: (botId) => placed.get(botId),
+      async mark(botId, version) {
         marked.push(botId)
-        placed.add(botId)
+        placed.set(botId, version)
       },
     })
     return { workspaceFiles, marked }
   }
   const signal = new AbortController().signal
 
-  it("places AGENTS.md and SOUL.md once, through the environment's file system", async () => {
+  it("places AGENTS.md, SOUL.md and HEARTBEAT.md once, through the environment's file system", async () => {
     const files = new Map<string, string>()
     const { workspaceFiles, marked } = setup(files)
     await Promise.all([workspaceFiles.ensure("a", signal), workspaceFiles.ensure("a", signal)])
@@ -257,12 +262,21 @@ describe("createWorkspaceFiles", () => {
       new Map([
         ["/home/bot/workspace/AGENTS.md", AGENTS_MD],
         ["/home/bot/workspace/SOUL.md", SOUL_MD],
+        ["/home/bot/workspace/HEARTBEAT.md", HEARTBEAT_MD],
       ]),
     )
     expect(marked).toEqual(["a"])
     files.clear()
     await workspaceFiles.ensure("a", signal)
     expect(files.size).toBe(0)
+  })
+
+  it("places only the files added since the version a bot already has", async () => {
+    const files = new Map<string, string>()
+    const { workspaceFiles, marked } = setup(files, { placed: 1 })
+    await workspaceFiles.ensure("a", signal)
+    expect(files).toEqual(new Map([["/home/bot/workspace/HEARTBEAT.md", HEARTBEAT_MD]]))
+    expect(marked).toEqual(["a"])
   })
 
   it("keeps a file that is already there", async () => {

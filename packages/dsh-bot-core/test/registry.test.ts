@@ -722,9 +722,9 @@ describe("bot registry: language and initial workspace files", () => {
       language: "en",
       timezone: "Asia/Tokyo",
     })
-    expect(bots.hasWorkspaceFiles(id, 1)).toBe(false)
+    expect(bots.workspaceFilesOf(id)).toBeUndefined()
     await bots.markWorkspaceFiles(id, 1)
-    expect(bots.hasWorkspaceFiles(id, 1)).toBe(true)
+    expect(bots.workspaceFilesOf(id)).toBe(1)
     expect(rows.get(id)?.workspaceFiles).toBe(1)
   })
 

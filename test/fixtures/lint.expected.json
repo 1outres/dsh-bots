@@ -91,6 +91,7 @@
   "packages/dsh-bot-core/src/host/senders/store.ts": [],
   "packages/dsh-bot-core/src/host/bad-peer-writes.ts": ["15:78", "16:78", "17:78", "18:78"],
   "packages/dsh-bot-core/src/host/peers/store.ts": [],
+  "packages/dsh-bot-core/src/host/bad-heartbeat-store-writes.ts": ["9:79", "10:79"],
   "packages/dsh-bot-core/src/host/bad-skill-writes.ts": [
     "10:54",
     "11:54",
@@ -140,6 +141,7 @@
   "packages/dsh-bot-core/src/host/remote.ts": [],
   "packages/dsh-bot-core/src/host/schedule/store.ts": [],
   "packages/dsh-bot-core/src/host/settings/store.ts": [],
+  "packages/dsh-bot-core/src/host/heartbeat/store.ts": [],
   "packages/dsh-bot-core/src/host/skills/store.ts": [],
   "packages/dsh-bot-core/src/host/vaults/access.ts": [],
   "packages/dsh-bot-core/src/host/vaults/bad-secret-strings.ts": [

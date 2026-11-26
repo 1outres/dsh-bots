@@ -62,6 +62,7 @@ function remote() {
       botManagedSessions: {} as never,
       botWorkspaces: {} as never,
       botMains: {} as never,
+      botHeartbeat: {} as never,
       botMainView: {} as never,
       botSkills: {} as never,
       botSettings: {} as never,

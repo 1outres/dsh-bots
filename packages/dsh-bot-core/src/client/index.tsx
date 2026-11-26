@@ -9,6 +9,7 @@ import { createConnectionsFeed, createConnectionsModel } from "./connections-mod
 import { createConnectorsHub } from "./connectors-hub"
 import { createConnectorsModel } from "./connectors-model"
 import { createEnvironmentClient } from "./environment/client"
+import { createHeartbeatClient } from "./heartbeat/client"
 import { en, ja } from "./i18n"
 import { createMainsClient } from "./mains/client"
 import { watchManagedSessions } from "./managed-sessions"
@@ -41,6 +42,7 @@ import { wireDshSettings } from "./wiring/dsh-settings"
 import { wireEnvironment } from "./wiring/environment"
 import { wireFiles } from "./wiring/files"
 import { wireGlobalSettings } from "./wiring/global-settings"
+import { wireHeartbeat } from "./wiring/heartbeat"
 import { wireInteractions } from "./wiring/interactions"
 import { createProgressView, wireLifecycle } from "./wiring/lifecycle"
 import { wireMainView } from "./wiring/main-view"
@@ -221,6 +223,7 @@ export function apply(ctx: ClientContext): void {
       if (bot !== undefined) void actions.startNewMain(bot)
     },
   })
+  wireHeartbeat(ctx, { heartbeat: createHeartbeatClient(remote), screens })
   wireSkills(ctx, { skills: createSkillsClient(remote), screens })
   wireSettingChanges(ctx, { changes: createSettingChangesClient(remote), screens })
   wireEnvironment(ctx, { environment: createEnvironmentClient(remote), screens })

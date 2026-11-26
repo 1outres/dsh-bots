@@ -135,6 +135,10 @@
       "includes": ["packages/*/src/**", "!packages/dsh-bot-core/src/host/senders/store.ts"]
     },
     {
+      "path": "./.biome/plugins/79-heartbeat-store-writes.grit",
+      "includes": ["packages/*/src/**", "!packages/dsh-bot-core/src/host/heartbeat/store.ts"]
+    },
+    {
       "path": "./.biome/plugins/76-setting-change-writes.grit",
       "includes": ["packages/*/src/**", "!packages/dsh-bot-core/src/host/settings/store.ts"]
     },

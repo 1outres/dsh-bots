@@ -1,6 +1,6 @@
 {
   "name": "dsh_bot_notices",
-  "version": 5,
+  "version": 6,
   "tables": {
     "notices": {
       "botId": {
@@ -9,7 +9,7 @@
       },
       "topic": {
         "required": true,
-        "type": "\"connector\" | \"schedule\" | \"event\" | \"file\" | \"session\""
+        "type": "\"connector\" | \"schedule\" | \"event\" | \"file\" | \"session\" | \"heartbeat\""
       },
       "messageId": {
         "required": true,

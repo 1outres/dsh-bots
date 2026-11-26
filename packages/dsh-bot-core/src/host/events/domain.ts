@@ -1,5 +1,6 @@
 import { z } from "zod"
 import type { ConnectorJson } from "../../shared/connectors"
+import { connectorSenderSchema } from "../senders/domain"
 
 const time = z.number().int().nonnegative()
 
@@ -21,6 +22,7 @@ export const eventRecordSchema = z.object({
   own: z.boolean(),
   gap: z.boolean(),
   state: z.enum(EVENT_STATES),
+  sender: connectorSenderSchema.optional(),
 })
 
 export type EventRecord = Omit<z.infer<typeof eventRecordSchema>, "ref"> & {

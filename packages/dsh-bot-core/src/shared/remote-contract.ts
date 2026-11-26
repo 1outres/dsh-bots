@@ -5,6 +5,7 @@ import type { BotConnectorActionsApi, BotConnectorStreamsApi, BotConnectorsApi }
 import type { BotEnvironmentApi } from "./environment"
 import type { BotEnvironmentHostApi } from "./environment-host"
 import type { BotFilesApi } from "./files-api"
+import type { BotHeartbeatApi } from "./heartbeat"
 import type { BotInteractionsApi } from "./interactions"
 import type { BotMainViewApi } from "./main-view"
 import type { BotMainsApi } from "./mains"
@@ -36,6 +37,7 @@ export interface BotCoreApi {
   readonly botManagedSessions: BotManagedSessionsApi
   readonly botWorkspaces: BotWorkspacesApi
   readonly botMains: BotMainsApi
+  readonly botHeartbeat: BotHeartbeatApi
   readonly botMainView: BotMainViewApi
   readonly botSkills: BotSkillsApi
   readonly botSettings: BotSettingsApi
@@ -63,6 +65,7 @@ export const REMOTE_NAMESPACES = [
   "botManagedSessions",
   "botWorkspaces",
   "botMains",
+  "botHeartbeat",
   "botMainView",
   "botSkills",
   "botSettings",
@@ -201,6 +204,10 @@ export const REMOTE_METHODS: {
     watch: { parameters: [{ name: "botId" }], stream: true, cancellable: true },
     configure: { parameters: [{ name: "botId" }, { name: "override" }] },
     startNew: { parameters: [{ name: "botId" }] },
+  },
+  botHeartbeat: {
+    watch: { parameters: [{ name: "botId" }], stream: true, cancellable: true },
+    configure: { parameters: [{ name: "botId" }, { name: "settings" }] },
   },
   botMainView: {
     watch: { parameters: [{ name: "botId" }], stream: true, cancellable: true },

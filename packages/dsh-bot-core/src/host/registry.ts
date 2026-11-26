@@ -110,7 +110,7 @@ export interface BotRegistry {
     sessionsOf: (workspaceId: string) => readonly string[] | undefined,
     retire: (workspaceId: string) => Promise<unknown>,
   ): Promise<void>
-  hasWorkspaceFiles(id: string, version: WorkspaceFilesVersion): boolean
+  workspaceFilesOf(id: string): WorkspaceFilesVersion | undefined
   markWorkspaceFiles(id: string, version: WorkspaceFilesVersion): Promise<void>
   hasInitialNotes(id: string, version: InitialNotesVersion): boolean
   markInitialNotes(id: string, version: InitialNotesVersion): Promise<void>
@@ -536,7 +536,7 @@ export function createBotRegistry(deps: BotRegistryDeps): BotRegistry {
         if (changed) publish()
       })
     },
-    hasWorkspaceFiles: (id, version) => deps.table.get(id)?.workspaceFiles === version,
+    workspaceFilesOf: (id) => deps.table.get(id)?.workspaceFiles,
     markWorkspaceFiles(id, version) {
       return serial(async () => {
         const record = deps.table.get(id)

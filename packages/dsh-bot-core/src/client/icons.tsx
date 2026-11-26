@@ -282,6 +282,20 @@ export function IconRefresh({ size = 16 }: IconProps) {
   )
 }
 
+export function IconHeartbeat({ size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path
+        d="M1.5 8.5h3l1.5-3 2.5 6 2-4.5 1 1.5h3"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 export function IconChannels({ size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">

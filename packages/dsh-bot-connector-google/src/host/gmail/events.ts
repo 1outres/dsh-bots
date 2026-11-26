@@ -34,7 +34,7 @@ export function gmailEvents(google: Google): BotConnectorEvents {
         label: { en: "New email in the inbox", ja: "受信トレイへの新着メール" },
       },
     ],
-    delivery: "notify",
+    delivery: "queue",
     intervalMs: 60_000,
     poll: (source, value) =>
       google.as(source.connection, async ({ gmail }) => {

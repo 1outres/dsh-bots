@@ -54,6 +54,7 @@ interface BotSettingEntry {
 | スキル                                                          | 裏での振り返りのオン・オフ                   | free    |
 | ログイン（vault）                                               | ログインの名前と種類を読むだけ               | never   |
 | 環境、ワークスペース、Main の入れ替え、Web lookup（全体の設定） | 読むだけ                                     | never   |
+| ハートビート（docs/specs/bot-heartbeat.md）                     | オン・オフ、間隔、時間帯                     | free    |
 
 - `free` でも、§4 の条件を満たさなければ変えられない。
 - 割り当ては各区画の定義に書く。この表はその初期値。

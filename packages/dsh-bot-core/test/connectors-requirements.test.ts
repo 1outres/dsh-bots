@@ -187,6 +187,7 @@ describe("connectors that require others", () => {
         connectorId: "page",
         enabled: true,
         values: {},
+        events: "off",
         updatedAt: 0,
       })
       setup.readiness.sync("b1")

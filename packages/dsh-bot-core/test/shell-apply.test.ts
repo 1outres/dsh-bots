@@ -311,6 +311,7 @@ function fakeContext(options: FakeOptions = {}) {
         })),
       },
       botMains: { watch: vi.fn(), watchDefaults: vi.fn() },
+      botHeartbeat: { watch: vi.fn() },
       botMainView: { watch: vi.fn() },
       botSkills: { watch: vi.fn() },
       botSettings: { watch: vi.fn() },
@@ -973,6 +974,7 @@ describe("client apply(): bot-core's Remote", () => {
         "botManagedSessions",
         "botWorkspaces",
         "botMains",
+        "botHeartbeat",
         "botMainView",
         "botSkills",
         "botSettings",
@@ -1018,6 +1020,7 @@ describe("client apply(): bot-core's Remote", () => {
     expect(face.sections.getSnapshot().map((section) => section.id)).toEqual([
       SETTINGS_SECTION.general,
       "bot-core.mains",
+      "bot-core.heartbeat",
       SETTINGS_SECTION.models,
       SETTINGS_SECTION.workspaces,
       SETTINGS_SECTION.channels,
