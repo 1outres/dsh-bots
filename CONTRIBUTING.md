@@ -18,6 +18,8 @@ pnpm lint
 pnpm test
 ```
 
+`pnpm-workspace.yaml` turns off the native builds of `@deepseek-ai/dsh-subprocess-local`, `koffi` and `node-pty` in `allowBuilds`: they are peers of `@deepseek-ai/dsh-ssh`, installed only for type checking, so this repository never needs their builds.
+
 Install a local checkout into DSH with **Plugins** > **Add plugin**, giving the directory of `packages/dsh-bots` or of a single plugin package. The bots' VMs need a VM host: prepare one with `install.sh` (on this machine with `DSH_BOTS_ACCESS=local`, or a throw-away VM) and choose it in dsh-bots settings → VM host; [infra/vm/README.md](infra/vm/README.md) describes what it sets up, [docs/specs/installer.md](docs/specs/installer.md) the installer, and `infra/incus/create-project.sh` the project for an Incus server that runs other things.
 
 ## Packages
