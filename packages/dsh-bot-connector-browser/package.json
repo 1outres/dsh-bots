@@ -1,6 +1,6 @@
 {
   "name": "@1outres/dsh-bot-connector-browser",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Gives each bot of DeepSeek Harness the Google Chrome on its VM's desktop as a browser it drives with Playwright MCP inside the VM (page snapshots, forms, screenshots), as a bot-core connector; a person sees the same Chrome in the Desktop panel.",
   "repository": {
     "type": "git",
@@ -46,7 +46,7 @@
     "node": ">=22"
   },
   "peerDependencies": {
-    "@1outres/dsh-bot-core": "workspace:^0.4.1",
+    "@1outres/dsh-bot-core": "workspace:^0.4.2",
     "@deepseek-ai/cordis": "~4.1.0"
   },
   "devDependencies": {

@@ -1,6 +1,6 @@
 {
   "name": "@1outres/dsh-bot-vm",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Runs every bot of DeepSeek Harness in its own Incus VM: bot Agents read, write and execute there over SSH instead of on the Host.",
   "repository": {
     "type": "git",
@@ -46,7 +46,7 @@
     "node": ">=22"
   },
   "peerDependencies": {
-    "@1outres/dsh-bot-core": "workspace:^0.4.1",
+    "@1outres/dsh-bot-core": "workspace:^0.4.2",
     "@deepseek-ai/cordis": "~4.1.0",
     "@deepseek-ai/dsh-sandbox-policy": "0.2.2-rc.5",
     "@deepseek-ai/dsh-util-ripgrep": "0.2.2-rc.5"

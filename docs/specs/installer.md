@@ -78,7 +78,7 @@ VM の通信は Incus の `inet incus` テーブルで許可されても、別�
 成功時（remote）:
 
 ```
-dsh-bots VM host installer 0.4.1
+dsh-bots VM host installer 0.4.2
 [1/6] Checking system ............... ✓ Debian GNU/Linux 13 (trixie), KVM
 [2/6] Choosing where DSH runs ....... ✓ DSH on another machine, over HTTPS
   Root access is needed to install packages and set up Incus and the firewall (sudo).

@@ -1,6 +1,6 @@
 {
   "name": "@1outres/dsh-bot-core",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Bots for DeepSeek Harness: a Bots section above Workspaces in the sidebar, each bot with a name, an avatar and a Main session.",
   "repository": {
     "type": "git",
