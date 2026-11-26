@@ -25,7 +25,7 @@ export function closeFailure(code: number): DiscordFailure {
       return {
         retryable: false,
         reason:
-          "Discord refused the Gateway intents: enable them for the bot in the Developer Portal (4014)",
+          "Discord refused the Gateway intents: a server channel home needs Message Content Intent and Server Members Intent; turn them on in the Developer Portal > Bot > Privileged Gateway Intents (4014)",
       }
     default:
       return { retryable: false, reason: `Discord closed the Gateway for good (${code})` }

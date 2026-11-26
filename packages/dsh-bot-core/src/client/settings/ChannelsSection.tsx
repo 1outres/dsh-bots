@@ -3,7 +3,11 @@ import type {
   BotChannelChange,
   BotChannelChoice,
   BotChannelField,
+  BotChannelInspection,
   BotChannelListField,
+  BotChannelOption,
+  BotChannelOptions,
+  BotChannelPickField,
   BotChannelText,
   BotChannelTextField,
   BotChannelView,
@@ -22,7 +26,9 @@ import {
   textIssue,
   textOf,
 } from "../channel-form"
+import type { ChannelAsk } from "../channel-queries"
 import type { ChannelsHub } from "../channels-hub"
+import { ChannelsError } from "../channels-model"
 import { useObservable } from "../hooks"
 import type { MessageKey } from "../i18n"
 import { IconChannels } from "../icons"
@@ -30,12 +36,16 @@ import { createSerialSaves } from "../serial-saves"
 import type { Translate } from "../types"
 import {
   BlockRow,
+  Button,
   type CommitResult,
   commitWith,
   EmptyState,
   ErrorText,
   Group,
   LinkRow,
+  OptionPicker,
+  type PickerOption,
+  type QueryState,
   Row,
   SecretRow,
   Select,
@@ -43,6 +53,7 @@ import {
   Switch,
   TextArea,
   TextField,
+  useQuery,
   useTextDraft,
 } from "../ui"
 import { failureText } from "./failure-text"
@@ -84,6 +95,7 @@ export function ChannelsSection({
           text={text}
           view={view}
           configure={feed.configure}
+          ask={channels.ask(bot.id, view.channel.id)}
         />
       ))}
     </div>
@@ -124,10 +136,16 @@ export interface ChannelGroupProps {
   text(text: BotChannelText): string
   readonly view: BotChannelView
   readonly configure: ChannelConfigure
+  /** Questions about the settings the group shows (options, inspection). */
+  readonly ask: ChannelAsk
 }
 
+/** What the options and the inspection depend on: the stored settings, as they changed. */
+const settingsKey = (view: BotChannelView) =>
+  JSON.stringify([view.revision, view.values, view.secrets])
+
 /** One channel's settings: its title row with state and switch, a row per field, the setup guide. */
-export function ChannelGroup({ t, text, view, configure }: ChannelGroupProps) {
+export function ChannelGroup({ t, text, view, configure, ask }: ChannelGroupProps) {
   const { channel } = view
   const latest = useRef(view)
   latest.current = view
@@ -142,8 +160,13 @@ export function ChannelGroup({ t, text, view, configure }: ChannelGroupProps) {
   const save = (edit: ChannelEdit): Promise<CommitResult> =>
     commitWith(
       () => saves.save(edit),
-      (cause) => failureText(t, cause),
+      (cause) =>
+        cause instanceof ChannelsError && cause.failure.kind === "check"
+          ? text(cause.failure.reason)
+          : failureText(t, cause),
     )
+  const key = settingsKey(view)
+  const inspection = useQuery(key, (signal) => ask.inspect(signal))
   const headline = channelHeadline(view)
   const missing = missingFields(view)
   const id = channel.id
@@ -170,6 +193,7 @@ export function ChannelGroup({ t, text, view, configure }: ChannelGroupProps) {
           </>
         }
       />
+      <InspectionRows t={t} text={text} inspection={inspection} />
       {channel.fields.map((field) => (
         <ChannelField
           key={field.key}
@@ -179,6 +203,8 @@ export function ChannelGroup({ t, text, view, configure }: ChannelGroupProps) {
           field={field}
           missing={missing.has(field.key)}
           save={save}
+          ask={ask}
+          settingsKey={key}
         />
       ))}
       {channel.guide !== undefined && (
@@ -200,6 +226,8 @@ interface FieldProps {
   /** A required field without a value while the channel is on. */
   readonly missing: boolean
   save(edit: ChannelEdit): Promise<CommitResult>
+  readonly ask: ChannelAsk
+  readonly settingsKey: string
 }
 
 function ChannelField(props: FieldProps) {
@@ -242,8 +270,18 @@ function ChannelField(props: FieldProps) {
           save={save}
         />
       )
+    case "pick":
+      return <PickField {...props} field={field} label={label} description={description} />
     case "list":
-      return (
+      return field.item.source !== undefined ? (
+        <PickListField
+          {...props}
+          field={field}
+          source={field.item.source}
+          label={label}
+          description={description}
+        />
+      ) : (
         <ListField
           t={t}
           label={label}
@@ -362,5 +400,241 @@ function ListField(props: {
         marks={{ "data-dshb-channel-field": field.key }}
       />
     </BlockRow>
+  )
+}
+
+/** The account, links and warnings the channel tells about the settings. */
+function InspectionRows(props: {
+  readonly t: Translate
+  text(text: BotChannelText): string
+  readonly inspection: QueryState<BotChannelInspection>
+}) {
+  const { t, text, inspection } = props
+  if (inspection.status === "loading") return null
+  if (inspection.status === "failed") {
+    return (
+      <Row
+        label={t("channels.inspect.failed")}
+        meta={inspection.message}
+        metaTone="danger"
+        marks={{ "data-dshb-channel-inspection": "failed" }}
+      />
+    )
+  }
+  const { value } = inspection
+  if (value.state === "unavailable") return null
+  return (
+    <>
+      {value.account !== undefined && (
+        <Row
+          label={t("channels.inspect.account")}
+          meta={value.account}
+          marks={{ "data-dshb-channel-account": "" }}
+        />
+      )}
+      {value.warnings.map((warning) => (
+        <Row
+          key={warning.en}
+          label={text(warning)}
+          trailing={<StatusPill tone="warning" label={t("channels.inspect.warning")} />}
+          marks={{ "data-dshb-channel-warning": "" }}
+        />
+      ))}
+      {value.links.map((link) => (
+        <LinkRow
+          key={link.url}
+          label={text(link.label)}
+          href={link.url}
+          marks={{ "data-dshb-channel-link": "" }}
+        />
+      ))}
+    </>
+  )
+}
+
+const pickerOption = (
+  text: (text: BotChannelText) => string,
+  option: BotChannelOption,
+): PickerOption => ({
+  value: option.value,
+  label: text(option.label),
+  ...(option.detail === undefined ? {} : { detail: text(option.detail) }),
+  ...(option.image === undefined ? {} : { image: option.image }),
+})
+
+/** A source's options as the picker lists them, with the meta its row shows. */
+function useOptions(
+  props: FieldProps,
+  source: string,
+): {
+  readonly options: QueryState<BotChannelOptions>
+  readonly listed: readonly PickerOption[]
+} {
+  const options = useQuery(`${source}|${props.settingsKey}`, (signal) =>
+    props.ask.options(source, signal),
+  )
+  const listed =
+    options.status === "ready" && options.value.state === "ready"
+      ? options.value.options.map((option) => pickerOption(props.text, option))
+      : []
+  return { options, listed }
+}
+
+/** What a picked row says beside its label: why there are no options, a missing value, a suggestion. */
+function pickMeta(
+  props: FieldProps,
+  options: QueryState<BotChannelOptions>,
+  empty: boolean,
+): { readonly meta: string | undefined; readonly tone: "danger" | "warning" | undefined } {
+  const { t, text } = props
+  if (options.status === "failed") {
+    return { meta: t("channels.options.failed", { message: options.message }), tone: "danger" }
+  }
+  if (options.status === "ready" && options.value.state === "unavailable") {
+    return { meta: text(options.value.reason), tone: "warning" }
+  }
+  if (props.missing) return { meta: t("channels.missing"), tone: "danger" }
+  if (empty && options.status === "loading")
+    return { meta: t("channels.options.loading"), tone: undefined }
+  return { meta: undefined, tone: undefined }
+}
+
+function suggestionOf(options: QueryState<BotChannelOptions>, empty: boolean): readonly string[] {
+  if (!empty || options.status !== "ready" || options.value.state !== "ready") return []
+  return options.value.suggested
+}
+
+function SuggestionRow(props: {
+  readonly t: Translate
+  readonly suggested: readonly string[]
+  readonly listed: readonly PickerOption[]
+  readonly field: string
+  use(values: readonly string[]): void
+}) {
+  const { t, suggested, listed } = props
+  if (suggested.length === 0) return null
+  const names = suggested
+    .map((value) => listed.find((option) => option.value === value)?.label ?? value)
+    .join(", ")
+  return (
+    <Row
+      label={t("channels.suggested", { value: names })}
+      density="compact"
+      trailing={
+        <Button
+          variant="secondary"
+          onClick={() => props.use(suggested)}
+          marks={{ "data-dshb-channel-suggestion": props.field }}
+        >
+          {t("channels.suggested.use")}
+        </Button>
+      }
+    />
+  )
+}
+
+const unknownOption = (t: Translate) => (value: string) => ({
+  value,
+  label: t("channels.options.unknown"),
+  detail: value,
+})
+
+function PickField(
+  props: FieldProps & {
+    readonly field: BotChannelPickField
+    readonly label: string
+    readonly description: string | undefined
+  },
+) {
+  const { t, view, field, label, save } = props
+  const stored = textOf(view, field.key)
+  const { options, listed } = useOptions(props, field.source)
+  const { meta, tone } = pickMeta(props, options, stored === "")
+  const pick = (values: readonly string[]) =>
+    void save({ kind: "value", key: field.key, value: values[0] ?? "" })
+  return (
+    <>
+      <Row
+        label={label}
+        description={props.description}
+        meta={meta}
+        metaTone={tone}
+        marks={{ "data-dshb-channel-pick": field.key }}
+        trailing={
+          <OptionPicker
+            t={t}
+            options={listed}
+            selected={stored === "" ? [] : [stored]}
+            multiple={false}
+            onChange={pick}
+            unknown={unknownOption(t)}
+            placeholder={t("channels.options.choose")}
+            label={label}
+            marks={{ "data-dshb-channel-field": field.key }}
+          />
+        }
+      />
+      <SuggestionRow
+        t={t}
+        suggested={suggestionOf(options, stored === "")}
+        listed={listed}
+        field={field.key}
+        use={pick}
+      />
+    </>
+  )
+}
+
+function PickListField(
+  props: FieldProps & {
+    readonly field: BotChannelListField
+    readonly source: string
+    readonly label: string
+    readonly description: string | undefined
+  },
+) {
+  const { t, view, field, label, save } = props
+  const stored = view.values[field.key]
+  const selected: readonly string[] = Array.isArray(stored) ? stored : []
+  const { options, listed } = useOptions(props, props.source)
+  const picked = pickMeta(props, options, selected.length === 0)
+  const noOwners =
+    picked.meta === undefined &&
+    view.enabled &&
+    view.channel.owners === field.key &&
+    ownersEmpty(view)
+  const pick = (values: readonly string[]) =>
+    void save({ kind: "value", key: field.key, value: values })
+  return (
+    <>
+      <Row
+        label={label}
+        description={props.description}
+        meta={noOwners ? t("channels.owners.none") : picked.meta}
+        metaTone={noOwners ? "warning" : picked.tone}
+        marks={{ "data-dshb-channel-list": field.key }}
+        trailing={
+          <OptionPicker
+            t={t}
+            options={listed}
+            selected={selected}
+            multiple
+            max={field.maxItems}
+            onChange={pick}
+            unknown={unknownOption(t)}
+            placeholder={t("channels.options.choose")}
+            label={label}
+            marks={{ "data-dshb-channel-field": field.key }}
+          />
+        }
+      />
+      <SuggestionRow
+        t={t}
+        suggested={suggestionOf(options, selected.length === 0)}
+        listed={listed}
+        field={field.key}
+        use={pick}
+      />
+    </>
   )
 }

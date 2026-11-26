@@ -2,6 +2,7 @@ import { createActionsModel } from "./approvals/actions-model"
 import { createActionsHub } from "./approvals/hub"
 import { watchWaiting } from "./approvals/waiting"
 import { createBotDeletion } from "./bot-deletion"
+import { createChannelQueries } from "./channel-queries"
 import { createChannelsHub } from "./channels-hub"
 import { createChannelsModel } from "./channels-model"
 import { createConnectionsFeed, createConnectionsModel } from "./connections-model"
@@ -177,10 +178,11 @@ export function apply(ctx: ClientContext): void {
   wireDialogs(ctx, { dialogs, actions, creation })
   const connections = createConnectionsFeed(() => createConnectionsModel(remote))
   const webLookup = createWebLookupFeed(remote)
+  const channelQueries = createChannelQueries(remote)
   wireSettings(ctx, {
     bots,
     screens,
-    channels: createChannelsHub((botId) => createChannelsModel(remote, botId)),
+    channels: createChannelsHub((botId) => createChannelsModel(remote, botId), channelQueries),
     connectors,
     connections,
     vaults,
@@ -213,6 +215,7 @@ export function apply(ctx: ClientContext): void {
     creation,
     web: webLookup,
     connections,
+    channelQueries,
   })
   wireGlobalSettings(ctx, screens)
   wireDshSettings(ctx, { openGlobalSettings: () => screens.openGlobalSettings() })

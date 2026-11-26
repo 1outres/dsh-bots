@@ -1,8 +1,12 @@
 import type {
+  BotChannelCheck,
   BotChannelConnectionState,
   BotChannelDescriptor,
   BotChannelField,
+  BotChannelInspection,
   BotChannelListField,
+  BotChannelOptions,
+  BotChannelPublicValues,
   BotChannelText,
 } from "./shared/channels"
 import type {
@@ -31,9 +35,10 @@ export type * from "./shared/interactions"
  */
 
 /**
- * The settings a channel hands each bot's connection, by field key: a secret's
- * or text's value (`""` for an optional one left empty) or a list's items.
+ * The settings a channel hands each bot's connection, by field key: a secret's,
+ * text's or pick's value (`""` for an optional one left empty) or a list's items.
  * Required fields always have a value: bot-core connects only complete settings.
+ * Option, check and inspect requests get the same shape, possibly incomplete.
  */
 export type BotChannelValuesOf<F extends readonly BotChannelField[]> = {
   readonly [Field in F[number] as Field["key"]]: Field extends { readonly kind: "list" }
@@ -56,6 +61,23 @@ export interface BotChannel<F extends readonly BotChannelField[] = readonly BotC
   readonly owners?: BotChannelListKey<F>
   readonly capabilities: BotChannelCapabilities
   /**
+   * The version of the shape of the settings, 1 when absent. bot-core stores
+   * it with every save and passes older settings through {@link upgradeSettings}
+   * when it reads them, storing the result.
+   */
+  readonly settingsVersion?: number
+  /** Required with a {@link settingsVersion} above 1. */
+  upgradeSettings?(stored: BotChannelStoredSettings): BotChannelSettingsUpgrade
+  /** The options of every source its fields name; required when a field names one. Answered without a connection. */
+  options?(request: BotChannelOptionsRequest<BotChannelValuesOf<F>>): Promise<BotChannelOptions>
+  /**
+   * Whether settings fit together across fields; bot-core asks before it
+   * stores enabled, complete settings and refuses the save with the reason.
+   */
+  check?(request: BotChannelSettingsRequest<BotChannelValuesOf<F>>): Promise<BotChannelCheck>
+  /** What the settings tell beside the fields (the account, an invite link, warnings). */
+  inspect?(request: BotChannelSettingsRequest<BotChannelValuesOf<F>>): Promise<BotChannelInspection>
+  /**
    * How the channel renders the bot's messages, as one English line for the
    * bot's prompt (e.g. which Markdown shows); absent: nothing to say.
    */
@@ -66,6 +88,32 @@ export interface BotChannel<F extends readonly BotChannelField[] = readonly BotC
    * a throw is shown as a failed connection.
    */
   connect(link: BotChannelLink<BotChannelValuesOf<F>>): BotChannelConnection
+}
+
+/** Settings as an earlier version of the channel stored them, values only (secrets are kept as they are). */
+export interface BotChannelStoredSettings {
+  readonly version: number
+  readonly values: BotChannelPublicValues
+}
+
+export interface BotChannelSettingsUpgrade {
+  /** The values in the current shape. */
+  readonly values: BotChannelPublicValues
+  /** English lines on what the upgrade dropped or changed; bot-core logs them as warnings. */
+  readonly notes: readonly string[]
+}
+
+/** Settings a channel is asked about: a bot's (absent in the welcome guide, before it exists). */
+export interface BotChannelSettingsRequest<V = BotChannelValuesOf<readonly BotChannelField[]>> {
+  readonly bot?: { readonly id: string; readonly name: string }
+  readonly settings: V
+  readonly signal: AbortSignal
+}
+
+export interface BotChannelOptionsRequest<V = BotChannelValuesOf<readonly BotChannelField[]>>
+  extends BotChannelSettingsRequest<V> {
+  /** One of the sources the channel's fields name. */
+  readonly source: string
 }
 
 /** The keys of a channel's list fields. */
@@ -184,11 +232,10 @@ export type BotActivity = "idle" | "running"
  */
 export type BotDeliveryMode = "queue" | "steer"
 
-/**
- * Where a message was written. Only direct messages so far; a channel that
- * carries rooms or threads brings its own kind with their names.
- */
-export type BotMessagePlace = { readonly kind: "direct" }
+/** Where a message was written: a direct message, or a room (a channel) of a server, by their names. */
+export type BotMessagePlace =
+  | { readonly kind: "direct" }
+  | { readonly kind: "channel"; readonly channel: string; readonly server: string }
 
 /** Who wrote a message, as the channel knows them. Names may hold anything: bot-core cleans them before they reach the bot. */
 export interface BotMessageSender {
@@ -365,6 +412,13 @@ export interface BotChannelLink<V = BotChannelValuesOf<readonly BotChannelField[
    * can hold personal data), as for {@link decide}.
    */
   pendingActions(person: string): BotPendingActionsResult
+  /**
+   * The bot's pending connector actions, oldest first, for a channel that
+   * shows them to its owners where it presents the `connector-action`
+   * outputs (the same previews); none without
+   * {@link BotChannelCapabilities.connectorActions}.
+   */
+  openActions(): readonly ConnectorActionView[]
   /**
    * One of the bot's connector actions as the ledger keeps it now; undefined
    * once it is no longer kept, and for a channel without

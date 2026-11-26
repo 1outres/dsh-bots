@@ -14,6 +14,7 @@ const view: BotChannelView = {
   values: {},
   secrets: {},
   status: { state: "off" },
+  revision: 0,
 }
 
 const snapshot: BotChannelsSnapshot = { botId: "a", channels: [view] }
@@ -116,7 +117,7 @@ describe("createChannelsModel", () => {
   it("unwraps a save and types its refusals", async () => {
     const configure = vi
       .fn<BotChannelsRemote["configure"]>()
-      .mockResolvedValueOnce({ ok: true, value: view })
+      .mockResolvedValueOnce({ ok: true, value: { saved: true, view } })
       .mockResolvedValueOnce({ ok: false, error: { code: "x", message: "invalid" } })
       .mockResolvedValueOnce({ ok: false, error: {} })
       .mockRejectedValueOnce(new Error("offline"))

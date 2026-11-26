@@ -418,6 +418,24 @@ button.dshb-ui-select:disabled { cursor: default; }
   color: var(--dsw-alias-label-tertiary);
 }
 .dshb-ui-menu { padding: 4px; overflow-y: auto; }
+.dshb-ui-picker { display: inline-flex; max-width: 100%; }
+button.dshb-ui-picker-trigger { height: auto; min-height: 32px; padding-top: 3px; padding-bottom: 3px; }
+.dshb-ui-picker-picked { display: flex; flex-wrap: wrap; gap: 4px 10px; min-width: 0; }
+.dshb-ui-picker-placeholder { color: var(--dsw-alias-label-dimmed); }
+.dshb-ui-picker-chip { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.dshb-ui-picker-option { display: flex; align-items: center; gap: 8px; }
+.dshb-ui-picker-option[aria-selected="true"] { font-weight: 500; }
+.dshb-ui-picker-image {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--dsw-alias-border-l4);
+}
+.dshb-ui-picker-text { display: flex; flex-direction: column; min-width: 0; }
+.dshb-ui-picker-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dshb-ui-picker-detail { font-size: 12px; line-height: 16px; font-weight: 400; color: var(--dsw-alias-label-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dshb-ui-menu-item {
   box-sizing: border-box;
   display: flex;

@@ -1,4 +1,9 @@
-import type { BotChannelChange, BotChannelsSnapshot, BotChannelView } from "../shared/channels"
+import type {
+  BotChannelChange,
+  BotChannelsSnapshot,
+  BotChannelText,
+  BotChannelView,
+} from "../shared/channels"
 import { createStore, type Observable } from "./observable"
 import type { BotChannelsRemote, RemoteMount } from "./remote"
 import type { StreamHandle } from "./types"
@@ -9,6 +14,15 @@ export type ChannelsFailure =
   | { readonly kind: "connection"; readonly message: string }
   | { readonly kind: "refused"; readonly message: string }
   | { readonly kind: "protocol"; readonly message: string }
+  /** The channel refused the settings the save would make. */
+  | { readonly kind: "check"; readonly message: string; readonly reason: BotChannelText }
+
+/** The failure of settings the channel refused. */
+export const checkFailure = (reason: BotChannelText): ChannelsFailure => ({
+  kind: "check",
+  message: reason.en,
+  reason,
+})
 
 export class ChannelsError extends Error {
   override readonly name = "ChannelsError"
@@ -72,7 +86,10 @@ export function createChannelsModel(mount: Promise<RemoteMount>, botId: string):
       } catch (error) {
         throw new ChannelsError({ kind: "connection", message: messageOf(error) })
       }
-      if (result.ok) return result.value
+      if (result.ok) {
+        if (result.value.saved) return result.value.view
+        throw new ChannelsError(checkFailure(result.value.reason))
+      }
       const { message } = result.error
       throw new ChannelsError(
         message === undefined

@@ -104,7 +104,7 @@ function Wizard(
 ) {
   const { t } = props
   const steps = wizardSteps(useAvailability(props))
-  const drafts = useMemo(() => createChannelDrafts(), [])
+  const drafts = useMemo(() => createChannelDrafts(props.channelQueries), [props.channelQueries])
   const [at, setAt] = useState<{ readonly step: WizardStep; readonly forward: boolean }>({
     step: "welcome",
     forward: true,

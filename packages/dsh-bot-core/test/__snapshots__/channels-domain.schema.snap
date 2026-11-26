@@ -23,6 +23,10 @@
         "required": true,
         "type": "string[]"
       },
+      "settingsVersion": {
+        "required": false,
+        "type": "number"
+      },
       "updatedAt": {
         "required": true,
         "type": "number"

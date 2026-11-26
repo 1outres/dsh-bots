@@ -6,6 +6,7 @@ import {
   Events,
   GatewayDispatchEvents,
   type GatewayReadyDispatchData,
+  type GuildTextBasedChannel,
   type PartialDMChannel,
   Routes,
 } from "discord.js"
@@ -13,6 +14,7 @@ import type {
   DiscordClient,
   DiscordClientEvents,
   DiscordFailure,
+  DiscordGatewayMode,
   OpenDiscordClient,
 } from "../discord"
 import { MESSAGES_PAGE_LIMIT } from "../discord"
@@ -36,12 +38,13 @@ const messageOf = (error: unknown) => (error instanceof Error ? error.message : 
  */
 export function openDiscordJsClient(
   token: string,
+  mode: DiscordGatewayMode,
   events: DiscordClientEvents,
   deps: DiscordJsDeps,
 ): DiscordClient {
   let stopped = false
   let applicationId: string | undefined
-  const client = deps.create(clientOptions(() => stopped))
+  const client = deps.create(clientOptions(mode, () => stopped))
   const stop = async () => {
     stopped = true
     await client.destroy()
@@ -83,12 +86,18 @@ export function openDiscordJsClient(
     if (!stopped) deps.warn(`bot-discord: Discord client error: ${error.message}`)
   })
 
-  const dm = async (channelId: string): Promise<DMChannel | PartialDMChannel> => {
+  /** The home's channel: a DM in DM mode, a server text channel in channel mode. */
+  const textChannel = async (
+    channelId: string,
+  ): Promise<DMChannel | PartialDMChannel | GuildTextBasedChannel> => {
     const channel = await client.channels.fetch(channelId)
-    if (channel?.type !== ChannelType.DM) {
-      throw new Error(`Discord channel ${channelId} is not a direct message`)
+    const wanted = mode === "dm" ? ChannelType.DM : ChannelType.GuildText
+    if (channel?.type !== wanted) {
+      throw new Error(
+        `Discord channel ${channelId} is not ${mode === "dm" ? "a direct message" : "a server text channel"}`,
+      )
     }
-    return channel
+    return channel as DMChannel | PartialDMChannel | GuildTextBasedChannel
   }
 
   client.login(token).then(
@@ -101,12 +110,12 @@ export function openDiscordJsClient(
       return (await client.users.createDM(userId)).id
     },
     async send(channelId, message) {
-      return (await (await dm(channelId)).send(toMessageOptions(message))).id
+      return (await (await textChannel(channelId)).send(toMessageOptions(message))).id
     },
     async edit(channelId, messageId, message) {
       const { content, embeds, components } = toEditOptions(message)
       try {
-        await (await dm(channelId)).messages.edit(messageId, {
+        await (await textChannel(channelId)).messages.edit(messageId, {
           content,
           ...(embeds === undefined ? {} : { embeds }),
           components,
@@ -120,7 +129,7 @@ export function openDiscordJsClient(
     },
     async remove(channelId, messageId) {
       try {
-        await (await dm(channelId)).messages.delete(messageId)
+        await (await textChannel(channelId)).messages.delete(messageId)
         return "removed"
       } catch (error) {
         if (isUnreachable(error)) return "missing"
@@ -129,7 +138,7 @@ export function openDiscordJsClient(
     },
     async pin(channelId, messageId) {
       try {
-        await (await dm(channelId)).messages.pin(messageId)
+        await (await textChannel(channelId)).messages.pin(messageId)
         return "pinned"
       } catch (error) {
         const refusal = pinRefusal(error)
@@ -139,13 +148,13 @@ export function openDiscordJsClient(
       }
     },
     async react(channelId, messageId, emoji) {
-      await (await dm(channelId)).messages.react(messageId, emoji)
+      await (await textChannel(channelId)).messages.react(messageId, emoji)
     },
     async typing(channelId) {
-      await (await dm(channelId)).sendTyping()
+      await (await textChannel(channelId)).sendTyping()
     },
     async messagesAfter(channelId, after) {
-      const page = await (await dm(channelId)).messages.fetch({
+      const page = await (await textChannel(channelId)).messages.fetch({
         after,
         limit: MESSAGES_PAGE_LIMIT,
         cache: false,
@@ -155,7 +164,7 @@ export function openDiscordJsClient(
     async registerCommands(commands) {
       if (applicationId === undefined) throw new Error("the bot has not connected to Discord yet")
       await client.rest.put(Routes.applicationCommands(applicationId), {
-        body: toCommandsBody(commands),
+        body: toCommandsBody(commands, mode),
       })
     },
     destroy: stop,
@@ -165,5 +174,5 @@ export function openDiscordJsClient(
 /** Open each client with discord.js. */
 export function discordJsClients(deps: Pick<DiscordJsDeps, "warn">): OpenDiscordClient {
   const create = (options: ClientOptions) => new Client(options)
-  return (token, events) => openDiscordJsClient(token, events, { ...deps, create })
+  return (token, mode, events) => openDiscordJsClient(token, mode, events, { ...deps, create })
 }

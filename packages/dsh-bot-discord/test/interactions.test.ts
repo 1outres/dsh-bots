@@ -8,11 +8,23 @@ import type {
   DiscordSelect,
   DiscordTextModal,
 } from "../src/host/discord"
+import { atHome, homeOf } from "../src/host/home"
+import { createHomeTarget } from "../src/host/home-target"
 import { decodeCustomId, encodeCustomId } from "../src/host/interactions/custom-id"
 import { createInteractionPresenter } from "../src/host/interactions/presenter"
 import { MAX_CHOICES, renderCard } from "../src/host/interactions/render"
 import { createSerialQueue } from "../src/host/queue"
-import { ALLOWED, fakeActions, fakeLink, OTHER, settle } from "./support"
+import {
+  ALLOWED,
+  CHANNEL_SETTINGS,
+  DM_SETTINGS,
+  fakeActions,
+  fakeLink,
+  GUILD,
+  HOME_CHANNEL,
+  OTHER,
+  settle,
+} from "./support"
 
 const option = (label: string) => ({ label })
 const question = (id: string, options: readonly string[], multiSelect = false): BotQuestion => ({
@@ -155,14 +167,17 @@ describe("Discord interaction cards", () => {
   })
 })
 
-function setup(interaction: BotInteraction) {
-  const link = fakeLink({ token: "t", users: [ALLOWED], approvers: [], language: "" })
+function setup(interaction: BotInteraction, homeAt: "dm" | "channel" = "dm") {
+  const settings = homeAt === "dm" ? DM_SETTINGS : CHANNEL_SETTINGS
+  const link = fakeLink(settings)
   const { actions, calls } = fakeActions()
+  const home = homeOf(settings)
   const presenter = createInteractionPresenter({
     link: link.link,
     actions,
-    recipients: async () => [{ userId: ALLOWED, channelId: `dm-${ALLOWED}` }],
-    allowed: new Set([ALLOWED]),
+    home: createHomeTarget(home, actions.openDm),
+    atHome: (place) => atHome(home, place),
+    owners: new Set(settings.approvers),
     locale: "en",
     self: "discord",
     outbound: createSerialQueue(),
@@ -174,9 +189,9 @@ function setup(interaction: BotInteraction) {
   const modals: DiscordTextModal[] = []
   const actor = (overrides: Partial<DiscordComponentPress> = {}) => ({
     userId: ALLOWED,
-    guildId: null,
+    guildId: homeAt === "dm" ? null : GUILD,
     locale: "en-US",
-    channelId: `dm-${ALLOWED}`,
+    channelId: homeAt === "dm" ? `dm-${ALLOWED}` : HOME_CHANNEL,
     ...overrides,
   })
   const press = (
@@ -216,10 +231,10 @@ function setup(interaction: BotInteraction) {
 }
 
 describe("Discord interaction presenter", () => {
-  it("posts a card to every allowed DM and answers an approval from its button", async () => {
+  it("posts a card at the home and answers an approval from its button", async () => {
     const { presenter, calls, press, link, updates } = setup(APPROVAL)
     await presenter.opened(APPROVAL)
-    expect(calls).toEqual([`send dm-${ALLOWED} `])
+    expect(calls).toEqual([`openDm ${ALLOWED}`, `send dm-${ALLOWED} `])
     await press({ kind: "approval", action: "allow-once" })
     expect(link.answers).toEqual([
       { interactionId: "ap1", answer: { kind: "approval", action: "allow-once" } },
@@ -236,19 +251,24 @@ describe("Discord interaction presenter", () => {
     })
     await settle()
     expect(calls.filter((call) => call.startsWith("edit"))).toEqual([
-      `edit dm-${ALLOWED} m1 ✅ Answered in Discord\n• Allow once`,
       `edit dm-${ALLOWED} m2 ✅ Answered in Discord\n• Allow once`,
     ])
   })
 
-  it("refuses others and server use privately, and closes a card of an interaction no longer open", async () => {
+  it("refuses presses away from the home privately, and closes a card of an interaction no longer open", async () => {
     const { presenter, press, replies, updates, link } = setup(APPROVAL)
     await presenter.opened(APPROVAL)
     await press({ kind: "approval", action: "reject" }, { userId: OTHER, locale: "ja" })
-    await press({ kind: "approval", action: "reject" }, { guildId: "g1" })
+    await press({ kind: "approval", action: "reject" }, { guildId: GUILD })
     expect(replies).toEqual([
-      { content: "このボットを使う権限がありません。", ephemeral: true },
-      { content: "This bot's commands work in its direct messages only.", ephemeral: true },
+      {
+        content: "このボットはホーム（設定で選んだチャンネルか DM）でだけ使えます。",
+        ephemeral: true,
+      },
+      {
+        content: "This bot is used in its home only (the channel or the DM its settings name).",
+        ephemeral: true,
+      },
     ])
     await presenter.closed({ id: "ap1", kind: "approval", resolution: { kind: "withdrawn" } })
     await press({ kind: "approval", action: "reject" })
@@ -334,7 +354,7 @@ describe("Discord interaction presenter", () => {
   it("posts a plan before its card, and sends it back with optional feedback from a modal", async () => {
     const { presenter, press, submit, modals, link, calls } = setup(PLAN)
     await presenter.opened(PLAN)
-    expect(calls[0]).toContain("**Plan review**")
+    expect(calls[1]).toContain("**Plan review**")
     await press({ kind: "decline-plan" })
     expect(modals[0]).toMatchObject({ input: { required: false } })
     await submit({ kind: "decline-plan" }, "Add tests")
@@ -346,6 +366,42 @@ describe("Discord interaction presenter", () => {
     ])
   })
 
+  it("shares one card and one draft in the home channel: anyone answers a question, only owners an approval", async () => {
+    const interaction = batch(question("a", ["A", "B"]), question("b", ["X"]))
+    const shared = setup(interaction, "channel")
+    await shared.presenter.opened(interaction)
+    expect(shared.calls).toEqual([`send ${HOME_CHANNEL} `])
+    await shared.press({ kind: "choose", question: 0, option: 1 }, { userId: OTHER })
+    await shared.press({ kind: "choose", question: 1, option: 0 })
+    await shared.press({ kind: "submit" }, { userId: "999999999999999999" })
+    expect(shared.link.answers).toEqual([
+      {
+        interactionId: interaction.id,
+        answer: {
+          kind: "question",
+          answers: [
+            { id: "a", selected: ["B"] },
+            { id: "b", selected: ["X"] },
+          ],
+        },
+      },
+    ])
+
+    const approval = setup(APPROVAL, "channel")
+    await approval.presenter.opened(APPROVAL)
+    await approval.press({ kind: "approval", action: "always" }, { userId: OTHER })
+    expect(approval.replies).toEqual([
+      {
+        content:
+          "Only the bot's owners can answer this. They are listed under Owners in the bot's Discord settings.",
+        ephemeral: true,
+      },
+    ])
+    expect(approval.link.answers).toEqual([])
+    await approval.press({ kind: "approval", action: "always" })
+    expect(approval.link.answers).toHaveLength(1)
+  })
+
   it("edits every card when a timed question goes on", async () => {
     const interaction = {
       ...batch(question("a", ["A"])),
@@ -355,6 +411,6 @@ describe("Discord interaction presenter", () => {
     await presenter.opened(interaction)
     await presenter.updated({ ...interaction, wait: { state: "continued" } })
     await settle()
-    expect(calls.at(-1)).toBe(`edit dm-${ALLOWED} m1 ▶️ The bot went on; you can still answer.`)
+    expect(calls.at(-1)).toBe(`edit dm-${ALLOWED} m2 ▶️ The bot went on; you can still answer.`)
   })
 })

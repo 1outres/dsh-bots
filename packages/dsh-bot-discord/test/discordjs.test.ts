@@ -17,6 +17,7 @@ import type {
   DiscordCommandInvocation,
   DiscordComponentPress,
   DiscordFailure,
+  DiscordGatewayMode,
   DiscordMessage,
   DiscordModalSubmit,
 } from "../src/host/discord"
@@ -119,7 +120,10 @@ function stubRest(client: Client, requests: Recorded[]) {
   )
 }
 
-function setup(login: () => Promise<string> = () => new Promise<string>(() => {})) {
+function setup(
+  login: () => Promise<string> = () => new Promise<string>(() => {}),
+  mode: DiscordGatewayMode = "dm",
+) {
   const requests: Recorded[] = []
   const seen: string[] = []
   const failures: DiscordFailure[] = []
@@ -138,7 +142,7 @@ function setup(login: () => Promise<string> = () => new Promise<string>(() => {}
     failed: (failure) => failures.push(failure),
   }
   const created: Client[] = []
-  const adapter = openDiscordJsClient("token", events, {
+  const adapter = openDiscordJsClient("token", mode, events, {
     warn: () => {},
     create(options: ClientOptions) {
       const client = new Client(options)
@@ -190,6 +194,7 @@ function loggingIn() {
   let client: Client | undefined
   const adapter = openDiscordJsClient(
     "token",
+    "dm",
     {
       ready: () => {},
       resumed: () => {},
@@ -217,11 +222,22 @@ afterEach(() => {
 })
 
 describe("discord.js client options", () => {
-  it("ask for direct messages only, take partial DM channels, and never ping", () => {
-    const client = new Client(clientOptions(() => false))
+  it("ask for direct messages only in DM mode, take partial DM channels, and never ping", () => {
+    const client = new Client(clientOptions("dm", () => false))
     expect(client.options.intents.bitfield).toBe(GatewayIntentBits.DirectMessages)
     expect(client.options.partials).toEqual([Partials.Channel])
     expect(client.options.allowedMentions).toEqual({ parse: [] })
+  })
+
+  it("ask for server messages, their content and members in channel mode, without DMs", () => {
+    const client = new Client(clientOptions("channel", () => false))
+    expect(client.options.intents.bitfield).toBe(
+      GatewayIntentBits.Guilds |
+        GatewayIntentBits.GuildMessages |
+        GatewayIntentBits.MessageContent |
+        GatewayIntentBits.GuildMembers,
+    )
+    expect(client.options.partials).toEqual([])
   })
 })
 
@@ -285,6 +301,7 @@ describe("discord.js adapter: events", () => {
         id: "21",
         channelId: DM,
         guildId: null,
+        server: null,
         kind: "reply",
         author: { id: ALLOWED, username: "user11", displayName: "User 11", bot: false },
         content: "message 21",
@@ -346,7 +363,7 @@ describe("discord.js adapter: events", () => {
       {
         retryable: false,
         reason:
-          "Discord refused the Gateway intents: enable them for the bot in the Developer Portal (4014)",
+          "Discord refused the Gateway intents: a server channel home needs Message Content Intent and Server Members Intent; turn them on in the Developer Portal > Bot > Privileged Gateway Intents (4014)",
       },
     ])
   })
@@ -438,6 +455,15 @@ describe("discord.js adapter: actions", () => {
         { type: 1, name: "status", description: "Status", contexts: [1], integration_types: [0] },
       ],
     })
+  })
+
+  it("registers the slash commands for servers in channel mode", async () => {
+    const { adapter, requests, ready } = setup(undefined, "channel")
+    ready()
+    await adapter.registerCommands([{ name: "stop", description: "Stop" }])
+    expect(requests.at(-1)?.body).toEqual([
+      { type: 1, name: "stop", description: "Stop", contexts: [0], integration_types: [0] },
+    ])
   })
 
   it("passes chat commands on and answers them, ephemeral when asked", async () => {

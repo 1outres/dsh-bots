@@ -14,6 +14,7 @@ import { GeneralSection } from "../src/client/settings/GeneralSection"
 import { SettingsScreen } from "../src/client/settings/SettingsScreen"
 import { createSettingsSections, type SettingsSection } from "../src/client/settings/sections"
 import type { SettingsScreenId } from "../src/client/wiring/screens"
+import { idleQueries } from "./channels-support"
 import { bot, t, value } from "./support/client"
 import { idleConnections } from "./support/connectors-client"
 
@@ -51,7 +52,7 @@ function screen(extra: SettingsSection[] = []) {
     saveBot: async () => {},
     deleteBot: () => {},
     languages: () => LANGUAGES,
-    channels: createChannelsHub(() => model),
+    channels: createChannelsHub(() => model, idleQueries),
     connectors: createConnectorsHub(() => connectors),
     connections: idleConnections(),
     models: createModelsHub(() => ({

@@ -1,13 +1,14 @@
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it, vi } from "vitest"
+import { askAbout } from "../src/client/channel-queries"
 import { type ChannelsFeed, createChannelsHub } from "../src/client/channels-hub"
 import type { ChannelsModel, ChannelsState } from "../src/client/channels-model"
 import { createStore } from "../src/client/observable"
 import { ChannelsSection } from "../src/client/settings/ChannelsSection"
 import { channelsBadge } from "../src/client/settings/channels-badge"
 import type { BotChannelStatus, BotChannelView } from "../src/shared/channels"
-import { FIELDS } from "./channels-support"
+import { FIELDS, idleQueries } from "./channels-support"
 import { bot, t } from "./support/client"
 
 function fakeModel() {
@@ -28,6 +29,7 @@ const view = (id: string, status: BotChannelStatus): BotChannelView => ({
   values: {},
   secrets: {},
   status,
+  revision: 0,
 })
 
 const ready = (...statuses: BotChannelStatus[]): ChannelsState => ({
@@ -43,7 +45,7 @@ describe("channels hub", () => {
       models.push(model)
       return model
     })
-    const hub = createChannelsHub(open)
+    const hub = createChannelsHub(open, idleQueries)
     const feed = hub.feed("x")
     expect(hub.feed("x")).toBe(feed)
     expect(feed.getSnapshot()).toEqual({ status: "loading" })
@@ -68,7 +70,7 @@ describe("channels hub", () => {
 
   it("saves through the followed stream and refuses while nothing follows it", async () => {
     const model = fakeModel()
-    const hub = createChannelsHub(() => model)
+    const hub = createChannelsHub(() => model, idleQueries)
     const change = { enabled: true, values: {}, secrets: {} }
     await expect(hub.feed("x").configure("discord", change)).rejects.toThrow(/not followed/)
     const off = hub.feed("x").subscribe(() => {})
@@ -144,6 +146,7 @@ describe("channels section", () => {
             values: { server: "", users, language: "ja" },
             secrets: { token: true },
             status,
+            revision: 0,
           },
         ],
       },
@@ -156,7 +159,11 @@ describe("channels section", () => {
         page: { detail: null, open() {}, back() {} },
         close: () => {},
         confirm: async () => false,
-        channels: { feed: () => feed },
+        channels: {
+          feed: () => feed,
+          ask: (_botId, channelId) =>
+            askAbout(idleQueries, channelId, () => ({ kind: "bot", botId: "x" })),
+        },
         text: (text) => text.en,
       }),
     )

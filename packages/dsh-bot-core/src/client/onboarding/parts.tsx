@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 import type { BotChannelDescriptor } from "../../shared/channels"
+import type { ChannelQueries } from "../channel-queries"
 import type { ConnectionsFeed } from "../connections-model"
 import type { CreationSources } from "../creation/use-creation-form"
 import type { PendingActions } from "../face"
@@ -21,6 +22,8 @@ export interface WelcomeSources {
   readonly creation: CreationSources
   readonly web: WebLookupFeed
   readonly connections: ConnectionsFeed
+  /** What the Host's channels answer about the drafts' settings. */
+  readonly channelQueries: ChannelQueries
   /** A plugin's text (a web backend's, a channel's) in the active language. */
   text(text: { readonly en: string; readonly ja?: string }): string
 }

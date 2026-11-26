@@ -135,6 +135,8 @@ This session runs one of your schedule jobs on its own. No person is reading it 
 
 ### 2.7 実装で確定したこと
 
+- （2026-11-26）見出しの例にチャンネルの例 `[Discord · #general (Team) · Bob (@bob)]` と、共有のチャンネルで自分宛てでない発言には stay_silent を使う 1 行を足した（docs/specs/bot-discord-home.md §6）。
+
 - §2.2 の末尾に `- Reply in the language the person you are answering writes in.` を足した。以前の `DEFAULT_PERSONA` にあった「ユーザーの言語で返す」が §2.1 の新しい文面から消え、草案のどの節にも無くなったため（「返事はユーザーの言語にする」は決定事項）。
 - §2.5 のチャネルごとの 1 行は、**登録されているチャネル**のうち `BotChannel.formatHint` を持つものの分だけ、登録順に入れる（`- <name>: <formatHint>`）。草案の「つながっているチャネルの分だけ」にすると、接続の切断や再接続のたびにセクションが変わり、セクションはセッションの間同じ文面にするという §1 の規則とキャッシュに反するため。登録されているチャネルはプラグインを入れ替えたときにしか変わらない。
 - サブエージェントには §2.2、§2.3、§2.4（1 行の文面）が入り、§2.5、§2.6 と `bot:status` は入らない。スケジュールの separate 実行には §2.5 と `bot:status` が入らず、§2.6 は入る（ボットは実行中にも自分のファイルを読む）。
@@ -154,6 +156,8 @@ Bot status:
 - Main と Web セッションだけ。スケジュールの separate 実行とサブエージェントには入れない。
 
 ### 3.1 実装で確定したこと
+
+- （2026-11-26）オーナーは ID ではなく、接続が知らせた名前（`owners: Alice (@alice)`）で出すようにした。詳しくは docs/specs/bot-discord-home.md §9。
 
 - 並び: `Chat channels`、`Connectors`、`Web lookup`。項目が無いときは `none`、Web lookup がどちらも使えないときは `off`。
 - **Chat channels**: ボットの設定で有効にしているチャネル（`off` 以外）。状態は `connected`、`connecting`、`connection failed: <理由>`、`settings incomplete`、`waiting for the bot to be created`。オーナーは `ownersOf(channel, settings)`（§5.1）の ID をそのまま並べる（`owners: 123456789012345678`）。草案の例の `@alice` のようなハンドルは設定に無い（設定にあるのはチャネルのユーザー ID だけ）ので ID にした。空なら `no owner listed: nobody there can instruct you as your owner`。DSH に資格情報ストアが無いとチャネル機能が動かないので、そのときは `none`。
@@ -199,6 +203,8 @@ bot-core がチャネルの発言をプロンプトにするとき（`host/chann
 - 見出しを作るのに要るもの（場所、送り主の表示名・ハンドル・オーナーかどうか）は、channel contract の `BotInboundMessage` に足す。チャネルは事実だけを渡し、見出しの書式は bot-core が持つ。
 
 ### 5.1 実装で確定したこと
+
+- （2026-11-26）`BotMessagePlace` に `{ kind: "channel", channel, server }`（`#<channel> (<server>)`）を足し、Discord は「会話できるユーザー」を無くしてホーム 1 つ（DM かサーバーのチャンネル）にした（docs/specs/bot-discord-home.md）。
 
 **channel contract**（`packages/dsh-bot-core/src/channel-contract.ts`）
 

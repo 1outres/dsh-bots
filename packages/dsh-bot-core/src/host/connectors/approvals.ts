@@ -49,6 +49,8 @@ export interface ConnectorApprovals {
   open(botId: string): readonly ConnectorActionView[]
   /** The bot's action; undefined for an action the ledger does not keep, or another bot's. */
   find(botId: string, actionId: string): ConnectorActionView | undefined
+  /** The bot's pending actions, oldest first. */
+  pending(botId: string): readonly ConnectorActionView[]
   /** The bot's pending actions, oldest first, for one of the channel's approvers. */
   pendingFor(botId: string, channel: DecidingChannel, person: string): BotPendingActionsResult
   /** Pending actions per bot that has any. */
@@ -107,6 +109,12 @@ export function createConnectorApprovals(deps: ConnectorApprovalsDeps): Connecto
     return { accepted: false, reason: "settled", action: view(current) }
   }
 
+  const pending = (botId: string) =>
+    deps.ledger
+      .list(botId)
+      .filter((action) => action.status.state === "pending")
+      .map(view)
+
   return {
     view,
     views(botId) {
@@ -118,14 +126,11 @@ export function createConnectorApprovals(deps: ConnectorApprovalsDeps): Connecto
       const action = deps.ledger.get(actionId)
       return action?.botId === botId ? view(action) : undefined
     },
+    pending,
     pendingFor(botId, channel, person) {
       if (channel.signal.aborted) return { ok: false, reason: "closed" }
       if (!channel.approvers.has(person)) return { ok: false, reason: "not-approver" }
-      const actions = deps.ledger
-        .list(botId)
-        .filter((action) => action.status.state === "pending")
-        .map(view)
-      return { ok: true, actions }
+      return { ok: true, actions: pending(botId) }
     },
     waiting() {
       const counts: Record<string, number> = {}

@@ -1,5 +1,6 @@
 import type { BotsSnapshot } from "../../shared/bots"
 import type { BotWelcomeView } from "../../shared/onboarding"
+import type { ChannelQueries } from "../channel-queries"
 import type { ConnectionsFeed } from "../connections-model"
 import type { CreationSources } from "../creation/use-creation-form"
 import type { PendingActions } from "../face"
@@ -24,6 +25,7 @@ export interface OnboardingSources {
   readonly creation: CreationSources
   readonly web: WebLookupFeed
   readonly connections: ConnectionsFeed
+  readonly channelQueries: ChannelQueries
 }
 
 /** Where a page goes once the guide it showed is done: the bot's Main, or its creation until it is listed. */
@@ -72,6 +74,7 @@ export function wireOnboarding(
         web: sources.web,
         text,
         connections: sources.connections,
+        channelQueries: sources.channelQueries,
       }) satisfies OnboardingFace,
     OnboardingLayer,
   )

@@ -420,6 +420,8 @@ const MAX_SSH_PAYLOAD_BYTES = 32 * 1024 * 1024
 const MAX_CHANNEL_FILE_BYTES = 512 * 1024 * 1024
 /** Bounds reading one turn's presented files, which holds the Main session's later outputs back. */
 const PRESENTED_READ_MS = 60_000
+/** How long a channel may take to answer about settings (a save's check, options, inspection). */
+const CHANNEL_QUERY_MS = 15_000
 /** How long one read of the GitHub releases may take. */
 const RELEASES_READ_LIMIT_MS = 20_000
 /** Retrying a failed read of the release notes: from a minute, doubling, up to an hour. */
@@ -3790,6 +3792,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
       records: channelsDomain.table("channels"),
       vault: createSecretVault(credentials),
       now: Date.now,
+      warn,
     })
 
     let forms: () => readonly SettingsForm[] = () => []
@@ -3946,7 +3949,17 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
         .catch((error: unknown) => {
           warn(`bot-core: could not forget the channel settings of deleted bots: ${String(error)}`)
         })
-    channelsCtx.effect(() => channelCatalog.subscribe(() => hub.sync()), "bot-core: channels")
+    const upgradeThenSync = () =>
+      void Promise.all(
+        channelCatalog.list().map((channel) =>
+          settings.upgrade(channel).catch((error: unknown) => {
+            warn(
+              `bot-core: could not upgrade the settings of channel "${channel.id}": ${String(error)}`,
+            )
+          }),
+        ),
+      ).then(() => hub.sync())
+    channelsCtx.effect(() => channelCatalog.subscribe(upgradeThenSync), "bot-core: channels")
     channelsCtx.effect(
       () =>
         registry.subscribe(() => {
@@ -3957,15 +3970,19 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     )
     channelsCtx.effect(() => settings.subscribe(() => hub.sync()), "bot-core: channel settings")
     void purge()
-    hub.sync()
+    upgradeThenSync()
 
     const panel = createChannelPanel({
       channels: () => channelCatalog.list(),
       channel: (id) => channelCatalog.get(id),
-      exists: (botId) => table.get(botId) !== undefined,
+      bot(botId) {
+        const record = table.get(botId)
+        return record === undefined ? undefined : { id: botId, name: record.name }
+      },
       listed: (botId) => registry.get(botId) !== undefined,
       settings,
       hub,
+      deadline: () => AbortSignal.timeout(CHANNEL_QUERY_MS),
     })
     channelsCtx.effect(() => {
       channelStatus = (botId) =>
@@ -3983,9 +4000,10 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     }, "bot-core: channels in the bots' status")
     channelsCtx.effect(
       () =>
-        welcomeChannels.attach((botId, channelId, change) =>
-          panel.configure(botId, channelId, change),
-        ),
+        welcomeChannels.attach(async (botId, channelId, change) => {
+          const result = await panel.configure(botId, channelId, change)
+          if (!result.saved) throw new Error(result.reason.en)
+        }),
       "bot-core: the welcome guide's channels",
     )
     new BotChannelsRemoteService(channelsCtx, panel, (listener) => {

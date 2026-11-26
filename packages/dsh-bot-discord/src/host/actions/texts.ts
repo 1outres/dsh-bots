@@ -71,10 +71,6 @@ const TEXTS = {
     en: "Only the bot's owners can see its pending actions. They are listed under Owners in the bot's Discord settings.",
     ja: "承認待ちの操作を見られるのは、このボットのオーナーだけです。オーナーはボットの Discord の設定の「オーナー」に入っている人です。",
   },
-  withdrawn: {
-    en: "This card was withdrawn: you no longer decide this bot's connector actions.",
-    ja: "このカードは取り下げました。このボットのコネクターの操作を判断する人から外れています。",
-  },
   closing: {
     en: "The bot is reconnecting to Discord; try again in a moment.",
     ja: "ボットが Discord に接続し直しています。少し待ってからもう一度押してください。",

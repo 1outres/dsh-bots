@@ -29,11 +29,15 @@ export function toDiscordMessage(message: Message): DiscordMessage {
     id: message.id,
     channelId: message.channelId,
     guildId: message.guildId,
+    server:
+      message.guild === null || !("name" in message.channel) || message.channel.name === null
+        ? null
+        : { name: message.guild.name, channel: message.channel.name },
     kind: kindOf(message.type),
     author: {
       id: message.author.id,
       username: message.author.username,
-      displayName: message.author.displayName,
+      displayName: message.member?.displayName ?? message.author.displayName,
       bot: message.author.bot,
     },
     content: message.content,

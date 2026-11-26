@@ -1,6 +1,30 @@
 import type { BotChannel } from "../../contract"
-import { checkChannelDescriptor } from "../../shared/channels"
+import { checkChannelDescriptor, sourceOf } from "../../shared/channels"
 import { checkChannelCapabilities } from "./capabilities"
+
+/** The version of a channel's settings shape. */
+export const settingsVersionOf = (channel: Pick<BotChannel, "settingsVersion">): number =>
+  channel.settingsVersion ?? 1
+
+/**
+ * Check what a channel offers beside its descriptor: an upgrade for a
+ * settings version above 1, options for the sources its fields name.
+ * @throws naming the first problem.
+ */
+export function checkChannelHooks(channel: BotChannel): void {
+  const what = `channel "${channel.id}"`
+  const version = settingsVersionOf(channel)
+  if (!Number.isSafeInteger(version) || version < 1) {
+    throw new Error(`${what}: settingsVersion must be a positive integer`)
+  }
+  if (version > 1 && channel.upgradeSettings === undefined) {
+    throw new Error(`${what}: settingsVersion ${version} needs upgradeSettings`)
+  }
+  const sourced = channel.fields.find((field) => sourceOf(field) !== undefined)
+  if (sourced !== undefined && channel.options === undefined) {
+    throw new Error(`${what}: field "${sourced.key}" names a source, so the channel needs options`)
+  }
+}
 
 /** The channels channel plugins registered, by id. */
 export interface ChannelCatalog {
@@ -22,6 +46,7 @@ export function createChannelCatalog(): ChannelCatalog {
     register(channel) {
       checkChannelDescriptor(channel)
       checkChannelCapabilities(channel, channel.capabilities)
+      checkChannelHooks(channel)
       if (channels.has(channel.id))
         throw new Error(`bot channel "${channel.id}" is already registered`)
       channels.set(channel.id, channel)

@@ -9,6 +9,7 @@ import type { CardRecord, DigestRecord } from "./host/actions/domain"
 import { purgeApprovalRecords, type RecordTable } from "./host/actions/records"
 import { createDiscordChannel } from "./host/channel"
 import { discordJsClients } from "./host/discordjs/client"
+import { discordJsLookups } from "./host/discordjs/lookup"
 import { DISCORD_DOMAIN } from "./host/domain"
 import type { IncidentNoticeRecord } from "./host/incidents/domain"
 import { purgeIncidentNotices } from "./host/incidents/records"
@@ -76,6 +77,7 @@ export async function apply(ctx: Context): Promise<void> {
   const warn = (message: string) => ctx.logger.warn(message)
   const channel = createDiscordChannel({
     open: discordJsClients({ warn }),
+    lookup: discordJsLookups,
     scheduler,
     fetch: (url, init) => fetch(url, init),
     approvals,

@@ -99,6 +99,34 @@ export function fakeActions(overrides: Partial<DiscordActions> = {}) {
 
 export const ALLOWED = "111111111111111111"
 export const OTHER = "222222222222222222"
+export const GUILD = "333333333333333333"
+export const HOME_CHANNEL = "444444444444444444"
+
+/** Settings of a DM home with {@link ALLOWED} as its owner. */
+export const DM_SETTINGS: DiscordSettings = {
+  token: "tok",
+  home: "dm",
+  approvers: [ALLOWED],
+  language: "",
+}
+
+/** Settings of a home in {@link HOME_CHANNEL}, owned by {@link ALLOWED}. */
+export const CHANNEL_SETTINGS: DiscordSettings = {
+  token: "tok",
+  home: `${GUILD}:${HOME_CHANNEL}`,
+  approvers: [ALLOWED],
+  language: "",
+}
+
+/** A message in the home channel. */
+export function channelMessage(overrides: Partial<DiscordMessage> = {}): DiscordMessage {
+  return directMessage({
+    channelId: HOME_CHANNEL,
+    guildId: GUILD,
+    server: { name: "Team", channel: "general" },
+    ...overrides,
+  })
+}
 
 /** A Discord account named after its id's last digits. */
 export function author(id: string, bot = false): DiscordAuthor {
@@ -111,6 +139,7 @@ export function directMessage(overrides: Partial<DiscordMessage> = {}): DiscordM
     id: "1001",
     channelId: "dm-in",
     guildId: null,
+    server: null,
     kind: "default",
     author: author(ALLOWED),
     content: "hello",
@@ -178,6 +207,10 @@ export function fakeLink(settings: DiscordSettings) {
         .sort((a, b) => a.createdAt - b.createdAt)
       return { ok: true, actions }
     },
+    openActions: () =>
+      [...ledger.values()]
+        .filter((action) => action.status.state === "pending")
+        .sort((a, b) => a.createdAt - b.createdAt),
     connectorAction: (actionId) => ledger.get(actionId),
     activity: () => activity,
     report: (state) => reports.push(state),

@@ -10,7 +10,7 @@ const channel: BotChannelDescriptor = { id: "chat", name: "Chat", fields: FIELDS
 function setup() {
   const records = memoryTable<ChannelRecord>()
   const vault = memoryVault()
-  const settings = createChannelSettings({ records, vault, now: () => 5 })
+  const settings = createChannelSettings({ records, vault, now: () => 5, warn: () => {} })
   const changes: string[] = []
   settings.subscribe((botId, channelId) => changes.push(`${botId}:${channelId}`))
   return { records, vault, settings, changes }
@@ -43,6 +43,7 @@ describe("channel settings", () => {
       enabled: true,
       values: { server: "abc", users: ["1"] },
       secrets: ["token"],
+      settingsVersion: 1,
       updatedAt: 5,
     })
     expect(JSON.stringify(settings.view("b", channel))).not.toContain("secret-1")

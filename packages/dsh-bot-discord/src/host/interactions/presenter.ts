@@ -5,7 +5,6 @@ import type {
   BotInteractionAnswer,
   BotInteractionClosure,
 } from "@1outres/dsh-bot-core"
-import type { DmRecipient } from "../directory"
 import type {
   DiscordActions,
   DiscordActor,
@@ -13,8 +12,10 @@ import type {
   DiscordMessageEdit,
   DiscordModalSubmit,
 } from "../discord"
+import type { DiscordPlace } from "../home"
+import type { HomeTarget } from "../home-target"
 import type { SerialQueue } from "../queue"
-import { type DiscordLocale, directMessagesOnlyText, localeOf, notAllowedText } from "../texts"
+import { type DiscordLocale, localeOf, notHomeText, ownersOnlyText } from "../texts"
 import { decodeCustomId, type InteractionAction } from "./custom-id"
 import {
   answersOf,
@@ -37,9 +38,11 @@ const MODAL_PLACEHOLDER_LIMIT = 100
 export interface InteractionPresenterDeps {
   link: Pick<BotChannelLink, "answer" | "hold">
   actions: Pick<DiscordActions, "send" | "edit">
-  /** Every allowed user's DM. */
-  recipients(): Promise<readonly DmRecipient[]>
-  allowed: ReadonlySet<string>
+  home: HomeTarget
+  /** Whether a press happened at the home. */
+  atHome(place: DiscordPlace): boolean
+  /** The owners: only they answer approvals and plan reviews. */
+  owners: ReadonlySet<string>
   /** The language of the cards (the notice language). */
   locale: DiscordLocale
   /** This channel's id, to tell its own answers from other channels'. */
@@ -51,10 +54,11 @@ export interface InteractionPresenterDeps {
 }
 
 /**
- * bot-core's interactions in the allowed users' DMs: one card per user, with
- * that user's own draft of a question batch, answered by its buttons, select
- * menus and modals. The first answer from anywhere wins; every card then
- * shows who answered (or that it was withdrawn) with its components disabled.
+ * bot-core's interactions at the home: one card, with one draft of a question
+ * batch that whoever presses moves on, answered by its buttons, select menus
+ * and modals (approvals and plan reviews by the owners only). The first answer
+ * from anywhere wins; the card then shows who answered (or that it was
+ * withdrawn) with its components disabled.
  */
 export interface InteractionPresenter {
   opened(interaction: BotInteraction): Promise<void>
@@ -64,8 +68,8 @@ export interface InteractionPresenter {
   submit(submit: DiscordModalSubmit): Promise<void>
 }
 
+/** A card at the home: the one posted, and any posted before a reconnection that someone pressed. */
 interface Card {
-  readonly userId: string
   readonly channelId: string
   readonly messageId: string
 }
@@ -73,7 +77,7 @@ interface Card {
 interface Held {
   interaction: BotInteraction
   readonly cards: Card[]
-  readonly drafts: Map<string, QuestionDraft>
+  draft: QuestionDraft | undefined
 }
 
 /** How a person's response to a component or modal is answered. */
@@ -90,12 +94,12 @@ export function createInteractionPresenter(deps: InteractionPresenterDeps): Inte
   const held = new Map<string, Held>()
   const { locale } = deps
 
-  const draftOf = (entry: Held, userId: string): QuestionDraft | undefined =>
+  const draftOf = (entry: Held): QuestionDraft | undefined =>
     entry.interaction.kind === "question"
-      ? (entry.drafts.get(userId) ?? newDraft(entry.interaction.questions))
+      ? (entry.draft ?? newDraft(entry.interaction.questions))
       : undefined
 
-  const editAll = (entry: Held, state: (card: Card) => CardState) =>
+  const editAll = (entry: Held, state: CardState) =>
     deps.outbound.push(async () => {
       for (const card of [...entry.cards]) {
         if (deps.closed()) return
@@ -103,7 +107,7 @@ export function createInteractionPresenter(deps: InteractionPresenterDeps): Inte
           .edit(
             card.channelId,
             card.messageId,
-            renderCard(entry.interaction, draftOf(entry, card.userId), state(card), locale),
+            renderCard(entry.interaction, draftOf(entry), state, locale),
           )
           .catch((error: unknown) => {
             if (!deps.closed())
@@ -112,19 +116,22 @@ export function createInteractionPresenter(deps: InteractionPresenterDeps): Inte
       }
     })
 
-  /** Refuse a person who may not answer; true when refused. */
-  const refused = async (response: Response): Promise<boolean> => {
-    const { actor } = response
-    const theirs = localeOf(actor.locale)
-    if (actor.guildId !== null) {
-      await response.reply({ content: directMessagesOnlyText(theirs), ephemeral: true })
-      return true
-    }
-    if (!deps.allowed.has(actor.userId)) {
-      await response.reply({ content: notAllowedText(theirs), ephemeral: true })
-      return true
-    }
-    return false
+  /** Refuse a press away from the home; true when refused. */
+  const away = async (response: Response): Promise<boolean> => {
+    if (deps.atHome(response.actor)) return false
+    await response.reply({ content: notHomeText(localeOf(response.actor.locale)), ephemeral: true })
+    return true
+  }
+
+  /** Refuse someone but an owner an approval or plan review; true when refused. */
+  const notOwner = async (entry: Held, response: Response): Promise<boolean> => {
+    if (entry.interaction.kind === "question" || deps.owners.has(response.actor.userId))
+      return false
+    await response.reply({
+      content: ownersOnlyText(localeOf(response.actor.locale)),
+      ephemeral: true,
+    })
+    return true
   }
 
   /** The interaction a component names, with the pressed card tracked (one posted before a reconnection too). */
@@ -133,11 +140,7 @@ export function createInteractionPresenter(deps: InteractionPresenterDeps): Inte
     if (entry === undefined || response.messageId === null) return entry
     const { messageId } = response
     if (!entry.cards.some((card) => card.messageId === messageId)) {
-      entry.cards.push({
-        userId: response.actor.userId,
-        channelId: response.actor.channelId,
-        messageId,
-      })
+      entry.cards.push({ channelId: response.actor.channelId, messageId })
     }
     return entry
   }
@@ -151,7 +154,7 @@ export function createInteractionPresenter(deps: InteractionPresenterDeps): Inte
   }
 
   const show = (entry: Held, response: Response, draft: QuestionDraft | undefined) => {
-    if (draft !== undefined) entry.drafts.set(response.actor.userId, draft)
+    if (draft !== undefined) entry.draft = draft
     return response.update(renderCard(entry.interaction, draft, { kind: "open" }, locale))
   }
 
@@ -202,7 +205,7 @@ export function createInteractionPresenter(deps: InteractionPresenterDeps): Inte
       : show(entry, response, withNotice(draft, undefined))
   }
 
-  const modalFor = (entry: Held, action: InteractionAction, userId: string, customId: string) => {
+  const modalFor = (entry: Held, action: InteractionAction, customId: string) => {
     if (action.kind === "decline-plan") {
       return {
         customId,
@@ -217,7 +220,7 @@ export function createInteractionPresenter(deps: InteractionPresenterDeps): Inte
     if (action.kind !== "write" || entry.interaction.kind !== "question") return undefined
     const question = entry.interaction.questions[action.question]
     if (question === undefined) return undefined
-    const value = draftOf(entry, userId)?.items[action.question]?.custom
+    const value = draftOf(entry)?.items[action.question]?.custom
     return {
       customId,
       title: text("modalTitle", locale),
@@ -238,20 +241,20 @@ export function createInteractionPresenter(deps: InteractionPresenterDeps): Inte
       update: press.update,
       reply: press.reply,
     }
-    if (await refused(response)) return
+    if (await away(response)) return
     const decoded = decodeCustomId(press.customId)
     if (decoded === undefined) return press.update(staleCard(locale))
     const entry = entryOf(decoded.interactionId, response)
     if (entry === undefined) return press.update(staleCard(locale))
+    if (await notOwner(entry, response)) return
     const { action } = decoded
     const { interaction } = entry
-    const userId = press.userId
-    const modal = modalFor(entry, action, userId, press.customId)
+    const modal = modalFor(entry, action, press.customId)
     if (modal !== undefined) {
       holdIfCounting(entry)
       return press.showModal(modal)
     }
-    const current = () => show(entry, response, draftOf(entry, userId))
+    const current = () => show(entry, response, draftOf(entry))
     if (interaction.kind === "approval") {
       if (action.kind !== "approval") return current()
       return deliver(entry, response, undefined, { kind: "approval", action: action.action })
@@ -261,7 +264,7 @@ export function createInteractionPresenter(deps: InteractionPresenterDeps): Inte
       return deliver(entry, response, undefined, { kind: "plan-review", approved: true })
     }
     const { questions } = interaction
-    const draft = draftOf(entry, userId) ?? newDraft(questions)
+    const draft = draftOf(entry) ?? newDraft(questions)
     switch (action.kind) {
       case "choose": {
         const label = questions[action.question]?.options[action.option]?.label
@@ -306,13 +309,14 @@ export function createInteractionPresenter(deps: InteractionPresenterDeps): Inte
       update: submit.update,
       reply: submit.reply,
     }
-    if (await refused(response)) return
+    if (await away(response)) return
     const decoded = decodeCustomId(submit.customId)
     if (decoded === undefined)
       return submit.reply({ content: text("notOpen", localeOf(submit.locale)), ephemeral: true })
     const entry = entryOf(decoded.interactionId, response)
     if (entry === undefined)
       return submit.reply({ content: text("notOpen", localeOf(submit.locale)), ephemeral: true })
+    if (await notOwner(entry, response)) return
     const { action } = decoded
     const { interaction } = entry
     if (action.kind === "decline-plan" && interaction.kind === "plan-review") {
@@ -325,7 +329,7 @@ export function createInteractionPresenter(deps: InteractionPresenterDeps): Inte
     }
     if (action.kind !== "write" || interaction.kind !== "question")
       return submit.reply({ content: text("notOpen", localeOf(submit.locale)), ephemeral: true })
-    const draft = draftOf(entry, submit.userId) ?? newDraft(interaction.questions)
+    const draft = draftOf(entry) ?? newDraft(interaction.questions)
     return settleChoice(
       entry,
       response,
@@ -345,34 +349,25 @@ export function createInteractionPresenter(deps: InteractionPresenterDeps): Inte
 
   return {
     async opened(interaction) {
-      const entry: Held = { interaction, cards: [], drafts: new Map() }
+      const entry: Held = { interaction, cards: [], draft: undefined }
       held.set(interaction.id, entry)
       await deps.outbound.push(async () => {
-        const leading = leadingMessages(interaction, locale)
-        for (const recipient of await deps.recipients()) {
-          if (deps.closed() || held.get(interaction.id) !== entry) return
-          try {
-            for (const content of leading) await deps.actions.send(recipient.channelId, { content })
-            const card = renderCard(
-              entry.interaction,
-              draftOf(entry, recipient.userId),
-              { kind: "open" },
-              locale,
-            )
-            const messageId = await deps.actions.send(recipient.channelId, {
-              content: card.content,
-              embeds: card.embeds ?? [],
-              components: card.components,
-            })
-            entry.cards.push({
-              userId: recipient.userId,
-              channelId: recipient.channelId,
-              messageId,
-            })
-          } catch (error) {
-            if (!deps.closed())
-              deps.warn(`bot-discord: could not post an interaction: ${messageOf(error)}`)
+        if (deps.closed() || held.get(interaction.id) !== entry) return
+        try {
+          const { channelId } = await deps.home.channel()
+          for (const content of leadingMessages(interaction, locale)) {
+            await deps.actions.send(channelId, { content })
           }
+          const card = renderCard(entry.interaction, draftOf(entry), { kind: "open" }, locale)
+          const messageId = await deps.actions.send(channelId, {
+            content: card.content,
+            embeds: card.embeds ?? [],
+            components: card.components,
+          })
+          entry.cards.push({ channelId, messageId })
+        } catch (error) {
+          if (!deps.closed())
+            deps.warn(`bot-discord: could not post an interaction: ${messageOf(error)}`)
         }
       })
     },
@@ -380,17 +375,13 @@ export function createInteractionPresenter(deps: InteractionPresenterDeps): Inte
       const entry = held.get(interaction.id)
       if (entry === undefined) return
       entry.interaction = interaction
-      await editAll(entry, () => ({ kind: "open" }))
+      await editAll(entry, { kind: "open" })
     },
     async closed(closure) {
       const entry = held.get(closure.id)
       if (entry === undefined) return
       held.delete(closure.id)
-      await editAll(entry, () => ({
-        kind: "closed",
-        resolution: closure.resolution,
-        self: deps.self,
-      }))
+      await editAll(entry, { kind: "closed", resolution: closure.resolution, self: deps.self })
     },
     press: guarded("a button", onPress),
     submit: guarded("a form", onSubmit),

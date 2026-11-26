@@ -11,6 +11,8 @@ export const channelRecordSchema = z.object({
   enabled: z.boolean(),
   values: z.record(z.string(), z.union([z.string(), z.array(z.string())])),
   secrets: z.array(z.string()),
+  /** The channel's settingsVersion the values were stored in; absent: 1. */
+  settingsVersion: z.number().int().positive().optional(),
   updatedAt: z.number().int().nonnegative(),
 })
 

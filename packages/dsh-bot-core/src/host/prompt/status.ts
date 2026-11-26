@@ -1,5 +1,6 @@
 import type { BotStatusChannel, BotStatusConnector, BotStatusFacts } from "../../internal"
 import type { BotWebCapability, BotWebCapabilityStatus } from "../../shared/web"
+import { headerHandle, headerName } from "../channels/header"
 
 /** Shown for a channel whose settings list no owner (docs/specs/bot-system-prompt.md §5). */
 export const NO_OWNER = "no owner listed: nobody there can instruct you as your owner"
@@ -22,9 +23,24 @@ function channelState(channel: BotStatusChannel): string {
   }
 }
 
+/** The owners by the names the connection reports; those it does not name yet are counted. */
+function ownersText(channel: BotStatusChannel): string {
+  if (channel.owners.length === 0) return NO_OWNER
+  const people = channel.status.state === "connected" ? (channel.status.people ?? {}) : {}
+  const named = channel.owners.flatMap((id) => {
+    const person = people[id]
+    return person === undefined
+      ? []
+      : [`${headerName(person.displayName)} (@${headerHandle(person.handle)})`]
+  })
+  const unnamed = channel.owners.length - named.length
+  if (named.length === 0) return `owners: ${unnamed} listed, names known once connected`
+  const rest = unnamed === 0 ? [] : [`${unnamed} more whose names are unknown`]
+  return `owners: ${[...named, ...rest].join(", ")}`
+}
+
 function channelLine(channel: BotStatusChannel): string {
-  const owners = channel.owners.length === 0 ? NO_OWNER : `owners: ${channel.owners.join(", ")}`
-  return `${channel.name} (${channelState(channel)}; ${owners})`
+  return `${channel.name} (${channelState(channel)}; ${ownersText(channel)})`
 }
 
 function connectorLine(connector: BotStatusConnector): string {

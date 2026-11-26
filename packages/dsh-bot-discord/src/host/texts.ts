@@ -97,18 +97,21 @@ export function commandText(outcome: BotCommandOutcome, locale: DiscordLocale): 
   }
 }
 
-export function notAllowedText(locale: DiscordLocale): string {
+export function notHomeText(locale: DiscordLocale): string {
   return pick(
-    { en: "You are not allowed to use this bot.", ja: "このボットを使う権限がありません。" },
+    {
+      en: "This bot is used in its home only (the channel or the DM its settings name).",
+      ja: "このボットはホーム（設定で選んだチャンネルか DM）でだけ使えます。",
+    },
     locale,
   )
 }
 
-export function directMessagesOnlyText(locale: DiscordLocale): string {
+export function ownersOnlyText(locale: DiscordLocale): string {
   return pick(
     {
-      en: "This bot's commands work in its direct messages only.",
-      ja: "このボットのコマンドは DM でのみ使えます。",
+      en: "Only the bot's owners can answer this. They are listed under Owners in the bot's Discord settings.",
+      ja: "これに答えられるのはボットのオーナーだけです。オーナーはボットの Discord の設定の「オーナー」に入っている人です。",
     },
     locale,
   )

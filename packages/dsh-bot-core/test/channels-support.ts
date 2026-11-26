@@ -1,3 +1,4 @@
+import type { ChannelQueries } from "../src/client/channel-queries"
 import type {
   BotChannel,
   BotChannelCapabilities,
@@ -157,4 +158,11 @@ export function mainFeed(
     sequence: createChannelSequence({ publish: deps.publish, warn: () => {} }),
     deliverFiles: deps.deliverFiles ?? (async () => {}),
   })
+}
+
+/** Channel queries answering that nothing can be told (no channel plugin to ask). */
+export const idleQueries: ChannelQueries = {
+  options: async () => ({ state: "unavailable", reason: { en: "Nothing to ask" } }),
+  inspect: async () => ({ state: "ready", links: [], warnings: [] }),
+  check: async () => ({ ok: true }),
 }

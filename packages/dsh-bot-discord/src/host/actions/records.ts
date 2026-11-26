@@ -17,35 +17,64 @@ export interface ApprovalTables {
 export type ApprovalCard = Omit<CardRecord, "botId">
 export type ApprovalDigest = Omit<DigestRecord, "botId">
 
-/** Where one bot's approval messages sit: its cards per action and approver, and each approver's list. */
+/** Where one bot's approval messages sit at its home: a card per action, and the list. */
 export interface ApprovalRecords {
   cards(): readonly ApprovalCard[]
-  card(actionId: string, userId: string): ApprovalCard | undefined
+  card(actionId: string): ApprovalCard | undefined
   saveCard(card: ApprovalCard): Promise<void>
-  forgetCard(actionId: string, userId: string): Promise<void>
-  digests(): readonly ApprovalDigest[]
-  digest(userId: string): ApprovalDigest | undefined
+  forgetCard(actionId: string): Promise<void>
+  digest(): ApprovalDigest | undefined
   saveDigest(digest: ApprovalDigest): Promise<void>
-  forgetDigest(userId: string): Promise<void>
+  forgetDigest(): Promise<void>
+}
+
+/**
+ * Keep, under their keys, the bot's records that sit at its home channel, and
+ * forget the others: those of an earlier home, of another Discord bot, and
+ * the version 2 records of approvers' DMs that are not the home.
+ */
+export async function adoptApprovalRecords(
+  tables: ApprovalTables,
+  botId: string,
+  homeChannelId: string,
+): Promise<void> {
+  const adopt = async <V extends { readonly botId: string; readonly channelId: string }>(
+    records: RecordTable<V>,
+    keyOf: (value: V) => string,
+  ) => {
+    for (const [key, value] of [...records.entries()]) {
+      if (value.botId !== botId) continue
+      const canonical = keyOf(value)
+      if (
+        value.channelId !== homeChannelId ||
+        (key !== canonical && records.get(canonical) !== undefined)
+      ) {
+        await records.delete(key)
+      } else if (key !== canonical) {
+        await records.delete(key)
+        await records.put(canonical, value)
+      }
+    }
+  }
+  await adopt(tables.cards, (card) => cardKey(botId, card.actionId))
+  await adopt(tables.digests, () => digestKey(botId))
 }
 
 export function openApprovalRecords(tables: ApprovalTables, botId: string): ApprovalRecords {
-  const own = <V extends { readonly botId: string }>(table: RecordTable<V>): V[] =>
-    [...table.entries()].map(([, value]) => value).filter((value) => value.botId === botId)
   return {
-    cards: () => own(tables.cards),
-    card: (actionId, userId) => tables.cards.get(cardKey(botId, actionId, userId)),
-    saveCard: (card) =>
-      tables.cards.put(cardKey(botId, card.actionId, card.userId), { ...card, botId }),
-    async forgetCard(actionId, userId) {
-      await tables.cards.delete(cardKey(botId, actionId, userId))
+    cards: () =>
+      [...tables.cards.entries()]
+        .map(([, value]) => value)
+        .filter((value) => value.botId === botId),
+    card: (actionId) => tables.cards.get(cardKey(botId, actionId)),
+    saveCard: (card) => tables.cards.put(cardKey(botId, card.actionId), { ...card, botId }),
+    async forgetCard(actionId) {
+      await tables.cards.delete(cardKey(botId, actionId))
     },
-    digests: () => own(tables.digests),
-    digest: (userId) => tables.digests.get(digestKey(botId, userId)),
-    saveDigest: (digest) =>
-      tables.digests.put(digestKey(botId, digest.userId), { ...digest, botId }),
-    async forgetDigest(userId) {
-      await tables.digests.delete(digestKey(botId, userId))
+    digest: () => tables.digests.get(digestKey(botId)),
+    saveDigest: (digest) => tables.digests.put(digestKey(botId), { ...digest, botId }),
+    async forgetDigest() {
+      await tables.digests.delete(digestKey(botId))
     },
   }
 }

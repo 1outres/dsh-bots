@@ -5,20 +5,27 @@ import { createDiscordBridge } from "../src/host/bridge"
 import { createDiscordChannel, DISCORD_CAPABILITIES } from "../src/host/channel"
 import type { DiscordSessionEvents } from "../src/host/connection"
 import type { DiscordActions, DiscordOutgoingMessage } from "../src/host/discord"
+import type { DiscordSettings } from "../src/host/fields"
+import { homeOf } from "../src/host/home"
 import type { IncidentNoticeRecord } from "../src/host/incidents/domain"
-import { openIncidentNotices, purgeIncidentNotices } from "../src/host/incidents/records"
+import {
+  adoptIncidentNotices,
+  openIncidentNotices,
+  purgeIncidentNotices,
+} from "../src/host/incidents/records"
 import { renderIncidentCard } from "../src/host/incidents/render"
 import {
   ALLOWED,
+  CHANNEL_SETTINGS,
+  DM_SETTINGS,
   fakeActions,
   fakeLink,
+  HOME_CHANNEL,
   manualClock,
   memoryApprovalTables,
   memoryTable,
   OTHER,
 } from "./support"
-
-const THIRD = "333333333333333333"
 
 function incident(overrides: Partial<VaultIncidentView> = {}): VaultIncidentView {
   return {
@@ -144,22 +151,19 @@ describe("credential incident cards", () => {
 })
 
 function connect(options: {
-  owners: readonly string[]
-  users?: readonly string[]
+  settings?: DiscordSettings
   table: ReturnType<typeof memoryTable<IncidentNoticeRecord>>
   actions?: Partial<DiscordActions>
   language?: string
 }) {
-  const link = fakeLink({
-    token: "t",
-    users: options.users ?? [ALLOWED],
-    approvers: options.owners,
-    language: options.language ?? "",
-  })
+  const settings = { ...(options.settings ?? DM_SETTINGS), language: options.language ?? "" }
+  const link = fakeLink(settings)
   const { actions, calls } = fakeActions(options.actions)
   let events: DiscordSessionEvents | undefined
   const bridge = createDiscordBridge({
     link: link.link,
+    home: homeOf(settings),
+    adopt: (channelId) => adoptIncidentNotices(options.table, "b1", channelId),
     channelId: "discord",
     connect(supplied) {
       events = supplied
@@ -187,6 +191,9 @@ describe("Discord bridge: credential incidents", () => {
       open: () => {
         throw new Error("not connected")
       },
+      lookup: () => {
+        throw new Error("not looked up")
+      },
       scheduler: manualClock().scheduler,
       fetch: async () => ({ ok: false, status: 404, body: (async function* () {})() }),
       approvals: memoryApprovalTables(),
@@ -197,100 +204,87 @@ describe("Discord bridge: credential incidents", () => {
     expect(channel.capabilities.credentialIncidents).toBe(true)
   })
 
-  it("go to every owner's DM only, not to the other allowed users", async () => {
+  it("go to the home once, the home channel for a channel home", async () => {
     const table = memoryTable<IncidentNoticeRecord>()
-    const { bridge, cards } = connect({ owners: [OTHER, THIRD], users: [ALLOWED, OTHER], table })
+    const { bridge, cards } = connect({ settings: CHANNEL_SETTINGS, table })
     await bridge.receive(output(incident()))
-    expect(cards().map((call) => call.split(" ")[1])).toEqual([`dm-${OTHER}`, `dm-${THIRD}`])
+    await bridge.receive(output(incident()))
+    expect(cards().map((call) => call.split(" ")[1])).toEqual([HOME_CHANNEL])
     expect([...table.map.values()]).toEqual([
       {
         botId: "b1",
         incidentId: "vinc-0123456789ab",
-        userId: OTHER,
-        channelId: `dm-${OTHER}`,
-        messageId: expect.any(String),
-      },
-      {
-        botId: "b1",
-        incidentId: "vinc-0123456789ab",
-        userId: THIRD,
-        channelId: `dm-${THIRD}`,
+        channelId: HOME_CHANNEL,
         messageId: expect.any(String),
       },
     ])
   })
 
-  it("show each incident once per owner, across connections, and a new owner what is still open", async () => {
+  it("show each incident once across connections, and after a change of home again at the new one", async () => {
     const table = memoryTable<IncidentNoticeRecord>()
-    const first = connect({ owners: [OTHER], table })
-    await first.bridge.receive(output(incident()))
+    const first = connect({ table })
     await first.bridge.receive(output(incident()))
     expect(first.cards()).toHaveLength(1)
 
-    const second = connect({ owners: [OTHER], table })
+    const second = connect({ table })
     await second.bridge.receive(output(incident()))
     await second.bridge.receive(output(incident({ id: "vinc-other" })))
     expect(second.cards()).toEqual([
-      `send dm-${OTHER} ${renderIncidentCard(incident(), "Bot", "en").content}`,
+      `send dm-${ALLOWED} ${renderIncidentCard(incident(), "Bot", "en").content}`,
     ])
-    expect([...table.map.keys()]).toEqual([
-      `b1:vinc-0123456789ab:${OTHER}`,
-      `b1:vinc-other:${OTHER}`,
-    ])
+    expect([...table.map.keys()]).toEqual(["b1:vinc-0123456789ab", "b1:vinc-other"])
 
-    const third = connect({ owners: [OTHER, THIRD], table })
-    await third.bridge.receive(output(incident()))
-    expect(third.cards().map((call) => call.split(" ")[1])).toEqual([`dm-${THIRD}`])
+    const moved = connect({ settings: CHANNEL_SETTINGS, table })
+    await moved.bridge.receive(output(incident()))
+    expect(moved.cards().map((call) => call.split(" ")[1])).toEqual([HOME_CHANNEL])
+  })
+
+  it("keep a version 2 notice of the owner's DM, and forget those of other DMs", async () => {
+    const table = memoryTable<IncidentNoticeRecord>()
+    const v2 = (userId: string) => ({
+      botId: "b1",
+      incidentId: "vinc-0123456789ab",
+      userId,
+      channelId: `dm-${userId}`,
+      messageId: "900000000000000001",
+    })
+    await table.put(`b1:vinc-0123456789ab:${ALLOWED}`, v2(ALLOWED))
+    await table.put(`b1:vinc-0123456789ab:${OTHER}`, v2(OTHER))
+    const { bridge, cards } = connect({ table })
+    await bridge.receive(output(incident()))
+    expect(cards()).toEqual([])
+    expect([...table.map.keys()]).toEqual(["b1:vinc-0123456789ab"])
   })
 
   it("follow the notice language", async () => {
-    const { bridge, sends } = connect({ owners: [OTHER], table: memoryTable(), language: "ja" })
+    const { bridge, sends } = connect({ table: memoryTable(), language: "ja" })
     await bridge.receive(output(incident({ outcome: "exposed" })))
-    expect(sends()).toEqual([`send dm-${OTHER} 🚨 Bot のモデルがログイン情報の秘密を読みました。`])
+    expect(sends()).toEqual([
+      `send dm-${ALLOWED} 🚨 Bot のモデルがログイン情報の秘密を読みました。`,
+    ])
   })
 
-  it("try an owner whose DM refused it again on the next connection, and fail only when none got it", async () => {
+  it("fail when the home refused it, and post it on the next connection", async () => {
     const table = memoryTable<IncidentNoticeRecord>()
-    const refusing = (refused: string) => ({
-      async send(channelId: string) {
-        if (channelId === `dm-${refused}`) throw new Error("Cannot send messages to this user")
-        return "900000000000000001"
-      },
-    })
-    const first = connect({ owners: [OTHER, THIRD], table, actions: refusing(OTHER) })
-    await first.bridge.receive(output(incident()))
-    expect([...table.map.values()].map((notice) => notice.userId)).toEqual([THIRD])
-
-    const second = connect({ owners: [OTHER, THIRD], table, actions: refusing(OTHER) })
-    await expect(second.bridge.receive(output(incident()))).rejects.toThrow(
-      "Discord refused the credential incident: Cannot send messages to this user",
-    )
-
-    const third = connect({ owners: [OTHER, THIRD], table })
-    await third.bridge.receive(output(incident()))
-    expect(third.cards().map((call) => call.split(" ")[1])).toEqual([`dm-${OTHER}`])
-  })
-
-  it("fail when no owner's DM opens, and do nothing without owners", async () => {
-    const closedDms = connect({
-      owners: [OTHER],
-      table: memoryTable(),
+    const refusing = connect({
+      table,
       actions: {
-        async openDm() {
-          throw new Error("Unknown User")
+        async send() {
+          throw new Error("Cannot send messages to this user")
         },
       },
     })
-    await expect(closedDms.bridge.receive(output(incident()))).rejects.toThrow(
-      "no owner's DM could be opened",
+    await expect(refusing.bridge.receive(output(incident()))).rejects.toThrow(
+      "Cannot send messages to this user",
     )
-    const none = connect({ owners: [], table: memoryTable() })
-    await none.bridge.receive(output(incident()))
-    expect(none.sends()).toEqual([])
+    expect(table.map.size).toBe(0)
+    const next = connect({ table })
+    await next.bridge.receive(output(incident()))
+    expect(next.cards()).toHaveLength(1)
   })
 
   it("refuse another bot's incident", async () => {
-    const { bridge, sends } = connect({ owners: [OTHER], table: memoryTable() })
+    const { bridge, sends } = connect({ table: memoryTable() })
     await expect(bridge.receive(output(incident({ botId: "b2" })))).rejects.toThrow(
       "is not of bot b1",
     )
@@ -304,14 +298,13 @@ describe("stored incident notices", () => {
     for (const botId of ["kept", "gone"]) {
       await openIncidentNotices(table, botId).save({
         incidentId: "vinc-1",
-        userId: OTHER,
         channelId: "c",
         messageId: "m",
       })
     }
     await purgeIncidentNotices(table, (botId) => botId === "kept")
-    expect([...table.map.keys()]).toEqual([`kept:vinc-1:${OTHER}`])
-    expect(openIncidentNotices(table, "kept").shown("vinc-1", OTHER)).toBe(true)
-    expect(openIncidentNotices(table, "kept").shown("vinc-1", THIRD)).toBe(false)
+    expect([...table.map.keys()]).toEqual(["kept:vinc-1"])
+    expect(openIncidentNotices(table, "kept").shown("vinc-1")).toBe(true)
+    expect(openIncidentNotices(table, "kept").shown("vinc-2")).toBe(false)
   })
 })

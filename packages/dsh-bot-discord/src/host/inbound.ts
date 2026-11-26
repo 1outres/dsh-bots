@@ -1,31 +1,38 @@
 import type { BotInboundMessage } from "@1outres/dsh-bot-core"
 import type { DiscordMessage, DiscordMessageKind } from "./discord"
 import { downloadAttachment, type FetchUrl } from "./download"
+import { atHome, type DiscordHome } from "./home"
 
 const CONVERSATION_KINDS: ReadonlySet<DiscordMessageKind> = new Set(["default", "reply"])
 
-/** Whether a message is one an allowed person wrote to the bot in a DM. */
-export function isAllowedDirectMessage(
+/** Whether a message is one a person wrote at the bot's home (not the bot itself, not another bot). */
+export function isHomeMessage(
   message: DiscordMessage,
-  allowed: ReadonlySet<string>,
+  home: DiscordHome,
   self: string | undefined,
 ): boolean {
   return (
-    message.guildId === null &&
     CONVERSATION_KINDS.has(message.kind) &&
     !message.author.bot &&
     message.author.id !== self &&
-    allowed.has(message.author.id)
+    atHome(home, {
+      userId: message.author.id,
+      guildId: message.guildId,
+      channelId: message.channelId,
+    })
   )
 }
 
 /**
- * What a direct message brings the bot: who wrote it, its text and
- * attachments, each read from Discord's CDN once bot-core accepts it.
+ * What a message at the home brings the bot: where and who wrote it, its
+ * text and attachments, each read from Discord's CDN once bot-core accepts it.
  */
 export function inboundMessageOf(message: DiscordMessage, fetch: FetchUrl): BotInboundMessage {
   return {
-    place: { kind: "direct" },
+    place:
+      message.server === null
+        ? { kind: "direct" }
+        : { kind: "channel", channel: message.server.channel, server: message.server.name },
     sender: {
       id: message.author.id,
       displayName: message.author.displayName,

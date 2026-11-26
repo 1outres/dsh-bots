@@ -11,9 +11,13 @@ import type {
 } from "../shared/bots"
 import type {
   BotChannelChange,
+  BotChannelCheck,
+  BotChannelConfigureResult,
+  BotChannelInspection,
+  BotChannelOptions,
+  BotChannelSettingsRef,
   BotChannelsApi,
   BotChannelsSnapshot,
-  BotChannelView,
 } from "../shared/channels"
 import type {
   BotConnectionsApi,
@@ -337,8 +341,40 @@ export class BotChannelsRemoteService extends TypertRemoteService implements Bot
   }
 
   @Remote
-  configure(botId: string, channelId: string, change: BotChannelChange): Promise<BotChannelView> {
+  configure(
+    botId: string,
+    channelId: string,
+    change: BotChannelChange,
+  ): Promise<BotChannelConfigureResult> {
     return this[PANEL].configure(botId, channelId, change)
+  }
+
+  @Remote
+  options(
+    channelId: string,
+    settings: BotChannelSettingsRef,
+    source: string,
+    signal?: AbortSignal,
+  ): Promise<BotChannelOptions> {
+    return this[PANEL].options(channelId, settings, source, signal)
+  }
+
+  @Remote
+  inspect(
+    channelId: string,
+    settings: BotChannelSettingsRef,
+    signal?: AbortSignal,
+  ): Promise<BotChannelInspection> {
+    return this[PANEL].inspect(channelId, settings, signal)
+  }
+
+  @Remote
+  check(
+    channelId: string,
+    settings: BotChannelSettingsRef,
+    signal?: AbortSignal,
+  ): Promise<BotChannelCheck> {
+    return this[PANEL].check(channelId, settings, signal)
   }
 }
 

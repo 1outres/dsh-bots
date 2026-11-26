@@ -22,6 +22,7 @@ const view: BotChannelView = {
   values: { server: "abc", users: ["1", "2"] },
   secrets: { token: true },
   status: { state: "connecting" },
+  revision: 0,
 }
 
 const server = FIELDS[1] as BotChannelTextField

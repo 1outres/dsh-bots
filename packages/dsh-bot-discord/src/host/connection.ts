@@ -5,6 +5,7 @@ import type {
   DiscordClient,
   DiscordCommandInvocation,
   DiscordComponentPress,
+  DiscordGatewayMode,
   DiscordMessage,
   DiscordModalSubmit,
   OpenDiscordClient,
@@ -27,6 +28,7 @@ export interface DiscordSessionEvents {
 
 export interface DiscordConnectionDeps {
   token: string
+  mode: DiscordGatewayMode
   open: OpenDiscordClient
   scheduler: Scheduler
   events: DiscordSessionEvents
@@ -52,7 +54,7 @@ export function createDiscordConnection(deps: DiscordConnectionDeps): DiscordCon
 
   const open = (): DiscordClient => {
     deps.report({ state: "connecting" })
-    const current = deps.open(deps.token, {
+    const current = deps.open(deps.token, deps.mode, {
       ready(next) {
         if (!live(current)) return
         delay = BASE_RETRY_MS

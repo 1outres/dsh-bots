@@ -1,6 +1,6 @@
 {
   "name": "dsh_bot_discord",
-  "version": 2,
+  "version": 3,
   "tables": {
     "cards": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -14,10 +14,6 @@
           "type": "string",
           "minLength": 1
         },
-        "userId": {
-          "type": "string",
-          "pattern": "^[0-9]{17,20}$"
-        },
         "channelId": {
           "type": "string",
           "pattern": "^[0-9]{17,20}$"
@@ -30,7 +26,6 @@
       "required": [
         "botId",
         "actionId",
-        "userId",
         "channelId",
         "messageId"
       ],
@@ -43,10 +38,6 @@
         "botId": {
           "type": "string",
           "minLength": 1
-        },
-        "userId": {
-          "type": "string",
-          "pattern": "^[0-9]{17,20}$"
         },
         "channelId": {
           "type": "string",
@@ -67,7 +58,6 @@
       },
       "required": [
         "botId",
-        "userId",
         "channelId",
         "messageId",
         "pin"
@@ -86,10 +76,6 @@
           "type": "string",
           "minLength": 1
         },
-        "userId": {
-          "type": "string",
-          "pattern": "^[0-9]{17,20}$"
-        },
         "channelId": {
           "type": "string",
           "pattern": "^[0-9]{17,20}$"
@@ -102,7 +88,6 @@
       "required": [
         "botId",
         "incidentId",
-        "userId",
         "channelId",
         "messageId"
       ],

@@ -20,7 +20,7 @@ export interface DiscordAuthor {
   readonly id: string
   /** The account's unique name ("name"; "name" of a legacy "name#1234"). */
   readonly username: string
-  /** The name Discord shows for the account (its global display name, else its username). */
+  /** The name Discord shows for the account where it wrote (its server nickname, its global display name, else its username). */
   readonly displayName: string
   readonly bot: boolean
 }
@@ -40,6 +40,8 @@ export interface DiscordMessage {
   readonly channelId: string
   /** `null` in a direct message. */
   readonly guildId: string | null
+  /** The names of the server and the channel; `null` in a direct message. */
+  readonly server: { readonly name: string; readonly channel: string } | null
   readonly kind: DiscordMessageKind
   readonly author: DiscordAuthor
   readonly content: string
@@ -137,7 +139,7 @@ export interface DiscordTextModal {
   }
 }
 
-/** A slash command the bot offers in its DMs. */
+/** A slash command the bot offers at its home. */
 export interface DiscordCommandSpec {
   /** Lowercase, as Discord requires. */
   readonly name: string
@@ -160,6 +162,7 @@ export interface DiscordCommandInvocation {
   readonly userId: string
   /** `null` in a direct message. */
   readonly guildId: string | null
+  readonly channelId: string
   /** The invoker's Discord language (e.g. "ja", "en-US"). */
   readonly locale: string
   /** Answer it, once, within Discord's three seconds. */
@@ -245,9 +248,9 @@ export interface DiscordActions {
   react(channelId: string, messageId: string, emoji: string): Promise<void>
   /** Show "typing" in a channel for about ten seconds. */
   typing(channelId: string): Promise<void>
-  /** Up to {@link MESSAGES_PAGE_LIMIT} messages of a DM channel posted after `after`, in no particular order. */
+  /** Up to {@link MESSAGES_PAGE_LIMIT} messages of a channel posted after `after`, in no particular order. */
   messagesAfter(channelId: string, after: string): Promise<readonly DiscordMessage[]>
-  /** Replace the bot's global slash commands (usable in its DMs only). */
+  /** Replace the bot's global slash commands, usable where the client's mode puts its home. */
   registerCommands(commands: readonly DiscordCommandSpec[]): Promise<void>
 }
 
@@ -256,5 +259,116 @@ export interface DiscordClient extends DiscordActions {
   destroy(): Promise<void>
 }
 
+/**
+ * Where the bot lives, as the Gateway serves it: `dm` (direct messages only,
+ * no privileged intent) or `channel` (server text channels, with the
+ * privileged Message Content and Server Members intents; no direct messages).
+ */
+export type DiscordGatewayMode = "dm" | "channel"
+
 /** Log a bot in with its token; the client connects, and reconnects after drops, until it fails or is destroyed. */
-export type OpenDiscordClient = (token: string, events: DiscordClientEvents) => DiscordClient
+export type OpenDiscordClient = (
+  token: string,
+  mode: DiscordGatewayMode,
+  events: DiscordClientEvents,
+) => DiscordClient
+
+/** A Discord account as REST tells it. */
+export interface DiscordUserInfo {
+  readonly id: string
+  readonly username: string
+  /** Its server nickname where read as a member, else its global display name, else its username. */
+  readonly displayName: string
+  /** Its avatar (Discord's default one when it has none). */
+  readonly avatarUrl: string
+  readonly bot: boolean
+}
+
+/** The application the token belongs to. */
+export interface DiscordApplicationInfo {
+  readonly id: string
+  /** The bot user. */
+  readonly bot: DiscordUserInfo
+  /** Who owns the application: its owner, or the members of its team, the team's owner first. */
+  readonly owners: readonly DiscordUserInfo[]
+  /** The privileged intents the Developer Portal turned on (limited ones count). */
+  readonly intents: { readonly members: boolean; readonly messageContent: boolean }
+}
+
+export interface DiscordRoleInfo {
+  readonly id: string
+  readonly permissions: bigint
+}
+
+export interface DiscordGuildInfo {
+  readonly id: string
+  readonly name: string
+  readonly iconUrl?: string
+  readonly ownerId: string
+  readonly roles: readonly DiscordRoleInfo[]
+}
+
+export interface DiscordOverwrite {
+  readonly id: string
+  readonly kind: "role" | "member"
+  readonly allow: bigint
+  readonly deny: bigint
+}
+
+export interface DiscordChannelInfo {
+  readonly id: string
+  readonly guildId: string
+  readonly name: string
+  /** A server text channel (not a voice channel, a category, a thread or a forum). */
+  readonly text: boolean
+  readonly overwrites: readonly DiscordOverwrite[]
+}
+
+export interface DiscordMemberInfo {
+  readonly user: DiscordUserInfo
+  readonly roles: readonly string[]
+}
+
+/** Why a REST read failed. */
+export type DiscordLookupFailure =
+  /** Discord rejected the token. */
+  | "token-rejected"
+  /** Listing a server's members needs the Server Members intent. */
+  | "members-intent"
+  /** Discord could not be reached, or answered with an error. */
+  | "unreachable"
+
+export class DiscordLookupError extends Error {
+  override readonly name = "DiscordLookupError"
+  constructor(
+    readonly failure: DiscordLookupFailure,
+    message: string,
+  ) {
+    super(message)
+  }
+}
+
+/**
+ * What the settings ask Discord with a token, over REST only (no Gateway
+ * connection). Rejects with a {@link DiscordLookupError}.
+ */
+export interface DiscordLookup {
+  application(signal: AbortSignal): Promise<DiscordApplicationInfo>
+  /** The servers the bot is in. */
+  guilds(signal: AbortSignal): Promise<readonly { readonly id: string; readonly name: string }[]>
+  guild(guildId: string, signal: AbortSignal): Promise<DiscordGuildInfo | undefined>
+  channels(guildId: string, signal: AbortSignal): Promise<readonly DiscordChannelInfo[]>
+  member(
+    guildId: string,
+    userId: string,
+    signal: AbortSignal,
+  ): Promise<DiscordMemberInfo | undefined>
+  /** Every member of the server, up to {@link MEMBERS_LIMIT}. */
+  members(guildId: string, signal: AbortSignal): Promise<readonly DiscordMemberInfo[]>
+  user(userId: string, signal: AbortSignal): Promise<DiscordUserInfo | undefined>
+}
+
+/** Upper bound of the members {@link DiscordLookup.members} reads from one server. */
+export const MEMBERS_LIMIT = 5000
+
+export type OpenDiscordLookup = (token: string) => DiscordLookup

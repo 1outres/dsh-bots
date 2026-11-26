@@ -135,7 +135,8 @@ function ChannelSetup(props: StepProps & { readonly channel: BotChannelDescripto
         t={t}
         text={text}
         view={drafts.view(channel)}
-        configure={async (_channelId, change) => drafts.configure(channel, change)}
+        configure={(_channelId, change) => drafts.configure(channel, change)}
+        ask={drafts.ask(channel)}
       />
     </section>
   )

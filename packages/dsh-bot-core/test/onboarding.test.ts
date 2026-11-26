@@ -48,6 +48,7 @@ import {
 import type { BotModelCatalog } from "../src/shared/models"
 import type { BotOnboardingView } from "../src/shared/onboarding"
 import { compareVersions, NO_VERSION, type ReleaseNote } from "../src/shared/release-notes"
+import { idleQueries } from "./channels-support"
 import { bot, creating, t, value } from "./support/client"
 
 const CHAT: BotChannelDescriptor = {
@@ -566,7 +567,7 @@ describe("onboarding panel", () => {
 })
 
 describe("channel drafts of the welcome guide", () => {
-  it("are off, incomplete or waiting for the bot as a bot's settings would be", () => {
+  it("are off, incomplete or waiting for the bot as a bot's settings would be", async () => {
     expect(draftView(CHAT, { ...emptyDraft(CHAT), enabled: false }).status).toEqual({
       state: "off",
     })
@@ -574,8 +575,8 @@ describe("channel drafts of the welcome guide", () => {
       state: "incomplete",
       missing: ["token", "owners"],
     })
-    const drafts = createChannelDrafts()
-    drafts.configure(CHAT, CHAT_CHANGE)
+    const drafts = createChannelDrafts(idleQueries)
+    await drafts.configure(CHAT, CHAT_CHANGE)
     expect(drafts.view(CHAT)).toMatchObject({
       secrets: { token: true },
       status: { state: "waiting" },
@@ -584,18 +585,18 @@ describe("channel drafts of the welcome guide", () => {
     expect(drafts.setups([CHAT])).toEqual([{ channelId: "chat", change: CHAT_CHANGE }])
   })
 
-  it("keep a secret until it is cleared, refuse what the Host would, and drop everything on clear", () => {
-    const drafts = createChannelDrafts()
-    drafts.configure(CHAT, CHAT_CHANGE)
-    drafts.configure(CHAT, { ...CHAT_CHANGE, secrets: {} })
+  it("keep a secret until it is cleared, refuse what the Host would, and drop everything on clear", async () => {
+    const drafts = createChannelDrafts(idleQueries)
+    await drafts.configure(CHAT, CHAT_CHANGE)
+    await drafts.configure(CHAT, { ...CHAT_CHANGE, secrets: {} })
     expect(drafts.view(CHAT).secrets).toEqual({ token: true })
-    drafts.configure(CHAT, { ...CHAT_CHANGE, secrets: { token: { op: "clear" } } })
+    await drafts.configure(CHAT, { ...CHAT_CHANGE, secrets: { token: { op: "clear" } } })
     expect(drafts.ready([CHAT])).toBe(false)
     expect(drafts.setups([CHAT])).toEqual([])
-    expect(() =>
+    await expect(
       drafts.configure(CHAT, { ...CHAT_CHANGE, values: { owners: ["not an id"] } }),
-    ).toThrow()
-    drafts.configure(CHAT, CHAT_CHANGE)
+    ).rejects.toThrow()
+    await drafts.configure(CHAT, CHAT_CHANGE)
     drafts.clear()
     expect(drafts.getSnapshot().size).toBe(0)
     expect(drafts.view(CHAT).secrets).toEqual({ token: false })
@@ -727,6 +728,7 @@ describe("onboarding in the browser", () => {
         web,
         text: (text: { readonly en: string }) => text.en,
         connections,
+        channelQueries: idleQueries,
       }),
     )
   }

@@ -45,6 +45,24 @@ export interface BotChannelTextField<K extends string = string> extends FieldBas
   readonly choices?: readonly BotChannelChoice[]
 }
 
+/**
+ * One value picked from the options the channel gives for {@link source}
+ * (`BotChannel.options`), stored as the option's value. An optional pick left empty is "".
+ */
+export interface BotChannelPickField<K extends string = string> extends FieldBase<K> {
+  readonly kind: "pick"
+  readonly required: boolean
+  readonly source: string
+  readonly maxLength: number
+  /** Whole-value regular expression (anchors implied). */
+  readonly pattern?: string
+  /**
+   * Keys of the pick and list fields whose options follow this one: the
+   * form empties them in the same change that changes this value.
+   */
+  readonly clears?: readonly string[]
+}
+
 /** A list of distinct text items (e.g. user ids), trimmed, empty items dropped. */
 export interface BotChannelListField<K extends string = string> extends FieldBase<K> {
   readonly kind: "list"
@@ -55,10 +73,80 @@ export interface BotChannelListField<K extends string = string> extends FieldBas
     /** Whole-item regular expression (anchors implied). */
     readonly pattern?: string
     readonly placeholder?: string
+    /** Items are picked from the options the channel gives for this source instead of typed. */
+    readonly source?: string
   }
 }
 
-export type BotChannelField = BotChannelSecretField | BotChannelTextField | BotChannelListField
+export type BotChannelField =
+  | BotChannelSecretField
+  | BotChannelTextField
+  | BotChannelPickField
+  | BotChannelListField
+
+/** The option source of a field: a pick's, or a list's items'. */
+export function sourceOf(field: BotChannelField): string | undefined {
+  if (field.kind === "pick") return field.source
+  if (field.kind === "list") return field.item.source
+  return undefined
+}
+
+/** One option a channel offers for a pick field or a picked list's items. */
+export interface BotChannelOption {
+  readonly value: string
+  readonly label: BotChannelText
+  readonly detail?: BotChannelText
+  /** An https image (an avatar, a server icon). */
+  readonly image?: string
+}
+
+/** The options of one source, or why there are none now. `suggested` lists values to propose while the field is empty. */
+export type BotChannelOptions =
+  | {
+      readonly state: "ready"
+      readonly options: readonly BotChannelOption[]
+      readonly suggested: readonly string[]
+    }
+  | { readonly state: "unavailable"; readonly reason: BotChannelText }
+
+export interface BotChannelInspectionLink {
+  readonly label: BotChannelText
+  readonly url: string
+}
+
+/** What the channel tells about its settings beside the fields: the account, links, warnings. */
+export type BotChannelInspection =
+  | {
+      readonly state: "ready"
+      readonly account?: string
+      readonly links: readonly BotChannelInspectionLink[]
+      readonly warnings: readonly BotChannelText[]
+    }
+  | { readonly state: "unavailable"; readonly reason: BotChannelText }
+
+/** Whether settings fit together (`BotChannel.check`). */
+export type BotChannelCheck =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly reason: BotChannelText }
+
+/**
+ * The settings a query is about: a bot's stored ones (secrets stay on the
+ * Host), or the welcome guide's draft before its bot exists, secrets typed.
+ */
+export type BotChannelSettingsRef =
+  | { readonly kind: "bot"; readonly botId: string }
+  | {
+      readonly kind: "draft"
+      readonly values: BotChannelPublicValues
+      readonly secrets: Readonly<Record<string, string>>
+    }
+
+/** A person a connection knows by name. */
+export interface BotChannelPerson {
+  readonly displayName: string
+  /** Their unique name in the channel, without "@". */
+  readonly handle: string
+}
 
 /** What the browser needs to render a channel's settings form. */
 export interface BotChannelDescriptor {
@@ -102,7 +190,12 @@ export interface BotChannelChange {
 /** What a channel plugin reports about its connection for one bot. */
 export type BotChannelConnectionState =
   | { readonly state: "connecting" }
-  | { readonly state: "connected"; readonly account?: string }
+  | {
+      readonly state: "connected"
+      readonly account?: string
+      /** The owners the connection knows by name, by their channel id. */
+      readonly people?: Readonly<Record<string, BotChannelPerson>>
+    }
   | { readonly state: "failed"; readonly message: string }
 
 /**
@@ -124,7 +217,14 @@ export interface BotChannelView {
   /** Whether each secret field holds a value; the value itself never leaves the Host. */
   readonly secrets: Readonly<Record<string, boolean>>
   readonly status: BotChannelStatus
+  /** Changes with every stored change of these settings (a secret replaced too). */
+  readonly revision: number
 }
+
+/** A save, or why the channel refused the settings it would make (`BotChannel.check`). */
+export type BotChannelConfigureResult =
+  | { readonly saved: true; readonly view: BotChannelView }
+  | { readonly saved: false; readonly reason: BotChannelText }
 
 /** What the `botChannels` Remote's `watch` streams for one bot. */
 export interface BotChannelsSnapshot {
@@ -141,12 +241,36 @@ export interface BotChannelsSnapshot {
 export interface BotChannelsApi {
   /** The bot's settings for every registered channel, again after every change. */
   watch(botId: string, signal?: AbortSignal): AsyncIterable<BotChannelsSnapshot>
-  /** Save the bot's settings for one channel (checked against its fields); the connection follows them. */
-  configure(botId: string, channelId: string, change: BotChannelChange): Promise<BotChannelView>
+  /** Save the bot's settings for one channel (checked against its fields, then by the channel); the connection follows them. */
+  configure(
+    botId: string,
+    channelId: string,
+    change: BotChannelChange,
+  ): Promise<BotChannelConfigureResult>
+  /** The options of one of the channel's sources for these settings. */
+  options(
+    channelId: string,
+    settings: BotChannelSettingsRef,
+    source: string,
+    signal?: AbortSignal,
+  ): Promise<BotChannelOptions>
+  /** What the channel tells about these settings. */
+  inspect(
+    channelId: string,
+    settings: BotChannelSettingsRef,
+    signal?: AbortSignal,
+  ): Promise<BotChannelInspection>
+  /** Whether these settings fit together, as a save would check them. */
+  check(
+    channelId: string,
+    settings: BotChannelSettingsRef,
+    signal?: AbortSignal,
+  ): Promise<BotChannelCheck>
 }
 
 const CHANNEL_ID = /^[a-z][a-z0-9-]*$/
 const FIELD_KEY = /^[a-z][a-zA-Z0-9]*$/
+const SOURCE = /^[a-z][a-zA-Z0-9-]*$/
 /** Upper bound of a channel's setup steps. */
 export const MAX_CHANNEL_SETUP_STEPS = 8
 
@@ -207,6 +331,10 @@ function checkPattern(pattern: string | undefined, what: string): void {
   }
 }
 
+function checkSource(source: string, what: string): void {
+  if (!SOURCE.test(source)) throw new Error(`${what} must be letters, digits and hyphens`)
+}
+
 /**
  * Check a channel's descriptor as a channel plugin declares it.
  * @throws naming the first problem.
@@ -249,9 +377,15 @@ export function checkChannelDescriptor(channel: BotChannelDescriptor): void {
         checkPattern(field.pattern, `${what} pattern`)
         checkChoices(field, what)
         break
+      case "pick":
+        checkLength(field.maxLength, `${what} maxLength`)
+        checkPattern(field.pattern, `${what} pattern`)
+        checkSource(field.source, `${what} source`)
+        break
       case "list":
         checkLength(field.item.maxLength, `${what} item.maxLength`)
         checkPattern(field.item.pattern, `${what} item.pattern`)
+        if (field.item.source !== undefined) checkSource(field.item.source, `${what} item.source`)
         if (
           !Number.isInteger(field.minItems) ||
           !Number.isInteger(field.maxItems) ||
@@ -268,6 +402,21 @@ export function checkChannelDescriptor(channel: BotChannelDescriptor): void {
         throw new Error(`${what} has an unknown kind`)
     }
   }
+  for (const field of channel.fields) {
+    if (field.kind !== "pick") continue
+    for (const key of field.clears ?? []) {
+      const cleared = channel.fields.find((other) => other.key === key)
+      if (
+        cleared === undefined ||
+        cleared === field ||
+        (cleared.kind !== "pick" && cleared.kind !== "list")
+      ) {
+        throw new Error(
+          `channel "${channel.id}" field "${field.key}": clears must name other pick or list fields`,
+        )
+      }
+    }
+  }
   if (
     channel.owners !== undefined &&
     channel.fields.find((field) => field.key === channel.owners)?.kind !== "list"
@@ -280,7 +429,7 @@ export function checkChannelDescriptor(channel: BotChannelDescriptor): void {
 export function emptyChannelValues(fields: readonly BotChannelField[]): BotChannelPublicValues {
   const values: Record<string, string | readonly string[]> = {}
   for (const field of fields) {
-    if (field.kind === "text") values[field.key] = ""
+    if (field.kind === "text" || field.kind === "pick") values[field.key] = ""
     if (field.kind === "list") values[field.key] = []
   }
   return values
@@ -294,7 +443,8 @@ export function channelValuesOf(
   const values: Record<string, string | readonly string[]> = { ...emptyChannelValues(fields) }
   for (const field of fields) {
     const value = stored[field.key]
-    if (field.kind === "text" && typeof value === "string") values[field.key] = value
+    if ((field.kind === "text" || field.kind === "pick") && typeof value === "string")
+      values[field.key] = value
     if (field.kind === "list" && Array.isArray(value)) values[field.key] = value
   }
   return values
@@ -314,6 +464,21 @@ function parseTextValue(field: BotChannelTextField, value: unknown): string {
   }
   if (field.choices !== undefined && !field.choices.some((choice) => choice.value === trimmed)) {
     throw new Error(`${field.key} must be one of its choices`)
+  }
+  return trimmed
+}
+
+function parsePickValue(field: BotChannelPickField, value: unknown): string {
+  if (typeof value !== "string") throw new Error(`${field.key} must be text`)
+  const trimmed = value.trim()
+  if (trimmed.length > field.maxLength)
+    throw new Error(`${field.key} is longer than ${field.maxLength}`)
+  if (
+    trimmed.length > 0 &&
+    field.pattern !== undefined &&
+    !wholeMatch(field.pattern).test(trimmed)
+  ) {
+    throw new Error(`${field.key} has an invalid format`)
   }
   return trimmed
 }
@@ -388,6 +553,7 @@ export function parseChannelChange(
   const parsedSecrets: Record<string, BotChannelSecretChange> = {}
   for (const field of fields) {
     if (field.kind === "text") parsedValues[field.key] = parseTextValue(field, values[field.key])
+    if (field.kind === "pick") parsedValues[field.key] = parsePickValue(field, values[field.key])
     if (field.kind === "list") parsedValues[field.key] = parseListValue(field, values[field.key])
     if (field.kind === "secret") {
       parsedSecrets[field.key] =
@@ -405,7 +571,8 @@ function isMissing(
   secretSet: (key: string) => boolean,
 ): boolean {
   if (field.kind === "secret") return field.required && !secretSet(field.key)
-  if (field.kind === "text") return field.required && (values[field.key] ?? "") === ""
+  if (field.kind === "text" || field.kind === "pick")
+    return field.required && (values[field.key] ?? "") === ""
   return (values[field.key]?.length ?? 0) < field.minItems
 }
 
@@ -416,4 +583,43 @@ export function missingChannelFields(
   secretSet: (key: string) => boolean,
 ): string[] {
   return fields.filter((field) => isMissing(field, values, secretSet)).map((field) => field.key)
+}
+
+/** A draft's values and secrets as the Host takes them: parsed like a change, secrets set only. */
+export interface BotChannelDraftSettings {
+  readonly values: BotChannelPublicValues
+  readonly secrets: Readonly<Record<string, string>>
+}
+
+/**
+ * Parse a settings reference from outside (the browser) against a channel's
+ * fields: a bot id, or a draft whose values and secrets parse as a change would.
+ * @throws naming the first problem.
+ */
+export function parseChannelSettingsRef(
+  fields: readonly BotChannelField[],
+  input: unknown,
+):
+  | { readonly kind: "bot"; readonly botId: string }
+  | ({ readonly kind: "draft" } & BotChannelDraftSettings) {
+  const ref = recordOf(input, "the settings")
+  if (ref.kind === "bot") {
+    if (typeof ref.botId !== "string" || ref.botId.length === 0)
+      throw new Error("botId must be text")
+    return { kind: "bot", botId: ref.botId }
+  }
+  if (ref.kind !== "draft") throw new Error("the settings must be a bot's or a draft")
+  const secrets = recordOf(ref.secrets, "secrets")
+  const change = parseChannelChange(fields, {
+    enabled: true,
+    values: ref.values,
+    secrets: Object.fromEntries(
+      Object.entries(secrets).map(([key, value]) => [key, { op: "set", value }]),
+    ),
+  })
+  const typed: Record<string, string> = {}
+  for (const [key, edit] of Object.entries(change.secrets)) {
+    if (edit.op === "set") typed[key] = edit.value
+  }
+  return { kind: "draft", values: change.values, secrets: typed }
 }

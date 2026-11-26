@@ -10,20 +10,21 @@ const DESCRIPTION_LIMIT = 4096
 /** Longest action title in a line of the list. */
 export const LINE_TITLE_LIMIT = 100
 
-/** Where a message sits: a DM channel and the message. */
+/** Where a message sits: its server (`null` for a DM), channel and message. */
 export interface MessageLocation {
+  readonly guildId: string | null
   readonly channelId: string
   readonly messageId: string
 }
 
-/** A pending action in the list, with its card in the reader's DM when there is one. */
+/** A pending action in the list, with its card at the home when there is one. */
 export interface DigestEntry {
   readonly action: ConnectorActionView
   readonly card: MessageLocation | undefined
 }
 
 export function messageUrl(location: MessageLocation): string {
-  return `https://discord.com/channels/@me/${location.channelId}/${location.messageId}`
+  return `https://discord.com/channels/${location.guildId ?? "@me"}/${location.channelId}/${location.messageId}`
 }
 
 function lineOf(entry: DigestEntry, index: number, locale: DiscordLocale): string {
@@ -67,7 +68,7 @@ export function digestEmbed(
   return { title, description: [...body, hint].join("\n") }
 }
 
-/** The pending approvals list as the message pinned in an approver's DM. */
+/** The pending approvals list as the message pinned at the home. */
 export function renderDigest(
   bot: string,
   entries: readonly DigestEntry[],

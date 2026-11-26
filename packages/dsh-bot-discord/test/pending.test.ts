@@ -11,12 +11,19 @@ import type {
   DiscordOutgoingMessage,
   DiscordPinOutcome,
 } from "../src/host/discord"
+import type { DiscordSettings } from "../src/host/fields"
+import { atHome, homeOf } from "../src/host/home"
+import { createHomeTarget } from "../src/host/home-target"
 import { openIncidentNotices } from "../src/host/incidents/records"
 import { createSerialQueue } from "../src/host/queue"
 import {
   ALLOWED,
+  CHANNEL_SETTINGS,
+  DM_SETTINGS,
   fakeActions,
   fakeLink,
+  GUILD,
+  HOME_CHANNEL,
   manualClock,
   memoryApprovalTables,
   memoryTable,
@@ -43,7 +50,7 @@ const pending = (
 
 describe("pending approvals list", () => {
   it("lists one line per action, linking to its card, in the notice language", () => {
-    const card = { channelId: "dm-1", messageId: "m-9" }
+    const card = { guildId: null, channelId: "dm-1", messageId: "m-9" }
     const en = digestEmbed("Aide", [{ action: pending("a1"), card }], "en")
     expect(en.title).toBe("📋 Pending approvals of Aide (1)")
     expect(en.description).toBe(
@@ -53,6 +60,9 @@ describe("pending approvals list", () => {
       ].join("\n"),
     )
     expect(messageUrl(card)).toBe("https://discord.com/channels/@me/dm-1/m-9")
+    expect(messageUrl({ ...card, guildId: GUILD })).toBe(
+      `https://discord.com/channels/${GUILD}/dm-1/m-9`,
+    )
     const ja = digestEmbed("Aide", [{ action: pending("a1"), card: undefined }], "ja")
     expect(ja.title).toBe("📋 Aide の承認待ち（1 件）")
     expect(ja.description).toContain("1. **Send \\[mail\\] a1?** — Mail · `mail_send` · 期限 <t:")
@@ -69,7 +79,7 @@ describe("pending approvals list", () => {
   it("keeps within Discord's limit, the oldest first, and counts the rest", () => {
     const entries = Array.from({ length: 80 }, (_, index) => ({
       action: pending(`a${index}`, { preview: { title: "x".repeat(300), fields: [] } }),
-      card: { channelId: "300000000000000001", messageId: `40000000000000${index}` },
+      card: { guildId: null, channelId: "300000000000000001", messageId: `40000000000000${index}` },
     }))
     const embed = digestEmbed("Aide", entries, "ja")
     const description = embed.description ?? ""
@@ -86,14 +96,14 @@ describe("pending approvals list", () => {
 
 function setup(
   options: {
-    approvers?: readonly string[]
+    settings?: DiscordSettings
     pin?: () => Promise<DiscordPinOutcome>
     tables?: ReturnType<typeof memoryApprovalTables>
     actions?: Partial<DiscordActions>
   } = {},
 ) {
-  const approvers = options.approvers ?? [ALLOWED]
-  const link = fakeLink({ token: "t", users: [ALLOWED], approvers, language: "ja" })
+  const settings = { ...(options.settings ?? DM_SETTINGS), language: "ja" }
+  const link = fakeLink(settings)
   const sent: { channelId: string; message: DiscordOutgoingMessage }[] = []
   const { actions, calls } = fakeActions({
     ...(options.pin === undefined ? {} : { pin: options.pin }),
@@ -106,12 +116,13 @@ function setup(
   }
   const tables = options.tables ?? memoryApprovalTables()
   const warnings: string[] = []
+  const home = homeOf(settings)
   const presenter = createActionPresenter({
     link: link.link,
     actions,
     records: openApprovalRecords(tables, "b1"),
-    approvers,
-    recipients: async () => approvers.map((userId) => ({ userId, channelId: `dm-${userId}` })),
+    home: createHomeTarget(home, actions.openDm),
+    atHome: (place) => atHome(home, place),
     locale: "ja",
     self: "discord",
     outbound: createSerialQueue(),
@@ -126,37 +137,33 @@ function setup(
   return { link, calls, presenter, tables, warnings, emit, lists }
 }
 
-describe("pending approvals list in each approver's DM", () => {
-  it("posts one list per approver, pins it once, and edits it as actions come and go", async () => {
-    const { calls, presenter, emit, lists, tables } = setup({ approvers: [ALLOWED, OTHER] })
+describe("pending approvals list at the home", () => {
+  it("posts one list in the home channel, pins it once, and edits it as actions come and go", async () => {
+    const { calls, presenter, emit, lists, tables } = setup({ settings: CHANNEL_SETTINGS })
     await presenter.start()
-    expect(lists().map((entry) => entry.message.embeds?.[0]?.description)).toEqual([
-      "承認待ちはありません。",
-      "承認待ちはありません。",
-    ])
-    expect(calls.filter((call) => call.startsWith("pin"))).toHaveLength(2)
-    expect([...tables.digests.map.values()].map((digest) => digest.pin)).toEqual([
-      "pinned",
-      "pinned",
-    ])
+    expect(
+      lists().map((entry) => [entry.channelId, entry.message.embeds?.[0]?.description]),
+    ).toEqual([[HOME_CHANNEL, "承認待ちはありません。"]])
+    expect(calls.filter((call) => call.startsWith("pin"))).toHaveLength(1)
+    expect([...tables.digests.map.values()].map((digest) => digest.pin)).toEqual(["pinned"])
     await emit(pending("a1"))
     await emit(pending("a1", { status: { state: "expired", finishedAt: 2 } }))
-    expect(lists()).toHaveLength(2)
-    expect(calls.filter((call) => call.startsWith("pin"))).toHaveLength(2)
+    expect(lists()).toHaveLength(1)
+    expect(calls.filter((call) => call.startsWith("pin"))).toHaveLength(1)
     const digestId = [...tables.digests.map.values()][0]?.messageId
-    const edits = calls.filter((call) => call === `edit dm-${ALLOWED} ${digestId} `)
+    const edits = calls.filter((call) => call === `edit ${HOME_CHANNEL} ${digestId} `)
     expect(edits).toHaveLength(2)
   })
 
-  it("links each line to the approver's own card", async () => {
-    const { presenter, emit, tables } = setup()
+  it("links each line to the action's card at the home", async () => {
+    const { presenter, emit, tables } = setup({ settings: CHANNEL_SETTINGS })
     await presenter.start()
     await emit(pending("a1"))
     const card = [...tables.cards.map.values()][0]
-    const answer = presenter.pending(ALLOWED, "en-US")
+    const answer = await presenter.pending(ALLOWED, "en-US")
     expect(answer.ephemeral).toBe(true)
     expect(answer.embeds?.[0]?.description).toContain(
-      `(https://discord.com/channels/@me/dm-${ALLOWED}/${card?.messageId})`,
+      `(https://discord.com/channels/${GUILD}/${HOME_CHANNEL}/${card?.messageId})`,
     )
   })
 
@@ -206,9 +213,8 @@ describe("pending approvals list in each approver's DM", () => {
 
   it("edits the same list after a reconnection, and pins a list whose pin was never tried", async () => {
     const tables = memoryApprovalTables()
-    await tables.digests.put(`b1:${ALLOWED}`, {
+    await tables.digests.put("b1", {
       botId: "b1",
-      userId: ALLOWED,
       channelId: `dm-${ALLOWED}`,
       messageId: "m-list",
       pin: "due",
@@ -216,10 +222,14 @@ describe("pending approvals list in each approver's DM", () => {
     const { presenter, lists, calls } = setup({ tables })
     await presenter.start()
     expect(lists()).toEqual([])
-    expect(calls).toEqual([`edit dm-${ALLOWED} m-list `, `pin dm-${ALLOWED} m-list`])
+    expect(calls).toEqual([
+      `openDm ${ALLOWED}`,
+      `edit dm-${ALLOWED} m-list `,
+      `pin dm-${ALLOWED} m-list`,
+    ])
   })
 
-  it("posts no list when the DM cannot be written, and warns", async () => {
+  it("posts no list when the home cannot be written, and warns", async () => {
     const { presenter, warnings, tables } = setup({
       actions: {
         async send() {
@@ -238,23 +248,26 @@ describe("stored approval records", () => {
     const tables = memoryApprovalTables()
     for (const botId of ["kept", "gone"]) {
       const records = openApprovalRecords(tables, botId)
-      await records.saveCard({ actionId: "a1", userId: ALLOWED, channelId: "c", messageId: "m" })
-      await records.saveDigest({ userId: ALLOWED, channelId: "c", messageId: "d", pin: "pinned" })
+      await records.saveCard({ actionId: "a1", channelId: "c", messageId: "m" })
+      await records.saveDigest({ channelId: "c", messageId: "d", pin: "pinned" })
     }
     await purgeApprovalRecords(tables, (botId) => botId === "kept")
-    expect([...tables.cards.map.keys()]).toEqual([`kept:a1:${ALLOWED}`])
-    expect([...tables.digests.map.keys()]).toEqual([`kept:${ALLOWED}`])
+    expect([...tables.cards.map.keys()]).toEqual(["kept:a1"])
+    expect([...tables.digests.map.keys()]).toEqual(["kept"])
     expect(openApprovalRecords(tables, "kept").cards()).toMatchObject([{ botId: "kept" }])
   })
 })
 
 describe("/pending", () => {
   function bridge(approvers: readonly string[]) {
-    const link = fakeLink({ token: "t", users: [ALLOWED], approvers, language: "" })
+    const settings = { ...CHANNEL_SETTINGS, approvers }
+    const link = fakeLink(settings)
     const { actions } = fakeActions()
     let events: DiscordSessionEvents | undefined
     createDiscordBridge({
       link: link.link,
+      home: homeOf(settings),
+      adopt: async () => {},
       channelId: "discord",
       connect(supplied) {
         events = supplied
@@ -272,7 +285,8 @@ describe("/pending", () => {
       events?.command({
         name: "pending",
         userId,
-        guildId: null,
+        guildId: GUILD,
+        channelId: HOME_CHANNEL,
         locale,
         async respond(response) {
           responses.push(response)
@@ -284,7 +298,7 @@ describe("/pending", () => {
     return { link, ask }
   }
 
-  it("answers an approver privately with the list, even one who does not talk to the bot", async () => {
+  it("answers an owner privately with the list in the home channel", async () => {
     const { link, ask } = bridge([OTHER])
     link.keep(pending("a1"))
     const [answer] = await ask(OTHER, "ja")

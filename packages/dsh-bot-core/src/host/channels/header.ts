@@ -30,6 +30,8 @@ function placeOf(place: BotMessagePlace): string {
   switch (place.kind) {
     case "direct":
       return "DM"
+    case "channel":
+      return `#${headerName(place.channel)} (${headerName(place.server)})`
   }
 }
 

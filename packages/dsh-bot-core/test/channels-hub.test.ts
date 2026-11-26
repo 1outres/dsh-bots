@@ -55,7 +55,12 @@ const openIncident: VaultIncidentView = {
 function setup() {
   const records = memoryTable<ChannelRecord>()
   const vault = memoryVault()
-  const settings = createChannelSettings({ records, vault, now: () => 1 })
+  const settings = createChannelSettings({
+    records,
+    vault,
+    now: () => 1,
+    warn: (message) => warnings.push(message),
+  })
   const bots = [{ id: "a", name: "Alice" }]
   const stored = new Set(["a", "creating"])
   const channels: BotChannel[] = []
@@ -110,10 +115,11 @@ function setup() {
   const panel = createChannelPanel({
     channels: () => channels,
     channel: (id) => channels.find((channel) => channel.id === id),
-    exists: (botId) => stored.has(botId),
+    bot: (botId) => (stored.has(botId) ? { id: botId, name: botId } : undefined),
     listed: (botId) => bots.some((bot) => bot.id === botId),
     settings,
     hub,
+    deadline: () => new AbortController().signal,
   })
   return {
     settings,
@@ -378,10 +384,12 @@ describe("channel panel", () => {
       secrets: { token: false },
       status: { state: "off" },
     })
-    const view = await panel.configure("a", "chat", {
+    const result = await panel.configure("a", "chat", {
       ...enable,
       values: { server: "", users: [] },
     })
+    if (!result.saved) throw new Error("not saved")
+    const { view } = result
     expect(view.status).toEqual({ state: "incomplete", missing: ["users"] })
     expect(JSON.stringify(view)).not.toContain("tok-XYZ")
     expect(Object.keys(view.channel)).toEqual(["id", "name", "fields"])
@@ -390,8 +398,8 @@ describe("channel panel", () => {
   it("waits for a bot that is still being created", async () => {
     const { panel, channels } = setup()
     channels.push(recordingChannel().channel)
-    const view = await panel.configure("creating", "chat", enable)
-    expect(view.status).toEqual({ state: "waiting" })
+    const result = await panel.configure("creating", "chat", enable)
+    expect(result).toMatchObject({ saved: true, view: { status: { state: "waiting" } } })
   })
 
   it("refuses unknown bots, unknown channels and invalid changes", async () => {

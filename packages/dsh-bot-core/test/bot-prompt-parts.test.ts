@@ -136,7 +136,14 @@ describe("renderStatus", () => {
     expect(
       renderStatus({
         channels: [
-          { name: "Discord", status: { state: "connected" }, owners: ["1", "2"] },
+          {
+            name: "Discord",
+            status: {
+              state: "connected",
+              people: { "1": { displayName: "Alice [owner]", handle: "alice, owner" } },
+            },
+            owners: ["1", "2"],
+          },
           { name: "Telegram", status: { state: "failed", message: "bad token" }, owners: [] },
           { name: "Slack", status: { state: "incomplete", missing: ["token"] }, owners: ["3"] },
         ],
@@ -162,7 +169,7 @@ describe("renderStatus", () => {
     ).toBe(
       [
         "Bot status:",
-        "- Chat channels: Discord (connected; owners: 1, 2), Telegram (connection failed: bad token; no owner listed: nobody there can instruct you as your owner), Slack (settings incomplete; owners: 3)",
+        "- Chat channels: Discord (connected; owners: Alice owner (@aliceowner), 1 more whose names are unknown), Telegram (connection failed: bad token; no owner listed: nobody there can instruct you as your owner), Slack (settings incomplete; owners: 1 listed, names known once connected)",
         "- Connectors: Gmail (ready; a@example.com), Desktop (preparing), Calendar (unavailable: no account), Browser (failed: boom)",
         "- Web lookup: search only; fetch is unavailable (not-registered)",
       ].join("\n"),

@@ -28,7 +28,7 @@ export interface ChannelHubDeps {
   conversation: ConversationDeps
   outlets: Pick<ChannelOutlets, "attach" | "publishTo">
   interactions: Pick<InteractionBoard, "mainOf">
-  approvals: Pick<ConnectorApprovals, "open" | "fromChannel" | "pendingFor" | "find">
+  approvals: Pick<ConnectorApprovals, "open" | "pending" | "fromChannel" | "pendingFor" | "find">
   /** The bot's credential incidents its owner has not acknowledged, oldest first. */
   incidents: { open(botId: string): readonly VaultIncidentView[] }
   warn(message: string): void
@@ -126,6 +126,8 @@ export function createChannelHub(deps: ChannelHubDeps): ChannelHub {
           decide: (actionId, decision, person) =>
             deps.approvals.fromChannel(bot.id, deciding, person, actionId, decision),
           pendingActions: (person) => deps.approvals.pendingFor(bot.id, deciding, person),
+          openActions: () =>
+            capabilities.connectorActions === true ? deps.approvals.pending(bot.id) : [],
           connectorAction: (actionId) =>
             capabilities.connectorActions !== true
               ? undefined

@@ -1,27 +1,50 @@
 import { describe, expect, it } from "vitest"
 import { createDmCursor } from "../src/host/cursor"
 import { downloadAttachment, type FetchUrl } from "../src/host/download"
-import { hasContent, inboundMessageOf, isAllowedDirectMessage } from "../src/host/inbound"
-import { ALLOWED, author, directMessage, OTHER } from "./support"
+import type { DiscordHome } from "../src/host/home"
+import { hasContent, inboundMessageOf, isHomeMessage } from "../src/host/inbound"
+import {
+  ALLOWED,
+  author,
+  channelMessage,
+  directMessage,
+  GUILD,
+  HOME_CHANNEL,
+  OTHER,
+} from "./support"
 
-const allowed = new Set([ALLOWED])
+const dmHome: DiscordHome = { kind: "dm", owner: ALLOWED }
+const channelHome: DiscordHome = { kind: "channel", guildId: GUILD, channelId: HOME_CHANNEL }
 
-describe("isAllowedDirectMessage", () => {
-  it("accepts what an allowed person writes in a DM", () => {
-    expect(isAllowedDirectMessage(directMessage(), allowed, "self")).toBe(true)
-    expect(isAllowedDirectMessage(directMessage({ kind: "reply" }), allowed, "self")).toBe(true)
+describe("isHomeMessage", () => {
+  it("accepts what the owner writes in a DM home", () => {
+    expect(isHomeMessage(directMessage(), dmHome, "self")).toBe(true)
+    expect(isHomeMessage(directMessage({ kind: "reply" }), dmHome, "self")).toBe(true)
   })
 
-  it("refuses servers, system messages, bots, itself and other users", () => {
+  it("refuses, in a DM home, servers, system messages, bots, itself and anyone but the owner", () => {
     for (const message of [
-      directMessage({ guildId: "g1" }),
+      channelMessage(),
       directMessage({ kind: "other" }),
       directMessage({ author: author(ALLOWED, true) }),
       directMessage({ author: author(OTHER) }),
     ]) {
-      expect(isAllowedDirectMessage(message, allowed, "self")).toBe(false)
+      expect(isHomeMessage(message, dmHome, "self")).toBe(false)
     }
-    expect(isAllowedDirectMessage(directMessage(), allowed, ALLOWED)).toBe(false)
+    expect(isHomeMessage(directMessage(), dmHome, ALLOWED)).toBe(false)
+  })
+
+  it("accepts anyone in the home channel, and nothing elsewhere", () => {
+    expect(isHomeMessage(channelMessage({ author: author(OTHER) }), channelHome, "self")).toBe(true)
+    for (const message of [
+      directMessage(),
+      channelMessage({ channelId: "555555555555555555" }),
+      channelMessage({ guildId: "666666666666666666" }),
+      channelMessage({ author: author(OTHER, true) }),
+      channelMessage({ kind: "other" }),
+    ]) {
+      expect(isHomeMessage(message, channelHome, "self")).toBe(false)
+    }
   })
 })
 
@@ -47,6 +70,14 @@ describe("inbound messages", () => {
       sentAt: 1_700_000_000_000,
       text: "see",
       attachments: [{ name: "a.png", bytes: 9, mediaType: "image/png" }],
+    })
+    expect(
+      inboundMessageOf(channelMessage(), async () => ({ ok: false, status: 404, body: null }))
+        .place,
+    ).toEqual({
+      kind: "channel",
+      channel: "general",
+      server: "Team",
     })
   })
 })

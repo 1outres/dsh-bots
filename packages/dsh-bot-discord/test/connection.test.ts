@@ -11,10 +11,13 @@ function setup() {
   const messages: DiscordMessage[] = []
   const commands: string[] = []
   const clients: { token: string; events: DiscordClientEvents; destroyed: number }[] = []
+  const modes: string[] = []
   const { actions, calls } = fakeActions()
   const connection = createDiscordConnection({
     token: "secret-token",
-    open(token, events) {
+    mode: "dm",
+    open(token, mode, events) {
+      modes.push(mode)
       const client = { token, events, destroyed: 0 }
       clients.push(client)
       return {
@@ -39,15 +42,16 @@ function setup() {
     if (client === undefined) throw new Error("no client")
     return client
   }
-  return { clock, reports, sessions, messages, commands, clients, latest, connection, calls }
+  return { clock, reports, sessions, messages, commands, clients, modes, latest, connection, calls }
 }
 
 const ACCOUNT = { id: "self", tag: "bot#0001" }
 
 describe("Discord connection", () => {
   it("logs in with the token and reports connecting, then the account on ready", () => {
-    const { reports, sessions, latest } = setup()
+    const { reports, sessions, latest, modes } = setup()
     expect(latest().token).toBe("secret-token")
+    expect(modes).toEqual(["dm"])
     latest().events.ready(ACCOUNT)
     expect(reports).toEqual([{ state: "connecting" }, { state: "connected", account: "bot#0001" }])
     expect(sessions).toEqual([ACCOUNT])
@@ -73,6 +77,7 @@ describe("Discord connection", () => {
       name: "status",
       userId: "1",
       guildId: null,
+      channelId: "dm-in",
       locale: "en-US",
       respond: async () => {},
     })

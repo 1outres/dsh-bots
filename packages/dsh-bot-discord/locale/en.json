@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Discord for bots",
-    "description": "Talk with each bot from Discord direct messages: set its Discord bot token and allowed users in the bot's Channels settings."
+    "description": "Talk with each bot in Discord, at one home: direct messages with you, or a server channel everyone there can use. Set its Discord bot token, then pick the home and the owners in the bot's Channels settings."
   }
 }

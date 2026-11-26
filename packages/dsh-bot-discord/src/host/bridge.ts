@@ -12,7 +12,6 @@ import { createActionPresenter } from "./actions/presenter"
 import type { ApprovalRecords } from "./actions/records"
 import type { DiscordConnection, DiscordSessionEvents } from "./connection"
 import { createDmCursor } from "./cursor"
-import { createDmDirectory } from "./directory"
 import {
   type DiscordAccount,
   type DiscordCommandInvocation,
@@ -23,7 +22,9 @@ import {
 import type { FetchUrl } from "./download"
 import type { DiscordSettings } from "./fields"
 import { formatForDiscord } from "./format"
-import { hasContent, inboundMessageOf, isAllowedDirectMessage } from "./inbound"
+import { atHome, type DiscordHome, type DiscordPlace } from "./home"
+import { createHomeTarget } from "./home-target"
+import { hasContent, inboundMessageOf, isHomeMessage } from "./inbound"
 import { createIncidentPresenter } from "./incidents/presenter"
 import type { IncidentNotices } from "./incidents/records"
 import { createInteractionPresenter } from "./interactions/presenter"
@@ -34,9 +35,8 @@ import { splitMessage } from "./split"
 import {
   commandText,
   deliveryFailureText,
-  directMessagesOnlyText,
   localeOf,
-  notAllowedText,
+  notHomeText,
   settingsLocale,
   turnNotice,
   unknownCommandText,
@@ -50,6 +50,10 @@ export const FAILED_REACTION = "⚠️"
 
 export interface DiscordBridgeDeps {
   link: BotChannelLink<DiscordSettings>
+  /** Where the bot lives, from its settings. */
+  home: DiscordHome
+  /** Called once the home's Discord channel is known, before anything is posted there. */
+  adopt(homeChannelId: string): Promise<void>
   /** The channel's id, as bot-core names the channel that answered an interaction. */
   channelId: string
   /** Connect the bot to Discord, passing its sessions, messages and commands to the bridge. */
@@ -68,21 +72,21 @@ const messageOf = (error: unknown) => (error instanceof Error ? error.message : 
 const CLOSING = "the Discord connection is closing"
 
 /**
- * One bot's Discord DMs. Direct messages from the allowed users, with their
- * attachments, go to the bot's Main session (in arrival order, each once) and
- * get {@link ACCEPTED_REACTION}, or {@link FAILED_REACTION} and a reply saying
- * why. bot-core's outputs come back to every allowed user's DM: replies
- * (formatted for Discord, split to its limit), files, notices of failed or
- * stopped turns, and "typing" while a turn runs; connector actions and
- * credential incidents go to the owners' (approvers') DMs instead. The bot's commands are
- * offered as DM slash commands. After a new Gateway session starts (the
- * previous one could not be resumed) the DMs are read for messages missed
- * meanwhile.
+ * One bot's Discord home: the DMs with its owner, or one server text channel.
+ * Messages written there, with their attachments, go to the bot's Main
+ * session (in arrival order, each once) and get {@link ACCEPTED_REACTION}, or
+ * {@link FAILED_REACTION} and a reply saying why. Everything bot-core sends
+ * comes back to the home: replies (formatted for Discord, split to its
+ * limit), files, notices of failed or stopped turns, "typing" while a turn
+ * runs, interaction and connector action cards, the pending list and
+ * credential incidents. The bot's commands are offered as slash commands
+ * there. After a new Gateway session starts (the previous one could not be
+ * resumed) the home is read for messages missed meanwhile.
  */
 export function createDiscordBridge(deps: DiscordBridgeDeps): BotChannelConnection {
-  const { link } = deps
-  const allowed: ReadonlySet<string> = new Set(link.settings.users)
-  const approvers: readonly string[] = link.settings.approvers
+  const { link, home } = deps
+  const owners: ReadonlySet<string> = new Set(link.settings.approvers)
+  const here = (place: DiscordPlace) => atHome(home, place)
   const notices = settingsLocale(link.settings.language)
   const commands: readonly DiscordCommandSpec[] = [
     ...link.commands.map((command) => ({
@@ -111,16 +115,13 @@ export function createDiscordBridge(deps: DiscordBridgeDeps): BotChannelConnecti
       void (isActionCustomId(press.customId) ? actions.press(press) : interactions.press(press)),
     modal: (submit) => void interactions.submit(submit),
   })
-  const directory = createDmDirectory({
-    openDm: connection.openDm,
-    failed: (userId, error) => warnUnlessClosed(`cannot open a DM with user ${userId}`)(error),
-  })
-  const dmTargets = () => directory.channelsOf(allowed)
+  const target = createHomeTarget(home, connection.openDm)
   const interactions = createInteractionPresenter({
     link,
     actions: connection,
-    recipients: () => directory.recipientsOf(allowed),
-    allowed,
+    home: target,
+    atHome: here,
+    owners,
     locale: notices,
     self: deps.channelId,
     outbound,
@@ -132,8 +133,8 @@ export function createDiscordBridge(deps: DiscordBridgeDeps): BotChannelConnecti
     link,
     actions: connection,
     records: deps.records,
-    approvers,
-    recipients: () => directory.recipientsOf(approvers),
+    home: target,
+    atHome: here,
     locale: notices,
     self: deps.channelId,
     outbound,
@@ -145,8 +146,7 @@ export function createDiscordBridge(deps: DiscordBridgeDeps): BotChannelConnecti
     bot: link.bot,
     actions: connection,
     notices: deps.incidents,
-    owners: approvers,
-    recipients: () => directory.recipientsOf(approvers),
+    home: target,
     locale: notices,
     outbound,
     closed,
@@ -155,59 +155,44 @@ export function createDiscordBridge(deps: DiscordBridgeDeps): BotChannelConnecti
   const typing = createTypingKeeper({
     show: (current) =>
       outbound.push(async () => {
-        for (const channelId of await dmTargets()) {
-          if (!current() || closed()) return
-          await connection.typing(channelId).catch(warnUnlessClosed("could not show typing"))
-        }
+        if (!current() || closed()) return
+        const { channelId } = await target.channel()
+        await connection.typing(channelId).catch(warnUnlessClosed("could not show typing"))
       }),
     scheduler: deps.scheduler,
     warn: deps.warn,
   })
 
-  /** Post text to every allowed user's DM, in Discord-sized messages. */
-  const broadcast = (text: string) =>
+  /** Post text at the home, in Discord-sized messages. */
+  const post = (text: string) =>
     outbound.push(async () => {
-      const chunks = splitMessage(formatForDiscord(text))
-      for (const channelId of await dmTargets()) {
-        for (const content of chunks) {
-          if (closed()) return
-          try {
-            await connection.send(channelId, { content })
-          } catch (error) {
-            warnUnlessClosed("could not send a message")(error)
-            break
-          }
-        }
+      const { channelId } = await target.channel()
+      for (const content of splitMessage(formatForDiscord(text))) {
+        if (closed()) return
+        await connection.send(channelId, { content })
       }
     })
 
   const reply = async (message: BotReply) => {
-    await broadcast(message.text)
+    await post(message.text)
     typing.pulse()
   }
 
   const sendFile = (file: BotOutboundFile) =>
     outbound.push(async () => {
-      const targets = await dmTargets()
-      if (targets.length === 0) throw new Error("no allowed user's DM could be opened")
+      const { channelId } = await target.channel()
       const caption = file.caption === undefined ? [] : splitMessage(formatForDiscord(file.caption))
-      const leading = caption.slice(0, -1)
       const attached = caption.at(-1) ?? ""
-      const failures: string[] = []
-      for (const channelId of targets) {
-        if (closed()) throw new Error(CLOSING)
-        try {
-          for (const content of leading) await connection.send(channelId, { content })
-          await connection.send(channelId, {
-            content: attached,
-            files: [{ name: file.name, data: file.data }],
-          })
-        } catch (error) {
-          failures.push(messageOf(error))
-        }
+      if (closed()) throw new Error(CLOSING)
+      try {
+        for (const content of caption.slice(0, -1)) await connection.send(channelId, { content })
+        await connection.send(channelId, {
+          content: attached,
+          files: [{ name: file.name, data: file.data }],
+        })
+      } catch (error) {
+        throw new Error(`Discord refused the file: ${messageOf(error)}`)
       }
-      if (failures.length === targets.length)
-        throw new Error(`Discord refused the file: ${failures[0]}`)
       typing.pulse()
     })
 
@@ -219,7 +204,7 @@ export function createDiscordBridge(deps: DiscordBridgeDeps): BotChannelConnecti
     }
     typing.stop()
     const notice = turnNotice(state, notices)
-    if (notice !== undefined) await broadcast(notice)
+    if (notice !== undefined) await post(notice)
   }
 
   const receive = async (output: BotChannelOutput): Promise<void> => {
@@ -246,7 +231,7 @@ export function createDiscordBridge(deps: DiscordBridgeDeps): BotChannelConnecti
 
   const accept = async (message: DiscordMessage) => {
     if (!cursor.advance(message.channelId, message.id)) return
-    directory.learn(message.author.id, message.channelId)
+    if (home.kind === "dm") target.learn(message.channelId)
     if (!hasContent(message)) return
     const result = await link.deliver(inboundMessageOf(message, deps.fetch))
     if (closed()) return
@@ -272,7 +257,7 @@ export function createDiscordBridge(deps: DiscordBridgeDeps): BotChannelConnecti
   }
 
   function receiveMessage(message: DiscordMessage) {
-    if (closed() || !isAllowedDirectMessage(message, allowed, self)) return
+    if (closed() || !isHomeMessage(message, home, self)) return
     inbound
       .push(async () => {
         if (!closed()) await accept(message)
@@ -282,14 +267,11 @@ export function createDiscordBridge(deps: DiscordBridgeDeps): BotChannelConnecti
 
   async function answerCommand(invocation: DiscordCommandInvocation) {
     const locale = localeOf(invocation.locale)
-    if (invocation.guildId !== null) {
-      return invocation.respond({ content: directMessagesOnlyText(locale), ephemeral: true })
+    if (!here(invocation)) {
+      return invocation.respond({ content: notHomeText(locale), ephemeral: true })
     }
     if (invocation.name === PENDING_COMMAND.name) {
-      return invocation.respond(actions.pending(invocation.userId, invocation.locale))
-    }
-    if (!allowed.has(invocation.userId)) {
-      return invocation.respond({ content: notAllowedText(locale), ephemeral: true })
+      return invocation.respond(await actions.pending(invocation.userId, invocation.locale))
     }
     const command = link.commands.find((spec) => spec.id === invocation.name)
     if (command === undefined) {
@@ -319,7 +301,7 @@ export function createDiscordBridge(deps: DiscordBridgeDeps): BotChannelConnecti
       const ordered = [...page].sort((a, b) => compareSnowflakes(a.id, b.id))
       for (const message of ordered) {
         if (closed()) return
-        if (isAllowedDirectMessage(message, allowed, self)) await accept(message)
+        if (isHomeMessage(message, home, self)) await accept(message)
         after = message.id
       }
       if (page.length < MESSAGES_PAGE_LIMIT) return
@@ -357,6 +339,9 @@ export function createDiscordBridge(deps: DiscordBridgeDeps): BotChannelConnecti
   }
   link.signal.addEventListener("abort", onAbort, { once: true })
   if (link.activity() === "running") typing.start()
+  outbound
+    .push(async () => deps.adopt((await target.channel()).channelId))
+    .catch(warnUnlessClosed("could not take over the records of the messages at the home"))
   actions
     .start()
     .catch(warnUnlessClosed("could not bring the connector action messages up to date"))

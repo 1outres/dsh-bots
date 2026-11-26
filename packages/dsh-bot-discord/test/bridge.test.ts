@@ -9,14 +9,18 @@ import type {
   DiscordCommandResponse,
 } from "../src/host/discord"
 import type { FetchUrl } from "../src/host/download"
+import { homeOf } from "../src/host/home"
 import { openIncidentNotices } from "../src/host/incidents/records"
 import { PULSE_DELAY_MS, TYPING_INTERVAL_MS } from "../src/host/typing"
 import {
   ALLOWED,
   author,
+  channelMessage,
   directMessage,
   fakeActions,
   fakeLink,
+  GUILD,
+  HOME_CHANNEL,
   manualClock,
   memoryApprovalTables,
   memoryTable,
@@ -26,7 +30,7 @@ import {
 
 function setup(
   options: {
-    users?: readonly string[]
+    home?: string
     approvers?: readonly string[]
     actions?: Partial<DiscordActions>
     running?: boolean
@@ -35,12 +39,13 @@ function setup(
   } = {},
 ) {
   const clock = manualClock()
-  const link = fakeLink({
+  const settings = {
     token: "tok",
-    users: options.users ?? [ALLOWED],
-    approvers: options.approvers ?? [],
+    home: options.home ?? "dm",
+    approvers: options.approvers ?? [ALLOWED],
     language: options.language ?? "",
-  })
+  }
+  const link = fakeLink(settings)
   if (options.running === true) link.setActivity("running")
   const { actions, calls } = fakeActions(options.actions)
   const tables = memoryApprovalTables()
@@ -48,6 +53,8 @@ function setup(
   let disconnected = 0
   const connection = createDiscordBridge({
     link: link.link,
+    home: homeOf(settings),
+    adopt: async () => {},
     channelId: "discord",
     connect(supplied) {
       events = supplied
@@ -80,6 +87,7 @@ function setup(
       name: "status",
       userId: ALLOWED,
       guildId: null,
+      channelId: "dm-in",
       locale: "en-US",
       async respond(response) {
         responses.push(response)
@@ -105,8 +113,24 @@ function setup(
 }
 
 const typings = (calls: readonly string[]) => calls.filter((call) => call.startsWith("typing"))
-const without = (calls: readonly string[], prefix: string) =>
-  calls.filter((call) => !call.startsWith(prefix))
+/** The calls but the commands' registration, the DM opened for the home and the pending list (posted and pinned at the start). */
+const without = (calls: readonly string[], prefix: string) => {
+  const digests = new Set(
+    calls.flatMap((call) => {
+      const pinned = /^pin \S+ m(\d+)$/.exec(call)
+      return pinned === null ? [] : [Number(pinned[1]) - 1]
+    }),
+  )
+  return calls.filter(
+    (call, index) =>
+      !call.startsWith(prefix) &&
+      !call.startsWith("openDm") &&
+      !call.startsWith("pin ") &&
+      !digests.has(index),
+  )
+}
+const sends = (calls: readonly string[]) =>
+  without(calls, "commands").filter((call) => call.startsWith("send"))
 
 describe("Discord bridge: inbound", () => {
   it("delivers an allowed user's direct message and reacts with eyes once accepted", async () => {
@@ -256,46 +280,49 @@ describe("Discord bridge: inbound", () => {
 })
 
 describe("Discord bridge: outbound", () => {
-  it("sends the Main session's replies to every allowed user's DM, split to 2000", async () => {
-    const { reply, calls } = setup({ users: [ALLOWED, OTHER] })
+  it("sends the Main session's replies to the owner's DM, split to 2000", async () => {
+    const { reply, calls } = setup()
     await reply("x".repeat(2500))
-    const sends = calls.filter((call) => call.startsWith("send"))
-    expect(sends.map((call) => call.split(" ")[1])).toEqual([
-      `dm-${ALLOWED}`,
-      `dm-${ALLOWED}`,
-      `dm-${OTHER}`,
-      `dm-${OTHER}`,
-    ])
-    expect(sends.map((call) => call.split(" ")[2]?.length)).toEqual([2000, 500, 2000, 500])
+    const sent = sends(calls)
+    expect(sent.map((call) => call.split(" ")[1])).toEqual([`dm-${ALLOWED}`, `dm-${ALLOWED}`])
+    expect(sent.map((call) => call.split(" ")[2]?.length)).toEqual([2000, 500])
   })
 
   it("formats a reply's tables as code blocks", async () => {
     const { reply, calls } = setup()
     await reply("| a | b |\n|---|---|\n| 1 | 22 |")
-    expect(calls.filter((call) => call.startsWith("send"))).toEqual([
-      `send dm-${ALLOWED} \`\`\`\na | b\n--+---\n1 | 22\n\`\`\``,
-    ])
+    expect(sends(calls)).toEqual([`send dm-${ALLOWED} \`\`\`\na | b\n--+---\n1 | 22\n\`\`\``])
   })
 
-  it("replies in the DM channel a user wrote from, without opening another", async () => {
+  it("replies in the DM channel the owner wrote from", async () => {
     const { reply, calls, dm } = setup()
+    await settle()
     dm()
     await settle()
     await reply("answer")
     expect(calls).toContain("send dm-in answer")
+  })
+
+  it("posts everything to the home channel, never opening a DM, and takes anyone's message there", async () => {
+    const { reply, calls, dm, link } = setup({ home: `${GUILD}:${HOME_CHANNEL}` })
+    dm(channelMessage({ author: author(OTHER) }))
+    dm(directMessage())
+    await settle()
+    await reply("answer")
+    expect(link.delivered.map((message) => message.place)).toEqual([
+      { kind: "channel", channel: "general", server: "Team" },
+    ])
+    expect(calls).toContain(`send ${HOME_CHANNEL} answer`)
     expect(calls.some((call) => call.startsWith("openDm"))).toBe(false)
   })
 
-  it("uploads a file with its caption to every allowed user, and fails when Discord refuses all", async () => {
-    const { receive, calls } = setup({ users: [ALLOWED, OTHER] })
+  it("uploads a file with its caption to the home, and fails when Discord refuses it", async () => {
+    const { receive, calls } = setup()
     await receive({
       kind: "file",
       file: { name: "r.pdf", data: new Uint8Array(3), caption: "here" },
     })
-    expect(calls.filter((call) => call.startsWith("send"))).toEqual([
-      `send dm-${ALLOWED} here [r.pdf 3]`,
-      `send dm-${OTHER} here [r.pdf 3]`,
-    ])
+    expect(sends(calls)).toEqual([`send dm-${ALLOWED} here [r.pdf 3]`])
     const refused = setup({
       actions: {
         async send() {
@@ -318,7 +345,7 @@ describe("Discord bridge: outbound", () => {
         caption: `${"a".repeat(1500)} ${"b".repeat(1500)}`,
       },
     })
-    expect(calls.filter((call) => call.startsWith("send"))).toEqual([
+    expect(sends(calls)).toEqual([
       `send dm-${ALLOWED} ${"a".repeat(1500)}`,
       `send dm-${ALLOWED} ${"b".repeat(1500)} [r.pdf 3]`,
     ])
@@ -356,15 +383,13 @@ describe("Discord bridge: outbound", () => {
     await english.turn({ phase: "failed", message: "429 Too Many Requests" })
     await english.turn({ phase: "completed" })
     await english.turn({ phase: "cancelled", by: "user" })
-    expect(english.calls.filter((call) => call.startsWith("send"))).toEqual([
+    expect(sends(english.calls)).toEqual([
       `send dm-${ALLOWED} ⚠️ The reply failed: 429 Too Many Requests`,
       `send dm-${ALLOWED} ⏹️ Stopped.`,
     ])
     const japanese = setup({ language: "ja" })
     await japanese.turn({ phase: "cancelled", by: "system" })
-    expect(japanese.calls.filter((call) => call.startsWith("send"))).toEqual([
-      `send dm-${ALLOWED} ⏹️ 応答が中断されました。`,
-    ])
+    expect(sends(japanese.calls)).toEqual([`send dm-${ALLOWED} ⏹️ 応答が中断されました。`])
   })
 
   it("keeps the DMs typing while a turn runs, and stops when it ends", async () => {
@@ -396,6 +421,7 @@ describe("Discord bridge: outbound", () => {
     const { reply, turn, calls } = setup({
       actions: {
         async send(channelId, message) {
+          if (message.content !== "working") return "digest"
           await new Promise<void>((resolve) => {
             release = resolve
           })
@@ -423,7 +449,7 @@ describe("Discord bridge: outbound", () => {
 })
 
 describe("Discord bridge: interactions", () => {
-  it("posts an opened interaction to every allowed DM, in order with replies, and closes it", async () => {
+  it("posts an opened interaction to the home, in order with replies, and closes it", async () => {
     const { receive, reply, calls } = setup()
     await reply("Let me ask.")
     await receive({
@@ -435,7 +461,7 @@ describe("Discord bridge: interactions", () => {
       closure: { id: "p1", kind: "plan-review", resolution: { kind: "withdrawn" } },
     })
     await settle()
-    const posted = calls.filter((call) => /^(send|edit)/.test(call))
+    const posted = without(calls, "commands").filter((call) => /^(send|edit)/.test(call))
     expect(posted.slice(0, 3)).toEqual([
       `send dm-${ALLOWED} Let me ask.`,
       `send dm-${ALLOWED} **Plan review**\n\n# Plan`,
@@ -482,18 +508,33 @@ describe("Discord bridge: commands", () => {
     expect(responses.at(-1)).toEqual({ content: "⏹️ Stopping the current turn.", ephemeral: false })
   })
 
-  it("refuses other users, servers and unknown commands privately, running nothing", async () => {
+  it("refuses commands away from the home and unknown ones privately, running nothing", async () => {
     const { link, command, responses } = setup()
     command({ userId: OTHER })
-    command({ guildId: "g1" })
+    command({ guildId: GUILD, channelId: HOME_CHANNEL })
     command({ name: "reboot" })
     await settle()
     expect(link.commands).toEqual([])
+    const away = {
+      content: "This bot is used in its home only (the channel or the DM its settings name).",
+      ephemeral: true,
+    }
     expect(responses).toEqual([
-      { content: "You are not allowed to use this bot.", ephemeral: true },
-      { content: "This bot's commands work in its direct messages only.", ephemeral: true },
+      away,
+      away,
       { content: "This command is not offered any more.", ephemeral: true },
     ])
+  })
+
+  it("takes commands in the home channel from anyone, and refuses them in DMs and other channels", async () => {
+    const { link, command, responses } = setup({ home: `${GUILD}:${HOME_CHANNEL}` })
+    command({ userId: OTHER, guildId: GUILD, channelId: HOME_CHANNEL })
+    command({ guildId: null, channelId: "dm-in" })
+    command({ guildId: GUILD, channelId: "555555555555555555" })
+    await settle()
+    expect(link.commands).toEqual(["status"])
+    expect(responses.filter((response) => response.ephemeral)).toHaveLength(2)
+    expect(responses.filter((response) => !response.ephemeral)).toHaveLength(1)
   })
 })
 

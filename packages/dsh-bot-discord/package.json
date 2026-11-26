@@ -1,7 +1,7 @@
 {
   "name": "@1outres/dsh-bot-discord",
   "version": "0.4.1",
-  "description": "Connects each bot of DeepSeek Harness to its own Discord bot: direct messages from allowed users reach the bot's Main session, and its replies come back.",
+  "description": "Connects each bot of DeepSeek Harness to its own Discord bot at one home (direct messages with its owner, or a server channel): messages there reach the bot's Main session, and its replies come back.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/1outres/dsh-bots.git",

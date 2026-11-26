@@ -147,8 +147,3 @@ export function renderActionCard(
 export function goneCard(locale: DiscordLocale): DiscordMessageEdit {
   return { content: actionText("gone", locale), components: [] }
 }
-
-/** What a card becomes in the DM of someone who is no longer an approver: no preview stays. */
-export function withdrawnCard(locale: DiscordLocale): DiscordMessageEdit {
-  return { content: actionText("withdrawn", locale), embeds: [], components: [] }
-}

@@ -6,7 +6,7 @@ import {
   isActionCustomId,
 } from "../src/host/actions/custom-id"
 import { createActionPresenter } from "../src/host/actions/presenter"
-import { openApprovalRecords } from "../src/host/actions/records"
+import { adoptApprovalRecords, openApprovalRecords } from "../src/host/actions/records"
 import { codeBlock, literal, renderActionCard } from "../src/host/actions/render"
 import { createDiscordBridge } from "../src/host/bridge"
 import type { DiscordSessionEvents } from "../src/host/connection"
@@ -17,12 +17,19 @@ import type {
   DiscordComponentPress,
   DiscordMessageEdit,
 } from "../src/host/discord"
+import type { DiscordSettings } from "../src/host/fields"
+import { atHome, homeOf } from "../src/host/home"
+import { createHomeTarget } from "../src/host/home-target"
 import { openIncidentNotices } from "../src/host/incidents/records"
 import { createSerialQueue } from "../src/host/queue"
 import {
   ALLOWED,
+  CHANNEL_SETTINGS,
+  DM_SETTINGS,
   fakeActions,
   fakeLink,
+  GUILD,
+  HOME_CHANNEL,
   manualClock,
   memoryApprovalTables,
   memoryTable,
@@ -86,22 +93,24 @@ function press(overrides: Partial<DiscordComponentPress> = {}) {
 }
 
 function setup(
-  approvers = [ALLOWED],
   options: {
     tables?: ReturnType<typeof memoryApprovalTables>
     actions?: Partial<DiscordActions>
+    settings?: DiscordSettings
   } = {},
 ) {
-  const link = fakeLink({ token: "t", users: [ALLOWED], approvers, language: "" })
+  const settings = options.settings ?? DM_SETTINGS
+  const link = fakeLink(settings)
   const { actions, calls } = fakeActions(options.actions)
   const tables = options.tables ?? memoryApprovalTables()
   const warnings: string[] = []
+  const home = homeOf(settings)
   const presenter = createActionPresenter({
     link: link.link,
     actions,
     records: openApprovalRecords(tables, "b1"),
-    approvers,
-    recipients: async () => approvers.map((userId) => ({ userId, channelId: `dm-${userId}` })),
+    home: createHomeTarget(home, actions.openDm),
+    atHome: (place) => atHome(home, place),
     locale: "en",
     self: "discord",
     outbound: createSerialQueue(),
@@ -225,19 +234,18 @@ describe("connector action cards", () => {
 })
 
 describe("connector action presenter", () => {
-  it("posts a pending action to every approver's DM and follows it until it ends", async () => {
-    const { calls, emit, tables } = setup([ALLOWED, OTHER])
+  it("posts a pending action once at the home and follows it until it ends", async () => {
+    const { calls, emit, tables } = setup({ settings: CHANNEL_SETTINGS })
     await emit(action())
     expect(calls.filter((call) => call.startsWith("send") && call.includes("⏳"))).toEqual([
-      `send dm-${ALLOWED} ⏳ Waiting for your decision; it expires <t:1700003600:R>.`,
-      `send dm-${OTHER} ⏳ Waiting for your decision; it expires <t:1700003600:R>.`,
+      `send ${HOME_CHANNEL} ⏳ Waiting for your decision; it expires <t:1700003600:R>.`,
     ])
-    expect(tables.cards.map.size).toBe(2)
+    expect([...tables.cards.map.keys()]).toEqual(["b1:act-1a2b3c"])
     await emit(action({ state: "executing", decision: decision(), startedAt: 5 }))
     await emit(action({ state: "cancelled", finishedAt: 6 }))
     await emit(action({ state: "cancelled", finishedAt: 6 }))
     const edits = cardCalls(calls).filter((call) => call.startsWith("edit"))
-    expect(edits).toHaveLength(4)
+    expect(edits).toHaveLength(2)
     expect(edits.at(-1)).toContain("↩️ The bot cancelled it")
     expect(tables.cards.map.size).toBe(0)
   })
@@ -251,12 +259,12 @@ describe("connector action presenter", () => {
     expect(calls.filter((call) => call.includes("⏳"))).toEqual([])
   })
 
-  it("edits the cards an earlier connection posted instead of posting them again", async () => {
+  it("edits the card an earlier connection posted instead of posting it again", async () => {
     const tables = memoryApprovalTables()
-    const first = setup([ALLOWED], { tables })
+    const first = setup({ tables })
     await first.emit(action())
     const posted = [...tables.cards.map.values()]
-    const second = setup([ALLOWED], { tables })
+    const second = setup({ tables })
     second.link.keep(action())
     await second.presenter.start()
     await second.presenter.received(action())
@@ -268,10 +276,10 @@ describe("connector action presenter", () => {
 
   it("brings up to date the cards of actions that ended or were dropped while it was away", async () => {
     const tables = memoryApprovalTables()
-    const first = setup([ALLOWED], { tables })
+    const first = setup({ tables })
     await first.emit(action())
     await first.emit({ ...action(), id: "act-2" })
-    const second = setup([ALLOWED], { tables })
+    const second = setup({ tables })
     second.link.keep(action({ state: "expired", finishedAt: 9 }))
     await second.presenter.start()
     const edits = second.calls.filter((call) => call.startsWith("edit"))
@@ -282,9 +290,9 @@ describe("connector action presenter", () => {
 
   it("posts a pending action's card again when it was deleted in Discord", async () => {
     const tables = memoryApprovalTables()
-    const first = setup([ALLOWED], { tables })
+    const first = setup({ tables })
     await first.emit(action())
-    const second = setup([ALLOWED], {
+    const second = setup({
       tables,
       actions: {
         async edit() {
@@ -298,39 +306,40 @@ describe("connector action presenter", () => {
     ])
   })
 
-  it("withdraws the cards and removes the list of someone who is no longer an approver", async () => {
+  it("adopts the version 2 records of the home's DM under the home's keys and forgets the others", async () => {
     const tables = memoryApprovalTables()
-    const first = setup([ALLOWED, OTHER], { tables })
-    await first.emit(action())
-    const second = setup([ALLOWED], { tables })
-    second.link.keep(action())
-    await second.presenter.start()
-    expect(second.calls).toContainEqual(
-      expect.stringMatching(new RegExp(`^edit dm-${OTHER} \\S+ This card was withdrawn`)),
-    )
-    expect(second.calls).toContainEqual(expect.stringMatching(new RegExp(`^remove dm-${OTHER} `)))
-    const owners = (map: Map<string, { userId: string }>) => [
-      ...new Set([...map.values()].map((record) => record.userId)),
-    ]
-    expect(owners(tables.cards.map)).toEqual([ALLOWED])
-    expect(owners(tables.digests.map)).toEqual([ALLOWED])
-  })
-
-  it("forgets cards and lists in a DM this bot can no longer reach (a new token)", async () => {
-    const tables = memoryApprovalTables()
-    await tables.cards.put(`b1:act-1a2b3c:${ALLOWED}`, {
+    const v2 = (userId: string, channelId: string) => ({
       botId: "b1",
       actionId: "act-1a2b3c",
-      userId: ALLOWED,
-      channelId: "dm-old",
-      messageId: "m-old",
+      userId,
+      channelId,
+      messageId: `m-${userId}`,
     })
-    const { presenter, link, calls } = setup([ALLOWED], { tables })
-    link.keep(action())
-    await presenter.start()
-    await presenter.received(action())
-    expect(calls.some((call) => call.includes("m-old"))).toBe(false)
-    expect([...tables.cards.map.values()].map((card) => card.channelId)).toEqual([`dm-${ALLOWED}`])
+    await tables.cards.put(`b1:act-1a2b3c:${ALLOWED}`, v2(ALLOWED, `dm-${ALLOWED}`))
+    await tables.cards.put(`b1:act-1a2b3c:${OTHER}`, v2(OTHER, `dm-${OTHER}`))
+    await tables.cards.put("b2:act-9:x", { ...v2(OTHER, "dm-x"), botId: "b2", actionId: "act-9" })
+    await tables.digests.put(`b1:${OTHER}`, {
+      botId: "b1",
+      userId: OTHER,
+      channelId: `dm-${OTHER}`,
+      messageId: "d-other",
+      pin: "pinned",
+    } as never)
+    await tables.digests.put(`b1:${ALLOWED}`, {
+      botId: "b1",
+      userId: ALLOWED,
+      channelId: `dm-${ALLOWED}`,
+      messageId: "d-owner",
+      pin: "pinned",
+    } as never)
+    await adoptApprovalRecords(tables, "b1", `dm-${ALLOWED}`)
+    expect([...tables.cards.map.keys()].sort()).toEqual(["b1:act-1a2b3c", "b2:act-9:x"])
+    expect(tables.cards.map.get("b1:act-1a2b3c")?.messageId).toBe(`m-${ALLOWED}`)
+    expect([...tables.digests.map.keys()]).toEqual(["b1"])
+    expect(tables.digests.map.get("b1")?.messageId).toBe("d-owner")
+    await adoptApprovalRecords(tables, "b1", HOME_CHANNEL)
+    expect([...tables.cards.map.keys()]).toEqual(["b2:act-9:x"])
+    expect(tables.digests.map.size).toBe(0)
   })
 
   it("takes a decision through the link and shows the action as it now stands", async () => {
@@ -350,10 +359,11 @@ describe("connector action presenter", () => {
   })
 
   it("tells only the person who may not decide, and leaves the card as it is", async () => {
-    const { link, presenter } = setup()
+    const { link, presenter } = setup({ settings: CHANNEL_SETTINGS })
     link.decideWith(() => ({ accepted: false, reason: "not-approver" }))
-    const pressed = press({ userId: OTHER, locale: "ja" })
+    const pressed = press({ userId: OTHER, locale: "ja", guildId: GUILD, channelId: HOME_CHANNEL })
     await presenter.press(pressed.value)
+    expect(link.decisions).toHaveLength(1)
     expect(pressed.updates).toEqual([])
     expect(pressed.replies).toEqual([
       {
@@ -382,9 +392,9 @@ describe("connector action presenter", () => {
     })
   })
 
-  it("refuses a press outside the DMs without deciding", async () => {
+  it("refuses a press away from the home without deciding", async () => {
     const { link, presenter } = setup()
-    const pressed = press({ guildId: "g1" })
+    const pressed = press({ guildId: GUILD, channelId: HOME_CHANNEL })
     await presenter.press(pressed.value)
     expect(link.decisions).toEqual([])
     expect(pressed.replies[0]?.ephemeral).toBe(true)
@@ -392,13 +402,18 @@ describe("connector action presenter", () => {
 })
 
 describe("Discord bridge: connector actions", () => {
-  it("routes action outputs to the approvers' DMs and their buttons to the link", async () => {
+  it("routes action outputs to the home channel and its buttons to the link", async () => {
     const clock = manualClock()
-    const link = fakeLink({ token: "t", users: [ALLOWED], approvers: [OTHER], language: "" })
+    const link = fakeLink(CHANNEL_SETTINGS)
     const { actions, calls } = fakeActions()
     let events: DiscordSessionEvents | undefined
+    const adopted: string[] = []
     const bridge = createDiscordBridge({
       link: link.link,
+      home: homeOf(CHANNEL_SETTINGS),
+      adopt: async (channelId) => {
+        adopted.push(channelId)
+      },
       channelId: "discord",
       connect(supplied) {
         events = supplied
@@ -413,10 +428,11 @@ describe("Discord bridge: connector actions", () => {
     events?.ready({ id: "self", tag: "bot" })
     link.keep(action())
     await bridge.receive({ kind: "connector-action", action: action() })
+    expect(adopted).toEqual([HOME_CHANNEL])
     expect(calls.filter((call) => call.startsWith("send") && call.includes("⏳"))).toEqual([
-      `send dm-${OTHER} ⏳ Waiting for your decision; it expires <t:1700003600:R>.`,
+      `send ${HOME_CHANNEL} ⏳ Waiting for your decision; it expires <t:1700003600:R>.`,
     ])
-    const pressed = press({ userId: OTHER, channelId: `dm-${OTHER}` })
+    const pressed = press({ userId: OTHER, guildId: GUILD, channelId: HOME_CHANNEL })
     events?.component(pressed.value)
     await settle()
     expect(link.decisions).toEqual([{ actionId: "act-1a2b3c", decision: "approve", person: OTHER }])
