@@ -162,7 +162,10 @@ export async function checkEndpoint(
   signal?: AbortSignal,
 ): Promise<EndpointCheck> {
   const { incus, project } = target
-  const projectFix = "create a project for dsh-bots as docs/specs/incus-endpoint.md §3.4 shows"
+  const projectFix =
+    target.kind === "local"
+      ? "prepare this machine as a VM host with dsh-bots' install.sh (DSH runs on this machine)"
+      : "prepare the VM host with dsh-bots' install.sh, or have the Incus server's administrator run infra/incus/create-project.sh"
   if (project === "default") {
     return {
       ok: false,
@@ -187,7 +190,7 @@ export async function checkEndpoint(
           message: `the Incus API does not answer: ${messageOf(error)}`,
           fix:
             target.kind === "local"
-              ? "check that Incus runs and that the DSH user is in the incus-admin group"
+              ? "check that Incus runs and that the DSH user is in the incus-admin group (install.sh adds it; restart DSH afterwards)"
               : "check that the VM host is up and its core.https_address is reachable from here",
         },
       ],

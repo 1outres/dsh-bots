@@ -63,6 +63,8 @@ const CLIENT_AUTH = "1.3.6.1.5.5.7.3.2"
 const SERVER_AUTH = "1.3.6.1.5.5.7.3.1"
 
 const VALIDITY_YEARS = 10
+/** How far a VM host's clock may be behind this one: the certificate is valid from that long ago. */
+const CLOCK_SKEW_MS = 24 * 60 * 60 * 1000
 
 export interface IdentityOptions {
   readonly commonName: string
@@ -75,6 +77,7 @@ export function createSelfSignedIdentity(options: IdentityOptions): ClientIdenti
   const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "secp384r1" })
   const algorithm = sequence(oid(ECDSA_SHA384))
   const name = sequence(set(sequence(oid(COMMON_NAME), utf8(options.commonName))))
+  const notBefore = new Date(options.now.getTime() - CLOCK_SKEW_MS)
   const notAfter = new Date(options.now)
   notAfter.setUTCFullYear(notAfter.getUTCFullYear() + VALIDITY_YEARS)
   const extension = (id: string, critical: boolean, value: Buffer) =>
@@ -84,7 +87,7 @@ export function createSelfSignedIdentity(options: IdentityOptions): ClientIdenti
     integer(Buffer.concat([Buffer.from([0x01]), randomBytes(15)])),
     algorithm,
     name,
-    sequence(time(options.now), time(notAfter)),
+    sequence(time(notBefore), time(notAfter)),
     name,
     publicKey.export({ type: "spki", format: "der" }),
     explicit(

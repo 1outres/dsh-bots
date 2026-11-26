@@ -2,6 +2,7 @@
 # For the author: export the built base image for a GitHub Release.
 #
 # Usage: ./export-image.sh <tag> [<out dir>]     (as a user that can talk to Incus)
+# Exports the image ALIAS (dsh-bot-base) of PROJECT (dsh-bots), as build-base-image.sh left it.
 # Writes into <out dir> (default ./dist/<tag>): the image split into parts below
 # GitHub's 2 GiB asset limit and manifest.txt, and sets IMAGE_TAG and
 # IMAGE_MANIFEST_SHA256 in infra/release.env and in the plugin that imports the
@@ -22,14 +23,15 @@ trap on_error ERR
 TAG=${1:?usage: export-image.sh <tag> [<out dir>]}
 OUT=${2:-$PWD/dist/$TAG}
 ALIAS=${ALIAS:-dsh-bot-base}
+PROJECT=${PROJECT:-dsh-bots}
 PART_BYTES=$((1900 * 1024 * 1024))
 RELEASE_ENV=$HERE/../release.env
 PLUGIN_RELEASE=$HERE/../../packages/dsh-bot-vm/src/host/image/release-env.ts
 
 [[ $TAG =~ ^[A-Za-z0-9._-]+$ ]] || fail "Tag $TAG has characters a release tag cannot have." "Use letters, digits, dot, dash, underscore."
-fp=$(alias_target "$ALIAS")
+fp=$(alias_target "$PROJECT" "$ALIAS")
 [[ -n $fp ]] || fail "There is no image alias $ALIAS." "Build it with build-base-image.sh."
-version=$(incus query "/1.0/images/$fp" | sed -n 's/^[[:space:]]*"dsh.version": "\([^"]*\)".*/\1/p')
+version=$(incus query "/1.0/images/$fp?project=$PROJECT" | sed -n 's/^[[:space:]]*"dsh.version": "\([^"]*\)".*/\1/p')
 [[ $version == "$DSH_VERSION" ]] ||
   fail "$ALIAS was built for DSH ${version:-unknown}, release.env says $DSH_VERSION." "Rebuild the image with build-base-image.sh."
 
@@ -39,7 +41,7 @@ work=$(mktemp -d "$OUT/.export.XXXXXX")
 trap 'rm -rf "$work"' EXIT
 
 log "Exporting $ALIAS ($fp)"
-incus image export "$fp" "$work/"
+incus image export --project "$PROJECT" "$fp" "$work/"
 mapfile -t exported < <(find "$work" -maxdepth 1 -type f)
 ((${#exported[@]} == 1)) || fail "Incus exported ${#exported[@]} files, not one unified image." "Publish the image as a unified tarball (build-base-image.sh does)."
 file=${exported[0]}

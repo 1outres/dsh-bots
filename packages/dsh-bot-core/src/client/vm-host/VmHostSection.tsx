@@ -110,7 +110,7 @@ function VmHostBody(props: Props & { readonly view: EnvironmentHostSettingsView 
             />
           }
         />
-        <PlacementRows {...props} placement={placement} />
+        {!pairing && <PlacementRows {...props} placement={placement} />}
         {remote && !pairing && (
           <>
             <ButtonRow
@@ -147,7 +147,23 @@ function VmHostBody(props: Props & { readonly view: EnvironmentHostSettingsView 
         />
       )}
       {failure !== null && <ErrorText>{failure}</ErrorText>}
-      <CheckGroup t={t} check={view.check} onCheck={() => run(() => props.host.check())} />
+      {!pairing && <PlacedGroups {...props} view={view} run={run} onFailure={setFailure} />}
+    </div>
+  )
+}
+
+/** What belongs to the VM host in use: its check, isolation, left VM hosts and base image. */
+function PlacedGroups(
+  props: Props & {
+    readonly view: EnvironmentHostSettingsView
+    run(work: () => Promise<unknown>): void
+    onFailure(message: string): void
+  },
+) {
+  const { t, view } = props
+  return (
+    <>
+      <CheckGroup t={t} check={view.check} onCheck={() => props.run(() => props.host.check())} />
       <EgressGroup t={t} check={view.check} reports={view.egress} />
       {view.released.length > 0 && (
         <Group title={t("released.title")} marks={{ "data-dshb-vm-host-released": "" }}>
@@ -162,9 +178,9 @@ function VmHostBody(props: Props & { readonly view: EnvironmentHostSettingsView 
         </Group>
       )}
       {view.image !== undefined && (
-        <ImageGroup t={t} image={view.image} host={props.host} onFailure={setFailure} />
+        <ImageGroup t={t} image={view.image} host={props.host} onFailure={props.onFailure} />
       )}
-    </div>
+    </>
   )
 }
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Spike: incusd restart with live SSH on each path, left alone until incusd finishes on its own.
-cd /tmp/dsh-spike
+cd /tmp/dsh-spike || exit
 ts() { date +%s.%N; }
 for a in spk-a spk-a-local spk-a-vsock; do
   (bin/ssh $a 'while true; do date +%s; sleep 1; done' > live2-$a.log 2>&1; echo "exit=$? at $(date +%s.%N)" >> live2-$a.log) &
@@ -12,7 +12,7 @@ for i in $(seq 1 400); do
   s=$(systemctl is-active incus.service)
   if [ "$s" != "$last" ]; then echo "t+$(awk "BEGIN{print $(ts)-$T0}")s incus.service=$s"; last=$s; fi
   if [ $((i % 10)) = 0 ] && [ "$s" = deactivating ]; then r=$(timeout 5 incus list --project dsh-spike -f csv -c n 2>&1 | head -1); echo "t+$(awk "BEGIN{print $(ts)-$T0}")s api during stop: $r"; timeout 8 bin/ssh spk-a-local true 2>/dev/null && echo "  new exec ssh during stop: ok" || echo "  new exec ssh during stop: failed"; fi
-  [ "$s" = active ] && [ $i -gt 3 ] && break
+  [ "$s" = active ] && [ "$i" -gt 3 ] && break
   sleep 1
 done
 for a in spk-a spk-a-local spk-a-vsock; do

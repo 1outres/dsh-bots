@@ -63,6 +63,15 @@ describe("self-signed client identity", () => {
     expect(certificateFingerprint(made.certificate)).toBe(made.fingerprint)
     expect(Date.parse(certificate.validTo) - Date.now()).toBeGreaterThan(9 * 365 * 24 * 3_600_000)
   })
+
+  it("is valid from a day back, for a VM host whose clock is behind", async () => {
+    const { X509Certificate } = await import("node:crypto")
+    const now = new Date("2026-11-26T05:14:36.900Z")
+    const made = createSelfSignedIdentity({ commonName: "dsh-bots@test", now, usage: "client" })
+    const validFrom = Date.parse(new X509Certificate(made.certificate).validFrom)
+    expect(now.getTime() - validFrom).toBeGreaterThanOrEqual(24 * 3_600_000)
+    expect(now.getTime() - validFrom).toBeLessThan(24 * 3_600_000 + 1_000)
+  })
 })
 
 describe("HTTPS transport with a pinned server certificate", () => {

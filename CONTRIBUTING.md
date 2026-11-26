@@ -18,7 +18,7 @@ pnpm lint
 pnpm test
 ```
 
-Install a local checkout into DSH with **Plugins** > **Add plugin**, giving the directory of `packages/dsh-bots` or of a single plugin package.
+Install a local checkout into DSH with **Plugins** > **Add plugin**, giving the directory of `packages/dsh-bots` or of a single plugin package. The bots' VMs need a VM host: prepare one with `install.sh` (on this machine with `DSH_BOTS_ACCESS=local`, or a throw-away VM) and choose it in dsh-bots settings → VM host; [infra/vm/README.md](infra/vm/README.md) describes what it sets up, [docs/specs/installer.md](docs/specs/installer.md) the installer, and `infra/incus/create-project.sh` the project for an Incus server that runs other things.
 
 ## Packages
 
@@ -80,4 +80,4 @@ bot-core does everything that is not specific to the channel (bot-core's README,
 
 ## Releasing
 
-[infra/RELEASING.md](infra/RELEASING.md) has the steps (npm packages, the base image on GitHub Releases, `infra/release.env`).
+[infra/RELEASING.md](infra/RELEASING.md) has the steps (npm packages, the base image on GitHub Releases, `infra/release.env`, the README's plugin version).

@@ -1,6 +1,6 @@
 /**
  * Importing a base image release into the Incus project
- * (docs/specs/incus-endpoint.md §5.5), as strict as install.sh's image step:
+ * (docs/specs/incus-endpoint.md §5.5):
  * the manifest's sha256 is the release's, every part has its size and sha256,
  * the joined image has the manifest's sha256 and Incus computes that same
  * fingerprint; only then does the alias move.

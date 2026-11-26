@@ -70,7 +70,7 @@
 
 ## 7. infra
 
-- `infra/vm/host-setup.sh` のプロファイルの値（2 vCPU / 2 GiB / 10 GiB）は変えない。bot-vm が作る VM はすべて自身の設定でスペックを持つので、プロファイルの値が効くのは root のプールと、bot-vm 以外で作る VM（`create-bot-vm.sh` など）だけ。既定を変えても bot の VM には効かず、ライブのプロファイルを変える理由にもならない。
+- VM ホストにプロファイルは無い（0.4.0、docs/specs/incus-endpoint.md §3.4）。bot-vm が作る VM はスペック・root のプール・NIC をすべてインスタンス自身の設定に書く。
 
 ## 8. 作成時のスペック（2026-11-24、`feat/core-portability`）
 

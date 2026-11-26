@@ -1,163 +1,129 @@
-# インストーラ（install.sh）
+# インストーラ（install.sh）: VM ホストの準備
 
-作者のホスト以外の Linux x86_64 で、次の 1 行から dsh-bots のプラグインが使える状態まで進める。
+ボットの VM を動かすマシン（VM ホスト）を、次の 1 行で dsh-bots が使える状態にする。DSH のホストではインストーラを使わない（プラグインを入れて設定画面で VM ホストを選ぶだけ。docs/specs/incus-endpoint.md §2、§3）。
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/1outres/dsh-bots/main/install.sh | bash
 ```
 
-main の `install.sh` は入口だけで、最新の公開済みリリースのソースを取ってその `install.sh` を実行する（§8、§11）。
+main の `install.sh` は入口だけで、最新の公開済みリリースのソースを取ってその `install.sh` を実行する（§7、§10）。
 
 ## 1. 対象と前提
 
-- CPU: x86_64 のみ。KVM が使えること（`/dev/kvm`）。
-- OS: Debian 12/13、Ubuntu 24.04、Fedora 42 以上、Arch Linux、NixOS。それぞれ WSL2 上でもよい。init は systemd。RHEL/Rocky/Alma 9・10 は対象外（§3）。
-- DSH は入っている前提。`dsh` が PATH に無い、または版が `packages/dsh-bots/package.json` の `engines.dsh`（検証済みの版ちょうど）と違うときは、要る版を示して止まる。
-- 一般ユーザで実行する（DSH を動かすユーザ = `DSH_USER`）。root 権限は sudo で 1 回だけ求める。root で直接実行したときは `DSH_USER` の指定が要る。
+- CPU: x86_64 のみ。KVM が使えること（`/dev/kvm`）。init は systemd。
+- OS（VM ホスト）: Debian 13 / 12、Ubuntu 24.04、Fedora 42 以上。ほかは理由を示してステップ 1 で止まる（§3）。
+- 形（docs/specs/incus-endpoint.md §2）をステップ 2 で選ぶ:
+  - `local`（形 1）: DSH が同じマシンで動く。DSH を動かすユーザで実行し（root では止まる）、そのユーザを `incus-admin` に入れる（Unix ソケット）。
+  - `remote`（形 2）: DSH は別のマシン。`core.https_address` を開け、project に限った trust token を最後に表示する。root で実行してもよい。
+- root 権限は sudo で 1 回だけ求める（root で実行したときは求めない）。
+- DSH・Node・pnpm は確かめない（VM ホストには要らない）。
+- 形 3（他の用途の Incus サーバ）は `install.sh` を使わず、管理者が `infra/incus/create-project.sh`（§6）。
 
 ## 2. ステップ
 
-| #   | 表示                       | 内容                                                                                                                                              | root |
-| --- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ---- |
-| 1   | Checking system            | アーキテクチャ、OS の判別、systemd が PID 1、`/dev/kvm`、WSL2 の条件（§4）、空き容量                                                              | –    |
-| 2   | Checking DSH               | `dsh --version` が要る版か、`node` と `pnpm`（`dsh plugin` が使う）があるか、どのプロファイルに入れるか（§6）、同じ行を入れる別のバンドルが無いか | –    |
-| 3   | Installing packages        | OS ごとのパッケージ（§3）。NixOS はモジュールを書き出して止まる（root 不要）                                                                      | ✓    |
-| 4   | Configuring Incus          | サービス、ストレージプール、ブリッジ、ACL、プロファイル、`incus-admin` グループ                                                                   | ✓    |
-| 5   | Checking the firewall      | FORWARD を落とす他のファイアウォール（§5）                                                                                                        | ✓    |
-| 6   | Preparing workspaces       | ボットの共有ディレクトリの bind mount（nosuid,nodev,nosymfollow）、`~/.ssh/config` の Include                                                     | ✓    |
-| 7   | Downloading the base image | GitHub Releases から分割ファイルを取得、sha256 を検査、`incus image import`、別名 `dsh-bot-base`                                                  | ✓    |
-| 8   | Installing plugins         | `dsh plugin --profile <p> add @1outres/dsh-bots@<版>`                                                                                             | –    |
-| 9   | Testing a VM               | 一時 VM を起動し、vsock で sshd が答えること、VM から HTTPS が通ることを見て消す                                                                  | ✓    |
+| #   | 表示                            | 内容                                                                                                     | root |
+| --- | ------------------------------- | -------------------------------------------------------------------------------------------------------- | ---- |
+| 1   | Checking system                 | アーキテクチャ、VM ホストになれる OS か（§3）、systemd が PID 1、`/dev/kvm`、空き容量                    | –    |
+| 2   | Choosing where DSH runs         | `DSH_BOTS_ACCESS`（`local` / `remote`）、無ければ前回の選択、無ければ尋ねる（端末が無ければ止まる）      | –    |
+| 3   | Installing packages             | OS ごとのパッケージ（§3）、`vhost_vsock`（exec が incus-agent に vsock で届く）、Incus 6.0.4 以上と qemu | ✓    |
+| 4   | Configuring Incus               | ストレージプール、ブリッジ、ACL、project（docs/specs/incus-endpoint.md §3.4、プロファイルは作らない）    | ✓    |
+| 5   | Checking the firewall           | FORWARD を落とす他のファイアウォール（§4）                                                               | ✓    |
+| 6   | Letting DSH use Incus（local）  | DSH のユーザを `incus-admin` に入れる                                                                    | ✓    |
+| 6   | Issuing a trust token（remote） | `core.https_address`（未設定なら `:8443`）、ufw / firewalld でそのポート、制限付き token の発行          | ✓    |
 
-ステップ 3〜6 の中身は `infra/vm/host-setup.sh <phase>`（`packages` / `incus` / `firewall` / `workspaces`、`all` は全部）。host-setup.sh は root で非対話・冪等に動く単体のスクリプトで、作者が直接使ってもよい。インストーラは各ステップで「済んでいるか」を先に調べ、済んでいれば何もしない。
+中身は `infra/vm/host-setup.sh <phase>`（`packages` / `incus` / `firewall` / `all` / `local` / `remote`）。host-setup.sh は root で非対話・冪等に動く単体のスクリプトで、直接使ってもよい。Incus の資源（ACL、ブリッジ、project、token）の作り方は `infra/incus/objects.sh` にあり、形 3 のスクリプトと共有する。
+
+完了時:
+
+- local: DSH の画面で「dsh-bots の設定 → VM ホスト → このマシン」を選ぶよう示す。グループに加えたときは DSH の再起動（シェルから起動するならログインし直し）を、プラグインの入れ方（`dsh plugin --profile <p> add @1outres/dsh-bots@<版>` か Plugins 画面）と合わせて示す。
+- remote: token を表示し、「dsh-bots の設定 → VM ホスト → 別のマシン」に貼るよう示す。token はログに書かない（root が書く一時ファイル `~/.local/state/dsh-bots/.token.*` を経て表示し、終了時に消す）。再実行すると同じ名前の未使用の token を取り消して新しく出す。
+- イメージの取り込み、VM の起動の確認は無い。プラグインが画面で行う（docs/specs/incus-endpoint.md §5.5、§5.1 の `check`、§6.4 の実測）。手で確かめたいときは `infra/vm/check-vm.sh`（イメージを取り込んだ後、VM ホストで一時 VM を project に作り、exec・インターネット・ゲートウェイへの拒否を見て消す）。
+
+project の中身: `features.images/profiles/storage.volumes=true`、`features.networks=false`、`restricted=true`、`restricted.networks.access=<ブリッジ>`、ほかのプールすべてに `limits.disk.pool.<名前>=0`、`user.dsh-bots.pool` / `network` / `egress-acl`。上限（`LIMIT_VMS`、`LIMIT_CPU`、`LIMIT_MEMORY`、`LIMIT_DISK`）は与えたときだけ。既にある project の `features.*` が違えば止まる（中身があると変えられないので、別の名前か削除を示す）。
 
 ## 3. OS ごとの差
 
-| OS                    | Incus の入手                                                                                                   | 追加                          | 備考                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| --------------------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Debian 13             | main（6.0.4）                                                                                                  | –                             |                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| Debian 12             | Zabbly `lts-6.0`（6.0.7、QEMU と virtiofsd 同梱）。第三者リポジトリなので先に 1 行で尋ねる（非対話なら止まる） |                               | bookworm/backports に virtiofsd が無い（確認済み）                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Ubuntu 24.04          | Zabbly `lts-6.0`（同上）                                                                                       |                               | universe の 6.0.0 は `io.bus=virtiofs` を拒否（確認済み）                                                                                                                                                                                                                                                                                                                                                                                                              |
-| Fedora 42+            | 公式（6.23）                                                                                                   |                               |                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| Arch                  | extra（7.6）                                                                                                   | qemu-base ほかは incus の依存 |                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| RHEL/Rocky/Alma 9・10 | —                                                                                                              |                               | **対象外**。EPEL 9・10 に incus が無い。Incus の公式ドキュメントが示す COPR `neelc/incus`（EL9・EL10 とも 7.0.0、qemu-kvm と edk2-ovmf を入れた状態）も `neil/incus`（6.8）も「QEMU command not available: qemu-system-x86_64」で VM ドライバが動かない（確認済み）。QEMU を指定する正規の方法は無く、upstream の案内は `/usr/libexec/qemu-kvm` への symlink で、さらに EL の QEMU には Incus の VM が使う SPICE が無い（lxc/incus#1301、未解決）。ステップ 1 で止まる |
-| NixOS                 | `virtualisation.incus.enable`                                                                                  | §3.1                          |                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| OS                    | Incus の入手                                                                               | 備考                                                                                                                                                                                                                                                                         |
+| --------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Debian 13             | main（6.0.4）                                                                              |                                                                                                                                                                                                                                                                              |
+| Debian 12             | Zabbly `lts-6.0`（QEMU 同梱）。第三者リポジトリなので先に 1 行で尋ねる（非対話なら止まる） | main に Incus が無い                                                                                                                                                                                                                                                         |
+| Ubuntu 24.04          | Zabbly `lts-6.0`（同上）                                                                   | universe の 6.0.0 は 6.0.4 より古い                                                                                                                                                                                                                                          |
+| Fedora 42+            | 公式                                                                                       |                                                                                                                                                                                                                                                                              |
+| Arch、NixOS、WSL2     | —                                                                                          | **VM ホストとしては対象外**（動作を確かめていない。WSL は無操作で止まる）。DSH のホストにはなれる（プラグインだけで動く）ので、その旨と、VM ホストを別に用意してペアリングすることを示して止まる                                                                             |
+| RHEL/Rocky/Alma 9・10 | —                                                                                          | **対象外**。EPEL 9・10 に incus が無い。COPR `neelc/incus`（7.0.0）も `neil/incus`（6.8）も「QEMU command not available: qemu-system-x86_64」で VM ドライバが動かない（確認済み）。EL の QEMU には Incus の VM が使う SPICE も無い（lxc/incus#1301）。DSH のホストにはなれる |
 
-どの OS でも `socat`（1.7.4 以上: VSOCK 対応）、`btrfs-progs`、`e2fsprogs`（Incus が `chattr` を使う）、`zstd`（Incus がイメージの取り込みで使う）を入れる（ソケットの ACL をやめるので `acl` は要らない、§7）。パッケージ名は `infra/vm/host-setup.sh` の `phase_packages` にだけ書く。Incus は 6.0.4 以上（`raw.idmap` → virtiofsd の `--translate-uid`、`io.bus=virtiofs`、`security.guestapi` を Debian 13 の 6.0.4 と Zabbly の 6.0.7 で確認）、VM ドライバ（qemu）が使えることを packages の最後に確かめる。
+どの OS でも `btrfs-progs`、`e2fsprogs`、`nftables`、`zstd`（Incus がイメージの取り込みで使う）を入れる。socat・virtiofsd は要らない（exec 越しの SSH と block のボリューム、docs/specs/incus-endpoint.md §5.2、§5.4）。パッケージ名は `infra/vm/host-setup.sh` の `phase_packages` にだけ書く。
 
-### 3.1 NixOS
-
-/etc の設定は宣言的なので、ステップ 3 は `~/.local/state/dsh-bots/nixos/dsh-bots.nix` を書き出し、次を示して止まる（終了コード 3、「続きは rebuild の後」）:
-
-> imports に ./dsh-bots.nix を足して `sudo nixos-rebuild switch`、そのあともう一度実行
-
-モジュールの中身: `virtualisation.incus.enable`、`networking.nftables.enable`、`users.users.<DSH_USER>.extraGroups = ["incus-admin"]`、`environment.systemPackages = [ socat btrfs-progs ]`、`boot.kernelModules = [ "vhost_vsock" ]`、ボットの共有ディレクトリの `systemd.mounts` と `incus.service` の `RequiresMountsFor`、`networking.firewall.trustedInterfaces = [ "dshbr0" ]`（NixOS のファイアウォールが VM の DHCP/DNS を落とさないように。VM→Host は Incus の ACL が引き続き拒否する）。再実行時は、モジュールの内容が書き出したものと同じで、その結果（incus が動く、グループ、mount）が揃っていればステップ 3 と 6 を済みとし、4 以降は他の OS と同じ incus コマンドで進む。
-
-## 4. WSL2
-
-判別は `/proc/sys/fs/binfmt_misc/WSLInterop` か `uname -r` の `microsoft-standard-WSL2`。ステップ 1 で次を順に確かめ、欠けていればそれぞれ直し方を示して止まる:
-
-1. systemd が PID 1: 無ければ `/etc/wsl.conf` に `[boot] systemd=true` を足し、Windows 側で `wsl.exe --shutdown` してから再実行するよう示して止まる（このステップでは root を取らないので書かない）。
-2. `/dev/kvm`: Windows 11 の `%UserProfile%\\.wslconfig` の `[wsl2] nestedVirtualization=true`（Windows 側のファイルなので案内のみ）。
-3. カーネルモジュール: `kvm_intel`/`kvm_amd`、`vhost_vsock`、`btrfs`、`bridge` を modprobe し、`/etc/modules-load.d/dsh-bots.conf` に残す（標準カーネル 6.6/6.18 ではいずれも `=m`、virtio-fs は `=y`）。
-4. 常駐: WSL は無操作で止まり、ボットの VM も止まる。完了時に `.wslconfig` の `vmIdleTimeout=-1` と、ログオン時に `wsl.exe -d <distro> --exec sleep infinity` を起動するタスクの案内を出す（設定はしない）。
-
-WSL2 はこのホストで試せないので未検証。
-
-## 5. ファイアウォール
+## 4. ファイアウォール
 
 VM の通信は Incus の `inet incus` テーブルで許可されても、別のテーブルの forward フックが落とせば止まる。ステップ 5 は次を調べる:
 
-| 検出                                                                                                | 対処（自動）                                                                                                           |
-| --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| ufw が active                                                                                       | `ufw allow in on dshbr0`、`ufw route allow in on dshbr0`、`ufw route allow out on dshbr0`                              |
-| firewalld が running                                                                                | `--permanent --zone=trusted --add-interface=dshbr0`、reload                                                            |
-| Docker（`DOCKER-USER` チェーンがある）                                                              | `dsh-bots-docker-forward.service`（docker.service の後に `DOCKER-USER` へ dshbr0 の 2 規則を入れる）を入れて有効にする |
-| それ以外で forward フックの policy が drop の base chain（`nft -j list chains`、`inet incus` 以外） | 何が見つかったかを示して止まる                                                                                         |
+| 検出                                                                                             | 対処（自動）                                                                                                           |
+| ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| ufw が active                                                                                    | `ufw allow in on dshbr0`、`ufw route allow in on dshbr0`、`ufw route allow out on dshbr0`                              |
+| firewalld が running                                                                             | `--permanent --zone=trusted --add-interface=dshbr0`、reload                                                            |
+| Docker（`DOCKER-USER` チェーンがある）                                                           | `dsh-bots-docker-forward.service`（docker.service の後に `DOCKER-USER` へ dshbr0 の 2 規則を入れる）を入れて有効にする |
+| それ以外で forward フックの policy が drop の base chain（`nft list chains`、`inet incus` 以外） | 何が見つかったかを示して止まる                                                                                         |
 
-いずれも VM→Host の拒否（Incus の ACL）は変えない。iptables-legacy の規則は nft から見えないので、ステップ 9 の HTTPS の確認で見つける（失敗時の案内に含める）。
+いずれも VM→Host の拒否（Incus の ACL）は変えない。iptables-legacy の規則は nft から見えないので、`check-vm.sh` の HTTPS の確認で見つける。remote のステップ 6 は ufw / firewalld に HTTPS のポートを開ける（ほかの場所、クラウドのセキュリティグループなどは利用者が開ける）。
 
-## 6. DSH のプロファイルとプラグイン
+## 5. sudo と出力
 
-- プロファイル: `${DSH_HOME:-~/.dsh}/profiles/` の一覧。`DSH_BOTS_PROFILE` があればそれ。1 つだけならそれ。複数なら尋ねる（既定 `web`）。端末が無いときに複数なら、`DSH_BOTS_PROFILE` を案内して止まる。プロファイルがまだ無ければ `web`（`dsh plugin` が初回に作る）。
-- 入れ方: `dsh plugin --profile <p> add @1outres/dsh-bots@<版>`（中身は pnpm）。プロファイルの `package.json` の `dependencies` に入り、`dsh.profile.bundles` の末尾に `@1outres/dsh-bots` が足される（/tmp の DSH_HOME で確認済み）。
-- `@deepseek-ai/dsh-ssh` / `dsh-fs-ssh` / `dsh-subprocess-ssh` は DSH に同梱されず、プロファイルは `autoInstallPeers: false`。`@1outres/dsh-bot-vm` の peerDependencies から dependencies（版ちょうど）に移し、バンドル 1 つで揃うようにする。
-- 済みの判定: `dependencies` の版と `bundles` を見る。`@1outres/dsh-bot-*` の個別バンドルが `bundles` にあれば（同じ行 id を入れるので）止まる。
-- 試験用: `DSH_BOTS_NPM_REGISTRY`（`--registry` に渡す。Verdaccio など）、`DSH_BOTS_PACKAGE`（`add` に渡す指定そのもの）。
-- 最後に DSH の再起動を案内する（プラグインの読み込みと、`incus-admin` グループを DSH のプロセスに持たせるため）。
-
-## 7. host-setup との分担と、合わせて直すもの
-
-- **ゲストの uid**: `provision-base.sh` は `bot` を uid/gid 1001 で明示して作り、ビルダーの cloud-init が作る `debian` ユーザを消す。1001 は既存の VM（`raw.idmap` が 1001）と合わせるための値で、`guestUid` 既定値と同じことを試験で確かめる。
-- **vsock の SSH**: `systemd-ssh-proxy`（systemd ≥256）をやめ、`socat` で中継する 1 つの仕組みにする。ProxyCommand は dsh-bot-vm が同梱する `lib/vsock-proxy.js`（Incus の API から `volatile.vsock_id` を引き、`socat STDIO VSOCK-CONNECT:<cid>:22` を exec 相当で起動）を DSH の node の絶対パスで呼ぶ。`ProxyUseFdpass no`。ssh 設定は ensure のたびに書き直されるので、既存のボットは次の起動で移行する。`/usr/local/bin/dsh-bot-vsock-proxy` は host-setup が入れなくなり、どの設定からも参照されなくなったら消す。
-- **sudo -n**: host-setup.sh は root で動くスクリプトにし、自分で sudo しない（root でなければ止まる）。sudo はインストーラが最初に 1 回 `sudo -v`（/dev/tty から）で取り、実行中は更新する。
-- **ホストの DSH のパス**: DSH の grep/glob はホストで解決した rg の絶対パス（`@deepseek-ai/dsh-util-ripgrep` の `resolveRgPath()`）を VM で spawn する。dsh-bot-vm はそのパスを同じ関数で得て、ensure の最後に VM 内のそのパスを VM の `/usr/bin/rg` への symlink にする（ssh、`sudo -n`、同じなら何もしない）。イメージから DSH の global install を外す（`npm prefix=/usr` の要求も消える）。組み込みスキルは bot-core がボットに渡さないので対象外。
-- **owner**: `<stateDir>/owner` に初回に作るランダムな ID。無いとき、`<stateDir>/bots` がある（以前の版のボットがある）なら今の値（実パスのハッシュ）を書いて引き継ぐ。
-- **capacity**: `limits.memory` の百分率は Host のメモリに対する割合として読む。
-- **Incus ソケット**: `incus-admin` グループだけにする（ACL の drop-in は作らない。以前の版が作った drop-in は自動では消さず、README に手で消す条件を書く）。グループに加えたときと、プラグインを入れたとき、インストーラは最後に 1 行で DSH の再起動を案内する。
-- **その他**: legacy forward guard の節、`DSH_USER` の既定（作者のユーザ名）、`snapshots.expiry`、`filter-AAAA` を消す。alias の解決は `incus query /1.0/images/aliases/<alias>`（JSON）。`create-bot-vm.sh` を消し、README の説明に寄せる。
-
-## 8. 状態
-
-- 正は実機の状態（パッケージ、Incus の資源、mount、プロファイルの package.json）。各ステップはまず調べ、済みなら飛ばす。だから途中で止まっても再実行で続きから進む。
-- `~/.local/state/dsh-bots/`（`XDG_STATE_HOME`）: `install.env`（選んだプロファイル）、`logs/install-<時刻>.log`、`downloads/`（イメージの分割ファイル。`curl -C -` で再開、検査済みは再取得しない）、`nixos/dsh-bots.nix`。
-- 取り込むイメージ・npm の版は `infra/release.env`（`DSH_BOTS_VERSION`、`DSH_VERSION`、`IMAGE_TAG`、`IMAGE_MANIFEST_SHA256`）。`DSH_BOTS_VERSION` と `DSH_VERSION` は `packages/dsh-bots/package.json` の `version` と `engines.dsh` に一致させ、`test/installer.test.ts` が確かめる。`IMAGE_*` は `export-image.sh` が書く。パイプ実行が取るソースの `release.env` が、npm から入れる版（ちょうど）と使うイメージを決めるので、三者はずれない。
-- 取るソース: 既定は最新の公開済みリリース（GitHub API `repos/1outres/dsh-bots/releases/latest` の `tag_name`、`v<版>`）。その GitHub リリースは Release ワークフローが npm への公開とイメージの確認を済ませてから作る（タグを push しただけではできない）ので、指す `release.env` は必ず公開済みのものを指す。main が先に進んでも（未公開の版を指す `release.env` がマージされても）影響しない。イメージ用のリリース（`image-*`）は `--latest=false` で作り latest にしない。latest が `v<版>` でなければ（API に届かない、まだリリースが無い、`image-*` が latest になっている）、何が起きたかと `DSH_BOTS_REF=<タグ>` での指定を示して止まる。`DSH_BOTS_REF` を与えればそのタグ（またはブランチ）を取る。API は未認証で 1 時間に 60 回まで。
-
-## 9. イメージの配布
-
-- 作者: `infra/vm/build-base-image.sh` → `infra/vm/export-image.sh <tag>`: `incus image export` した 1 つの tarball を 1900 MiB ごとに分け、`manifest.txt`（各部分の名前・大きさ・sha256、全体の sha256 = Incus の fingerprint、イメージの DSH 版）を作る。アップロードは作者が `infra/vm/publish-image.sh`（gh CLI）で行う: 各部分の sha256 を確かめ、下書きのリリース `<tag>`（latest にしない）に上げて公開し、`check-image-release.sh` で確かめる。途中で切れたら再実行で下書きを仕上げる（手順は `infra/RELEASING.md`）。
-- Release ワークフローは公開の前に `infra/vm/check-image-release.sh` で、`IMAGE_TAG` のリリースが公開済みで、その `manifest.txt` の sha256 が `IMAGE_MANIFEST_SHA256`、`dsh` が `DSH_VERSION`、manifest の各部分が同じ大きさで揃っていることを確かめる。一致しなければ npm に何も出さずに止まる。
-- インストーラ: manifest を取り `IMAGE_MANIFEST_SHA256` と照合、部分ごとに sha256、つないで全体の sha256 = fingerprint を確かめてから import。`dsh-bot-base` が既にその fingerprint を指していれば何もしない。別のイメージを指していれば別名を新しいものへ 1 回で付け替え、別名の残らない古いイメージは消す。
-- 試験用: `DSH_BOTS_IMAGE_URL`（manifest と部分の置き場所。`file://` 可）。
-
-## 10. 出力
-
-- 端末（stdout が tty）のときだけ色。各ステップ 1 行。進行中は `…`、終わったら同じ行を `✓`/`✗`/`–`（済み）で書き換える。詳細はすべてログへ。
-- 失敗時だけ 3 行（何が・なぜ・どう直す）とログの場所。
-- 入力は /dev/tty から。`DSH_BOTS_NONINTERACTIVE=1`（エージェント向け、[agent-setup.md](../agent-setup.md)）なら端末を読まない。端末が無いとき、第三者リポジトリの確認は「いいえ」なので止まり（`DSH_BOTS_YES=1` で通す）、プロファイルが複数なら止まり（`DSH_BOTS_PROFILE`）、sudo にパスワードが要れば止まる。
-- sudo は、ステップ 2 の後（NixOS はステップ 3 の後）に一度だけ理由を 1 行示して `sudo -v`。
+- sudo は、ステップ 2 の後に一度だけ理由を 1 行示して `sudo -v`。実行中は更新する。host-setup.sh は自分で sudo しない（root でなければ止まる）。
+- 端末（stdout が tty）のときだけ色。各ステップ 1 行。進行中は `…`、終わったら同じ行を `✓`/`✗` で書き換える。詳細はすべてログへ。
+- 失敗時だけ、何が・どう直す・ログの場所。
+- 入力は /dev/tty から。`DSH_BOTS_NONINTERACTIVE=1`（エージェント向け、[agent-setup.md](../agent-setup.md)）なら端末を読まない。端末が無いとき、形の選択は止まり（`DSH_BOTS_ACCESS`）、第三者リポジトリの確認は「いいえ」なので止まり（`DSH_BOTS_YES=1` で通す）、sudo にパスワードが要れば止まる。
 - ステップの関数は errexit のサブシェルで動き、失敗したコマンドで止まる。root のスクリプトは `fail`（何が・どう直す）を `DSH_BOTS_REPORT` に書き、それ以外の失敗は ERR trap が「どのコマンドが何行目で」を書く。
 
-成功時:
+成功時（remote）:
 
 ```
-dsh-bots installer 0.3.0
-Root access is needed to install packages and set up Incus (sudo).
-[sudo] password for alice:
-[1/9] Checking system ............ ✓ Ubuntu 24.04, KVM
-[2/9] Checking DSH ............... ✓ 0.2.2-rc.5, profile web
-[3/9] Installing packages ........ ✓
-[4/9] Configuring Incus .......... ✓
-[5/9] Checking the firewall ...... ✓ ufw: allowed dshbr0
-[6/9] Preparing workspaces ....... ✓
-[7/9] Downloading the base image . ✓ 1.6 GiB
-[8/9] Installing plugins ......... ✓ @1outres/dsh-bots 0.3.0
-[9/9] Testing a VM ............... ✓
+dsh-bots VM host installer 0.4.0
+[1/6] Checking system ............... ✓ Debian GNU/Linux 13 (trixie), KVM
+[2/6] Choosing where DSH runs ....... ✓ DSH on another machine, over HTTPS
+  Root access is needed to install packages and set up Incus and the firewall (sudo).
+[3/6] Installing packages ........... ✓ Incus 6.0.4
+[4/6] Configuring Incus ............. ✓ project dsh-bots (pool dsh, network dshbr0)
+[5/6] Checking the firewall ......... ✓
+[6/6] Issuing a trust token ......... ✓ listening on :8443, token for dsh-bots
 
-Done. Restart DSH to load dsh-bots (log out and in first if you start it from a shell).
+Done. Paste this trust token in DSH: dsh-bots settings → VM host → Another machine.
+
+eyJjbGllbnRfbmFtZSI6…
+
+It pairs one DSH, once. Run this again for a new token (it replaces an unused one).
 ```
 
-失敗時:
+## 6. 既存の Incus サーバ（形 3）: infra/incus/create-project.sh
 
-```
-[1/9] Checking system ............ ✓ Debian 12, KVM
-[2/9] Checking DSH ............... ✗
+管理者が自分の Incus に対して実行する（root 不要、`incus` のクライアントだけ。`--remote <名前>` で incus の remote に対して）。入口は `install.sh incus-project <オプション>` でもよい（リリースのソースを取って実行する）。
 
-  DSH 0.2.2-rc.4 is installed; dsh-bots 0.3.0 needs exactly 0.2.2-rc.5.
-  Fix: npm install -g @deepseek-ai/dsh@0.2.2-rc.5, then run this again.
-  Log: ~/.local/state/dsh-bots/logs/install-20261124-181500.log
-```
+- 引数: `--pool`（必須）、`--network <既存>` か `--bridge <名前> --cidr <ゲートウェイ/長さ>`、`--acl <既存>` か `--create-acl <名前>`（勧める ACL。新しいブリッジには付け、既存のネットワークには `--attach-acl` のときだけ付ける。そのネットワークの他のインスタンスにも効くため）、`--cpu` / `--memory` / `--disk`（必須。共有のサーバではホストの資源を上限にできない、docs/specs/incus-endpoint.md §5.6）、`--vms`、`--project`（既定 `dsh-bots`）、`--client-name`、`--no-token`。
+- サーバの検査: Incus 6.0.4 以上、qemu ドライバ、`core.https_address` が設定済み（無ければ設定の仕方を示して止まる。サーバの設定は変えない）。
+- 作るもの: §2 と同じ project（`user.dsh-bots.egress-acl` は ACL を指定したときだけ。無ければ画面が警告する）と、制限付き token。
+- 注意として、dsh-bots の SSH が張ってある間は incusd の停止・再起動が `core.shutdown_timeout`（既定 5 分）まで待つこと（docs/specs/incus-endpoint.md §8.2）を表示する。
 
-## 11. 構成
+## 7. 状態
 
-- `install.sh`（ルート）: 1 ファイル。パイプで実行されたときは `DSH_BOTS_REF`（既定は最新リリースのタグ、§8）のソースの tarball を取り、展開した `install.sh` を `DSH_BOTS_SOURCE=<展開先>` で実行し直す（そのリリースのインストーラ全体が動く）。`DSH_BOTS_SOURCE=<dir>` ならその checkout。表示（`ui_*`）、ステップの関数、状態の読み書きを分けて持つ。
-- `infra/vm/host-setup.sh`: root の設定（§2）。`infra/vm/lib.sh`: OS の判別と失敗の報告（`DSH_BOTS_REPORT` のファイルに 3 行）を両方が使う。
+- 正は実機の状態（パッケージ、Incus の資源）。各ステップはまず調べ、済みなら飛ばす。だから途中で止まっても再実行で続きから進む。
+- `~/.local/state/dsh-bots/`（`XDG_STATE_HOME`）: `install.env`（選んだ形 `access`）、`logs/install-<時刻>.log`、`source/<ref>/`（パイプ実行で取ったソース）。
+- `infra/release.env`（`DSH_BOTS_VERSION`、`DSH_VERSION`、`IMAGE_TAG`、`IMAGE_MANIFEST_SHA256`）: インストーラは版の表示と完了時のプラグインの指定にだけ使う。`DSH_BOTS_VERSION` と `DSH_VERSION` は `packages/dsh-bots/package.json` の `version` と `engines.dsh`、README の指定に一致させ、`test/installer.test.ts` が確かめる。`IMAGE_*` は `export-image.sh` が書き、プラグインの `src/host/image/release-env.ts` と一致する。
+- 取るソース: 既定は最新の公開済みリリース（GitHub API `repos/1outres/dsh-bots/releases/latest` の `tag_name`、`v<版>`）。Release ワークフローが npm への公開とイメージの確認を済ませてから作るので、main が先に進んでも影響しない。latest が `v<版>` でなければ、何が起きたかと `DSH_BOTS_REF=<タグ>` を示して止まる。`DSH_BOTS_SOURCE=<dir>` ならその checkout。
+
+## 8. イメージの配布
+
+- 作者: VM ホストとして準備したマシン（形 1）で `infra/vm/build-base-image.sh`（project `dsh-bots` の中で、宣言されたプールとネットワークでビルダーを動かし、別名 `dsh-bot-base` に公開）→ `infra/vm/export-image.sh <tag>`（1900 MiB ごとに分け、`manifest.txt` を作り、`release.env` とプラグインの `release-env.ts` を書く）→ `infra/vm/publish-image.sh`（`infra/RELEASING.md`）。
+- Release ワークフローは公開の前に `infra/vm/check-image-release.sh` で、`IMAGE_TAG` のリリースと `manifest.txt` の sha256 を確かめる。
+- 取り込みはプラグインが行う（docs/specs/incus-endpoint.md §5.5）。
+
+## 9. 構成
+
+- `install.sh`（ルート）: 1 ファイル。パイプで実行されたときは `DSH_BOTS_REF` のソースの tarball を取り、展開した `install.sh` を `DSH_BOTS_SOURCE=<展開先>` で実行し直す。`incus-project` は `infra/incus/create-project.sh` に渡す。
+- `infra/vm/host-setup.sh`: root の設定（§2）。`infra/vm/lib.sh`: OS の判別と失敗の報告。`infra/incus/objects.sh`: ACL・ブリッジ・project・token（host-setup.sh と create-project.sh が共有）。
+- `infra/vm/check-vm.sh`: VM ホストの手での検査。
 - `infra/vm/build-base-image.sh` / `provision-base.sh` / `export-image.sh` / `publish-image.sh`: 作者用。`check-image-release.sh`: 作者と Release ワークフロー。
 
-## 12. 試験
+## 10. 試験
 
-- 静的: `bash -n`、shellcheck（CI が公式のバイナリで実行）、`pnpm test` にパッケージと `release.env` の一致、uid の一致。
-- コンテナ: Incus の専用 project `dsh-installer-test`（プール `dsh-installer-test`、ブリッジ `dsh-insttest0`。Incus の project は OVN 無しにブリッジを持てないので、ブリッジだけ default に置き、終わったら消す）に Debian 12/13、Ubuntu 24.04、Rocky 9、Fedora、Arch、NixOS のコンテナを作り、ステップ 1〜6（OS 判別、パッケージ、設定）をそれぞれで実行する。`/dev/kvm` と `/dev/vhost-vsock` を渡したネストしたコンテナで 7〜9（VM 起動）まで試せるか確かめる。
-- プラグイン: /tmp の DSH_HOME と Verdaccio（127.0.0.1:4873）でステップ 8、確認用 DSH で ensure（rg の symlink、socat の ProxyCommand、owner）まで。
-- WSL2 は未検証として報告する。
+- 静的: `bash -n`、shellcheck（CI が公式のバイナリで実行）、`pnpm test` に `release.env` とパッケージ・README の一致。
+- 動作: Incus の専用 project に Debian 13 / 12、Ubuntu 24.04、Fedora の使い捨ての VM（入れ子の KVM）を作り、それぞれで形 2 を最後まで（token の発行まで）通す。少なくとも 1 つで、確認用 DSH から token でペアリングし、イメージを取り込み、ボットを作って会話するところまで。形 3 のスクリプトは別の VM の Incus に対して remote で通す。

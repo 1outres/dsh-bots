@@ -4,16 +4,19 @@ A release is the npm packages `@1outres/*` of one version plus the base image th
 `infra/release.env` names. GitHub Actions publishes the packages; the author builds and
 uploads the image, which is too large for Actions (about 1.6 GiB).
 
-The installer reads `release.env` from the **latest GitHub release** (`v<version>`, via
-`releases/latest`), not from `main`, and the Release workflow creates that GitHub release only
-after npm has the packages and the image checks out. So `main` may name an unpublished version
-at any time; a piped install never sees it until its tag is released.
+Users add `@1outres/dsh-bots@<version>` to DSH; the plugin imports the image `release.env`
+names into the VM host's project. The VM host installer reads `release.env` from the **latest
+GitHub release** (`v<version>`, via `releases/latest`), not from `main`, and the Release
+workflow creates that GitHub release only after npm has the packages and the image checks out.
+So `main` may name an unpublished version at any time; a piped install never sees it until its
+tag is released.
 
 ## Flow
 
 1. **Image** (only when it changes: `provision-base.sh`, the desktop connector's
    `debian-packages.txt` or apt source, the browser connector's MCP shrinkwrap, a new DSH),
-   on a host set up by `infra/vm/host-setup.sh`, with `gh` signed in:
+   on a VM host prepared by `install.sh` for DSH on the same machine (the build runs in its
+   project `dsh-bots`; `PROJECT` names another), with `gh` signed in:
 
    ```sh
    infra/vm/build-base-image.sh                 # ~25 min
@@ -24,10 +27,15 @@ at any time; a piped install never sees it until its tag is released.
    `publish-image.sh` checks every part's sha256 first; run it again if an upload breaks
    off (it finishes the draft). `infra/vm/check-image-release.sh` repeats the check at any time.
    Without an image change, keep `IMAGE_TAG` and `IMAGE_MANIFEST_SHA256` as they are.
+   `export-image.sh` also writes them into `packages/dsh-bot-vm/src/host/image/release-env.ts`
+   (a test keeps both equal). A DSH that should use the local build instead of the release's
+   image turns off `manageImage` of `bot-vm`.
 2. **Versions**: give every `packages/*/package.json` the new `version`, the peers on
-   bot-core `workspace:^<version>`, and `DSH_BOTS_VERSION` in `infra/release.env` the same
-   value (for a new DSH also every `engines.dsh` and `DSH_VERSION`). `pnpm build && pnpm
-   typecheck && pnpm lint && pnpm test`, then merge to `main`.
+   bot-core `workspace:^<version>`, `DSH_BOTS_VERSION` in `infra/release.env` and the
+   `dsh plugin … add @1outres/dsh-bots@<version>` line in `README.md` the same value (for a new
+   DSH also every `engines.dsh`, `DSH_VERSION` and the README's DeepSeek Harness version;
+   `test/installer.test.ts` checks the README). `pnpm build && pnpm typecheck && pnpm lint &&
+   pnpm test`, then merge to `main`.
 3. **Release notes**, in English, before tagging: they are what every dsh-bots Web UI shows
    once it runs the new version (bot-core reads the published `v<version>` releases after the
    version it last showed from the GitHub API and draws their bodies as Markdown; see
@@ -60,8 +68,10 @@ at any time; a piped install never sees it until its tag is released.
    Any failed check stops it before npm. If a run fails part-way, fix the cause outside the
    tag (npm, the image, a secret) and use **Re-run failed jobs**: published versions are
    skipped. A fix in the tree needs a new version: npm never takes the same version twice.
-6. **Check**: `npm view @1outres/dsh-bots@<version> dependencies`, and on a clean host
-   `curl -fsSL https://raw.githubusercontent.com/1outres/dsh-bots/main/install.sh | bash`.
+6. **Check**: `npm view @1outres/dsh-bots@<version> dependencies`; on a clean VM host
+   `curl -fsSL https://raw.githubusercontent.com/1outres/dsh-bots/main/install.sh | bash`; in a
+   DSH, `dsh plugin --profile <profile> add @1outres/dsh-bots@<version>`, pairing with that VM
+   host and importing the image.
 
 ## 1Password CLI
 
@@ -132,18 +142,16 @@ where no trusted publisher accepts it, and with trusted publishing provenance co
 
 ## Trying it before anything is public
 
-`install.sh` takes a local tree, registry and image:
+`install.sh` takes a local tree (on the VM host):
 
 ```sh
-# packed packages published to a local registry, e.g. Verdaccio on 127.0.0.1:4873:
-#   pnpm build && pnpm -r --filter './packages/*' pack --pack-destination /tmp/pack
-#   for f in /tmp/pack/*.tgz; do npm publish "$f" --registry http://127.0.0.1:4873; done
-DSH_BOTS_SOURCE=$PWD \
-DSH_BOTS_NPM_REGISTRY=http://127.0.0.1:4873 \
-DSH_BOTS_IMAGE_URL=file://$PWD/dist/image-YYYYMMDD \
-DSH_BOTS_IMAGE_MANIFEST_SHA256=$(sha256sum dist/image-YYYYMMDD/manifest.txt | cut -d' ' -f1) \
-  bash install.sh
+DSH_BOTS_SOURCE=$PWD bash install.sh
 ```
+
+In DSH, add the checkout's bundle instead of the npm one (`dsh plugin --profile <profile> add
+link:$PWD/packages/dsh-bots`, or packed tarballs from a local registry such as Verdaccio), and
+point `bot-vm`'s `imageBaseUrl` / `imageManifestSha256` at an export that is not published
+yet (`dist/image-YYYYMMDD` served over HTTP).
 
 `node scripts/release/check-versions.mjs v<version>` and `node scripts/release/check-packed.mjs`
 run the workflow's version and tarball checks locally.

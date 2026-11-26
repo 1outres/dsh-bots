@@ -1,21 +1,24 @@
 #!/usr/bin/env bash
-# dsh-bots installer: sets up this Host for bot VMs and installs the plugins into DSH.
+# dsh-bots VM host installer: prepares this machine to run the bots' Incus VMs.
+# DSH itself needs no installer: add the plugin in DSH and choose this VM host in the
+# dsh-bots settings.
 #
 #   curl -fsSL https://raw.githubusercontent.com/1outres/dsh-bots/main/install.sh | bash
 #
+# For an Incus server that already runs other things, its administrator creates the
+# project instead (infra/incus/create-project.sh; no root):
+#
+#   curl -fsSL https://raw.githubusercontent.com/1outres/dsh-bots/main/install.sh | bash -s -- incus-project --help
+#
 # Safe to run again: every step checks what is done and continues from there.
 # Environment (all optional):
-#   DSH_BOTS_REF        tag (or branch) whose tree a piped run installs (default: the latest release)
+#   DSH_BOTS_ACCESS     local (DSH runs on this machine) or remote (DSH runs on another one); else asked
+#   DSH_BOTS_REF        tag (or branch) whose tree a piped run uses (default: the latest release)
 #   DSH_BOTS_SOURCE     a checkout to use instead of downloading one
-#   DSH_BOTS_PROFILE    DSH profile to install into (default: the only one, else asked, else web)
 #   DSH_BOTS_YES=1      answer yes to every question (third-party Incus repository)
 #   DSH_BOTS_NONINTERACTIVE=1  never read the terminal (for agents): questions stop with what to set
-#   DSH_BOTS_NPM_REGISTRY  npm registry for the plugins (e.g. a local Verdaccio)
-#   DSH_BOTS_PACKAGE    what to pass to "dsh plugin add" instead of @1outres/dsh-bots@<version>
-#   DSH_BOTS_IMAGE_URL  where manifest.txt and the image parts are (default: the GitHub release)
-#   DSH_BOTS_IMAGE_MANIFEST_SHA256  with DSH_BOTS_IMAGE_URL: that manifest's sha256
-#   DSH_BOTS_SKIP_VM_CHECK=1  skip the last step (starting a test VM)
-#   POOL, POOL_SIZE     Incus storage pool name and size (default dsh, 80GiB; infra/vm/host-setup.sh)
+#   POOL, POOL_SIZE, PROJECT, LIMIT_VMS, LIMIT_CPU, LIMIT_MEMORY, LIMIT_DISK,
+#   HTTPS_ADDRESS, CLIENT_NAME  passed to infra/vm/host-setup.sh (defaults there)
 set -euo pipefail
 
 REPO=1outres/dsh-bots
@@ -65,7 +68,7 @@ locate_tree() {
 }
 
 # ------------------------------------------------------------- output
-TOTAL=9
+TOTAL=6
 STEP=0
 LINE_OPEN=0
 if [[ -t 1 && ${TERM:-dumb} != dumb ]]; then
@@ -109,9 +112,6 @@ step() {
   if ((rc == 0)); then
     note=$(head -n1 "$NOTE_FILE")
     close_line "${C_OK}✓${C_OFF}${note:+ $note}"
-  elif ((NIXOS_PENDING)); then
-    close_line "${C_DIM}paused${C_OFF}"
-    report_failure
   else
     close_line "${C_ERR}✗${C_OFF}"
     report_failure
@@ -136,7 +136,7 @@ report_failure() {
     fix="Read the end of the log, fix what it shows, then run this again."
   fi
   printf '\n  %s\n  %sFix:%s %s\n  %sLog: %s%s\n' "$what" "$C_BOLD" "$C_OFF" "$fix" "$C_DIM" "$LOG" "$C_OFF" >&2
-  exit "$( ((NIXOS_PENDING)) && echo 3 || echo 1)"
+  exit 1
 }
 
 # stop <what> <fix>: fail the current step (inside a step function).
@@ -178,7 +178,7 @@ SUDO_KEEPALIVE=""
 # Once, before the first step that needs it: say why, then ask sudo.
 acquire_root() {
   ((EUID == 0)) && return 0
-  local why="  Root access is needed to install packages and set up Incus, the firewall and a mount (sudo)."
+  local why="  Root access is needed to install packages and set up Incus and the firewall (sudo)."
   if ! command -v sudo >/dev/null; then
     printf '%s\n  sudo is not installed: install it and allow %s to use it, then run this again.\n' "$why" "$USER" >&2
     exit 1
@@ -197,13 +197,12 @@ acquire_root() {
   SUDO_KEEPALIVE=$!
 }
 
-as_root() { "${SUDO[@]}" "$@"; }
-
 host_setup() {
-  local tunables=() name
-  for name in POOL POOL_SIZE; do [[ -z ${!name:-} ]] || tunables+=("$name=${!name}"); done
-  as_root env DSH_USER="$USER" DSH_BOTS_REPORT="$REPORT_FILE" DSH_BOTS_NOTE="$NOTE_FILE" \
-    DSH_BOTS_THIRD_PARTY="${THIRD_PARTY:-no}" "${tunables[@]}" bash "$TREE/infra/vm/host-setup.sh" "$@"
+  local settings=() name
+  for name in POOL POOL_SIZE PROJECT LIMIT_VMS LIMIT_CPU LIMIT_MEMORY LIMIT_DISK HTTPS_ADDRESS CLIENT_NAME; do
+    [[ -z ${!name:-} ]] || settings+=("$name=${!name}")
+  done
+  "${SUDO[@]}" env DSH_BOTS_REPORT="$REPORT_FILE" DSH_BOTS_NOTE="$NOTE_FILE" "${settings[@]}" "$@"
 }
 
 # ------------------------------------------------------------- state
@@ -222,254 +221,115 @@ saved_choice() {
 
 # ------------------------------------------------------------- steps
 step_system() {
-  [[ $(uname -m) == x86_64 ]] || stop "This is a $(uname -m) machine; dsh-bots runs on x86_64 only." "Use an x86_64 Host."
+  [[ $(uname -m) == x86_64 ]] || stop "This is a $(uname -m) machine; dsh-bots VM hosts are x86_64 only." "Use an x86_64 machine as the VM host."
   detect_os
-  [[ $OS_FAMILY != unsupported ]] || stop "This OS is not supported: $OS_WHY." "Use a supported system (README: Requirements)."
-  if [[ ! -d /run/systemd/system ]]; then
-    if ((IS_WSL)); then
-      stop "systemd is not running in this WSL distribution." \
-        "Add \"[boot]\" and \"systemd=true\" to /etc/wsl.conf, run wsl.exe --shutdown in Windows, then run this again."
-    fi
-    stop "systemd is not the init system." "dsh-bots needs systemd (it runs Incus and a mount unit)."
-  fi
-  if [[ ! -e /dev/kvm ]]; then
-    if ((IS_WSL)); then
-      stop "/dev/kvm is missing: WSL does not offer nested virtualization." \
-        "On Windows 11 add \"[wsl2]\" and \"nestedVirtualization=true\" to %UserProfile%\\.wslconfig, run wsl.exe --shutdown, then run this again."
-    fi
-    stop "/dev/kvm is missing: KVM is not available." "Turn on virtualization (VT-x / AMD-V) in the firmware, or nested virtualization for a VM, then run this again."
-  fi
+  [[ $OS_FAMILY != unsupported ]] || stop "This machine cannot be a VM host: $OS_WHY." "Run this on a VM host (README)."
+  [[ -d /run/systemd/system ]] || stop "systemd is not the init system." "dsh-bots needs systemd (it runs Incus)."
+  [[ -e /dev/kvm ]] || stop "/dev/kvm is missing: KVM is not available." \
+    "Turn on virtualization (VT-x / AMD-V) in the firmware, or nested virtualization for a VM, then run this again."
   local free
   free=$(df -Pk /var/lib | awk 'NR == 2 {print int($4 / 1048576)}')
   ((free >= 20)) || stop "/var/lib has ${free} GiB free; the base image and bot VMs need at least 20 GiB." "Free space on that file system."
-  note "${OS_NAME:-$OS_ID}$( ((IS_WSL)) && echo ' (WSL2)'), KVM"
+  note "${OS_NAME:-$OS_ID}, KVM"
 }
 
-profile_json() { # profile_json <expression on p, the profile package.json>
-  node -e 'const fs=require("fs");const f=process.argv[1];const p=fs.existsSync(f)?JSON.parse(fs.readFileSync(f,"utf8")):{};process.stdout.write(String((0,eval)("(p)=>"+process.argv[2])(p)))' \
-    "$PROFILE_DIR/package.json" "$1"
-}
-
-tools_fix() { # tools_fix <node|pnpm>...: how to get the missing tools on this OS
-  local tool packages=() names=()
-  for tool in "$@"; do
-    case $tool in
-      node) packages+=(nixpkgs#nodejs_22) names+=("Node.js 22 or newer") ;;
-      pnpm) packages+=(nixpkgs#pnpm) names+=("pnpm (npm install -g pnpm)") ;;
-    esac
-  done
-  if [[ $OS_FAMILY == nixos ]]; then
-    printf 'Add %s to environment.systemPackages, or run this again inside nix shell %s.' "${packages[*]#nixpkgs#}" "${packages[*]}"
-  else
-    local list=${names[0]} name
-    for name in "${names[@]:1}"; do list+=" and $name"; done
-    printf 'Install %s, then run this again.' "$list"
+step_access() {
+  local access=${DSH_BOTS_ACCESS:-$(saved_choice access)}
+  if [[ -z $access ]]; then
+    ((HAVE_TTY)) || stop "DSH_BOTS_ACCESS is not set and there is no terminal to ask where DSH runs." \
+      "Set DSH_BOTS_ACCESS=local (DSH runs on this machine) or remote (DSH runs on another machine), then run this again."
+    access=$(choose "Where does DSH run? local: on this machine, remote: on another machine" local local remote)
   fi
-}
-
-# shellcheck disable=SC2153 # DSH_VERSION comes from infra/release.env (lib.sh)
-step_dsh() {
-  command -v dsh >/dev/null || stop "DSH is not installed (no dsh on PATH)." "Install DeepSeek Harness $DSH_VERSION (npm install -g @deepseek-ai/dsh@$DSH_VERSION), then run this again."
-  local missing=() tool
-  for tool in node pnpm; do command -v "$tool" >/dev/null || missing+=("$tool"); done
-  ((${#missing[@]} == 0)) || stop "${missing[*]} not on PATH: the installer reads DSH's profile with node, and dsh plugin installs with pnpm." "$(tools_fix "${missing[@]}")"
-  local version
-  version=$(dsh --version 2>/dev/null | tail -n1)
-  [[ $version == "$DSH_VERSION" ]] ||
-    stop "DSH $version is installed; dsh-bots $DSH_BOTS_VERSION needs exactly $DSH_VERSION." "npm install -g @deepseek-ai/dsh@$DSH_VERSION, then run this again."
-  DSH_HOME_DIR=${DSH_HOME:-$HOME/.dsh}
-  local profiles=() p
-  if [[ -d $DSH_HOME_DIR/profiles ]]; then
-    for p in "$DSH_HOME_DIR"/profiles/*/; do [[ -d $p ]] && profiles+=("$(basename "$p")"); done
-  fi
-  PROFILE=${DSH_BOTS_PROFILE:-$(saved_choice profile)}
-  if [[ -z $PROFILE ]]; then
-    if ((${#profiles[@]} == 1)); then
-      PROFILE=${profiles[0]}
-    elif ((${#profiles[@]} > 1)); then
-      ((HAVE_TTY)) || stop "There are several DSH profiles (${profiles[*]}) and no terminal to ask which one." "Set DSH_BOTS_PROFILE to one of them, then run this again."
-      PROFILE=$(choose "Install into which DSH profile?" web "${profiles[@]}")
-    else
-      PROFILE=web
-    fi
-  fi
-  [[ $PROFILE =~ ^[A-Za-z0-9._-]+$ ]] || stop "\"$PROFILE\" is not a profile name." "Set DSH_BOTS_PROFILE to one of: ${profiles[*]:-web}."
-  save_choice profile "$PROFILE"
-  PROFILE_DIR=$DSH_HOME_DIR/profiles/$PROFILE
-  keep PROFILE "$PROFILE"
-  keep PROFILE_DIR "$PROFILE_DIR"
-  local own
-  own=$(profile_json '((p.dsh&&p.dsh.profile&&p.dsh.profile.bundles)||[]).filter(b=>b.startsWith("@1outres/dsh-bot-")).join(" ")')
-  [[ -z $own ]] || stop "Profile $PROFILE already has the bundles $own, which insert the same rows as @1outres/dsh-bots." \
-    "Remove them (dsh plugin --profile $PROFILE remove <package>) or choose another profile with DSH_BOTS_PROFILE."
-  note "$version, profile $PROFILE"
-}
-
-nixos_module() {
-  sed -e "s|@DSH_USER@|$USER|g" -e "s|@BOTS_ROOT@|$HOME/.dsh/bots|g" "$TREE/infra/nixos/dsh-bots.nix.in"
+  case $access in
+    local)
+      ((EUID != 0)) || stop "DSH cannot use this machine's Incus as root." "Run this as the user that runs DSH (it uses sudo), or set DSH_BOTS_ACCESS=remote."
+      note "DSH on this machine, as $USER"
+      ;;
+    remote) note "DSH on another machine, over HTTPS" ;;
+    *) stop "\"$access\" is neither local nor remote." "Set DSH_BOTS_ACCESS=local or DSH_BOTS_ACCESS=remote." ;;
+  esac
+  save_choice access "$access"
+  keep ACCESS "$access"
 }
 
 step_packages() {
-  if [[ $OS_FAMILY == nixos ]]; then
-    local module=$STATE/nixos/dsh-bots.nix
-    mkdir -p "${module%/*}"
-    # The bind mount needs its directory at boot, owned by this user.
-    mkdir -p "$HOME/.dsh"
-    install -d -m 0700 "$HOME/.dsh/bots"
-    if [[ ! -f $module ]] || ! cmp -s <(nixos_module) "$module"; then
-      nixos_module >"$module"
-    fi
-    if ! command -v incus >/dev/null || ! command -v socat >/dev/null || ! systemctl is-active --quiet incus.socket; then
-      printf '%s\n%s\n' "NixOS is configured declaratively: wrote $module." \
-        "Add it to imports in your configuration, run sudo nixos-rebuild switch, then run this again." >"$REPORT_FILE"
-      keep NIXOS_PENDING 1
-      exit 1
-    fi
-    note "dsh-bots.nix is active"
-    return 0
-  fi
-  THIRD_PARTY=no
+  local third_party=no
   case $OS_ID:$OS_VERSION in
     debian:12 | ubuntu:24.04)
       ask "Incus for $OS_NAME comes from Zabbly (pkgs.zabbly.com), a third-party repository of the Incus maintainers. Add it?" n ||
         stop "Incus for $OS_NAME needs the Zabbly repository, which was not allowed." "Run this again and allow it (or set DSH_BOTS_YES=1)."
-      THIRD_PARTY=yes
+      third_party=yes
       ;;
   esac
-  host_setup packages
+  host_setup DSH_BOTS_THIRD_PARTY=$third_party bash "$TREE/infra/vm/host-setup.sh" packages
 }
 
-step_incus() {
-  local before
-  before=$(id -nG "$USER" | tr ' ' '\n' | grep -cx incus-admin || true)
-  host_setup incus
-  ((before > 0)) || keep GROUP_ADDED 1
-}
+step_incus() { host_setup bash "$TREE/infra/vm/host-setup.sh" incus; }
+step_firewall() { host_setup bash "$TREE/infra/vm/host-setup.sh" firewall; }
 
-step_firewall() { host_setup firewall; }
-step_workspaces() { host_setup workspaces; }
-
-image_base_url() {
-  if [[ -n ${DSH_BOTS_IMAGE_URL:-} ]]; then
-    printf '%s' "${DSH_BOTS_IMAGE_URL%/}"
+step_grant() {
+  if [[ $ACCESS == local ]]; then
+    id -nG "$USER" | tr ' ' '\n' | grep -qx incus-admin || keep GROUP_ADDED 1
+    host_setup DSH_USER="$USER" bash "$TREE/infra/vm/host-setup.sh" local
   else
-    printf 'https://github.com/%s/releases/download/%s' "$REPO" "$IMAGE_TAG"
+    host_setup DSH_BOTS_TOKEN_FILE="$TOKEN_FILE" bash "$TREE/infra/vm/host-setup.sh" remote
   fi
-}
-
-sha256_of() { sha256sum "$1" | cut -d' ' -f1; }
-
-step_image() {
-  local expected=${DSH_BOTS_IMAGE_MANIFEST_SHA256:-$IMAGE_MANIFEST_SHA256}
-  if [[ -n ${DSH_BOTS_IMAGE_URL:-} ]]; then
-    [[ -n ${DSH_BOTS_IMAGE_MANIFEST_SHA256:-} ]] || stop "DSH_BOTS_IMAGE_URL is set without DSH_BOTS_IMAGE_MANIFEST_SHA256." "Set both."
-  else
-    [[ -n $IMAGE_TAG && -n $expected ]] || stop "No base image is published for dsh-bots $DSH_BOTS_VERSION yet." \
-      "Build one with infra/vm/build-base-image.sh, or point DSH_BOTS_IMAGE_URL at one."
-  fi
-  local url dir manifest
-  url=$(image_base_url)
-  dir=$STATE/downloads/$expected
-  manifest=$dir/manifest.txt
-  mkdir -p "$dir"
-  if [[ ! -f $manifest || $(sha256_of "$manifest") != "$expected" ]]; then
-    curl -fsSL "$url/manifest.txt" -o "$manifest" || stop "Downloading $url/manifest.txt failed." "Check the network, then run this again."
-  fi
-  [[ $(sha256_of "$manifest") == "$expected" ]] || stop "The image manifest's sha256 is not the one this release names." "Run this again; if it persists, report it."
-  local format dsh name size fp
-  format=$(awk '$1 == "format" {print $2}' "$manifest")
-  dsh=$(awk '$1 == "dsh" {print $2}' "$manifest")
-  read -r _ name size fp < <(awk '$1 == "image"' "$manifest")
-  [[ $format == 1 ]] || stop "The image manifest has format $format, which this installer cannot read." "Use the installer of the same release."
-  [[ $dsh == "$DSH_VERSION" ]] || stop "The base image is for DSH $dsh, this release for $DSH_VERSION." "Use the installer of the same release."
-  if [[ $(as_root bash -c ". '$TREE/infra/vm/lib.sh'; alias_target dsh-bot-base") == "$fp" ]]; then
-    note "up to date"
-    return 0
-  fi
-  local part psize psha
-  while read -r _ part psize psha; do
-    if [[ -f $dir/$part && $(stat -c %s "$dir/$part") == "$psize" && $(sha256_of "$dir/$part") == "$psha" ]]; then continue; fi
-    curl -fL --retry 3 -C - -o "$dir/$part" "$url/$part" || stop "Downloading $part failed." "Check the network, then run this again (it resumes)."
-    [[ $(sha256_of "$dir/$part") == "$psha" ]] || { rm -f "$dir/$part"; stop "$part does not have the sha256 the manifest names." "Run this again to download it anew."; }
-  done < <(awk '$1 == "part"' "$manifest")
-  awk '$1 == "part" {print $2}' "$manifest" | (cd "$dir" && xargs cat) >"$dir/$name"
-  [[ $(stat -c %s "$dir/$name") == "$size" && $(sha256_of "$dir/$name") == "$fp" ]] ||
-    { rm -f "$dir/$name"; stop "The joined image does not have the sha256 the manifest names." "Run this again."; }
-  as_root env DSH_BOTS_REPORT="$REPORT_FILE" DSH_BOTS_NOTE="$NOTE_FILE" bash "$TREE/infra/vm/import-image.sh" "$dir/$name" "$fp"
-  rm -rf "$dir"
-  note "$(awk -v s="$size" 'BEGIN {printf "%.1f GiB", s / 1073741824}')"
-}
-
-step_plugins() {
-  local spec=${DSH_BOTS_PACKAGE:-@1outres/dsh-bots@$DSH_BOTS_VERSION}
-  local has
-  has=$(profile_json '((p.dependencies||{})["@1outres/dsh-bots"]==="'"$DSH_BOTS_VERSION"'")&&((p.dsh&&p.dsh.profile&&p.dsh.profile.bundles)||[]).includes("@1outres/dsh-bots")')
-  if [[ -z ${DSH_BOTS_PACKAGE:-} && $has == true ]]; then
-    note "@1outres/dsh-bots $DSH_BOTS_VERSION already installed"
-    return 0
-  fi
-  local args=(plugin --profile "$PROFILE" add "$spec")
-  [[ -z ${DSH_BOTS_NPM_REGISTRY:-} ]] || args+=(--registry "$DSH_BOTS_NPM_REGISTRY")
-  (cd "$HOME" && dsh "${args[@]}") || stop "dsh plugin add $spec failed." "See the log (pnpm's output), fix it, then run this again."
-  has=$(profile_json '((p.dsh&&p.dsh.profile&&p.dsh.profile.bundles)||[]).includes("@1outres/dsh-bots")')
-  [[ $has == true ]] || stop "The profile $PROFILE does not list the bundle @1outres/dsh-bots after the install." "See the log."
-  keep PLUGINS_CHANGED 1
-  note "@1outres/dsh-bots $DSH_BOTS_VERSION"
-}
-
-step_vm_check() {
-  if [[ ${DSH_BOTS_SKIP_VM_CHECK:-} == 1 ]]; then
-    note "skipped"
-    return 0
-  fi
-  as_root env DSH_USER="$USER" DSH_BOTS_REPORT="$REPORT_FILE" DSH_BOTS_NOTE="$NOTE_FILE" bash "$TREE/infra/vm/check-vm.sh"
 }
 
 # ------------------------------------------------------------- main
 finish() {
   [[ -z $SUDO_KEEPALIVE ]] || kill "$SUDO_KEEPALIVE" 2>/dev/null || true
-  rm -f "$NOTE_FILE" "$REPORT_FILE" "$KEEP_FILE"
+  rm -f "$NOTE_FILE" "$REPORT_FILE" "$KEEP_FILE" "$TOKEN_FILE"
+}
+
+done_local() {
+  printf '\n%sDone.%s This machine is a VM host for the DSH of %s.\n' "$C_OK" "$C_OFF" "$USER"
+  if ((GROUP_ADDED)); then
+    printf 'Restart DSH so that it runs in the group incus-admin (log out and back in first if you start it from a shell).\n'
+  fi
+  printf 'In DSH: add the plugin (dsh plugin --profile <profile> add @1outres/dsh-bots@%s, or Plugins), then\n' "$DSH_BOTS_VERSION"
+  printf 'dsh-bots settings → VM host → This machine.\n'
+}
+
+done_remote() {
+  printf '\n%sDone.%s Paste this trust token in DSH: dsh-bots settings → VM host → Another machine.\n\n' "$C_OK" "$C_OFF"
+  printf '%s%s%s\n\n' "$C_BOLD" "$(cat "$TOKEN_FILE")" "$C_OFF"
+  printf '%sIt pairs one DSH, once. Run this again for a new token (it replaces an unused one).%s\n' "$C_DIM" "$C_OFF"
 }
 
 main() {
-  ((EUID != 0)) || { printf 'dsh-bots: run this as the user that runs DSH, not as root.\n' >&2; exit 1; }
   locate_tree "$@"
+  if [[ ${1:-} == incus-project ]]; then
+    shift
+    exec bash "$TREE/infra/incus/create-project.sh" "$@"
+  fi
+  (($# == 0)) || { printf 'dsh-bots: unknown argument %s (the only one is incus-project).\n' "$1" >&2; exit 1; }
   # shellcheck source=infra/vm/lib.sh
   . "$TREE/infra/vm/lib.sh"
+  detect_os
   mkdir -p "$STATE/logs"
   LOG=$STATE/logs/install-$(date +%Y%m%d-%H%M%S).log
   # Not in /tmp: root (sudo) may not write another user's file in a sticky directory (protected_regular).
   NOTE_FILE=$(mktemp -p "$STATE" .note.XXXXXX)
   REPORT_FILE=$(mktemp -p "$STATE" .report.XXXXXX)
   KEEP_FILE=$(mktemp -p "$STATE" .keep.XXXXXX)
+  TOKEN_FILE=$(mktemp -p "$STATE" .token.XXXXXX)
   export DSH_BOTS_NOTE=$NOTE_FILE DSH_BOTS_REPORT=$REPORT_FILE
   trap finish EXIT
-  GROUP_ADDED=0 PLUGINS_CHANGED=0 NIXOS_PENDING=0
-  printf '%sdsh-bots installer %s%s\n' "$C_BOLD" "$DSH_BOTS_VERSION" "$C_OFF"
-  detect_os
+  GROUP_ADDED=0 ACCESS=""
+  printf '%sdsh-bots VM host installer %s%s\n' "$C_BOLD" "$DSH_BOTS_VERSION" "$C_OFF"
   step "Checking system" step_system
-  step "Checking DSH" step_dsh
-  # NixOS installs nothing here (dsh-bots.nix does): root only from the next step on.
-  if [[ $OS_FAMILY == nixos ]]; then
-    step "Installing packages" step_packages
-    acquire_root
-  else
-    acquire_root
-    step "Installing packages" step_packages
-  fi
+  step "Choosing where DSH runs" step_access
+  acquire_root
+  step "Installing packages" step_packages
   step "Configuring Incus" step_incus
   step "Checking the firewall" step_firewall
-  step "Preparing workspaces" step_workspaces
-  step "Downloading the base image" step_image
-  step "Installing plugins" step_plugins
-  step "Testing a VM" step_vm_check
-  printf '\n%sDone.%s' "$C_OK" "$C_OFF"
-  if ((PLUGINS_CHANGED || GROUP_ADDED)); then
-    printf ' Restart DSH to load dsh-bots%s.' "$( ((GROUP_ADDED)) && echo ' (log out and back in first if you start it from a shell: you joined incus-admin)')"
-  fi
-  printf '\n'
-  if ((IS_WSL)); then
-    printf '%sWSL stops when idle, and the bot VMs with it: set vmIdleTimeout=-1 in .wslconfig, or keep "wsl.exe --exec sleep infinity" running.%s\n' "$C_DIM" "$C_OFF"
+  if [[ $ACCESS == local ]]; then
+    step "Letting DSH use Incus" step_grant
+    done_local
+  else
+    step "Issuing a trust token" step_grant
+    done_remote
   fi
 }
 

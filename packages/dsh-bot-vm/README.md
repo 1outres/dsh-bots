@@ -15,7 +15,7 @@ Every bot session's cwd is the environment's `workspace`, `/home/bot/workspace` 
 
 ### The base image
 
-Bot VMs start from the image alias `image` (`dsh-bot-base`) of the project. With `manageImage` (the default) the plugin puts it there itself (src/host/image/, docs/specs/incus-endpoint.md §5.5), from the release this version names: `infra/release.env`'s `IMAGE_TAG` and `IMAGE_MANIFEST_SHA256`, copied into `src/host/image/release-env.ts` by `infra/vm/export-image.sh` (a test keeps them equal). The checks are install.sh's:
+Bot VMs start from the image alias `image` (`dsh-bot-base`) of the project. With `manageImage` (the default) the plugin puts it there itself (src/host/image/, docs/specs/incus-endpoint.md §5.5), from the release this version names: `infra/release.env`'s `IMAGE_TAG` and `IMAGE_MANIFEST_SHA256`, copied into `src/host/image/release-env.ts` by `infra/vm/export-image.sh` (a test keeps them equal). The checks:
 
 1. `manifest.txt` from `https://github.com/1outres/dsh-bots/releases/download/<tag>/` (or `imageBaseUrl`, with `imageManifestSha256`) must have that sha256, format 1, the DSH version the plugin runs on, one `image` and parts whose sizes add up to it. The verified manifest is kept in `<stateDir>/images/manifests/`, so a VM host that has the image needs no network.
 2. When the alias already points at the manifest's fingerprint, nothing happens. When the project has the image without the alias, only the alias moves.
@@ -124,11 +124,13 @@ Where the VMs run is chosen in the dsh-bots settings, section **VM host** (bot-c
 
 ## Requirements
 
-A VM host prepared as docs/specs/incus-endpoint.md §3 describes (`infra/vm` still sets up the earlier layout; docs/specs/incus-endpoint.md §7 lists what changes):
+On the DSH host (any system DSH runs on): OpenSSH's client (`ssh`, `ssh-keygen`) on DSH's PATH. Nothing in `~/.ssh/config`, no Incus, no root.
 
-- Incus 6.0.4 or later with VM support; on this machine the DSH user is in `incus-admin`.
-- The project (`incusProject`) with `user.dsh-bots.pool` and `user.dsh-bots.network` naming a pool and a network it may use, and the `dsh-bot-base` image in it: user `bot` with `/home/bot/workspace`, Node 24, `/usr/sbin/sshd` (run as `sshd -i` through Incus' exec), the cloud-init seed made root-only on every boot (it carries the host's private key), `/opt/dsh-ssh-helper` (dsh-ssh 0.2.2-rc.5), ripgrep at `/usr/bin/rg`, passwordless sudo for `bot` (the ripgrep link).
-- OpenSSH's client (`ssh`, `ssh-keygen`) on DSH's PATH. Nothing in `~/.ssh/config`.
+A VM host (docs/specs/incus-endpoint.md §2, §3), prepared by the repository's `install.sh` (Debian 13 / 12, Ubuntu 24.04, Fedora 42+; `infra/vm/README.md`) or, on an Incus server that runs other things, by its administrator with `infra/incus/create-project.sh`:
+
+- Incus 6.0.4 or later with VM support; for this machine, the DSH user in `incus-admin`; for another one, its HTTPS API reachable from the DSH host and a trust token restricted to the project.
+- The project (`incusProject`, or the one chosen when pairing) with `user.dsh-bots.pool` and `user.dsh-bots.network` naming a pool and a network it may use (and `user.dsh-bots.egress-acl` the ACL on that network).
+- The `dsh-bot-base` image, which the plugin imports itself (The base image): user `bot` with `/home/bot/workspace`, Node 24, `/usr/sbin/sshd` (run as `sshd -i` through Incus' exec), the cloud-init seed made root-only on every boot (it carries the host's private key), `/opt/dsh-ssh-helper` (dsh-ssh 0.2.2-rc.5), ripgrep at `/usr/bin/rg`, passwordless sudo for `bot` (the ripgrep link).
 
 ## Deployment
 

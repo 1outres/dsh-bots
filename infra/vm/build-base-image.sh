@@ -4,8 +4,9 @@
 # previous image is deleted, unless another alias still names it.
 #
 # Usage: ./build-base-image.sh     (as a user that can talk to Incus)
+# Builds in PROJECT, a VM host's project (install.sh), on the pool and network it declares.
 # Tunables: ALIAS (dsh-bot-base), SOURCE (images:debian/13/cloud),
-#           PROFILE (dsh-bot), NODE_MAJOR (24), BOT_USER (bot),
+#           PROJECT (dsh-bots), NODE_MAJOR (24), BOT_USER (bot),
 #           HELPER_SHA256 (expected sha256 of dsh-ssh lib/helper.js; build fails on mismatch)
 # The dsh-ssh helper is the DSH_VERSION of infra/release.env.
 set -eEuo pipefail
@@ -16,7 +17,7 @@ trap on_error ERR
 
 ALIAS=${ALIAS:-dsh-bot-base}
 SOURCE=${SOURCE:-images:debian/13/cloud}
-PROFILE=${PROFILE:-dsh-bot}
+PROJECT=${PROJECT:-dsh-bots}
 NODE_MAJOR=${NODE_MAJOR:-24}
 BOT_USER=${BOT_USER:-bot}
 BUILDER=${BUILDER:-dsh-bot-base-builder}
@@ -29,26 +30,32 @@ BROWSER_MCP_STAGE=/root/dsh-browser-mcp
 BROWSER_HELPER_DIR=/opt/dsh-browser/helper
 BROWSER_HELPER_STAGE=/root/dsh-browser-helper
 
-cleanup() { incus delete --force "$BUILDER" >/dev/null 2>&1 || true; }
+p=(--project "$PROJECT")
+cleanup() { incus delete "${p[@]}" --force "$BUILDER" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
-incus profile show "$PROFILE" >/dev/null 2>&1 || fail "There is no Incus profile $PROFILE." "Run host-setup.sh first."
+pool=$(incus project get "$PROJECT" user.dsh-bots.pool 2>/dev/null) || pool=""
+network=$(incus project get "$PROJECT" user.dsh-bots.network 2>/dev/null) || network=""
+[[ -n $pool && -n $network ]] || fail "The project $PROJECT declares no user.dsh-bots.pool / network." "Prepare this host with install.sh (or set PROJECT)."
 command -v zstd >/dev/null || fail "zstd is missing (incus publish --compression zstd)." "Install zstd."
 desktop_packages=$(tr '\n' ' ' <"$DESKTOP_PACKAGES_FILE")
 
 cleanup
 log "Launching builder VM from $SOURCE"
-incus launch -q "$SOURCE" "$BUILDER" --vm -p "$PROFILE"
+incus init -q "${p[@]}" "$SOURCE" "$BUILDER" --vm --no-profiles --storage "$pool" --network "$network" \
+  -c limits.cpu=4 -c limits.memory=4GiB -c security.secureboot=false
+incus config device set "${p[@]}" "$BUILDER" root size=16GiB
+incus start "${p[@]}" "$BUILDER"
 
 log "Waiting for the incus agent"
 for _ in $(seq 1 120); do
-  incus exec "$BUILDER" -- true >/dev/null 2>&1 && break
+  incus exec "${p[@]}" "$BUILDER" -- true >/dev/null 2>&1 && break
   sleep 2
 done
-incus exec "$BUILDER" -- cloud-init status --wait >/dev/null || true
+incus exec "${p[@]}" "$BUILDER" -- cloud-init status --wait >/dev/null || true
 
 log "Copying the desktop's Chrome package source and policy, the browser's Playwright MCP shrinkwrap and login helpers"
-push() { incus file push -q -p --uid 0 --gid 0 --mode "$1" "$2" "$BUILDER$3"; }
+push() { incus file push "${p[@]}" -q -p --uid 0 --gid 0 --mode "$1" "$2" "$BUILDER$3"; }
 push 0644 "$DESKTOP_VM/apt/google-chrome.asc" /etc/apt/keyrings/dsh-google-chrome.asc
 push 0644 "$DESKTOP_VM/apt/google-chrome.sources" /etc/apt/sources.list.d/dsh-google-chrome.sources
 push 0644 "$DESKTOP_VM/config/chrome-policy.json" /etc/opt/chrome/policies/managed/dsh-desktop.json
@@ -73,21 +80,21 @@ provision_env=$(mktemp)
 push 0600 "$provision_env" "$PROVISION/env"
 rm -f "$provision_env"
 push 0755 "$HERE/provision-base.sh" "$PROVISION/provision-base.sh"
-incus exec "$BUILDER" -- systemd-run --unit=dsh-provision --collect --setenv=HOME=/root \
+incus exec "${p[@]}" "$BUILDER" -- systemd-run --unit=dsh-provision --collect --setenv=HOME=/root \
   --property=EnvironmentFile="$PROVISION/env" \
   sh -c "bash $PROVISION/provision-base.sh >$PROVISION/log 2>&1; echo \$? >$PROVISION/status"
-until status=$(incus exec "$BUILDER" -- cat "$PROVISION/status" 2>/dev/null); do sleep 15; done
-incus file pull "$BUILDER$PROVISION/log" - || true
+until status=$(incus exec "${p[@]}" "$BUILDER" -- cat "$PROVISION/status" 2>/dev/null); do sleep 15; done
+incus file pull "${p[@]}" "$BUILDER$PROVISION/log" - || true
 [[ $status == 0 ]] || { echo "provisioning failed (exit $status)" >&2; exit 1; }
-incus exec "$BUILDER" -- rm -rf "$PROVISION"
+incus exec "${p[@]}" "$BUILDER" -- rm -rf "$PROVISION"
 
 log "Stopping builder"
-incus stop "$BUILDER"
+incus stop "${p[@]}" "$BUILDER"
 
-old_fp=$(alias_target "$ALIAS")
+old_fp=$(alias_target "$PROJECT" "$ALIAS")
 
 log "Publishing image"
-published=$(incus publish "$BUILDER" --compression zstd \
+published=$(incus publish "${p[@]}" "$BUILDER" --compression zstd \
   os=Debian release=trixie variant=dsh-bot \
   dsh.version="$DSH_VERSION" \
   description="dsh bot base: Debian 13, node ${NODE_MAJOR}.x, dsh-ssh ${DSH_VERSION}, user ${BOT_USER}, desktop packages, Google Chrome, Playwright MCP (built $(date -u +%Y-%m-%dT%H:%MZ))")
@@ -97,20 +104,20 @@ new_fp=$(awk '/fingerprint:/ {print $NF}' <<<"$published")
 # One update of the alias's target: VMs created meanwhile get the old or the new image, never none.
 if [[ -n $old_fp ]]; then
   log "Pointing $ALIAS at $new_fp"
-  incus query -X PATCH "/1.0/images/aliases/$ALIAS" --data "{\"target\": \"$new_fp\"}" >/dev/null
+  incus query -X PATCH "/1.0/images/aliases/$ALIAS?project=$PROJECT" --data "{\"target\": \"$new_fp\"}" >/dev/null
 else
   log "Creating alias $ALIAS"
-  incus image alias create "$ALIAS" "$new_fp"
+  incus image alias create "${p[@]}" "$ALIAS" "$new_fp"
 fi
 
 if [[ -n $old_fp && $old_fp != "$new_fp" ]]; then
-  old_aliases=$(aliases_of "$old_fp")
+  old_aliases=$(aliases_of "$PROJECT" "$old_fp")
   if [[ -z $old_aliases ]]; then
     log "Deleting previous image $old_fp"
-    incus image delete "$old_fp"
+    incus image delete "${p[@]}" "$old_fp"
   else
     log "Keeping previous image $old_fp (aliases: $(tr '\n' ' ' <<<"$old_aliases"))"
   fi
 fi
 
-incus image list "$ALIAS"
+incus image list "${p[@]}" "$ALIAS"

@@ -1,6 +1,6 @@
 # Incus の接続先の抽象（IncusEndpoint）
 
-状態: 設計（spike 済み、実装前）。spike のコードと生の数値は `dev/incus-endpoint-spike/`。
+状態: 段階 1〜6 を実装（§11）。spike のコードと生の数値は `dev/incus-endpoint-spike/`。
 
 この文書では「確認済み」は 2026-11-25 にこのホスト（Debian 13、Incus 6.0.4）で実際に動かして確かめたこと、「未検証」は試していないこと、「推測」は根拠が文書や読んだコードだけのことを指す。
 
@@ -25,19 +25,19 @@
 
 ### 3.1 形 1（local）
 
-1. `install.sh` が今と同じく VM ホストの準備（パッケージ、Incus、ストレージプール、ブリッジ、ACL、ファイアウォール）を行い、加えて project `dsh-bots` を作る（§3.4 と同じ中身）。共有フォルダの bind mount と `~/.ssh/config` の Include は作らない（§7）。
+1. `install.sh`（`DSH_BOTS_ACCESS=local`、DSH を動かすユーザで実行）が VM ホストの準備（パッケージ、Incus、ストレージプール、ブリッジ、ACL、ファイアウォール、project `dsh-bots`、§3.4）を行い、DSH のユーザを `incus-admin` に入れる。共有フォルダの bind mount と `~/.ssh/config` の Include は作らない（§7）。プラグインは DSH に別に入れる（`dsh plugin --profile <p> add @1outres/dsh-bots@<版>` か Plugins 画面）。
 2. DSH の「dsh-bots の設定」画面の「VM ホスト」で「このマシン」を選ぶ（既定）。プラグインはソケットに届くか、project・プール・ネットワークがあるかを調べ、足りないものとその直し方（install.sh の再実行）を示す。
 3. イメージの取り込み（§5.5）は画面の「イメージ」で行う。
 
 ### 3.2 形 2（専用の VM ホスト）
 
-1. VM ホストで `curl … | bash -s -- vm-host`（install.sh の VM ホスト役。DSH もプラグインも入れない）。パッケージ・Incus・プール・ブリッジ・ACL・ファイアウォール・project を用意し、`core.https_address` を設定し、最後に trust token を 1 つ出す（§4）。
+1. VM ホストで `curl … | bash`（`DSH_BOTS_ACCESS=remote`、または問いに remote と答える）。パッケージ・Incus・プール・ブリッジ・ACL・ファイアウォール・project を用意し、`core.https_address`（未設定なら `:8443`）を設定し、最後に trust token を 1 つ出す（§4）。
 2. DSH の画面の「VM ホスト」で「別のマシン」を選び、token を貼る。プラグインが証明書を作って登録する（§4）。
 3. 画面がそのまま検査（§5.1 の `check`）とイメージの取り込みに進む。
 
 ### 3.3 形 3（既存の Incus サーバ）
 
-1. 管理者が配布スクリプト `infra/vm/incus-admin-setup.sh`（新規、root 不要・incus のリモート操作だけ）を自分の Incus に対して実行する。引数は project 名、ストレージプール、ネットワーク（既存を指定するか、ブリッジを新しく作るか）、ACL（既存を指定するか、dsh-bots の既定 ACL を作るか）、上限（CPU・メモリ・ディスク・VM 数）。スクリプトは §3.4 の project を作り、token を出す。
+1. 管理者が配布スクリプト `infra/incus/create-project.sh`（root 不要・incus のクライアントだけ、`--remote` で incus の remote に対しても。入口は `install.sh incus-project …`）を自分の Incus に対して実行する。引数は project 名、ストレージプール、ネットワーク（既存を指定するか、ブリッジを新しく作るか）、ACL（既存を指定するか、dsh-bots の既定 ACL を作るか。既存のネットワークへ付けるのは `--attach-acl` のときだけ）、上限（CPU・メモリ・ディスクは必須、VM 数）。スクリプトは §3.4 の project を作り、§8.2 の注意を示し、token を出す。サーバの設定（`core.https_address`）は変えず、未設定なら止まる。
 2. 以降は形 2 と同じ。
 
 ### 3.4 project の中身（3 つの形で共通。スクリプトが作る）
@@ -245,24 +245,24 @@ ProxyCommand は DSH のプロセスの中で中継する（§5.2）ので、Inc
 
 ## 7. 今のスクリプト・文書の扱い
 
-| もの                                                  | これから                                                                                                                                                                                                                                                                    |
-| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `install.sh`                                          | 2 つの役に分ける: 「VM ホスト」（packages / incus / firewall / project / https と token。root）と「DSH ホスト」（DSH の版の確認とプラグインの追加だけ。root 不要）。形 1 は両方を続けて行う。イメージの取り込み（step 7）と一時 VM の検査（step 9）はプラグインの画面へ移す |
-| `host-setup.sh` packages                              | 残す（VM ホスト）。socat は要らなくなる。virtiofsd は Incus の依存として入るので明示はやめる。対象 OS から Arch・NixOS・WSL を VM ホストとしては外す（DSH ホストとしては引き続き対象）                                                                                      |
-| `host-setup.sh` incus                                 | 残す。加えて project（§3.4）を作る。プロファイル `dsh-bot` は作らない（§3.4）。`incus-admin` に DSH ユーザを入れるのは形 1 だけ                                                                                                                                             |
-| `host-setup.sh` firewall                              | 残す（VM ホスト）                                                                                                                                                                                                                                                           |
-| `host-setup.sh` workspaces                            | 消す（bind mount、`incus.service` の `RequiresMountsFor`、`~/.ssh/config` の Include はどれも要らなくなる。プラグインはボットごとの設定を `ssh -F` で渡す、§5.3）                                                                                                           |
-| 新規 `host-setup.sh remote`                           | `core.https_address`（既定 `:8443`）、trust token の発行                                                                                                                                                                                                                    |
-| 新規 `incus-admin-setup.sh`                           | 形 3 の管理者向け（§3.3）                                                                                                                                                                                                                                                   |
-| `import-image.sh`                                     | 消す（プラグインが取り込む）                                                                                                                                                                                                                                                |
-| `check-vm.sh`                                         | VM ホストの検査（VM が起動し exec が通り HTTPS が出る）に絞る。共有フォルダと vsock の検査は消す                                                                                                                                                                            |
-| `infra/nixos/dsh-bots.nix.in`                         | NixOS は DSH ホストとしてだけ扱うので消す                                                                                                                                                                                                                                   |
-| `build-base-image.sh` / `provision-base.sh`           | 当面そのまま。後で: `sshd-vsock.socket` を外す（exec では使わない）、ワークスペースの mount をイメージの unit にする（§10 の 7）                                                                                                                                            |
-| `docs/agent-setup.md`                                 | 2 つに分ける（VM ホストの準備 / DSH ホストでのプラグインの追加と画面でのペアリング）。「`~/.dsh/bots` の mount を弱めない」の行は消す                                                                                                                                       |
-| `docs/specs/installer.md`                             | §2 のステップ表と §3 の OS 表を VM ホスト用に書き直し、§3.1 NixOS・§4 WSL は DSH ホスト側の記述にする                                                                                                                                                                       |
-| `packages/dsh-bot-vm/README.md`、`infra/vm/README.md` | 共有フォルダ・vsock・socat の節を、endpoint・exec・volume の説明に置き換える                                                                                                                                                                                                |
-| `packages/dsh-bot-core/README.md`                     | 「ファイルは Host に残る」「`hostRoot`」の記述を直す                                                                                                                                                                                                                        |
-| `README.md`（リポジトリの入口）                       | 1 行のインストールを「VM ホストの準備」と「DSH にプラグインを入れて画面でつなぐ」の 2 つに分けて書く                                                                                                                                                                        |
+| もの                                                  | これから                                                                                                                                                                                                                                                                                                                         |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `install.sh`                                          | 段階 6 で決定: VM ホストの準備だけにする（packages / incus / firewall / project、形 1 は `incus-admin`、形 2 は https と token）。DSH ホストの役は持たない（プラグインは DSH の Plugins 画面か `dsh plugin add`）。イメージの取り込みと一時 VM の検査はプラグインの画面へ移した。VM での手の検査は `infra/vm/check-vm.sh` に残す |
+| `host-setup.sh` packages                              | 残す（VM ホスト）。socat は要らなくなる。virtiofsd は Incus の依存として入るので明示はやめる。対象 OS から Arch・NixOS・WSL を VM ホストとしては外す（DSH ホストとしては引き続き対象）                                                                                                                                           |
+| `host-setup.sh` incus                                 | 残す。加えて project（§3.4）を作る。プロファイル `dsh-bot` は作らない（§3.4）。`incus-admin` に DSH ユーザを入れるのは形 1 だけ                                                                                                                                                                                                  |
+| `host-setup.sh` firewall                              | 残す（VM ホスト）                                                                                                                                                                                                                                                                                                                |
+| `host-setup.sh` workspaces                            | 消す（bind mount、`incus.service` の `RequiresMountsFor`、`~/.ssh/config` の Include はどれも要らなくなる。プラグインはボットごとの設定を `ssh -F` で渡す、§5.3）                                                                                                                                                                |
+| 新規 `host-setup.sh local` / `remote`                 | local: `incus-admin`。remote: `core.https_address`（既定 `:8443`）、ufw / firewalld のポート、trust token の発行。ACL・ブリッジ・project・token は `infra/incus/objects.sh` で形 3 と共有                                                                                                                                        |
+| 新規 `infra/incus/create-project.sh`                  | 形 3 の管理者向け（§3.3）                                                                                                                                                                                                                                                                                                        |
+| `import-image.sh`                                     | 消す（プラグインが取り込む）                                                                                                                                                                                                                                                                                                     |
+| `check-vm.sh`                                         | VM ホストの検査（VM が起動し exec が通り HTTPS が出る）に絞る。共有フォルダと vsock の検査は消す                                                                                                                                                                                                                                 |
+| `infra/nixos/dsh-bots.nix.in`                         | NixOS は DSH ホストとしてだけ扱うので消す                                                                                                                                                                                                                                                                                        |
+| `build-base-image.sh` / `provision-base.sh`           | 当面そのまま。後で: `sshd-vsock.socket` を外す（exec では使わない）、ワークスペースの mount をイメージの unit にする（§10 の 7）                                                                                                                                                                                                 |
+| `docs/agent-setup.md`                                 | 2 つに分ける（VM ホストの準備 / DSH ホストでのプラグインの追加と画面でのペアリング）。「`~/.dsh/bots` の mount を弱めない」の行は消す                                                                                                                                                                                            |
+| `docs/specs/installer.md`                             | §2 のステップ表と §3 の OS 表を VM ホスト用に書き直し、§3.1 NixOS・§4 WSL は DSH ホスト側の記述にする                                                                                                                                                                                                                            |
+| `packages/dsh-bot-vm/README.md`、`infra/vm/README.md` | 共有フォルダ・vsock・socat の節を、endpoint・exec・volume の説明に置き換える                                                                                                                                                                                                                                                     |
+| `packages/dsh-bot-core/README.md`                     | 「ファイルは Host に残る」「`hostRoot`」の記述を直す                                                                                                                                                                                                                                                                             |
+| `README.md`（リポジトリの入口）                       | 1 行のインストールを「VM ホストの準備」と「DSH にプラグインを入れて画面でつなぐ」の 2 つに分けて書く                                                                                                                                                                                                                             |
 
 ## 8. spike の結果
 
@@ -308,10 +308,10 @@ ProxyCommand は DSH のプロセスの中で中継する（§5.2）ので、Inc
 ## 9. 残る課題と未検証のこと
 
 - 確認済み（2026-11-25、段階 3、確認用 DSH・形 1・Unix ソケット・project `dsh-bots-test`）: ボット作成（ボリューム作成・インスタンスに直接書いた VM・cloud-init の mount）、会話でのファイル作成と bash、ファイルビューワー（一覧とプレビュー）、present、ノート、スキル、チャネルからの添付の保存（`.inbox/…/report.csv` が VM のボリュームに bot の所有で書かれた）、VM を外で消した後の作り直しでファイルが残る、VM ページでのワークスペース 20 → 22 GiB（止めて拡張して起動、`df` 22G）、ボット削除で VM が消えボリュームに orphan の印。
-- **未検証**: 別のマシンからの remote。spike の HTTPS は同じホストの loopback。NAT・遅い回線での数値、token の `addresses` が `:8443`（全アドレス）のとき何を並べるか。
+- 確認済み（2026-11-26、段階 6）: 別のマシンからの remote。入れ子の VM（Debian 13、install.sh の形 2）とペアリングし、イメージを取り込み、ボットを作って会話した。token の `addresses` は `:8443` のとき VM ホストのすべての IPv4 アドレス（外向きと `dshbr0` の `10.240.80.1`）を並べた。**未検証**: NAT・遅い回線での数値。
 - **未検証**: WSL・NixOS・Arch の DSH ホスト（プラグインだけで動くはずだが試していない）。
 - 制限付き証明書は自分の証明書を消せない（確認済み、§4）。**未検証**: 証明書の期限（作った証明書は 10 年）と更新の手順。
-- **未検証**: Debian 12 / Ubuntu 24.04（Zabbly 6.0.x）・Fedora の Incus で §6.1 の表が同じか。新しい版の Incus には `restricted.storage-pools.access` がある（文書で確認）。
+- 段階 6 で、Debian 12・Ubuntu 24.04（Zabbly 6.0.7）・Fedora 43（6.23）で install.sh の形 2 が project を作り token を出すことを確かめた。**未検証**: それらの Incus で §6.1 の表が同じか（ペアリングと VM の作成は Debian 13 の 6.0.4 だけで確かめた）。新しい版の Incus には `restricted.storage-pools.access` がある（文書で確認）。
 - incusd の再起動で最大 5 分止まる（§8.2）。
 - プロファイルで project が壊れる（§3.4）: プラグインはプロファイルを使わず、`check` で「project に許されないデバイスを持つプロファイルがある」を見つけたら止まって名前を示す。
 - 今の本番のボット（default project、virtiofs の共有）: 引き継がない。新しい版は default を扱わないので、今の VM と Host のフォルダには触れない。古い VM の片付けの案内（`incus delete` と `~/.dsh/bots`）は README に書く。
@@ -339,6 +339,7 @@ ProxyCommand は DSH のプロセスの中で中継する（§5.2）ので、Inc
 5. `feat/endpoint-ui`: 設定画面（VM ホストの選択、token、検査結果、ACL の警告）。2〜4 と並べられる（画面だけ。API が固まってから）。
    - 実装（2026-11-26）: bot-core の `BotEnvironment.host`（`BotEnvironmentHost`）と Remote `botEnvironmentHost`、dsh-bots 設定の「VM host」（docs/specs/ui-design.md）。保存は `endpoint.json` の version 2（endpoint と project）。実行中の切り替えは scope ごとの IncusClient に委譲し、切り替え後にボットを ensure し直す。ACL の実測は ensure の最後（`src/host/egress-probe.ts`）。確認済み（確認用 DSH、project `dsh-eui`）: 形 1 の検査・project の変更と問題の表示・ボット作成後の実測「隔離されています」、`core.https_address=127.0.0.1:8443` での形 2 のペアリング（指紋の表示、制限付き証明書の登録、HTTPS 越しの exec/SSH）、解除と trust remove の案内、指紋が違う token の拒否。未検証: 別のマシンからの形 2・3、取り込み中の切り替え。
 6. `feat/installer-split`: install.sh / host-setup.sh / 新しい管理者スクリプト / 文書（§7）。
+   - 実装（2026-11-26）: install.sh は VM ホストの準備だけ（6 ステップ、`DSH_BOTS_ACCESS=local|remote`）、`infra/incus/create-project.sh`、`check-vm.sh` を project の中の手の検査に、`build-base-image.sh` / `export-image.sh` を project の中に。`import-image.sh` と `infra/nixos/` を消した。設定画面はペアリング中に今の置き場所の行と検査を出さず、project の欄を 1 つにした。クライアント証明書の有効期間の始まりを 1 日前にした（VM ホストの時計が 1 秒未満遅れただけで "The provided certificate isn't valid yet" で拒まれたため、確認済み）。確認は docs/specs/installer.md §10 と同じ形で行った（結果は段階 6 の報告）。
 7. 別のマシンでの形 2・形 3 の通しの確認と §9 の未検証の解消。
 
 ## 付録: spike で作ったもの（すべて片付け済み）

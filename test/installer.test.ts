@@ -21,6 +21,13 @@ describe("installer release", () => {
     expect(env.DSH_VERSION).toBe(bundle.engines.dsh)
   })
 
+  it("names in the README the plugin version and DSH version this tree installs", () => {
+    const env = releaseEnv()
+    const readme = readFileSync(join(root, "README.md"), "utf8")
+    expect(readme).toContain(`@1outres/dsh-bots@${env.DSH_BOTS_VERSION}`)
+    expect(readme).toContain(`DeepSeek Harness ${env.DSH_VERSION}`)
+  })
+
   it("names a base image tag and manifest hash together or neither", () => {
     const env = releaseEnv()
     expect(env.IMAGE_TAG === "").toBe(env.IMAGE_MANIFEST_SHA256 === "")
@@ -31,9 +38,11 @@ describe("installer release", () => {
   it("has shell scripts bash can parse", () => {
     const scripts = [
       join(root, "install.sh"),
-      ...readdirSync(join(root, "infra/vm"))
-        .filter((file) => file.endsWith(".sh"))
-        .map((file) => join(root, "infra/vm", file)),
+      ...["infra/vm", "infra/incus"].flatMap((dir) =>
+        readdirSync(join(root, dir))
+          .filter((file) => file.endsWith(".sh"))
+          .map((file) => join(root, dir, file)),
+      ),
     ]
     for (const script of scripts) expect(() => execFileSync("bash", ["-n", script])).not.toThrow()
   })
