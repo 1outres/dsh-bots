@@ -1,0 +1,7 @@
+old session rc=255
+websocket 196 ms
+banner 1742 ms
+opened 2130 ms
+reconnect-ok
+2
+reconnect 11644 ms

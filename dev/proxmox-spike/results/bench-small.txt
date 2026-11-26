@@ -1,0 +1,8 @@
+master 10779 ms
+mux true 2561 ms
+mux true 452 ms
+mux true 539 ms
+down 16KiB bytes=16384 13641 ms 1.2 KiB/s
+up 16KiB bytes=16384 28974 ms 0.6 KiB/s
+down 64KiB bytes=65536 67858 ms 0.9 KiB/s
+mux_client_request_session: read from master failed: Broken pipe

@@ -1,0 +1,74 @@
+GET /cluster/resources?type=vm
+    -> 200 OK | [{"uid":"kf4qh4sgmhnqjvs7xgal","disk":0,"template":0,"netin":0,"diskwrite":0,"mem":94494720,"type":"qemu","vmid":101,"status":"running","diskread":0,"netout":0,"id":"qemu/101","maxcpu":2,"maxdisk":171
+GET /nodes/pve1/qemu/500/status/current
+    -> 403 Permission check failed (/vms/500, VM.Audit) | Permission check failed (/vms/500, VM.Audit) 
+POST /nodes/pve1/qemu/500/status/stop
+    -> 403 Permission check failed (/vms/500, VM.PowerMgmt) | Permission check failed (/vms/500, VM.PowerMgmt) 
+PUT /nodes/pve1/qemu/500/config {"memory":1024}
+    -> 403 Permission check failed (/vms/500, VM.Config.Disk|VM.Config.CDROM|VM.Config.CPU|VM.Config.Memory|VM.Config.Network|VM.Config.HWType|VM.Config.Options|VM.Config.Cloudinit) | Permission check failed (/vms/500, VM.Config.Disk|VM.Config.CDROM|VM.Config.CPU|VM.Config.Memory|VM.Config.Network|VM.Config.HWType|VM.Config.Options|VM.Config.Cloudinit) 
+DELETE /nodes/pve1/qemu/500
+    -> 403 Permission check failed (/vms/500, VM.Allocate) | Permission check failed (/vms/500, VM.Allocate) 
+POST /nodes/pve1/qemu/500/termproxy {"serial":"serial0"}
+    -> 403 Permission check failed (/vms/500, VM.Console) | Permission check failed (/vms/500, VM.Console) 
+POST /nodes/pve1/qemu {"vmid":501,"name":"outside","memory":512}
+    -> 403 Permission check failed | Permission check failed 
+POST /nodes/pve1/qemu {"vmid":502,"name":"in-pool-other-storage","pool":"dsh-bots","memory":512,"scsi0":"local:1"}
+    -> 403 Permission check failed (/storage/local, Datastore.AllocateSpace) | Permission check failed (/storage/local, Datastore.AllocateSpace) 
+POST /nodes/pve1/qemu {"vmid":503,"name":"hostpci","pool":"dsh-bots","memory":512,"hostpci0":"0000:00:01.0"}
+    -> 500 only root can set 'hostpci0' config for non-mapped devices | only root can set 'hostpci0' config for non-mapped devices 
+POST /nodes/pve1/qemu {"vmid":504,"name":"args","pool":"dsh-bots","memory":512,"args":"-no-reboot"}
+    -> 500 only root can set 'args' config | only root can set 'args' config 
+POST /nodes/pve1/qemu {"vmid":505,"name":"serialdev","pool":"dsh-bots","memory":512,"serial0":"/dev/ttyS0"}
+    -> 500 only root can set 'serial0' config for real devices | only root can set 'serial0' config for real devices 
+POST /nodes/pve1/qemu {"vmid":506,"name":"bridge-other","pool":"dsh-bots","memory":512,"net0":"virtio,bridge=vmbr9"}
+    -> 403 Permission check failed (/sdn/zones/localnetwork/vmbr9, SDN.Use) | Permission check failed (/sdn/zones/localnetwork/vmbr9, SDN.Use) 
+POST /nodes/pve1/qemu {"vmid":507,"name":"pool-ok","pool":"dsh-bots","memory":512}
+    -> 200 OK | "UPID:pve1:00004CC3:00081479:6B086102:qmcreate:507:dsh-bots@pve!plugin:"
+DELETE /nodes/pve1/qemu/507
+    -> 403 Permission check failed (/vms/507, VM.Allocate) | Permission check failed (/vms/507, VM.Allocate) 
+GET /nodes/pve1/storage/local/content
+    -> 403 Permission check failed (/storage/local, Datastore.Audit|Datastore.AllocateSpace) | Permission check failed (/storage/local, Datastore.Audit|Datastore.AllocateSpace) 
+POST /nodes/pve1/storage/local/content {"vmid":507,"filename":"vm-507-disk-9.raw","size":"1G"}
+    -> 403 Permission check failed (/storage/local, Datastore.AllocateSpace) | Permission check failed (/storage/local, Datastore.AllocateSpace) 
+GET /storage/dshbots
+    -> 403 Permission check failed (/storage/dshbots, Datastore.Allocate) | Permission check failed (/storage/dshbots, Datastore.Allocate) 
+PUT /storage/dshbots {"content":"images,iso"}
+    -> 403 Permission check failed (/storage, Datastore.Allocate) | Permission check failed (/storage, Datastore.Allocate) 
+POST /storage {"storage":"evil","type":"dir","path":"/","content":"images"}
+    -> 403 Permission check failed (/storage, Datastore.Allocate) | Permission check failed (/storage, Datastore.Allocate) 
+GET /nodes/pve1/status
+    -> 403 Permission check failed (/nodes/pve1, Sys.Audit) | Permission check failed (/nodes/pve1, Sys.Audit) 
+GET /nodes/pve1/network
+    -> 200 OK | [{"type":"eth","active":1,"priority":3,"families":["inet"],"method":"manual","method6":"manual","exists":1,"altnames":["enx10666a286d16"],"iface":"enp5s0"},{"method6":"manual","iface":"vmbr0","bridge_
+POST /nodes/pve1/network {"iface":"vmbr9","type":"bridge"}
+    -> 403 Permission check failed (/nodes/pve1, Sys.Modify) | Permission check failed (/nodes/pve1, Sys.Modify) 
+GET /nodes/pve1/syslog?limit=1
+    -> 403 Permission check failed (/nodes/pve1, Sys.Syslog) | Permission check failed (/nodes/pve1, Sys.Syslog) 
+POST /nodes/pve1/termproxy
+    -> 403 Permission check failed (/nodes/pve1, Sys.Console) | Permission check failed (/nodes/pve1, Sys.Console) 
+POST /nodes/pve1/execute {"commands":"[]"}
+    -> 403 Permission check failed (user != root@pam) | Permission check failed (user != root@pam) 
+GET /access/users
+    -> 200 OK | []
+GET /access/acl
+    -> 200 OK | []
+PUT /access/acl {"path":"/","roles":"Administrator","tokens":"dsh-bots@pve!plugin"}
+    -> 403 Permission check failed (/, Permissions.Modify) | Permission check failed (/, Permissions.Modify) 
+PUT /pools/dsh-bots {"vms":"500"}
+    -> 403 Permission check failed (/pool/dsh-bots, Pool.Allocate) | Permission check failed (/pool/dsh-bots, Pool.Allocate) 
+GET /nodes/pve1/hardware/pci
+    -> 403 Permission check failed (/, Sys.Audit|Sys.Modify) | Permission check failed (/, Sys.Audit|Sys.Modify) 
+POST /nodes/pve1/qemu/101/snapshot {"snapname":"s1"}
+    -> 403 Permission check failed (/vms/101, VM.Snapshot) | Permission check failed (/vms/101, VM.Snapshot) 
+POST /nodes/pve1/vzdump {"vmid":101,"storage":"dshbots"}
+    -> 200 OK | "UPID:pve1:00004CCE:000814D6:6B086103:vzdump:101:dsh-bots@pve!plugin:"
+POST /nodes/pve1/qemu/101/agent/exec {"command":"true"}
+    -> 403 Permission check failed (/vms/101, VM.GuestAgent.Unrestricted) | Permission check failed (/vms/101, VM.GuestAgent.Unrestricted) 
+GET /nodes/pve1/qemu/101/agent/network-get-interfaces
+    -> 500 QEMU guest agent is not running | QEMU guest agent is not running 
+GET /pools/dsh-bots
+    -> 200 OK | {"poolid":"dsh-bots","members":[{"name":"bot-a","uptime":32,"cpu":0.552266344231532,"maxmem":2147483648,"maxcpu":2,"maxdisk":17179869184,"node":"pve1","memhost":94158848,"type":"qemu","mem":94158848,"
+GET /nodes/pve1/qemu/101/pending
+    -> 200 OK | [{"value":"c2d8972890658ec21528870250028b25eb31c6f7","key":"digest"},{"key":"ostype","value":"l26"},{"key":"memory","value":"2048"},{"value":"virtio=BC:24:11:CE:3E:9E,bridge=vmbr0,firewall=1","key":"n
+GET /nodes/pve1/qemu/101/rrddata?timeframe=hour
+    -> 200 OK | [{"maxmem":2147483648,"pressurememoryfull":0,"time":1795707660,"pressureiosome":0,"diskwrite":0,"pressurecpusome":0,"netout":0,"netin":0,"pressureiofull":0,"pressurememorysome":0,"maxdisk":17179869184

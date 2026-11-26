@@ -1,0 +1,5 @@
+master 15192 ms
+mux true 2837 ms
+mux true 1381 ms
+mux true 1083 ms
+down 64KiB bytes=65536 80409 ms 0.8 KiB/s

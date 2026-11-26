@@ -1,0 +1,14 @@
+[Unit]
+Description=sshd -i on serial line %I (dsh)
+After=sshd-keygen.service
+ConditionPathExists=/dev/%I
+
+[Service]
+ExecStart=/usr/local/sbin/dsh-serial-ssh %I
+RuntimeDirectory=sshd
+RuntimeDirectoryPreserve=yes
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target

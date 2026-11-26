@@ -1,0 +1,13 @@
+#!/bin/bash
+set -u
+TTY=/dev/$1
+stty -F "$TTY" raw -echo -ixon -ixoff -crtscts clocal 115200
+exec 3<>"$TTY"
+while :; do
+  while IFS= read -r -u 3 line; do
+    [[ $line == "DSH-SSH-START "* ]] && break
+  done
+  nonce=${line#DSH-SSH-START }
+  printf 'DSH-SSH-READY %s\n' "$nonce" >&3
+  /usr/sbin/sshd -i -o ClientAliveInterval=5 -o ClientAliveCountMax=3 <&3 >&3 2>/dev/null
+done

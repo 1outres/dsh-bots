@@ -1,0 +1,143 @@
+#!/usr/bin/python3
+"""dsh-serial-relay <tty>: multiplexes sshd -i sessions over one serial line.
+
+Frames are COBS-encoded and end with 0x00, so a new client can always resync by sending 0x00.
+Frame = type(1) channel(1) payload. Host->guest: OPEN, DATA, CLOSE, RESET. Guest->host: OPENED, DATA, CLOSE.
+"""
+import os, selectors, signal, subprocess, sys, termios, tty
+
+OPEN, OPENED, DATA, CLOSE, RESET = 1, 2, 3, 4, 5
+CHUNK = 4096
+
+
+def cobs_encode(data):
+    out = bytearray()
+    block = bytearray()
+    for b in data:
+        if b == 0:
+            out.append(len(block) + 1)
+            out += block
+            block = bytearray()
+        else:
+            block.append(b)
+            if len(block) == 254:
+                out.append(255)
+                out += block
+                block = bytearray()
+    out.append(len(block) + 1)
+    out += block
+    return bytes(out)
+
+
+def cobs_decode(data):
+    out = bytearray()
+    i = 0
+    while i < len(data):
+        code = data[i]
+        if code == 0 or i + code > len(data) + (0 if code != 1 else 1):
+            raise ValueError("bad cobs")
+        out += data[i + 1 : i + code]
+        i += code
+        if code < 255 and i < len(data):
+            out.append(0)
+    return bytes(out)
+
+
+class Relay:
+    def __init__(self, path):
+        self.fd = os.open(path, os.O_RDWR | os.O_NOCTTY)
+        tty.setraw(self.fd)
+        attrs = termios.tcgetattr(self.fd)
+        attrs[2] = (attrs[2] & ~termios.CRTSCTS) | termios.CLOCAL
+        termios.tcsetattr(self.fd, termios.TCSANOW, attrs)
+        self.sel = selectors.DefaultSelector()
+        self.sel.register(self.fd, selectors.EVENT_READ, None)
+        self.sessions = {}
+        self.buf = bytearray()
+
+    def send(self, kind, chan, payload=b""):
+        frame = cobs_encode(bytes([kind, chan]) + payload) + b"\0"
+        view = memoryview(frame)
+        while view:
+            n = os.write(self.fd, view)
+            view = view[n:]
+
+    def open(self, chan):
+        self.close(chan, notify=False)
+        proc = subprocess.Popen(
+            ["/usr/sbin/sshd", "-i"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=0
+        )
+        os.set_blocking(proc.stdout.fileno(), False)
+        self.sessions[chan] = proc
+        self.sel.register(proc.stdout, selectors.EVENT_READ, chan)
+        self.send(OPENED, chan)
+
+    def close(self, chan, notify=True):
+        proc = self.sessions.pop(chan, None)
+        if proc is None:
+            return
+        self.sel.unregister(proc.stdout)
+        for f in (proc.stdin, proc.stdout):
+            try:
+                f.close()
+            except OSError:
+                pass
+        proc.terminate()
+        proc.wait()
+        if notify:
+            self.send(CLOSE, chan)
+
+    def frame(self, raw):
+        try:
+            msg = cobs_decode(raw)
+        except ValueError:
+            return
+        if len(msg) < 2:
+            return
+        kind, chan, payload = msg[0], msg[1], msg[2:]
+        if kind == RESET:
+            for c in list(self.sessions):
+                self.close(c, notify=False)
+        elif kind == OPEN:
+            self.open(chan)
+        elif kind == DATA and chan in self.sessions:
+            try:
+                self.sessions[chan].stdin.write(payload)
+            except (BrokenPipeError, OSError):
+                self.close(chan)
+        elif kind == CLOSE:
+            if chan in self.sessions:
+                try:
+                    self.sessions[chan].stdin.close()
+                except OSError:
+                    pass
+
+    def run(self):
+        while True:
+            for key, _ in self.sel.select():
+                if key.data is None:
+                    data = os.read(self.fd, 65536)
+                    self.buf += data
+                    while True:
+                        end = self.buf.find(0)
+                        if end < 0:
+                            break
+                        raw = bytes(self.buf[:end])
+                        del self.buf[: end + 1]
+                        if raw:
+                            self.frame(raw)
+                else:
+                    chan = key.data
+                    try:
+                        data = key.fileobj.read(CHUNK)
+                    except BlockingIOError:
+                        continue
+                    if data:
+                        self.send(DATA, chan, data)
+                    else:
+                        self.close(chan)
+
+
+if __name__ == "__main__":
+    signal.signal(signal.SIGCHLD, signal.SIG_DFL)
+    Relay(sys.argv[1]).run()

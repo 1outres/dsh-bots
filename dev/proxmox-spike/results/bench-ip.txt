@@ -1,0 +1,11 @@
+connect+true avg 492 ms
+33554432
+down 32MiB 2769 ms 11.56 MiB/s
+33554432
+up 32MiB 4032 ms 7.94 MiB/s
+mux true avg 79 ms
+par1
+par2
+par3
+par4
+mux 4 parallel sleep 2: 2185 ms
