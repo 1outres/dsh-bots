@@ -154,4 +154,14 @@ describe("channel capabilities", () => {
     )
     expect(check({ ...CAPABILITIES, turns: "yes" })).toThrow("turns")
   })
+
+  it("take a profile of the name, the avatar or both, and nothing else", () => {
+    const check = (profile: unknown) => () =>
+      checkChannelCapabilities({ id: "chat" }, { ...CAPABILITIES, profile })
+    expect(check({ name: true, avatar: false })).not.toThrow()
+    expect(check({ name: true, avatar: true })).not.toThrow()
+    expect(check({ name: false, avatar: false })).toThrow("the name, the avatar or both")
+    expect(check({ name: true })).toThrow("profile.name and profile.avatar")
+    expect(check(true)).toThrow("profile must name")
+  })
 })

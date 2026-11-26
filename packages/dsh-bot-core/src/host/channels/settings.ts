@@ -26,6 +26,7 @@ export interface ChannelSettingsView {
   readonly enabled: boolean
   readonly values: BotChannelPublicValues
   readonly secrets: Readonly<Record<string, boolean>>
+  readonly profileSync: boolean
 }
 
 export type ChannelReadiness =
@@ -77,9 +78,11 @@ export function createChannelSettings(deps: ChannelSettingsDeps): ChannelSetting
     chain = next.catch(() => {})
     return next
   }
-  const changed = (botId: string, channelId: string) => {
-    const key = channelRecordKey(botId, channelId)
-    revisions.set(key, (revisions.get(key) ?? 0) + 1)
+  const changed = (botId: string, channelId: string, reconnect: boolean) => {
+    if (reconnect) {
+      const key = channelRecordKey(botId, channelId)
+      revisions.set(key, (revisions.get(key) ?? 0) + 1)
+    }
     for (const listener of [...listeners]) listener(botId, channelId)
   }
 
@@ -95,6 +98,7 @@ export function createChannelSettings(deps: ChannelSettingsDeps): ChannelSetting
     const secrets = new Set(stored?.record.secrets ?? [])
     return {
       enabled: stored?.record.enabled ?? false,
+      profileSync: stored?.record.profileSync === true,
       values: channelValuesOf(channel.fields, stored?.values ?? {}),
       secrets: Object.fromEntries(
         channel.fields
@@ -134,20 +138,35 @@ export function createChannelSettings(deps: ChannelSettingsDeps): ChannelSetting
   const store = async (
     botId: string,
     channel: SettingsChannel,
-    enabled: boolean,
-    values: BotChannelPublicValues,
-    secrets: readonly string[],
+    stored: {
+      readonly enabled: boolean
+      readonly values: BotChannelPublicValues
+      readonly secrets: readonly string[]
+      readonly profileSync?: boolean
+    },
   ) => {
     await deps.records.put(channelRecordKey(botId, channel.id), {
       botId,
       channelId: channel.id,
-      enabled,
-      values: channelValuesOf(channel.fields, values) as ChannelRecord["values"],
-      secrets: [...secrets].sort(),
+      enabled: stored.enabled,
+      values: channelValuesOf(channel.fields, stored.values) as ChannelRecord["values"],
+      secrets: [...stored.secrets].sort(),
       settingsVersion: settingsVersionOf(channel),
+      profileSync: stored.profileSync === true,
       updatedAt: deps.now(),
     })
   }
+
+  const onlyProfileSyncChanged = (
+    before: ChannelSettingsView,
+    channel: SettingsChannel,
+    change: BotChannelChange,
+    secretsChanged: boolean,
+  ) =>
+    !secretsChanged &&
+    before.profileSync !== change.profileSync &&
+    before.enabled === change.enabled &&
+    JSON.stringify(before.values) === JSON.stringify(channelValuesOf(channel.fields, change.values))
 
   return {
     view,
@@ -169,9 +188,20 @@ export function createChannelSettings(deps: ChannelSettingsDeps): ChannelSetting
         const secretsChanged =
           Object.keys(before).length !== Object.keys(secrets).length ||
           Object.entries(secrets).some(([key, value]) => before[key] !== value)
+        const reconnect = !onlyProfileSyncChanged(
+          view(botId, channel),
+          channel,
+          change,
+          secretsChanged,
+        )
         if (secretsChanged) await deps.vault.write(botId, channel.id, secrets)
-        await store(botId, channel, change.enabled, change.values, Object.keys(secrets))
-        changed(botId, channel.id)
+        await store(botId, channel, {
+          enabled: change.enabled,
+          values: change.values,
+          secrets: Object.keys(secrets),
+          profileSync: change.profileSync,
+        })
+        changed(botId, channel.id, reconnect)
       })
     },
     async resolve(botId, channel) {
@@ -206,8 +236,8 @@ export function createChannelSettings(deps: ChannelSettingsDeps): ChannelSetting
               `bot-core: settings of channel "${channel.id}" of bot ${record.botId} upgraded to version ${current}: ${note}`,
             )
           }
-          await store(record.botId, channel, record.enabled, upgraded.values, record.secrets)
-          changed(record.botId, channel.id)
+          await store(record.botId, channel, { ...record, values: upgraded.values })
+          changed(record.botId, channel.id, true)
         }
       })
     },
@@ -217,7 +247,7 @@ export function createChannelSettings(deps: ChannelSettingsDeps): ChannelSetting
           if (keep(record.botId)) continue
           await deps.vault.write(record.botId, record.channelId, {})
           await deps.records.delete(key)
-          changed(record.botId, record.channelId)
+          changed(record.botId, record.channelId, true)
         }
       })
     },

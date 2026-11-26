@@ -14,6 +14,7 @@ import {
   purgeIncidentNotices,
 } from "../src/host/incidents/records"
 import { renderIncidentCard } from "../src/host/incidents/render"
+import { openProfileRecords } from "../src/host/profile/records"
 import {
   ALLOWED,
   CHANNEL_SETTINGS,
@@ -173,9 +174,10 @@ function connect(options: {
     fetch: async () => ({ ok: false, status: 404, body: (async function* () {})() }),
     records: openApprovalRecords(memoryApprovalTables(), "b1"),
     incidents: openIncidentNotices(options.table, "b1"),
+    profiles: openProfileRecords(memoryTable(), "b1"),
     warn: () => {},
   })
-  events?.ready({ id: "self", tag: "bot" })
+  events?.ready({ id: "self", username: "bot", tag: "bot" })
   const sends = () => calls.filter((call) => /^send \S+ \S/.test(call))
   const cards = () => sends().filter((call) => call.includes("🔒"))
   return { bridge, sends, cards, link }
@@ -198,6 +200,7 @@ describe("Discord bridge: credential incidents", () => {
       fetch: async () => ({ ok: false, status: 404, body: (async function* () {})() }),
       approvals: memoryApprovalTables(),
       incidents: memoryTable(),
+      profiles: memoryTable(),
       warn: () => {},
     })
     expect(channel.owners).toBe("approvers")

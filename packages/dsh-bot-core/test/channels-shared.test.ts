@@ -90,7 +90,12 @@ describe("enumerated text fields", () => {
     expect(() =>
       checkChannelDescriptor({ ...descriptor, guide: "https://example.com", fields: [language] }),
     ).not.toThrow()
-    const change = (value: string) => ({ enabled: true, values: { language: value }, secrets: {} })
+    const change = (value: string) => ({
+      enabled: true,
+      values: { language: value },
+      secrets: {},
+      profileSync: false,
+    })
     expect(parseChannelChange([language], change(" ja ")).values).toEqual({ language: "ja" })
     expect(parseChannelChange([language], change("")).values).toEqual({ language: "" })
     expect(() => parseChannelChange([language], change("en"))).toThrow("one of its choices")
@@ -102,6 +107,7 @@ describe("parseChannelChange", () => {
     enabled: true,
     values: { server: " abc ", users: [" 1 ", "", "1", "22"] },
     secrets: { token: { op: "set", value: " t " } },
+    profileSync: false,
   }
 
   it("trims, drops empty and repeated items, and defaults secrets to keep", () => {
@@ -109,6 +115,7 @@ describe("parseChannelChange", () => {
       enabled: true,
       values: { server: "abc", users: ["1", "22"] },
       secrets: { token: { op: "set", value: "t" } },
+      profileSync: false,
     })
     expect(parseChannelChange(FIELDS, { ...valid, secrets: {} }).secrets).toEqual({
       token: { op: "keep" },
@@ -117,6 +124,7 @@ describe("parseChannelChange", () => {
 
   it.each([
     [{ ...valid, enabled: "yes" }, "enabled"],
+    [{ ...valid, profileSync: undefined }, "profileSync"],
     [{ ...valid, values: { users: ["1"] } }, "server must be text"],
     [{ ...valid, values: { ...valid.values, server: "ABC" } }, "invalid format"],
     [{ ...valid, values: { ...valid.values, users: ["x"] } }, "not a valid item"],

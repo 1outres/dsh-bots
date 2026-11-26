@@ -99,6 +99,7 @@ function setup(channel: BotChannel) {
     listed: () => true,
     settings,
     hub: { state: () => undefined, sync: () => synced.push(1) },
+    profiles: { status: () => undefined },
     deadline: () => new AbortController().signal,
   })
   return { records, vault, settings, panel, warnings, synced }
@@ -108,6 +109,7 @@ const enabled = (values: Record<string, string | readonly string[]>, token = "t"
   enabled: true,
   values,
   secrets: { token: { op: "set" as const, value: token } },
+  profileSync: false,
 })
 
 describe("pick fields", () => {

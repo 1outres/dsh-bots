@@ -4,9 +4,11 @@ import {
   type BotChannelChange,
   type BotChannelField,
   type BotChannelOptions,
+  type BotChannelProfileParts,
   type BotChannelText,
   type BotChannelView,
   channelValuesAfter,
+  profilePartsOf,
   sourceOf,
 } from "../../../shared/channels"
 import {
@@ -29,6 +31,31 @@ export interface ChannelAreasDeps {
 const CHANNELS: BotChannelText = { en: "Channels", ja: "チャネル" }
 
 const ENABLED = "enabled"
+const PROFILE_SYNC = "profileSync"
+
+const PROFILE_PARTS: Readonly<Record<BotChannelProfileParts, Required<BotChannelText>>> = {
+  both: { en: "name and avatar", ja: "名前とアバター" },
+  name: { en: "name", ja: "名前" },
+  avatar: { en: "avatar", ja: "アバター" },
+}
+
+function profileSyncEntry(channel: BotChannel, view: BotChannelView): BotSettingEntry[] {
+  if (view.profile === undefined) return []
+  const parts = PROFILE_PARTS[profilePartsOf(view.profile.supports)]
+  return [
+    {
+      key: PROFILE_SYNC,
+      label: {
+        en: `Sync the ${parts.en} to ${channel.name}`,
+        ja: `${parts.ja}を ${channel.name} に反映`,
+      },
+      agentNote: `Whether your ${parts.en} on ${channel.name} follow your ${parts.en} here: when on, a change of yours shows there too.`,
+      value: settingValue({ kind: "toggle" }, view.profile.sync),
+      accepts: { kind: "toggle" },
+      change: "approve",
+    },
+  ]
+}
 
 const SET: BotChannelText = { en: "Set (hidden)", ja: "設定済み（非表示）" }
 const UNSET: BotChannelText = { en: "Not set", ja: "未設定" }
@@ -142,6 +169,7 @@ function channelArea(channel: BotChannel, deps: ChannelAreasDeps): BotSettingsAr
           accepts: { kind: "toggle" },
           change: "approve",
         },
+        ...profileSyncEntry(channel, view),
         ...channel.fields.map((field) => entryOf(view, field, known)),
       ]
     },
@@ -163,9 +191,12 @@ function channelArea(channel: BotChannel, deps: ChannelAreasDeps): BotSettingsAr
         const view = viewOf(botId)
         const edits: Record<string, string | readonly string[]> = {}
         let enabled = view.enabled
+        let profileSync = view.profile?.sync === true
         for (const { key, value } of changes) {
           const field = channel.fields.find((known) => known.key === key)
           if (key === ENABLED && typeof value === "boolean") enabled = value
+          else if (key === PROFILE_SYNC && view.profile !== undefined && typeof value === "boolean")
+            profileSync = value
           else if (
             field !== undefined &&
             field.kind !== "secret" &&
@@ -180,6 +211,7 @@ function channelArea(channel: BotChannel, deps: ChannelAreasDeps): BotSettingsAr
           enabled,
           values: channelValuesAfter(channel.fields, view.values, edits),
           secrets: {},
+          profileSync,
         }
         const result = await deps.panel.configure(botId, channel.id, change)
         return result.saved ? APPLIED : { applied: false, reason: result.reason }

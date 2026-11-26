@@ -6,7 +6,7 @@ import {
   type CharacterPaint,
   type CharacterShape,
   characterPalette,
-} from "./character-shapes"
+} from "../shared/character-shapes"
 
 type Palette = { readonly [P in CharacterPaint]: string }
 

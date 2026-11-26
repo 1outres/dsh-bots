@@ -19,7 +19,7 @@ const view: BotChannelView = {
 
 const snapshot: BotChannelsSnapshot = { botId: "a", channels: [view] }
 
-const change: BotChannelChange = { enabled: true, values: {}, secrets: {} }
+const change: BotChannelChange = { enabled: true, values: {}, secrets: {}, profileSync: false }
 
 function mounted(botChannels: Partial<BotChannelsRemote>): Promise<RemoteMount> {
   return Promise.resolve({

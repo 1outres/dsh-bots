@@ -72,6 +72,7 @@ export function toMessageOptions(message: DiscordOutgoingMessage): MessageCreate
 export function toDiscordAccount(user: GatewayReadyDispatchData["user"]): DiscordAccount {
   return {
     id: user.id,
+    username: user.username,
     tag: user.discriminator === "0" ? user.username : `${user.username}#${user.discriminator}`,
   }
 }

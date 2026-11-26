@@ -1,6 +1,7 @@
 import {
   Client,
   type ClientOptions,
+  ClientUser,
   DiscordAPIError,
   DiscordjsError,
   DiscordjsErrorCodes,
@@ -559,6 +560,60 @@ describe("discord.js adapter: actions", () => {
       allowedMentions: { parse: [] },
       flags: 64,
     })
+  })
+
+  it("edits the bot's own username and avatar, telling Discord's refusals apart", async () => {
+    const { client, adapter, requests } = setup()
+    Object.assign(client, { user: null })
+    await expect(adapter.setUsername("Helper")).rejects.toThrow("not connected")
+    const SelfUser = ClientUser as unknown as new (client: Client, data: unknown) => ClientUser
+    Object.assign(client, { user: new SelfUser(client, rawUser(SELF, true)) })
+    const rest = client.rest as unknown as Record<
+      "patch",
+      (route: string, options?: { body?: unknown }) => Promise<unknown>
+    >
+    let refuse: Error | undefined
+    vi.spyOn(rest, "patch").mockImplementation(async (route, options) => {
+      requests.push({ method: "PATCH", route, body: options?.body })
+      if (refuse !== undefined) throw refuse
+      return rawUser(SELF, true)
+    })
+    expect(await adapter.setUsername("Helper")).toEqual({ ok: true })
+    expect(
+      await adapter.setAvatar({ mediaType: "image/png", data: new Uint8Array([137, 80]) }),
+    ).toEqual({ ok: true })
+    expect(requests.slice(-2)).toEqual([
+      {
+        method: "PATCH",
+        route: "/users/@me",
+        body: { username: "Helper", avatar: undefined, banner: undefined },
+      },
+      {
+        method: "PATCH",
+        route: "/users/@me",
+        body: { username: undefined, avatar: "data:image/png;base64,iVA=", banner: undefined },
+      },
+    ])
+    refuse = new DiscordAPIError(
+      {
+        code: 50035,
+        message: "Invalid Form Body",
+        errors: { username: { _errors: [{ code: "USERNAME_RATE_LIMIT", message: "Too fast." }] } },
+      },
+      50035,
+      400,
+      "PATCH",
+      "/users/@me",
+      {},
+    )
+    expect(await adapter.setUsername("Helper")).toEqual({
+      ok: false,
+      refusal: { kind: "rate-limited", message: "Too fast." },
+    })
+    refuse = new Error("network down")
+    await expect(
+      adapter.setAvatar({ mediaType: "image/png", data: new Uint8Array() }),
+    ).rejects.toThrow("network down")
   })
 
   it("refuses a channel that is not a DM", async () => {

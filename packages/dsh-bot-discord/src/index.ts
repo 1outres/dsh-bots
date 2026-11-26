@@ -9,6 +9,8 @@ import { DISCORD_DOMAIN } from "./host/domain"
 import type { IncidentNoticeRecord } from "./host/incidents/domain"
 import { purgeIncidentNotices } from "./host/incidents/records"
 import type { Scheduler } from "./host/ports"
+import type { ProfileRecord } from "./host/profile/domain"
+import { purgeProfileRecords } from "./host/profile/records"
 
 export const name = "bot-discord"
 const BOT = "bot"
@@ -19,6 +21,7 @@ interface DiscordDomain {
   table(name: "cards"): RecordTable<CardRecord>
   table(name: "digests"): RecordTable<DigestRecord>
   table(name: "incidents"): RecordTable<IncidentNoticeRecord>
+  table(name: "profiles"): RecordTable<ProfileRecord>
   close(): Promise<void>
 }
 
@@ -39,10 +42,12 @@ export async function apply(ctx: Context): Promise<void> {
   ctx.effect(() => () => void domain.close(), "bot-discord: storage domain")
   const approvals = { cards: domain.table("cards"), digests: domain.table("digests") }
   const incidents = domain.table("incidents")
+  const profiles = domain.table("profiles")
   const bots = botOf(ctx)
   const listed = (botId: string) => bots.botIds().includes(botId)
   await purgeApprovalRecords(approvals, listed)
   await purgeIncidentNotices(incidents, listed)
+  await purgeProfileRecords(profiles, listed)
 
   const timers = new Set<ReturnType<typeof setTimeout>>()
   ctx.effect(
@@ -73,6 +78,7 @@ export async function apply(ctx: Context): Promise<void> {
     fetch: (url, init) => fetch(url, init),
     approvals,
     incidents,
+    profiles,
     warn,
   })
   ctx.effect(() => botOf(ctx).registerChannel(channel), "bot-discord: channel")

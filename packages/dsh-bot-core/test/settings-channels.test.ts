@@ -7,7 +7,11 @@ import type { ChannelsModel, ChannelsState } from "../src/client/channels-model"
 import { createStore } from "../src/client/observable"
 import { ChannelsSection } from "../src/client/settings/ChannelsSection"
 import { channelsBadge } from "../src/client/settings/channels-badge"
-import type { BotChannelStatus, BotChannelView } from "../src/shared/channels"
+import type {
+  BotChannelProfileView,
+  BotChannelStatus,
+  BotChannelView,
+} from "../src/shared/channels"
 import { FIELDS, idleQueries } from "./channels-support"
 import { bot, t } from "./support/client"
 
@@ -71,7 +75,7 @@ describe("channels hub", () => {
   it("saves through the followed stream and refuses while nothing follows it", async () => {
     const model = fakeModel()
     const hub = createChannelsHub(() => model, idleQueries)
-    const change = { enabled: true, values: {}, secrets: {} }
+    const change = { enabled: true, values: {}, secrets: {}, profileSync: false }
     await expect(hub.feed("x").configure("discord", change)).rejects.toThrow(/not followed/)
     const off = hub.feed("x").subscribe(() => {})
     await hub.feed("x").configure("discord", change)
@@ -115,7 +119,11 @@ describe("channelsBadge", () => {
 })
 
 describe("channels section", () => {
-  const render = (users: readonly string[], status: BotChannelStatus = { state: "connected" }) => {
+  const render = (
+    users: readonly string[],
+    status: BotChannelStatus = { state: "connected" },
+    profile?: BotChannelProfileView,
+  ) => {
     const state = createStore<ChannelsState>({
       status: "ready",
       snapshot: {
@@ -148,6 +156,7 @@ describe("channels section", () => {
             secrets: { token: true },
             status,
             revision: 0,
+            ...(profile === undefined ? {} : { profile }),
           },
         ],
       },
@@ -191,6 +200,23 @@ describe("channels section", () => {
     const owned = render(["1"])
     expect(owned).not.toContain("channels.owners.none")
     expect(owned).not.toContain('data-flag="warning"')
+  })
+
+  it("offers the profile sync only for a channel that takes it, with what the channel reported", () => {
+    expect(render(["1"])).not.toContain("data-dshb-channel-profile")
+    const both = { name: true, avatar: true }
+    const off = render(["1"], undefined, { supports: both, sync: false })
+    expect(off).toContain('data-dshb-channel-profile="off"')
+    expect(off).toContain("channels.profile.both")
+    expect(off).toMatch(/aria-checked="false" aria-label="channels.profile.toggle\(Chat\)"/)
+    const failed = render(["1"], undefined, {
+      supports: { name: true, avatar: false },
+      sync: true,
+      status: { state: "failed", problems: [{ en: "Discord refused the username" }] },
+    })
+    expect(failed).toContain('data-dshb-channel-profile="failed"')
+    expect(failed).toContain("channels.profile.name")
+    expect(failed).toContain("channels.profile.failed — Discord refused the username")
   })
 
   it("marks the required fields a channel misses", () => {

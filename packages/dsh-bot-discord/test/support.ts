@@ -3,6 +3,7 @@ import type {
   BotAnswerResult,
   BotChannelConnectionState,
   BotChannelLink,
+  BotChannelProfileReport,
   BotCommandId,
   BotCommandOutcome,
   BotDeliveryFailure,
@@ -89,6 +90,14 @@ export function fakeActions(overrides: Partial<DiscordActions> = {}) {
     async registerCommands(commands) {
       calls.push(`commands ${commands.map((command) => command.name).join(",")}`)
     },
+    async setUsername(username) {
+      calls.push(`setUsername ${username}`)
+      return { ok: true }
+    },
+    async setAvatar(image) {
+      calls.push(`setAvatar ${image.mediaType} ${image.data.byteLength}`)
+      return { ok: true }
+    },
     ...overrides,
   }
   return { actions, calls }
@@ -145,6 +154,7 @@ export function fakeLink(settings: DiscordSettings) {
   const controller = new AbortController()
   const delivered: BotInboundMessage[] = []
   const reports: BotChannelConnectionState[] = []
+  const profileReports: BotChannelProfileReport[] = []
   const commands: BotCommandId[] = []
   let activity: BotActivity = "idle"
   let refuse: BotDeliveryFailure | undefined
@@ -205,6 +215,7 @@ export function fakeLink(settings: DiscordSettings) {
     connectorAction: (actionId) => ledger.get(actionId),
     activity: () => activity,
     report: (state) => reports.push(state),
+    reportProfile: (report) => profileReports.push(report),
   }
   return {
     link,
@@ -212,6 +223,7 @@ export function fakeLink(settings: DiscordSettings) {
     delivered,
     texts: () => delivered.map((message) => message.text),
     reports,
+    profileReports,
     commands,
     refuse(failure: BotDeliveryFailure | undefined) {
       refuse = failure

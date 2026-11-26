@@ -607,6 +607,7 @@ describe("channel areas", () => {
       enabled: true,
       values: { home: "1:2", owners: [] },
       secrets: {},
+      profileSync: false,
     })
     await area.apply("b1", [
       { key: "home", value: "dm" },
@@ -616,7 +617,38 @@ describe("channel areas", () => {
       enabled: true,
       values: { home: "dm", owners: ["u2"] },
       secrets: {},
+      profileSync: false,
     })
+  })
+
+  it("offers the profile sync of a channel that takes it, for the owner to approve", async () => {
+    let view: BotChannelView = {
+      ...viewOf({ home: "dm", owners: ["u1"] }),
+      profile: { supports: { name: true, avatar: false }, sync: false },
+    }
+    const configured: unknown[] = []
+    const [area] = channelAreas({
+      channels: () => [channel],
+      panel: {
+        snapshot: () => ({ botId: "b1", channels: [view] }),
+        async configure(_botId, _channelId, change) {
+          configured.push(change)
+          view = { ...view, profile: { supports: { name: true, avatar: false }, sync: true } }
+          return { saved: true, view }
+        },
+        options: async () => ({ state: "unavailable", reason: { en: "no token" } }),
+      },
+    })()
+    if (area === undefined) throw new Error("no area")
+    const entries = await area.entries("b1", new AbortController().signal)
+    expect(entries.map((entry) => [entry.key, entry.label.en, entry.change]).slice(0, 2)).toEqual([
+      ["enabled", "On", "approve"],
+      ["profileSync", "Sync the name to Chat", "approve"],
+    ])
+    expect(await area.apply("b1", [{ key: "profileSync", value: true }])).toEqual({
+      applied: true,
+    })
+    expect(configured.at(-1)).toMatchObject({ enabled: true, profileSync: true })
   })
 })
 

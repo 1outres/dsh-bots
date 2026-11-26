@@ -1,13 +1,17 @@
+import { createHash } from "node:crypto"
 import { describe, expect, it } from "vitest"
-import type { BotChannel } from "../src/contract"
+import type { BotChannel, BotChannelCapabilities, BotChannelOutput } from "../src/contract"
 import type { ConversationDeps } from "../src/host/channels/conversation"
 import type { ChannelRecord } from "../src/host/channels/domain"
 import { createChannelHub } from "../src/host/channels/hub"
 import { createChannelOutlets } from "../src/host/channels/outlets"
 import { createChannelPanel } from "../src/host/channels/panel"
+import { createProfileRenderer } from "../src/host/channels/profile/render"
+import { createProfileSync } from "../src/host/channels/profile/sync"
 import { createChannelSettings } from "../src/host/channels/settings"
 import { createConnectorApprovals } from "../src/host/connectors/approvals"
 import { createInteractionBoard } from "../src/host/interactions/board"
+import type { BotAvatar } from "../src/shared/avatar"
 import type { ConnectorAction } from "../src/shared/connectors"
 import type { VaultIncidentView } from "../src/shared/vaults"
 import {
@@ -38,6 +42,7 @@ const enable = {
   enabled: true,
   values: { server: "", users: ["1"] },
   secrets: { token: { op: "set", value: "tok-XYZ" } },
+  profileSync: false,
 }
 
 const openIncident: VaultIncidentView = {
@@ -61,7 +66,13 @@ function setup() {
     now: () => 1,
     warn: (message) => warnings.push(message),
   })
-  const bots = [{ id: "a", name: "Alice" }]
+  const bots: { id: string; name: string; avatar: BotAvatar }[] = [
+    {
+      id: "a",
+      name: "Alice",
+      avatar: { kind: "character", character: "capsule", color: "#6366F1" },
+    },
+  ]
   const stored = new Set(["a", "creating"])
   const channels: BotChannel[] = []
   const warnings: string[] = []
@@ -100,6 +111,26 @@ function setup() {
     catalog: connectors.catalog,
     exists: (botId) => stored.has(botId),
   })
+  const drawn: string[] = []
+  const profiles = createProfileSync({
+    bot: (botId) => bots.find((bot) => bot.id === botId),
+    enabled(botId, channelId) {
+      const channel = channels.find((known) => known.id === channelId)
+      return channel !== undefined && settings.view(botId, channel).profileSync
+    },
+    renderer: createProfileRenderer({
+      rasterize: {
+        async png(source) {
+          drawn.push(source.kind)
+          return new TextEncoder().encode(source.kind === "svg" ? source.svg : source.dataUrl)
+        },
+      },
+      digest: (data) => createHash("sha256").update(data).digest("hex").slice(0, 12),
+    }),
+    publish: (botId, channelId, output) => outlets.publishTo(botId, channelId, output),
+    warn: (message) => warnings.push(message),
+  })
+  settings.subscribe((botId) => profiles.refresh(botId))
   const hub = createChannelHub({
     channels: () => channels,
     bots: () => bots,
@@ -109,6 +140,7 @@ function setup() {
     interactions,
     approvals,
     incidents: { open: (botId) => (botId === "a" ? [openIncident] : []) },
+    profiles,
     warn: (message) => warnings.push(message),
   })
   settings.subscribe(() => hub.sync())
@@ -119,9 +151,12 @@ function setup() {
     listed: (botId) => bots.some((bot) => bot.id === botId),
     settings,
     hub,
+    profiles,
     deadline: () => new AbortController().signal,
   })
   return {
+    profiles,
+    drawn,
     settings,
     hub,
     panel,
@@ -353,7 +388,11 @@ describe("channel hub", () => {
     hub.sync()
     await settle()
     expect(chat.closed).toHaveLength(1)
-    bots.push({ id: "a", name: "Alice" })
+    bots.push({
+      id: "a",
+      name: "Alice",
+      avatar: { kind: "character", character: "capsule", color: "#6366F1" },
+    })
     hub.sync()
     await settle()
     expect(chat.links).toHaveLength(2)
@@ -410,5 +449,130 @@ describe("channel panel", () => {
     await expect(
       panel.configure("a", "chat", { ...enable, values: { server: "", users: ["x"] } }),
     ).rejects.toThrow("not a valid item")
+  })
+})
+
+const PROFILED: BotChannelCapabilities = { ...CAPABILITIES, profile: { name: true, avatar: true } }
+
+type ProfileOutput = Extract<BotChannelOutput, { kind: "profile" }>
+
+describe("channel profiles", () => {
+  const connected = async (capabilities = PROFILED) => {
+    const context = setup()
+    const chat = recordingChannel("chat", capabilities)
+    context.channels.push(chat.channel)
+    await context.panel.configure("a", "chat", enable)
+    await settle()
+    return { ...context, chat }
+  }
+  const profilesOf = (outputs: readonly BotChannelOutput[]) =>
+    outputs.filter((output): output is ProfileOutput => output.kind === "profile")
+
+  it("are off by default and push the name and avatar when turned on, without reconnecting", async () => {
+    const { panel, chat, drawn } = await connected()
+    expect(profilesOf(chat.outputs)).toEqual([])
+    expect(panel.snapshot("a").channels[0]?.profile).toEqual({
+      supports: { name: true, avatar: true },
+      sync: false,
+    })
+    const result = await panel.configure("a", "chat", { ...enable, secrets: {}, profileSync: true })
+    await settle()
+    expect(result).toMatchObject({ saved: true, view: { revision: 1 } })
+    expect(chat.links).toHaveLength(1)
+    expect(chat.closed).toHaveLength(0)
+    expect(drawn).toEqual(["svg"])
+    expect(profilesOf(chat.outputs)).toMatchObject([
+      {
+        kind: "profile",
+        profile: { name: "Alice", avatar: { mediaType: "image/png", size: 512 } },
+      },
+    ])
+    expect(panel.snapshot("a").channels[0]?.profile?.status).toEqual({ state: "syncing" })
+  })
+
+  it("show what the channel reports for the latest profile only", async () => {
+    const { panel, chat, bots, profiles } = await connected()
+    await panel.configure("a", "chat", { ...enable, secrets: {}, profileSync: true })
+    await settle()
+    const [first] = profilesOf(chat.outputs)
+    if (first === undefined) throw new Error("no profile")
+    const bot = bots[0]
+    if (bot === undefined) throw new Error("no bot")
+    bot.name = "Alicia"
+    profiles.refresh()
+    await settle()
+    chat.links[0]?.reportProfile({ digest: first.profile.digest, state: "synced" })
+    expect(panel.snapshot("a").channels[0]?.profile?.status).toEqual({ state: "syncing" })
+    const [, second] = profilesOf(chat.outputs)
+    expect(second?.profile.name).toBe("Alicia")
+    const problems = [{ en: "Discord refused the username" }]
+    chat.links[0]?.reportProfile({
+      digest: second?.profile.digest ?? "",
+      state: "failed",
+      problems,
+    })
+    expect(panel.snapshot("a").channels[0]?.profile?.status).toEqual({ state: "failed", problems })
+  })
+
+  it("follow a change of the name or avatar, and send nothing when neither changed", async () => {
+    const { panel, chat, bots, profiles, drawn } = await connected()
+    await panel.configure("a", "chat", { ...enable, secrets: {}, profileSync: true })
+    await settle()
+    profiles.refresh()
+    await settle()
+    expect(profilesOf(chat.outputs)).toHaveLength(1)
+    const bot = bots[0]
+    if (bot === undefined) throw new Error("no bot")
+    bot.avatar = { kind: "image", dataUrl: "data:image/png;base64,AA" }
+    profiles.refresh("a")
+    await settle()
+    expect(drawn).toEqual(["svg", "image"])
+    expect(profilesOf(chat.outputs)).toHaveLength(2)
+    expect(chat.links).toHaveLength(1)
+  })
+
+  it("send the profile again to a new connection, and stop when turned off", async () => {
+    const { panel, chat } = await connected()
+    await panel.configure("a", "chat", { ...enable, secrets: {}, profileSync: true })
+    await settle()
+    await panel.configure("a", "chat", {
+      ...enable,
+      secrets: { token: { op: "set", value: "tok-2" } },
+      profileSync: true,
+    })
+    await settle()
+    expect(chat.links).toHaveLength(2)
+    expect(profilesOf(chat.outputs)).toHaveLength(2)
+    await panel.configure("a", "chat", { ...enable, secrets: {}, profileSync: false })
+    await settle()
+    expect(chat.links).toHaveLength(2)
+    expect(panel.snapshot("a").channels[0]?.profile).toEqual({
+      supports: { name: true, avatar: true },
+      sync: false,
+    })
+    await panel.configure("a", "chat", { ...enable, secrets: {}, profileSync: true })
+    await settle()
+    expect(profilesOf(chat.outputs)).toHaveLength(3)
+  })
+
+  it("carry only what the channel takes", async () => {
+    const { panel, chat, drawn } = await connected({
+      ...CAPABILITIES,
+      profile: { name: true, avatar: false },
+    })
+    await panel.configure("a", "chat", { ...enable, secrets: {}, profileSync: true })
+    await settle()
+    expect(drawn).toEqual([])
+    expect(profilesOf(chat.outputs)).toMatchObject([{ profile: { name: "Alice" } }])
+    expect(profilesOf(chat.outputs)[0]).not.toHaveProperty("profile.avatar")
+  })
+
+  it("are not offered by a channel without the capability", async () => {
+    const { panel, chat } = await connected(CAPABILITIES)
+    expect(panel.snapshot("a").channels[0]).not.toHaveProperty("profile")
+    await expect(
+      panel.configure("a", "chat", { ...enable, secrets: {}, profileSync: true }),
+    ).rejects.toThrow("does not take the bot's name and avatar")
+    expect(profilesOf(chat.outputs)).toEqual([])
   })
 })

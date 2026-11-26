@@ -15,6 +15,8 @@ import type { IncidentNoticeRecord } from "./incidents/domain"
 import { adoptIncidentNotices, openIncidentNotices } from "./incidents/records"
 import { createPresence, ownerNames } from "./people"
 import type { Scheduler } from "./ports"
+import type { ProfileRecord } from "./profile/domain"
+import { openProfileRecords } from "./profile/records"
 import { createDiscordSettingsQueries } from "./settings/queries"
 import { upgradeDiscordSettings } from "./upgrade"
 
@@ -25,6 +27,7 @@ export interface DiscordChannelDeps {
   fetch: FetchUrl
   approvals: ApprovalTables
   incidents: RecordTable<IncidentNoticeRecord>
+  profiles: RecordTable<ProfileRecord>
   warn(message: string): void
 }
 
@@ -36,6 +39,7 @@ export const DISCORD_CAPABILITIES = {
   commands: ["stop", "status", "new"],
   connectorActions: true,
   credentialIncidents: true,
+  profile: { name: true, avatar: true },
 } as const satisfies BotChannelCapabilities
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
@@ -115,6 +119,7 @@ export function createDiscordChannel(deps: DiscordChannelDeps): BotChannel<typeo
         fetch: deps.fetch,
         records: openApprovalRecords(deps.approvals, link.bot.id),
         incidents: openIncidentNotices(deps.incidents, link.bot.id),
+        profiles: openProfileRecords(deps.profiles, link.bot.id),
         warn: deps.warn,
       })
     },

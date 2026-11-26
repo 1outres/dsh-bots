@@ -1,6 +1,6 @@
 {
   "name": "dsh_bot_discord",
-  "version": 3,
+  "version": 4,
   "tables": {
     "cards": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -90,6 +90,33 @@
         "incidentId",
         "channelId",
         "messageId"
+      ],
+      "additionalProperties": false
+    },
+    "profiles": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "botId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "userId": {
+          "type": "string",
+          "pattern": "^[0-9]{17,20}$"
+        },
+        "username": {
+          "type": "string",
+          "minLength": 1
+        },
+        "avatar": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "botId",
+        "userId"
       ],
       "additionalProperties": false
     }

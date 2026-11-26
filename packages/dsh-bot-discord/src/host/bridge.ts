@@ -29,6 +29,8 @@ import { createIncidentPresenter } from "./incidents/presenter"
 import type { IncidentNotices } from "./incidents/records"
 import { createInteractionPresenter } from "./interactions/presenter"
 import type { Scheduler } from "./ports"
+import { createProfilePresenter } from "./profile/presenter"
+import type { ProfileRecords } from "./profile/records"
 import { createSerialQueue } from "./queue"
 import { compareSnowflakes } from "./snowflake"
 import { splitMessage } from "./split"
@@ -56,6 +58,7 @@ export interface DiscordBridgeDeps {
   fetch: FetchUrl
   records: ApprovalRecords
   incidents: IncidentNotices
+  profiles: ProfileRecords
   warn(message: string): void
 }
 
@@ -131,6 +134,14 @@ export function createDiscordBridge(deps: DiscordBridgeDeps): BotChannelConnecti
     closed,
   })
 
+  const profile = createProfilePresenter({
+    link,
+    actions: connection,
+    records: deps.profiles,
+    closed,
+    warn: deps.warn,
+  })
+
   const typing = createTypingKeeper({
     show: (current) =>
       outbound.push(async () => {
@@ -204,6 +215,8 @@ export function createDiscordBridge(deps: DiscordBridgeDeps): BotChannelConnecti
         return actions.received(output.action)
       case "credential-incident":
         return incidents.received(output.incident)
+      case "profile":
+        return profile.received(output.profile)
     }
   }
 
@@ -289,6 +302,7 @@ export function createDiscordBridge(deps: DiscordBridgeDeps): BotChannelConnecti
   function started(account: DiscordAccount) {
     self = account.id
     sessions += 1
+    profile.ready(account)
     connection
       .registerCommands(commands)
       .catch(warnUnlessClosed("could not register the slash commands"))

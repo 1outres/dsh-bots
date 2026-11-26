@@ -11,6 +11,7 @@ import type {
 import type { FetchUrl } from "../src/host/download"
 import { homeOf } from "../src/host/home"
 import { openIncidentNotices } from "../src/host/incidents/records"
+import { openProfileRecords } from "../src/host/profile/records"
 import { PULSE_DELAY_MS, TYPING_INTERVAL_MS } from "../src/host/typing"
 import {
   ALLOWED,
@@ -77,9 +78,10 @@ function setup(
       })),
     records: openApprovalRecords(tables, "b1"),
     incidents: openIncidentNotices(memoryTable(), "b1"),
+    profiles: openProfileRecords(memoryTable(), "b1"),
     warn: () => {},
   })
-  const ready = () => events?.ready({ id: "self", tag: "bot" })
+  const ready = () => events?.ready({ id: "self", username: "bot", tag: "bot" })
   ready()
   const responses: DiscordCommandResponse[] = []
   const command = (overrides: Partial<DiscordCommandInvocation> = {}) =>
@@ -565,5 +567,37 @@ describe("Discord bridge: lifecycle", () => {
     await settle()
     expect(calls).toHaveLength(before)
     expect(link.delivered).toEqual([])
+  })
+})
+
+describe("Discord bridge profile", () => {
+  const profile: BotChannelOutput = {
+    kind: "profile",
+    profile: {
+      digest: "p1",
+      name: "Helper",
+      avatar: { mediaType: "image/png", size: 512, data: new Uint8Array([1]), digest: "a1" },
+    },
+  }
+
+  it("takes a profile without holding up the outputs after it, and reports it applied", async () => {
+    let release: () => void = () => {}
+    const { receive, reply, calls, link } = setup({
+      actions: {
+        setAvatar: () =>
+          new Promise((resolve) => {
+            release = () => resolve({ ok: true })
+          }),
+      },
+    })
+    await receive(profile)
+    await reply("after")
+    await settle()
+    expect(calls.some((call) => call.endsWith(" after"))).toBe(true)
+    expect(link.profileReports).toEqual([])
+    release()
+    await settle()
+    expect(calls).toContain("setUsername Helper")
+    expect(link.profileReports).toEqual([{ digest: "p1", state: "synced" }])
   })
 })

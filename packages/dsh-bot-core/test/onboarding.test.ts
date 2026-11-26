@@ -80,6 +80,7 @@ const CHAT_CHANGE: BotChannelChange = {
   enabled: true,
   values: { owners: ["42"] },
   secrets: { token: { op: "set", value: "secret" } },
+  profileSync: false,
 }
 
 function welcomeChannels() {

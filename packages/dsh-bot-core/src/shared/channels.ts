@@ -134,6 +134,30 @@ export interface BotChannelChange {
   readonly enabled: boolean
   readonly values: BotChannelPublicValues
   readonly secrets: Readonly<Record<string, BotChannelSecretChange>>
+  readonly profileSync: boolean
+}
+
+export interface BotChannelProfileSupport {
+  readonly name: boolean
+  readonly avatar: boolean
+}
+
+export type BotChannelProfileParts = "both" | "name" | "avatar"
+
+export function profilePartsOf(supports: BotChannelProfileSupport): BotChannelProfileParts {
+  if (supports.name && supports.avatar) return "both"
+  return supports.name ? "name" : "avatar"
+}
+
+export type BotChannelProfileStatus =
+  | { readonly state: "syncing" }
+  | { readonly state: "synced" }
+  | { readonly state: "failed"; readonly problems: readonly BotChannelText[] }
+
+export interface BotChannelProfileView {
+  readonly supports: BotChannelProfileSupport
+  readonly sync: boolean
+  readonly status?: BotChannelProfileStatus
 }
 
 export type BotChannelConnectionState =
@@ -158,6 +182,7 @@ export interface BotChannelView {
   readonly secrets: Readonly<Record<string, boolean>>
   readonly status: BotChannelStatus
   readonly revision: number
+  readonly profile?: BotChannelProfileView
 }
 
 export type BotChannelConfigureResult =
@@ -469,6 +494,7 @@ export function parseChannelChange(
 ): BotChannelChange {
   const change = recordOf(input, "the change")
   if (typeof change.enabled !== "boolean") throw new Error("enabled must be true or false")
+  if (typeof change.profileSync !== "boolean") throw new Error("profileSync must be true or false")
   const values = recordOf(change.values, "values")
   const secrets = recordOf(change.secrets, "secrets")
   const known = new Map(fields.map((field) => [field.key, field]))
@@ -494,7 +520,12 @@ export function parseChannelChange(
           : parseSecretChange(field, secrets[field.key])
     }
   }
-  return { enabled: change.enabled, values: parsedValues, secrets: parsedSecrets }
+  return {
+    enabled: change.enabled,
+    values: parsedValues,
+    secrets: parsedSecrets,
+    profileSync: change.profileSync,
+  }
 }
 
 function isMissing(
@@ -537,6 +568,7 @@ export function parseChannelSettingsRef(
   const secrets = recordOf(ref.secrets, "secrets")
   const change = parseChannelChange(fields, {
     enabled: true,
+    profileSync: false,
     values: ref.values,
     secrets: Object.fromEntries(
       Object.entries(secrets).map(([key, value]) => [key, { op: "set", value }]),

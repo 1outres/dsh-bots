@@ -15,6 +15,7 @@ import type { DiscordSettings } from "../src/host/fields"
 import { atHome, homeOf } from "../src/host/home"
 import { createHomeTarget } from "../src/host/home-target"
 import { openIncidentNotices } from "../src/host/incidents/records"
+import { openProfileRecords } from "../src/host/profile/records"
 import { createSerialQueue } from "../src/host/queue"
 import {
   ALLOWED,
@@ -277,9 +278,10 @@ describe("/pending", () => {
       fetch: async () => ({ ok: false, status: 404, body: (async function* () {})() }),
       records: openApprovalRecords(memoryApprovalTables(), "b1"),
       incidents: openIncidentNotices(memoryTable(), "b1"),
+      profiles: openProfileRecords(memoryTable(), "b1"),
       warn: () => {},
     })
-    events?.ready({ id: "self", tag: "bot" })
+    events?.ready({ id: "self", username: "bot", tag: "bot" })
     const ask = async (userId: string, locale = "en-US") => {
       const responses: DiscordCommandResponse[] = []
       events?.command({

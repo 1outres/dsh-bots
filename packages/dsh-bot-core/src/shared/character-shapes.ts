@@ -1,4 +1,4 @@
-import type { BotCharacter } from "../shared/avatar"
+import type { BotCharacter } from "./avatar"
 
 export type CharacterPaint = "body" | "ink" | "accent"
 

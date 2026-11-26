@@ -27,6 +27,10 @@
         "required": false,
         "type": "number"
       },
+      "profileSync": {
+        "required": false,
+        "type": "boolean"
+      },
       "updatedAt": {
         "required": true,
         "type": "number"

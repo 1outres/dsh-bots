@@ -97,6 +97,8 @@ export function createDiscordConnection(deps: DiscordConnectionDeps): DiscordCon
     typing: (channelId) => client.typing(channelId),
     messagesAfter: (channelId, after) => client.messagesAfter(channelId, after),
     registerCommands: (commands) => client.registerCommands(commands),
+    setUsername: (username) => client.setUsername(username),
+    setAvatar: (image) => client.setAvatar(image),
     async close() {
       if (closed) return
       closed = true

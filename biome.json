@@ -238,7 +238,8 @@
       "includes": [
         "packages/dsh-bot-discord/src/**",
         "!packages/dsh-bot-discord/src/host/actions/records.ts",
-        "!packages/dsh-bot-discord/src/host/incidents/records.ts"
+        "!packages/dsh-bot-discord/src/host/incidents/records.ts",
+        "!packages/dsh-bot-discord/src/host/profile/records.ts"
       ]
     },
     {

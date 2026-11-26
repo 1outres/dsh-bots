@@ -15,12 +15,13 @@ import type {
   DiscordClientEvents,
   DiscordFailure,
   DiscordGatewayMode,
+  DiscordProfileOutcome,
   OpenDiscordClient,
 } from "../discord"
 import { MESSAGES_PAGE_LIMIT } from "../discord"
 import { toCommandInvocation, toCommandsBody } from "./commands"
 import { toComponentPress, toEditOptions, toModalSubmit } from "./components"
-import { closeFailure, isUnreachable, loginFailure, pinRefusal } from "./failures"
+import { closeFailure, isUnreachable, loginFailure, pinRefusal, profileRefusal } from "./failures"
 import { toDiscordAccount, toDiscordMessage, toMessageOptions } from "./messages"
 import { clientOptions } from "./options"
 
@@ -94,6 +95,21 @@ export function openDiscordJsClient(
     return channel as DMChannel | PartialDMChannel | GuildTextBasedChannel
   }
 
+  const editProfile = async (
+    edit: { readonly username: string } | { readonly avatar: string },
+  ): Promise<DiscordProfileOutcome> => {
+    const self = client.user
+    if (self === null) throw new Error("the bot has not connected to Discord yet")
+    try {
+      await self.edit(edit)
+      return { ok: true }
+    } catch (error) {
+      const refusal = profileRefusal(error)
+      if (refusal === undefined) throw error
+      return { ok: false, refusal }
+    }
+  }
+
   client.login(token).then(
     () => {},
     (error: unknown) => fail(loginFailure(error)),
@@ -161,6 +177,11 @@ export function openDiscordJsClient(
         body: toCommandsBody(commands, mode),
       })
     },
+    setUsername: (username) => editProfile({ username }),
+    setAvatar: (image) =>
+      editProfile({
+        avatar: `data:${image.mediaType};base64,${Buffer.from(image.data).toString("base64")}`,
+      }),
     destroy: stop,
   }
 }

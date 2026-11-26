@@ -3,11 +3,13 @@ declare const tables: {
   digests: { put(key: string, value: unknown): Promise<void> }
 }
 declare const incidents: { put(key: string, value: unknown): Promise<void>; get(key: string): unknown }
+declare const profiles: { put(key: string, value: unknown): Promise<void> }
 
 export async function bypass() {
   await tables.cards.put("k", {})
   await tables.cards.delete("k")
   await tables.digests.put("k", {})
   await incidents.put("k", {})
+  await profiles.put("k", {})
   return incidents.get("k")
 }

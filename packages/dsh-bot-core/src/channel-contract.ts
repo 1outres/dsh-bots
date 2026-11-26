@@ -6,6 +6,7 @@ import type {
   BotChannelInspection,
   BotChannelListField,
   BotChannelOptions,
+  BotChannelProfileSupport,
   BotChannelPublicValues,
   BotChannelText,
 } from "./shared/channels"
@@ -79,6 +80,7 @@ export interface BotChannelCapabilities {
   readonly commands: readonly BotCommandId[]
   readonly connectorActions?: true
   readonly credentialIncidents?: true
+  readonly profile?: BotChannelProfileSupport
 }
 
 export interface BotAttachmentCapability {
@@ -104,6 +106,28 @@ export type BotChannelOutput =
   | { readonly kind: "interaction-closed"; readonly closure: BotInteractionClosure }
   | { readonly kind: "connector-action"; readonly action: ConnectorActionView }
   | { readonly kind: "credential-incident"; readonly incident: VaultIncidentView }
+  | { readonly kind: "profile"; readonly profile: BotChannelProfile }
+
+export interface BotProfileImage {
+  readonly mediaType: "image/png"
+  readonly size: number
+  readonly data: Uint8Array
+  readonly digest: string
+}
+
+export interface BotChannelProfile {
+  readonly digest: string
+  readonly name?: string
+  readonly avatar?: BotProfileImage
+}
+
+export type BotChannelProfileReport =
+  | { readonly digest: string; readonly state: "synced" }
+  | {
+      readonly digest: string
+      readonly state: "failed"
+      readonly problems: readonly BotChannelText[]
+    }
 
 export interface BotReply {
   readonly id: string
@@ -233,4 +257,5 @@ export interface BotChannelLink<V = BotChannelValuesOf<readonly BotChannelField[
   connectorAction(actionId: string): ConnectorActionView | undefined
   activity(): BotActivity
   report(state: BotChannelConnectionState): void
+  reportProfile(report: BotChannelProfileReport): void
 }

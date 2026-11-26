@@ -11,6 +11,7 @@ export type ChannelEdit =
   | { readonly kind: "enabled"; readonly enabled: boolean }
   | { readonly kind: "value"; readonly key: string; readonly value: string | readonly string[] }
   | { readonly kind: "secret"; readonly key: string; readonly secret: string | null }
+  | { readonly kind: "profile"; readonly sync: boolean }
 
 export function changeWith(view: BotChannelView, edit: ChannelEdit): BotChannelChange {
   const values = channelValuesAfter(
@@ -28,6 +29,7 @@ export function changeWith(view: BotChannelView, edit: ChannelEdit): BotChannelC
               edit.secret === null ? { op: "clear" } : { op: "set", value: edit.secret.trim() },
           }
         : {},
+    profileSync: edit.kind === "profile" ? edit.sync : view.profile?.sync === true,
   }
 }
 

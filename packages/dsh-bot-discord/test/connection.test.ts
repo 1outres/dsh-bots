@@ -45,7 +45,7 @@ function setup() {
   return { clock, reports, sessions, messages, commands, clients, modes, latest, connection, calls }
 }
 
-const ACCOUNT = { id: "self", tag: "bot#0001" }
+const ACCOUNT = { id: "self", username: "bot", tag: "bot#0001" }
 
 describe("Discord connection", () => {
   it("logs in with the token and reports connecting, then the account on ready", () => {

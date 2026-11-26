@@ -5,7 +5,7 @@ import {
   GatewayCloseCodes,
   RESTJSONErrorCodes,
 } from "discord.js"
-import type { DiscordFailure } from "../discord"
+import type { DiscordFailure, DiscordProfileRefusal } from "../discord"
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
@@ -43,6 +43,39 @@ const codeOf = (error: unknown): number | string | undefined =>
 export function isUnreachable(error: unknown): boolean {
   const code = codeOf(error)
   return typeof code === "number" && UNREACHABLE.has(code)
+}
+
+interface FormErrors {
+  readonly _errors?: readonly { readonly code?: unknown; readonly message?: unknown }[]
+  readonly [field: string]: unknown
+}
+
+function formErrorsOf(value: unknown): { readonly code: string; readonly message: string }[] {
+  if (typeof value !== "object" || value === null) return []
+  const errors = value as FormErrors
+  const own = (errors._errors ?? []).flatMap((error) =>
+    typeof error.code === "string" && typeof error.message === "string"
+      ? [{ code: error.code, message: error.message }]
+      : [],
+  )
+  const nested = Object.entries(errors)
+    .filter(([field]) => field !== "_errors")
+    .flatMap(([, child]) => formErrorsOf(child))
+  return [...own, ...nested]
+}
+
+export function profileRefusal(error: unknown): DiscordProfileRefusal | undefined {
+  if (!(error instanceof DiscordAPIError)) return undefined
+  if (error.status === 429) return { kind: "rate-limited", message: error.message }
+  const raw = error.rawError as { readonly errors?: unknown }
+  const errors = formErrorsOf(raw.errors)
+  if (errors.some((form) => form.code.endsWith("RATE_LIMIT"))) {
+    return { kind: "rate-limited", message: errors.map((form) => form.message).join(" ") }
+  }
+  return {
+    kind: "rejected",
+    message: errors.length === 0 ? error.message : errors.map((form) => form.message).join(" "),
+  }
 }
 
 export function pinRefusal(error: unknown): "full" | "forbidden" | undefined {

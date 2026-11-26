@@ -34,11 +34,13 @@ describe("channel settings", () => {
       enabled: false,
       values: { server: "abc", users: ["1", "2"] },
       secrets: {},
+      profileSync: false,
     })
     expect(changeWith(view, { kind: "value", key: "users", value: ["3"] })).toEqual({
       enabled: true,
       values: { server: "abc", users: ["3"] },
       secrets: {},
+      profileSync: false,
     })
     expect(changeWith(view, { kind: "secret", key: "token", secret: " new " }).secrets).toEqual({
       token: { op: "set", value: "new" },

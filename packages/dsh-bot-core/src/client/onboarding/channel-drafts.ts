@@ -75,6 +75,7 @@ export const setupOf = (
   channelId: channel.id,
   change: {
     enabled: true,
+    profileSync: false,
     values: draft.values,
     secrets: Object.fromEntries(
       Object.entries(draft.secrets).map(([key, value]) => [key, { op: "set", value }]),

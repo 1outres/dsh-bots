@@ -13,6 +13,7 @@ import { type ConversationDeps, openMainConversation } from "./conversation"
 import { channelRecordKey } from "./domain"
 import type { ChannelOutlets } from "./outlets"
 import { ownersOf } from "./owners"
+import type { ProfileSync } from "./profile/sync"
 import type { ChannelSettings } from "./settings"
 
 export interface HubBot {
@@ -29,6 +30,7 @@ export interface ChannelHubDeps {
   interactions: Pick<InteractionBoard, "mainOf">
   approvals: Pick<ConnectorApprovals, "open" | "pending" | "fromChannel" | "pendingFor" | "find">
   incidents: { open(botId: string): readonly VaultIncidentView[] }
+  profiles: Pick<ProfileSync, "attached" | "reported">
   warn(message: string): void
 }
 
@@ -125,6 +127,9 @@ export function createChannelHub(deps: ChannelHubDeps): ChannelHub {
             slot.state = state
             publish()
           },
+          reportProfile(report) {
+            if (!signal.aborted) deps.profiles.reported(bot.id, channel.id, report)
+          },
         }
         const connection = channel.connect(link)
         deps.outlets.attach(bot.id, { channelId: channel.id, capabilities, connection }, signal)
@@ -136,6 +141,9 @@ export function createChannelHub(deps: ChannelHubDeps): ChannelHub {
         }
         for (const incident of deps.incidents.open(bot.id)) {
           deps.outlets.publishTo(bot.id, channel.id, { kind: "credential-incident", incident })
+        }
+        if (capabilities.profile !== undefined) {
+          deps.profiles.attached(bot.id, channel.id, capabilities.profile, signal)
         }
         return connection
       })().catch((error: unknown) => {

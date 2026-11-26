@@ -7,6 +7,7 @@ export const channelRecordSchema = z.object({
   values: z.record(z.string(), z.union([z.string(), z.array(z.string())])),
   secrets: z.array(z.string()),
   settingsVersion: z.number().int().positive().optional(),
+  profileSync: z.boolean().optional(),
   updatedAt: z.number().int().nonnegative(),
 })
 

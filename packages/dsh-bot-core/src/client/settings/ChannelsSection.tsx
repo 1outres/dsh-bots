@@ -8,10 +8,13 @@ import type {
   BotChannelOption,
   BotChannelOptions,
   BotChannelPickField,
+  BotChannelProfileParts,
+  BotChannelProfileStatus,
   BotChannelText,
   BotChannelTextField,
   BotChannelView,
 } from "../../shared/channels"
+import { profilePartsOf } from "../../shared/channels"
 import {
   type ChannelEdit,
   type ChannelFieldIssue,
@@ -201,6 +204,7 @@ export function ChannelGroup({ t, text, view, configure, ask }: ChannelGroupProp
           settingsKey={key}
         />
       ))}
+      <ProfileRow t={t} text={text} view={view} save={save} />
       {channel.guide !== undefined && (
         <LinkRow
           label={t("channels.guide")}
@@ -209,6 +213,66 @@ export function ChannelGroup({ t, text, view, configure, ask }: ChannelGroupProp
         />
       )}
     </Group>
+  )
+}
+
+const PROFILE_LABEL: Readonly<Record<BotChannelProfileParts, MessageKey>> = {
+  both: "channels.profile.both",
+  name: "channels.profile.name",
+  avatar: "channels.profile.avatar",
+}
+
+const PROFILE_PARTS: Readonly<Record<BotChannelProfileParts, MessageKey>> = {
+  both: "channels.profile.parts.both",
+  name: "channels.profile.parts.name",
+  avatar: "channels.profile.parts.avatar",
+}
+
+function profileMeta(
+  t: Translate,
+  text: (text: BotChannelText) => string,
+  status: BotChannelProfileStatus,
+): string {
+  switch (status.state) {
+    case "syncing":
+      return t("channels.profile.syncing")
+    case "synced":
+      return t("channels.profile.synced")
+    case "failed":
+      return [t("channels.profile.failed"), ...status.problems.map(text)].join(" — ")
+  }
+}
+
+function ProfileRow(props: {
+  readonly t: Translate
+  text(text: BotChannelText): string
+  readonly view: BotChannelView
+  save(edit: ChannelEdit): Promise<CommitResult>
+}) {
+  const { t, text, view, save } = props
+  const { profile, channel } = view
+  if (profile === undefined) return null
+  const parts = profilePartsOf(profile.supports)
+  const status = profile.sync ? profile.status : undefined
+  return (
+    <Row
+      label={t(PROFILE_LABEL[parts])}
+      description={t("channels.profile.description", {
+        parts: t(PROFILE_PARTS[parts]),
+        channel: channel.name,
+      })}
+      meta={status === undefined ? undefined : profileMeta(t, text, status)}
+      metaTone={status?.state === "failed" ? "danger" : undefined}
+      marks={{ "data-dshb-channel-profile": status?.state ?? (profile.sync ? "on" : "off") }}
+      trailing={
+        <Switch
+          checked={profile.sync}
+          label={t("channels.profile.toggle", { channel: channel.name })}
+          onChange={(sync) => void save({ kind: "profile", sync })}
+          marks={{ "data-dshb-channel-profile-sync": "" }}
+        />
+      }
+    />
   )
 }
 

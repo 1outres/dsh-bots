@@ -76,6 +76,18 @@ function checkOwnersOutput(
   }
 }
 
+function checkProfile(value: unknown, what: string): void {
+  if (value === undefined) return
+  if (typeof value !== "object" || value === null) {
+    throw new Error(`${what}: profile must name whether the name and the avatar follow the bot`)
+  }
+  const { name, avatar } = value as Record<string, unknown>
+  if (typeof name !== "boolean" || typeof avatar !== "boolean") {
+    throw new Error(`${what}: profile.name and profile.avatar must be true or false`)
+  }
+  if (!name && !avatar) throw new Error(`${what}: profile must take the name, the avatar or both`)
+}
+
 export function checkChannelCapabilities(
   channel: Pick<BotChannelDescriptor, "id" | "owners">,
   capabilities: unknown,
@@ -107,6 +119,7 @@ export function checkChannelCapabilities(
   }
   checkOwnersOutput("connectorActions", value.connectorActions, channel.owners, what)
   checkOwnersOutput("credentialIncidents", value.credentialIncidents, channel.owners, what)
+  checkProfile(value.profile, what)
 }
 
 export function commandsOf(capabilities: BotChannelCapabilities): readonly BotCommandSpec[] {
@@ -137,5 +150,7 @@ export function carries(capabilities: BotChannelCapabilities, output: BotChannel
       return capabilities.connectorActions === true
     case "credential-incident":
       return capabilities.credentialIncidents === true
+    case "profile":
+      return capabilities.profile !== undefined
   }
 }

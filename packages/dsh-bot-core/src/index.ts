@@ -30,6 +30,9 @@ import { ownersOf } from "./host/channels/owners"
 import { createChannelPanel } from "./host/channels/panel"
 import { createPresentedFiles } from "./host/channels/presented"
 import { createPresentedDelivery } from "./host/channels/presented-delivery"
+import { createProfileRenderer } from "./host/channels/profile/render"
+import { createSharpRasterizer } from "./host/channels/profile/sharp"
+import { createProfileSync } from "./host/channels/profile/sync"
 import { createChannelSequence } from "./host/channels/sequence"
 import { createChannelSettings } from "./host/channels/settings"
 import { createTurnSilence, turnBoundaryOf } from "./host/channels/silence"
@@ -3808,6 +3811,19 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
       feed.sessionEvent(session.id, event),
     )
 
+    const profiles = createProfileSync({
+      bot: (botId) => registry.get(botId),
+      enabled(botId, channelId) {
+        const channel = channelCatalog.get(channelId)
+        return channel !== undefined && settings.view(botId, channel).profileSync
+      },
+      renderer: createProfileRenderer({
+        rasterize: createSharpRasterizer(),
+        digest: (data) => createHash("sha256").update(data).digest("hex"),
+      }),
+      publish: (botId, channelId, output) => outlets.publishTo(botId, channelId, output),
+      warn,
+    })
     const hub = createChannelHub({
       channels: () => channelCatalog.list(),
       bots: () => registry.list(),
@@ -3824,6 +3840,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
             .reverse()
             .map(incidentView),
       },
+      profiles,
       warn,
     })
     channelsCtx.effect(() => () => hub.dispose(), "bot-core: channel connections")
@@ -3848,11 +3865,19 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
       () =>
         registry.subscribe(() => {
           hub.sync()
+          profiles.refresh()
           void purge()
         }),
       "bot-core: channels of bots",
     )
-    channelsCtx.effect(() => settings.subscribe(() => hub.sync()), "bot-core: channel settings")
+    channelsCtx.effect(
+      () =>
+        settings.subscribe((botId) => {
+          hub.sync()
+          profiles.refresh(botId)
+        }),
+      "bot-core: channel settings",
+    )
     void purge()
     upgradeThenSync()
 
@@ -3866,6 +3891,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
       listed: (botId) => registry.get(botId) !== undefined,
       settings,
       hub,
+      profiles,
       deadline: () => AbortSignal.timeout(CHANNEL_QUERY_MS),
     })
     channelsCtx.effect(() => {
@@ -3901,6 +3927,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     new BotChannelsRemoteService(channelsCtx, panel, (listener) => {
       const offs = [
         hub.subscribe(listener),
+        profiles.subscribe(listener),
         settings.subscribe(listener),
         channelCatalog.subscribe(listener),
         registry.subscribe(listener),

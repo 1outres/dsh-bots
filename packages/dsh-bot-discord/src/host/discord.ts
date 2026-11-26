@@ -2,6 +2,7 @@ export const MESSAGES_PAGE_LIMIT = 100
 
 export interface DiscordAccount {
   readonly id: string
+  readonly username: string
   readonly tag: string
 }
 
@@ -166,6 +167,20 @@ export interface DiscordClientEvents {
   failed(failure: DiscordFailure): void
 }
 
+export interface DiscordImage {
+  readonly mediaType: "image/png"
+  readonly data: Uint8Array
+}
+
+export interface DiscordProfileRefusal {
+  readonly kind: "rate-limited" | "rejected"
+  readonly message: string
+}
+
+export type DiscordProfileOutcome =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly refusal: DiscordProfileRefusal }
+
 export type DiscordEditOutcome = "edited" | "missing"
 export type DiscordRemoveOutcome = "removed" | "missing"
 export type DiscordPinOutcome = "pinned" | "missing" | "full" | "forbidden"
@@ -184,6 +199,8 @@ export interface DiscordActions {
   typing(channelId: string): Promise<void>
   messagesAfter(channelId: string, after: string): Promise<readonly DiscordMessage[]>
   registerCommands(commands: readonly DiscordCommandSpec[]): Promise<void>
+  setUsername(username: string): Promise<DiscordProfileOutcome>
+  setAvatar(image: DiscordImage): Promise<DiscordProfileOutcome>
 }
 
 export interface DiscordClient extends DiscordActions {

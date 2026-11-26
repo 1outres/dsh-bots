@@ -182,10 +182,17 @@
   "packages/dsh-bot-discord/src/host/bad-host-files.ts": ["1:35", "2:35"],
   "packages/dsh-bot-discord/src/host/bad-interaction-waterfalls.ts": ["2:36"],
   "packages/dsh-bot-discord/src/host/bad-library.ts": ["1:33", "2:33", "3:33"],
-  "packages/dsh-bot-discord/src/host/bad-record-writes.ts": ["8:72", "9:72", "10:72", "11:72"],
+  "packages/dsh-bot-discord/src/host/bad-record-writes.ts": [
+    "9:72",
+    "10:72",
+    "11:72",
+    "12:72",
+    "13:72"
+  ],
   "packages/dsh-bot-discord/src/host/bad-session-query.ts": ["1:55"],
   "packages/dsh-bot-discord/src/host/discordjs/client.ts": ["1:35"],
   "packages/dsh-bot-discord/src/host/incidents/records.ts": [],
+  "packages/dsh-bot-discord/src/host/profile/records.ts": [],
   "packages/dsh-bot-discord/src/host/lookup.ts": ["2:8"],
   "packages/dsh-bot-discord/src/index.ts": [],
   "packages/dsh-bot-vault-1password/src/bad-op.ts": [

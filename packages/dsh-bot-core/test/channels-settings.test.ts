@@ -20,6 +20,7 @@ const enable = {
   enabled: true,
   values: { server: "abc", users: ["1"] },
   secrets: { token: { op: "set", value: "secret-1" } },
+  profileSync: false,
 } as const
 
 describe("channel settings", () => {
@@ -29,8 +30,29 @@ describe("channel settings", () => {
       enabled: false,
       values: { server: "", users: [] },
       secrets: { token: false },
+      profileSync: false,
     })
     expect(settings.readiness("b", channel)).toEqual({ state: "off" })
+  })
+
+  it("keep the profile sync off for a record stored without it, and change it without a reconnect", async () => {
+    const { records, settings, changes } = setup()
+    await records.put("b:chat", {
+      botId: "b",
+      channelId: "chat",
+      enabled: true,
+      values: { server: "abc", users: ["1"] },
+      secrets: ["token"],
+      updatedAt: 1,
+    })
+    expect(settings.view("b", channel).profileSync).toBe(false)
+    await settings.configure("b", channel, { ...enable, secrets: {}, profileSync: true })
+    expect(settings.view("b", channel).profileSync).toBe(true)
+    expect(records.rows.get("b:chat")?.profileSync).toBe(true)
+    expect(changes).toEqual(["b:chat"])
+    expect(settings.revision("b", "chat")).toBe(0)
+    await settings.configure("b", channel, { ...enable, secrets: {}, profileSync: true })
+    expect(settings.revision("b", "chat")).toBe(1)
   })
 
   it("keep secrets in the vault and only their presence in the record", async () => {
@@ -44,6 +66,7 @@ describe("channel settings", () => {
       values: { server: "abc", users: ["1"] },
       secrets: ["token"],
       settingsVersion: 1,
+      profileSync: false,
       updatedAt: 5,
     })
     expect(JSON.stringify(settings.view("b", channel))).not.toContain("secret-1")

@@ -6,6 +6,7 @@ import {
   type BotChannelDescriptor,
   type BotChannelInspection,
   type BotChannelOptions,
+  type BotChannelProfileView,
   type BotChannelPublicValues,
   type BotChannelStatus,
   type BotChannelsSnapshot,
@@ -17,6 +18,7 @@ import {
   sourceOf,
 } from "../../shared/channels"
 import type { ChannelHub } from "./hub"
+import type { ProfileSync } from "./profile/sync"
 import type { ChannelSettings } from "./settings"
 
 export interface ChannelPanelDeps {
@@ -29,6 +31,7 @@ export interface ChannelPanelDeps {
     "view" | "readiness" | "configure" | "revision" | "resolve" | "preview"
   >
   hub: Pick<ChannelHub, "state" | "sync">
+  profiles: Pick<ProfileSync, "status">
   deadline(): AbortSignal
 }
 
@@ -87,12 +90,28 @@ export function createChannelPanel(deps: ChannelPanelDeps): ChannelPanel {
     return deps.hub.state(botId, channel.id) ?? { state: "connecting" }
   }
 
-  const view = (botId: string, channel: BotChannel): BotChannelView => ({
-    channel: descriptorOf(channel),
-    ...deps.settings.view(botId, channel),
-    status: status(botId, channel),
-    revision: deps.settings.revision(botId, channel.id),
-  })
+  const profileOf = (
+    botId: string,
+    channel: BotChannel,
+    sync: boolean,
+  ): BotChannelProfileView | undefined => {
+    const supports = channel.capabilities.profile
+    if (supports === undefined) return undefined
+    const current = deps.profiles.status(botId, channel.id)
+    return { supports, sync, ...(current === undefined ? {} : { status: current }) }
+  }
+
+  const view = (botId: string, channel: BotChannel): BotChannelView => {
+    const { profileSync, ...settings } = deps.settings.view(botId, channel)
+    const profile = profileOf(botId, channel, profileSync)
+    return {
+      channel: descriptorOf(channel),
+      ...settings,
+      status: status(botId, channel),
+      revision: deps.settings.revision(botId, channel.id),
+      ...(profile === undefined ? {} : { profile }),
+    }
+  }
 
   const requestOf = async (
     channel: BotChannel,
@@ -132,6 +151,9 @@ export function createChannelPanel(deps: ChannelPanelDeps): ChannelPanel {
       const bot = requireBot(botId)
       const channel = requireChannel(channelId)
       const change: BotChannelChange = parseChannelChange(channel.fields, input)
+      if (change.profileSync && channel.capabilities.profile === undefined) {
+        throw new Error(`channel "${channelId}" does not take the bot's name and avatar`)
+      }
       if (change.enabled) {
         const settings = await deps.settings.preview(botId, channel, change)
         if (complete(channel, settings)) {
