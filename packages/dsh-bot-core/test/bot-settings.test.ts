@@ -162,7 +162,11 @@ interface FakeArea extends BotSettingsArea {
 }
 
 function fakeArea(): FakeArea {
-  const values: Record<string, string | boolean> = { name: "Aria", language: "en", avatar: "emoji" }
+  const values: Record<string, string | boolean> = {
+    name: "Aria",
+    language: "en",
+    avatar: "character",
+  }
   const applied: (readonly BotSettingChange[])[] = []
   const area: FakeArea = {
     id: "general",

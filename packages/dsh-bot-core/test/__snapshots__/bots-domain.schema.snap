@@ -1,6 +1,6 @@
 {
   "name": "dsh_bots",
-  "version": 2,
+  "version": 3,
   "tables": {
     "bots": {
       "name": {
@@ -9,7 +9,7 @@
       },
       "avatar": {
         "required": true,
-        "type": "{ kind: \"emoji\"; emoji: string; color: string } | { kind: \"initial\"; text: string; color: string } | { kind: \"image\"; dataUrl: string }"
+        "type": "{ kind: \"character\"; character: \"capsule\" | \"antenna\" | \"scanner\" | \"ears\" | \"kitty\" | \"twin\" | \"monitor\" | \"sleepy\"; color: string } | { kind: \"initial\"; text: string; color: string } | { kind: \"image\"; dataUrl: string } | { kind: \"emoji\"; emoji: string; color: string }"
       },
       "path": {
         "required": false,

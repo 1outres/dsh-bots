@@ -14,7 +14,7 @@ import { value } from "./support/client"
 const bot: BotView = {
   id: "a",
   name: "Alice",
-  avatar: { kind: "emoji", emoji: "🤖", color: "#6366F1" },
+  avatar: { kind: "character", character: "capsule", color: "#6366F1" },
   mainSessionId: "m-a",
   mainStartedAt: 0,
   timezone: "UTC",

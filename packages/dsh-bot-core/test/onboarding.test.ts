@@ -411,7 +411,7 @@ describe("onboarding state", () => {
 describe("onboarding panel", () => {
   const input = {
     name: "A",
-    avatar: { kind: "emoji", emoji: "🤖", color: "#6366F1" },
+    avatar: { kind: "character", character: "capsule", color: "#6366F1" },
     workstation: false,
     language: "en",
     timezone: "UTC",

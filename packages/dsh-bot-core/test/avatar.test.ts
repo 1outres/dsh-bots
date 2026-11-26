@@ -1,24 +1,26 @@
 import { describe, expect, it } from "vitest"
 import {
   AVATAR_COLORS,
+  AVATAR_FIGURES,
   composeAvatar,
+  DEFAULT_AVATAR_CHOICE,
   decomposeAvatar,
-  EMOJI_CHOICES,
-  initialOf,
   radioStep,
   sameChoice,
 } from "../src/client/avatar-data"
 import { en, ja } from "../src/client/i18n"
 import { botRecordSchema } from "../src/host/domain"
-import { validateAvatar } from "../src/shared/bots"
+import { BOT_CHARACTERS, initialOf, isBotCharacter, validateAvatar } from "../src/shared/avatar"
 
 describe("validateAvatar", () => {
-  it("keeps stored emoji and image avatars valid", () => {
-    expect(validateAvatar({ kind: "emoji", emoji: "🦊", color: "#F97316" })).toEqual({
-      kind: "emoji",
-      emoji: "🦊",
-      color: "#F97316",
-    })
+  it("keeps character and image avatars valid", () => {
+    for (const character of BOT_CHARACTERS) {
+      expect(validateAvatar({ kind: "character", character, color: "#F97316" })).toEqual({
+        kind: "character",
+        character,
+        color: "#F97316",
+      })
+    }
     const dataUrl = "data:image/png;base64,AAAA"
     expect(validateAvatar({ kind: "image", dataUrl })).toEqual({ kind: "image", dataUrl })
   })
@@ -38,20 +40,54 @@ describe("validateAvatar", () => {
       validateAvatar({ kind: "initial", text: "x".repeat(17), color: "#6366F1" }),
     ).toThrow()
     expect(() => validateAvatar({ kind: "initial", text: "A", color: "red" })).toThrow("color")
-    expect(() => validateAvatar({ kind: "emoji", emoji: "🦊", color: "#fff" })).toThrow("color")
+    expect(() =>
+      validateAvatar({ kind: "character", character: "capsule", color: "#fff" }),
+    ).toThrow("color")
+  })
+
+  it("rejects an unknown character and the retired emoji kind", () => {
+    expect(() => validateAvatar({ kind: "character", character: "fox", color: "#6366F1" })).toThrow(
+      "avatar character is unknown",
+    )
+    expect(() => validateAvatar({ kind: "emoji", emoji: "🤖", color: "#6366F1" })).toThrow(
+      "avatar kind is unknown",
+    )
+  })
+})
+
+describe("isBotCharacter", () => {
+  it("knows exactly the eight characters", () => {
+    expect(BOT_CHARACTERS).toEqual([
+      "capsule",
+      "antenna",
+      "scanner",
+      "ears",
+      "kitty",
+      "twin",
+      "monitor",
+      "sleepy",
+    ])
+    expect(BOT_CHARACTERS.every(isBotCharacter)).toBe(true)
+    expect(isBotCharacter("robot")).toBe(false)
+    expect(isBotCharacter(0)).toBe(false)
   })
 })
 
 describe("botRecordSchema", () => {
   const base = { name: "n", path: "/p", workspaceId: "w", createdAt: 1, updatedAt: 1 }
-  it("parses old and new avatar kinds", () => {
+  it("parses the current avatar kinds and the legacy emoji kind it migrates", () => {
     for (const avatar of [
+      { kind: "character", character: "kitty", color: "#6366F1" },
       { kind: "emoji", emoji: "🤖", color: "#6366F1" },
       { kind: "image", dataUrl: "data:image/png;base64,AAAA" },
       { kind: "initial", text: "あ", color: "#EF4444" },
     ]) {
       expect(botRecordSchema.safeParse({ ...base, avatar }).success).toBe(true)
     }
+  })
+  it("refuses a character it does not know", () => {
+    const avatar = { kind: "character", character: "fox", color: "#6366F1" }
+    expect(botRecordSchema.safeParse({ ...base, avatar }).success).toBe(false)
   })
 })
 
@@ -68,10 +104,10 @@ describe("initialOf", () => {
 })
 
 describe("compose / decompose", () => {
-  it("combines glyph and color independently", () => {
-    expect(composeAvatar(1, AVATAR_COLORS[4], "x")).toEqual({
-      kind: "emoji",
-      emoji: EMOJI_CHOICES[1],
+  it("combines figure and color independently", () => {
+    expect(composeAvatar("antenna", AVATAR_COLORS[4], "x")).toEqual({
+      kind: "character",
+      character: "antenna",
       color: AVATAR_COLORS[4],
     })
     expect(composeAvatar("initial", AVATAR_COLORS[2], "bob")).toEqual({
@@ -80,20 +116,29 @@ describe("compose / decompose", () => {
       color: AVATAR_COLORS[2],
     })
   })
-  it("round-trips the dialog choices", () => {
-    expect(decomposeAvatar(undefined)).toEqual({
-      glyph: 0,
+  it("offers the eight characters, then the initial", () => {
+    expect(AVATAR_FIGURES).toEqual([...BOT_CHARACTERS, "initial"])
+  })
+  it("starts from the first character in the first color", () => {
+    expect(DEFAULT_AVATAR_CHOICE).toEqual({
+      figure: "capsule",
       color: AVATAR_COLORS[0],
       image: undefined,
     })
-    expect(decomposeAvatar({ kind: "emoji", emoji: "🦉", color: "#22C55E" })).toEqual({
-      glyph: 4,
+  })
+  it("round-trips the dialog choices", () => {
+    expect(decomposeAvatar({ kind: "character", character: "kitty", color: "#22C55E" })).toEqual({
+      figure: "kitty",
       color: "#22C55E",
       image: undefined,
     })
-    expect(decomposeAvatar({ kind: "initial", text: "Z", color: "#EF4444" }).glyph).toBe("initial")
+    expect(decomposeAvatar({ kind: "initial", text: "Z", color: "#EF4444" })).toEqual({
+      figure: "initial",
+      color: "#EF4444",
+      image: undefined,
+    })
     const image = { kind: "image", dataUrl: "data:image/png;base64,AAAA" } as const
-    expect(decomposeAvatar(image).image).toBe(image)
+    expect(decomposeAvatar(image)).toEqual({ ...DEFAULT_AVATAR_CHOICE, image })
   })
 })
 
@@ -113,42 +158,45 @@ describe("sameChoice", () => {
   const blue = AVATAR_COLORS[0]
   const red = AVATAR_COLORS[1]
   const image = (dataUrl: string) => ({ kind: "image", dataUrl }) as const
-  it("compares glyph and color while no image is in use", () => {
+  it("compares figure and color while no image is in use", () => {
     expect(
       sameChoice(
-        { glyph: 1, color: blue, image: undefined },
-        { glyph: 1, color: blue, image: undefined },
+        { figure: "antenna", color: blue, image: undefined },
+        { figure: "antenna", color: blue, image: undefined },
       ),
     ).toBe(true)
     expect(
       sameChoice(
-        { glyph: 1, color: blue, image: undefined },
-        { glyph: 2, color: blue, image: undefined },
+        { figure: "antenna", color: blue, image: undefined },
+        { figure: "scanner", color: blue, image: undefined },
       ),
     ).toBe(false)
     expect(
       sameChoice(
-        { glyph: "initial", color: blue, image: undefined },
-        { glyph: "initial", color: red, image: undefined },
+        { figure: "initial", color: blue, image: undefined },
+        { figure: "initial", color: red, image: undefined },
       ),
     ).toBe(false)
   })
-  it("compares images by data and ignores the hidden glyph behind them", () => {
+  it("compares images by data and ignores the hidden figure behind them", () => {
     const a = image("data:image/png;base64,AA")
     expect(
       sameChoice(
-        { glyph: 0, color: blue, image: a },
-        { glyph: 3, color: red, image: image(a.dataUrl) },
+        { figure: "capsule", color: blue, image: a },
+        { figure: "ears", color: red, image: image(a.dataUrl) },
       ),
     ).toBe(true)
     expect(
       sameChoice(
-        { glyph: 0, color: blue, image: a },
-        { glyph: 0, color: blue, image: image("data:image/png;base64,BB") },
+        { figure: "capsule", color: blue, image: a },
+        { figure: "capsule", color: blue, image: image("data:image/png;base64,BB") },
       ),
     ).toBe(false)
     expect(
-      sameChoice({ glyph: 0, color: blue, image: a }, { glyph: 0, color: blue, image: undefined }),
+      sameChoice(
+        { figure: "capsule", color: blue, image: a },
+        { figure: "capsule", color: blue, image: undefined },
+      ),
     ).toBe(false)
   })
 })
@@ -157,6 +205,8 @@ describe("i18n", () => {
   it("translates the same keys in en and ja", () => {
     expect(Object.keys(ja).sort()).toEqual(Object.keys(en).sort())
     for (const index of AVATAR_COLORS.keys()) expect(en[`color.${index}`]).toBeDefined()
-    for (const index of EMOJI_CHOICES.keys()) expect(en[`avatar.${index}`]).toBeDefined()
+    for (const character of BOT_CHARACTERS) {
+      expect(en[`avatar.character.${character}`]).toBeDefined()
+    }
   })
 })

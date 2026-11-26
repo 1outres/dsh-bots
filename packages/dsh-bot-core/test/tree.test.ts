@@ -18,7 +18,7 @@ import type { BotView, PendingBotView } from "../src/shared/bots"
 const bot = (id: string, sessionIds: string[] = []): BotView => ({
   id,
   name: id,
-  avatar: { kind: "emoji", emoji: "🤖", color: "#6366F1" },
+  avatar: { kind: "character", character: "capsule", color: "#6366F1" },
   mainSessionId: `m-${id}`,
   mainStartedAt: 0,
   sessionIds,
@@ -234,7 +234,7 @@ describe("deriveTreeNodes", () => {
   const pending = (id: string, createdAt: number, kind: "create" | "remove"): PendingBotView => ({
     id,
     name: id,
-    avatar: { kind: "emoji", emoji: "🤖", color: "#6366F1" },
+    avatar: { kind: "character", character: "capsule", color: "#6366F1" },
     operation: kind === "create" ? { kind, phase: "queued" } : { kind },
     startedAt: 0,
     sessionIds: [],

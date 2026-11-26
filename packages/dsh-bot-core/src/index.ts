@@ -331,6 +331,8 @@ export { DEFAULT_FILES_LIMITS } from "./host/files"
 export { REMOTE_SERVICES } from "./host/remote"
 export { HOST_REMOTE_CONTRIBUTION } from "./host/remote-contract"
 export { BotService } from "./service"
+export type * from "./shared/avatar"
+export { BOT_CHARACTERS } from "./shared/avatar"
 export type * from "./shared/bots"
 export type * from "./shared/channels"
 export {
@@ -1366,6 +1368,7 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
   })
 
   await registry.migrateTimezones(() => new Intl.DateTimeFormat().resolvedOptions().timeZone)
+  await registry.migrateAvatars()
 
   registry
     .migrateLegacy(

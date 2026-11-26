@@ -1,17 +1,18 @@
+import { type BotAvatar, validateAvatar } from "../shared/avatar"
 import type {
-  BotAvatar,
   BotCreateInput,
   BotFailure,
   BotUpdateInput,
   BotView,
   CreationPhase,
 } from "../shared/bots"
-import { validateAvatar, validateLanguage, validateName } from "../shared/bots"
+import { validateLanguage, validateName } from "../shared/bots"
 import type { BotEnvironmentSpec } from "../shared/environment"
 import type { MainRotationReason } from "../shared/mains"
 import type { BotModelSettings } from "../shared/models"
 import type { BotOverlay } from "../shared/preset"
 import { botPresetId } from "../shared/preset"
+import { avatarOfRecord, isLegacyAvatar } from "./avatar-migration"
 import type { BotSessions } from "./cleanup"
 import type { CatalogConnector } from "./connectors/catalog"
 import type { CreationConnectors } from "./connectors/creation"
@@ -115,6 +116,7 @@ export interface BotRegistry {
   markInitialNotes(id: string, version: InitialNotesVersion): Promise<void>
   timezoneOf(id: string): string
   migrateTimezones(hostZone: () => string): Promise<void>
+  migrateAvatars(): Promise<void>
   subscribe(listener: () => void): () => void
 }
 
@@ -142,7 +144,7 @@ function viewOf(
   return {
     id,
     name: record.name,
-    avatar: record.avatar as BotAvatar,
+    avatar: avatarOfRecord(record),
     mainSessionId: main,
     mainStartedAt:
       sessions.find((session) => session.sessionId === main)?.createdAt ?? record.createdAt,
@@ -265,7 +267,7 @@ export function createBotRegistry(deps: BotRegistryDeps): BotRegistry {
           ([id, record]): CreatingBot => ({
             id,
             name: record.name,
-            avatar: record.avatar as BotAvatar,
+            avatar: avatarOfRecord(record),
             createdAt: record.createdAt,
             sessionIds: sessionsOf(id),
             startingMain: starting.has(id),
@@ -359,7 +361,7 @@ export function createBotRegistry(deps: BotRegistryDeps): BotRegistry {
         removed({
           id,
           name: record.name,
-          avatar: record.avatar as BotAvatar,
+          avatar: avatarOfRecord(record),
           createdAt: record.createdAt,
           mainSessionId: record.mainSessionId,
           sessionIds,
@@ -557,6 +559,17 @@ export function createBotRegistry(deps: BotRegistryDeps): BotRegistry {
         for (const [id, record] of [...deps.table.entries()]) {
           if (record.timezone !== undefined) continue
           await deps.table.put(id, { ...record, timezone: deps.canonicalTimezone(hostZone()) })
+          changed = true
+        }
+        if (changed) publish()
+      })
+    },
+    migrateAvatars() {
+      return serial(async () => {
+        let changed = false
+        for (const [id, record] of [...deps.table.entries()]) {
+          if (!isLegacyAvatar(record.avatar)) continue
+          await deps.table.put(id, { ...record, avatar: avatarOfRecord(record) })
           changed = true
         }
         if (changed) publish()

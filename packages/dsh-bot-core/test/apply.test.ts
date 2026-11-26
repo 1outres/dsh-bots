@@ -612,7 +612,7 @@ interface PluginRowLike {
   readonly config?: { readonly token?: string }
 }
 
-const avatar = { kind: "emoji", emoji: "🤖", color: "#6366F1" } as const
+const avatar = { kind: "character", character: "capsule", color: "#6366F1" } as const
 const flush = () => new Promise((resolve) => setTimeout(resolve, 20))
 
 function bot(extra: Partial<BotRecord> = {}): BotRecord {

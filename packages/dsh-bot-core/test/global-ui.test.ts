@@ -2,7 +2,7 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it, vi } from "vitest"
 import { AvatarPicker } from "../src/client/AvatarPicker"
-import { decomposeAvatar } from "../src/client/avatar-data"
+import { AVATAR_COLORS, DEFAULT_AVATAR_CHOICE } from "../src/client/avatar-data"
 import { BotNoticeToast } from "../src/client/BotNoticeToast"
 import { BotDialog } from "../src/client/CreateBotDialog"
 import { createNoticeStore } from "../src/client/notices"
@@ -152,12 +152,12 @@ describe("New bot dialog", () => {
 })
 
 describe("Avatar picker", () => {
-  it("puts symbols, the image picker and colors in one grid of cells", () => {
+  it("puts characters, the image picker and colors in one grid of cells", () => {
     const html = renderToStaticMarkup(
       createElement(AvatarPicker, {
         t,
         name: "Ada",
-        value: decomposeAvatar(undefined),
+        value: DEFAULT_AVATAR_CHOICE,
         onChange() {},
       }),
     )
@@ -166,6 +166,39 @@ describe("Avatar picker", () => {
     expect(html.match(/role="radiogroup"/g)).toHaveLength(2)
     expect(html).not.toContain("<legend")
     expect(html).not.toContain("dshb-upload")
+  })
+
+  it("draws every character in the chosen color, then the initial, and marks the choice", () => {
+    const html = renderToStaticMarkup(
+      createElement(AvatarPicker, {
+        t,
+        name: "Ada",
+        value: { figure: "kitty", color: AVATAR_COLORS[5], image: undefined },
+        onChange() {},
+      }),
+    )
+    const figures = [...html.matchAll(/role="radio" aria-label="(avatar\.[^"]+)"/g)].map(
+      (match) => match[1],
+    )
+    expect(figures.slice(0, 9)).toEqual([
+      "avatar.character.capsule",
+      "avatar.character.antenna",
+      "avatar.character.scanner",
+      "avatar.character.ears",
+      "avatar.character.kitty",
+      "avatar.character.twin",
+      "avatar.character.monitor",
+      "avatar.character.sleepy",
+      "avatar.initial(A)",
+    ])
+    expect(html.match(/data-dshb-character="/g)).toHaveLength(8)
+    expect(
+      html.match(new RegExp(`<rect width="64" height="64" fill="${AVATAR_COLORS[5]}"`, "g")),
+    ).toHaveLength(8)
+    expect(html).toMatch(/aria-label="avatar\.character\.kitty" title="[^"]*" aria-checked="true"/)
+    expect(html.match(/aria-checked="true"/g)).toHaveLength(2)
+    const clipIds = [...html.matchAll(/<clipPath id="([^"]+)"/g)].map((match) => match[1])
+    expect(new Set(clipIds).size).toBe(8)
   })
 })
 

@@ -142,7 +142,7 @@ async function created(bots: ReturnType<typeof registry>["bots"], name = "Alpha"
 
 const ignore = () => {}
 
-const avatar = { kind: "emoji", emoji: "🤖", color: "#6366F1" } as const
+const avatar = { kind: "character", character: "capsule", color: "#6366F1" } as const
 
 describe("bot registry", () => {
   it("stores a new bot unlisted, then lists it once its Main started, recorded as its own", async () => {
@@ -532,7 +532,7 @@ describe("bot registry", () => {
     const { bots, renamed } = registry()
     const bot = await created(bots)
     await bots.update(bot.id, { name: "Alpha" })
-    await bots.update(bot.id, { avatar: { ...avatar, emoji: "🐱" } })
+    await bots.update(bot.id, { avatar: { ...avatar, character: "kitty" } })
     await bots.update(bot.id, { name: " Beta " })
     expect(renamed).toEqual([["s1", "Beta"]])
   })
@@ -742,5 +742,59 @@ describe("bot registry: language and initial workspace files", () => {
     await bots.markInitialNotes(id, 1)
     expect(bots.hasInitialNotes(id, 1)).toBe(true)
     expect(rows.get(id)).toMatchObject({ workspaceFiles: 1, initialNotes: 1 })
+  })
+})
+
+describe("bot registry avatars", () => {
+  const stored = (name: string, avatar: BotRecord["avatar"], main?: string): BotRecord => ({
+    name,
+    avatar,
+    timezone: "UTC",
+    ...(main === undefined ? {} : { mainSessionId: main }),
+    createdAt: 1,
+    updatedAt: 1,
+  })
+  const legacyRows = () =>
+    new Map<string, BotRecord>([
+      ["owl", stored("Owl", { kind: "emoji", emoji: "🦉", color: "#10B981" }, "m1")],
+      ["whale", stored("whale", { kind: "emoji", emoji: "🐳", color: "#EF4444" }, "m2")],
+      ["new", stored("New", { kind: "emoji", emoji: "🍀", color: "#6366F1" })],
+      ["kept", stored("Kept", avatar, "m3")],
+    ])
+
+  it("shows a legacy emoji avatar migrated before it is stored again", () => {
+    const { bots, rows } = registry({ rows: legacyRows() })
+    expect(bots.get("owl")?.avatar).toEqual({
+      kind: "character",
+      character: "kitty",
+      color: "#10B981",
+    })
+    expect(bots.get("whale")?.avatar).toEqual({ kind: "initial", text: "W", color: "#EF4444" })
+    expect(bots.creating()[0]?.avatar).toEqual({
+      kind: "character",
+      character: "sleepy",
+      color: "#6366F1",
+    })
+    expect(rows.get("owl")?.avatar.kind).toBe("emoji")
+  })
+
+  it("stores every legacy avatar in the current form once, leaving the others as they are", async () => {
+    const rows = legacyRows()
+    const kept = rows.get("kept")
+    const { bots } = registry({ rows })
+    let changes = 0
+    bots.subscribe(() => changes++)
+    await bots.migrateAvatars()
+    expect(Object.fromEntries([...rows].map(([id, record]) => [id, record.avatar]))).toEqual({
+      owl: { kind: "character", character: "kitty", color: "#10B981" },
+      whale: { kind: "initial", text: "W", color: "#EF4444" },
+      new: { kind: "character", character: "sleepy", color: "#6366F1" },
+      kept: avatar,
+    })
+    expect(rows.get("kept")).toBe(kept)
+    expect(rows.get("owl")?.updatedAt).toBe(1)
+    expect(changes).toBe(1)
+    await bots.migrateAvatars()
+    expect(changes).toBe(1)
   })
 })

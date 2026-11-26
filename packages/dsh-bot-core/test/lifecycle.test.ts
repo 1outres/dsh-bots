@@ -7,7 +7,7 @@ import type { CreatingBot, CreationFailure, RemovedBot } from "../src/host/regis
 import type { EnvironmentPhase } from "../src/shared/bots"
 import type { BotPresetState } from "../src/shared/preset"
 
-const avatar = { kind: "emoji", emoji: "🤖", color: "#6366F1" } as const
+const avatar = { kind: "character", character: "capsule", color: "#6366F1" } as const
 const settle = async () => {
   for (let i = 0; i < 20; i++) await Promise.resolve()
 }

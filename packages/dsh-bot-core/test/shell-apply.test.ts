@@ -83,7 +83,7 @@ function channel() {
 const bot: BotView = {
   id: "x",
   name: "Bot x",
-  avatar: { kind: "emoji", emoji: "🤖", color: "#6366F1" },
+  avatar: { kind: "character", character: "capsule", color: "#6366F1" },
   mainSessionId: "m1",
   mainStartedAt: 0,
   sessionIds: ["s1"],

@@ -3,7 +3,7 @@ import { botRecordSchema, mainOnBotPreset, parseOverlay } from "../src/host/doma
 
 const base = {
   name: "n",
-  avatar: { kind: "emoji", emoji: "🤖", color: "#6366F1" },
+  avatar: { kind: "character", character: "capsule", color: "#6366F1" },
   path: "/p",
   workspaceId: "w",
   createdAt: 1,

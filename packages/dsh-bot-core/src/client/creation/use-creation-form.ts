@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import type { BotAvatar, BotCreationChoices, BotCreationOffer } from "../../shared/bots"
+import type { BotAvatar } from "../../shared/avatar"
+import type { BotCreationChoices, BotCreationOffer } from "../../shared/bots"
 import type { BotCreationOption } from "../../shared/connectors"
 import {
   type BotModelCatalog,
   type BotModelChoice,
   PROFILE_DEFAULT_MODEL,
 } from "../../shared/models"
-import { type AvatarChoice, avatarOfChoice, decomposeAvatar } from "../avatar-data"
+import { type AvatarChoice, avatarOfChoice, DEFAULT_AVATAR_CHOICE } from "../avatar-data"
 import {
   type CreationEnvironment,
   type CreationOfferState,
@@ -79,7 +80,7 @@ function useCreationOffer(read: CreationSources["creationOptions"]) {
 
 export function useBotCreationForm(t: Translate, sources: CreationSources): BotCreationForm {
   const [name, setName] = useState("")
-  const [avatarChoice, setAvatarChoice] = useState<AvatarChoice>(() => decomposeAvatar(undefined))
+  const [avatarChoice, setAvatarChoice] = useState<AvatarChoice>(DEFAULT_AVATAR_CHOICE)
   const [offer, reloadOffer] = useCreationOffer(sources.creationOptions)
   const [choices, setChoices] = useState<BotCreationChoices>(noChoices)
   useEffect(() => {

@@ -12,7 +12,7 @@ import type { BotView, CreationPhase, PendingBotView } from "../../src/shared/bo
 export const bot = (id: string, mainSessionId: string, sessionIds: string[] = []): BotView => ({
   id,
   name: `Bot ${id}`,
-  avatar: { kind: "emoji", emoji: "🤖", color: "#6366F1" },
+  avatar: { kind: "character", character: "capsule", color: "#6366F1" },
   mainSessionId,
   mainStartedAt: 0,
   timezone: "UTC",
@@ -28,7 +28,7 @@ export const creating = (
 ): PendingBotView => ({
   id,
   name: `Bot ${id}`,
-  avatar: { kind: "emoji", emoji: "🤖", color: "#6366F1" },
+  avatar: { kind: "character", character: "capsule", color: "#6366F1" },
   operation: { kind: "create", phase },
   startedAt: 0,
   sessionIds,

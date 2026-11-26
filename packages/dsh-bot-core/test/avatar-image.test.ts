@@ -14,7 +14,7 @@ import {
   MAX_AVATAR_FILE_BYTES,
   targetSizes,
 } from "../src/client/avatar-image"
-import { MAX_AVATAR_DATA_URL } from "../src/shared/bots"
+import { MAX_AVATAR_DATA_URL } from "../src/shared/avatar"
 import { t } from "./support/client"
 
 describe("centerSquare", () => {

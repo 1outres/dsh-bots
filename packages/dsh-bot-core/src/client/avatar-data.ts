@@ -1,6 +1,10 @@
-import type { BotAvatar } from "../shared/bots"
-
-export const EMOJI_CHOICES = ["🤖", "🦊", "🐱", "🐙", "🦉", "🐧", "🌟", "🍀"] as const
+import {
+  BOT_CHARACTERS,
+  type BotAvatar,
+  type BotCharacter,
+  type ImageAvatar,
+  initialOf,
+} from "../shared/avatar"
 
 export const AVATAR_COLORS = [
   "#6366F1",
@@ -13,60 +17,47 @@ export const AVATAR_COLORS = [
   "#EF4444",
 ] as const
 
-export type GlyphChoice = number | "initial"
+export type AvatarFigure = BotCharacter | "initial"
 
-export const INITIAL_PLACEHOLDER = "?"
-
-export function initialOf(name: string): string {
-  const trimmed = name.trim()
-  if (trimmed.length === 0) return INITIAL_PLACEHOLDER
-  let first: string | undefined
-  if (typeof Intl !== "undefined" && "Segmenter" in Intl) {
-    const segments = new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(trimmed)
-    first = segments[Symbol.iterator]().next().value?.segment
-  }
-  first ??= Array.from(trimmed)[0] ?? INITIAL_PLACEHOLDER
-  if (first.length > 16) first = Array.from(first)[0] ?? INITIAL_PLACEHOLDER
-  return first.toLocaleUpperCase()
-}
-
-export function emojiAvatar(index: number, color?: string): BotAvatar {
-  const at = ((index % EMOJI_CHOICES.length) + EMOJI_CHOICES.length) % EMOJI_CHOICES.length
-  return { kind: "emoji", emoji: EMOJI_CHOICES[at], color: color ?? AVATAR_COLORS[at] }
-}
-
-export function composeAvatar(glyph: GlyphChoice, color: string, name: string): BotAvatar {
-  if (glyph === "initial") return { kind: "initial", text: initialOf(name), color }
-  return emojiAvatar(glyph, color)
-}
-
-export function decomposeAvatar(avatar: BotAvatar | undefined): AvatarChoice {
-  if (avatar === undefined) return { glyph: 0, color: AVATAR_COLORS[0], image: undefined }
-  if (avatar.kind === "image") return { glyph: 0, color: AVATAR_COLORS[0], image: avatar }
-  if (avatar.kind === "initial") return { glyph: "initial", color: avatar.color, image: undefined }
-  const index = EMOJI_CHOICES.indexOf(avatar.emoji as (typeof EMOJI_CHOICES)[number])
-  return { glyph: Math.max(index, 0), color: avatar.color, image: undefined }
-}
+export const AVATAR_FIGURES: readonly AvatarFigure[] = [...BOT_CHARACTERS, "initial"]
 
 export interface AvatarChoice {
-  readonly glyph: GlyphChoice
+  readonly figure: AvatarFigure
   readonly color: string
-  readonly image: BotAvatar | undefined
+  readonly image: ImageAvatar | undefined
+}
+
+export const DEFAULT_AVATAR_CHOICE: AvatarChoice = {
+  figure: "capsule",
+  color: AVATAR_COLORS[0],
+  image: undefined,
+}
+
+export function composeAvatar(figure: AvatarFigure, color: string, name: string): BotAvatar {
+  if (figure === "initial") return { kind: "initial", text: initialOf(name), color }
+  return { kind: "character", character: figure, color }
+}
+
+export function decomposeAvatar(avatar: BotAvatar): AvatarChoice {
+  switch (avatar.kind) {
+    case "image":
+      return { ...DEFAULT_AVATAR_CHOICE, image: avatar }
+    case "initial":
+      return { figure: "initial", color: avatar.color, image: undefined }
+    case "character":
+      return { figure: avatar.character, color: avatar.color, image: undefined }
+  }
 }
 
 export function avatarOfChoice(choice: AvatarChoice, name: string): BotAvatar {
-  return choice.image ?? composeAvatar(choice.glyph, choice.color, name)
+  return choice.image ?? composeAvatar(choice.figure, choice.color, name)
 }
 
 export function sameChoice(left: AvatarChoice, right: AvatarChoice): boolean {
   if (left.image !== undefined || right.image !== undefined) {
-    return (
-      left.image?.kind === "image" &&
-      right.image?.kind === "image" &&
-      left.image.dataUrl === right.image.dataUrl
-    )
+    return left.image?.dataUrl === right.image?.dataUrl
   }
-  return left.glyph === right.glyph && left.color === right.color
+  return left.figure === right.figure && left.color === right.color
 }
 
 export function radioStep(key: string, index: number, count: number): number | undefined {

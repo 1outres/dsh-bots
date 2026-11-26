@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { BOT_CHARACTERS } from "../shared/avatar"
 import { CREATION_PHASES } from "../shared/bots"
 import { MAIN_ROTATION_REASONS } from "../shared/mains"
 import type { BotOverlay } from "../shared/preset"
@@ -10,11 +11,22 @@ export type WorkspaceFilesVersion = typeof WORKSPACE_FILES_VERSION
 export const INITIAL_NOTES_VERSION = 1
 export type InitialNotesVersion = typeof INITIAL_NOTES_VERSION
 
-const avatarSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("emoji"), emoji: z.string().min(1), color: z.string() }),
+const legacyEmojiAvatarSchema = z.object({
+  kind: z.literal("emoji"),
+  emoji: z.string().min(1),
+  color: z.string(),
+})
+
+export type LegacyEmojiAvatar = z.infer<typeof legacyEmojiAvatarSchema>
+
+const storedAvatarSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("character"), character: z.enum(BOT_CHARACTERS), color: z.string() }),
   z.object({ kind: z.literal("initial"), text: z.string().min(1), color: z.string() }),
   z.object({ kind: z.literal("image"), dataUrl: z.string() }),
+  legacyEmojiAvatarSchema,
 ])
+
+export type StoredAvatar = z.infer<typeof storedAvatarSchema>
 
 const overlayRowSchema = z
   .object({ id: z.string().min(1), name: z.string().min(1) })
@@ -36,7 +48,7 @@ export const botOverlaySchema = z.array(overlayOpSchema)
 
 export const botRecordSchema = z.object({
   name: z.string().min(1),
-  avatar: avatarSchema,
+  avatar: storedAvatarSchema,
   path: z.string().min(1).optional(),
   workspaceId: z.string().min(1).optional(),
   mainSessionId: z.string().min(1).optional(),
@@ -117,8 +129,8 @@ export function parseOverlay(overlay: unknown, source: OverlaySource): BotOverla
 
 export const BOTS_DOMAIN = {
   name: "dsh_bots",
-  version: 2,
-  compatibleVersions: [1],
+  version: 3,
+  compatibleVersions: [1, 2],
   invalidRecords: "backup-and-skip",
   tables: {
     bots: { valueSchema: botRecordSchema },

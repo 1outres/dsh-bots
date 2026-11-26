@@ -11,7 +11,7 @@ import type { BotView } from "../src/shared/bots"
 const bot: BotView = {
   id: "b1",
   name: "Alpha",
-  avatar: { kind: "emoji", emoji: "🤖", color: "#6366F1" },
+  avatar: { kind: "character", character: "capsule", color: "#6366F1" },
   mainSessionId: "main",
   mainStartedAt: 0,
   timezone: "UTC",

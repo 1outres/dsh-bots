@@ -1,5 +1,6 @@
 import type { BotSettingsArea } from "../../../settings-contract"
-import type { BotAvatar, BotUpdateInput, BotView } from "../../../shared/bots"
+import type { BotAvatar, BotCharacter } from "../../../shared/avatar"
+import type { BotUpdateInput, BotView } from "../../../shared/bots"
 import { MAX_NAME_LENGTH } from "../../../shared/bots"
 import type { BotChannelText } from "../../../shared/channels"
 import { type BotSettingEntry, settingValue } from "../../../shared/settings"
@@ -17,10 +18,23 @@ const LANGUAGE_TAG = "[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*"
 
 const NOT_SET: BotChannelText = { en: "Not set", ja: "未設定" }
 
+const CHARACTER_NAMES: { readonly [C in BotCharacter]: BotChannelText } = {
+  capsule: { en: "Robot", ja: "ロボット" },
+  antenna: { en: "Antenna", ja: "アンテナ" },
+  scanner: { en: "Scanner", ja: "スキャナー" },
+  ears: { en: "Ears", ja: "イヤー" },
+  kitty: { en: "Cat ears", ja: "ネコミミ" },
+  twin: { en: "Twin antennas", ja: "ツインアンテナ" },
+  monitor: { en: "Monitor", ja: "モニター" },
+  sleepy: { en: "Sleepy", ja: "おねむ" },
+}
+
 function avatarShown(avatar: BotAvatar): BotChannelText {
   switch (avatar.kind) {
-    case "emoji":
-      return { en: `${avatar.emoji} (emoji)`, ja: `${avatar.emoji}（絵文字）` }
+    case "character": {
+      const name = CHARACTER_NAMES[avatar.character]
+      return { en: `${name.en} (robot character)`, ja: `${name.ja}（ロボットのキャラクター）` }
+    }
     case "initial":
       return { en: `${avatar.text} (initials)`, ja: `${avatar.text}（文字）` }
     case "image":

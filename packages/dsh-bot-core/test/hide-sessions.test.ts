@@ -8,7 +8,7 @@ import { creating } from "./support/client"
 const bot = (id: string, mainSessionId: string, sessionIds: string[] = []): BotView => ({
   id,
   name: id,
-  avatar: { kind: "emoji", emoji: "🤖", color: "#6366F1" },
+  avatar: { kind: "character", character: "capsule", color: "#6366F1" },
   mainSessionId,
   mainStartedAt: 0,
   timezone: "UTC",

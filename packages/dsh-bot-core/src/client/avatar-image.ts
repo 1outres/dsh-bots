@@ -1,4 +1,4 @@
-import { type BotAvatar, MAX_AVATAR_DATA_URL } from "../shared/bots"
+import { type ImageAvatar, MAX_AVATAR_DATA_URL } from "../shared/avatar"
 
 export const AVATAR_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"] as const
 export type AvatarImageType = (typeof AVATAR_IMAGE_TYPES)[number]
@@ -32,7 +32,7 @@ export class AvatarImageError extends Error {
 }
 
 export interface AvatarImage {
-  readonly avatar: BotAvatar
+  readonly avatar: ImageAvatar
   readonly size: number
   readonly animationDropped: boolean
 }

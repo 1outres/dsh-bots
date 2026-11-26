@@ -1,11 +1,7 @@
+import type { BotAvatar } from "./avatar"
 import { BOT_CREATION_OPTIONS, type BotCreationOption } from "./connectors"
 import type { BotEnvironmentCapacityState, BotEnvironmentNeed } from "./environment"
 import type { BotModelCatalog, BotModelsChange, BotModelsView } from "./models"
-
-export type BotAvatar =
-  | { readonly kind: "emoji"; readonly emoji: string; readonly color: string }
-  | { readonly kind: "initial"; readonly text: string; readonly color: string }
-  | { readonly kind: "image"; readonly dataUrl: string }
 
 export interface BotView {
   readonly id: string
@@ -107,23 +103,6 @@ export interface BotsApi {
 }
 
 export const MAX_NAME_LENGTH = 64
-export const MAX_AVATAR_DATA_URL = 200_000
-export const MAX_AVATAR_GLYPH = 16
-
-const COLOR = /^#[0-9a-fA-F]{6}$/
-
-function glyph(value: unknown, what: string): string {
-  if (typeof value !== "string" || value.trim().length === 0 || value.length > MAX_AVATAR_GLYPH) {
-    throw new Error(`avatar ${what} is invalid`)
-  }
-  return value
-}
-
-function color(value: unknown): string {
-  if (typeof value !== "string" || !COLOR.test(value)) throw new Error("avatar color is invalid")
-  return value
-}
-
 export function validateName(name: unknown): string {
   if (typeof name !== "string") throw new Error("name must be a string")
   const trimmed = name.trim()
@@ -151,26 +130,4 @@ export function validateLanguage(language: unknown): string {
     throw new Error("language must be a BCP 47 language tag such as en or ja")
   }
   return language
-}
-
-export function validateAvatar(avatar: unknown): BotAvatar {
-  if (typeof avatar !== "object" || avatar === null) throw new Error("avatar is missing")
-  const value = avatar as Record<string, unknown>
-  if (value.kind === "emoji") {
-    return { kind: "emoji", emoji: glyph(value.emoji, "emoji"), color: color(value.color) }
-  }
-  if (value.kind === "initial") {
-    return { kind: "initial", text: glyph(value.text, "initial"), color: color(value.color) }
-  }
-  if (value.kind === "image") {
-    if (
-      typeof value.dataUrl !== "string" ||
-      !/^data:image\/(png|jpeg|webp|gif);base64,/.test(value.dataUrl) ||
-      value.dataUrl.length > MAX_AVATAR_DATA_URL
-    ) {
-      throw new Error("avatar image is invalid or too large")
-    }
-    return { kind: "image", dataUrl: value.dataUrl }
-  }
-  throw new Error("avatar kind is unknown")
 }

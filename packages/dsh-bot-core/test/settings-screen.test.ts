@@ -103,7 +103,7 @@ describe("SettingsScreen", () => {
     expect(html).toContain('data-layout="wide"')
     expect(html).toContain('class="dshb-overlay-mask"')
     expect(html).toMatch(/role="dialog" aria-modal="true" aria-labelledby="[^"]+-title"/)
-    expect(html).toMatch(/<header class="dshb-overlay-header"><span[^>]*dshb-avatar/)
+    expect(html).toMatch(/<header class="dshb-overlay-header"><svg class="dshb-avatar"/)
     expect(html).not.toContain("kicker")
     expect(html).toContain('data-bot-id="x"')
     expect(html).toContain("Bot x")

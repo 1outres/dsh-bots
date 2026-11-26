@@ -283,7 +283,7 @@ describe("replaceMain", () => {
     })
     await bots.create({
       name: "B",
-      avatar: { kind: "emoji", emoji: "🤖", color: "#6366F1" },
+      avatar: { kind: "character", character: "capsule", color: "#6366F1" },
       language: "en",
       workstation: false,
       timezone: "Asia/Tokyo",

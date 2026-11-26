@@ -1,12 +1,12 @@
 import { type KeyboardEvent, type ReactNode, useId, useRef, useState } from "react"
+import { initialOf } from "../shared/avatar"
 import { Avatar } from "./Avatar"
 import {
   AVATAR_COLORS,
+  AVATAR_FIGURES,
   type AvatarChoice,
+  type AvatarFigure,
   composeAvatar,
-  EMOJI_CHOICES,
-  type GlyphChoice,
-  initialOf,
   radioStep,
 } from "./avatar-data"
 import {
@@ -66,10 +66,11 @@ export function AvatarPicker({ t, name, value, onChange, disabled }: AvatarPicke
   const [imageState, setImageState] = useState<ImageState>({ status: "idle" })
   const fileRef = useRef<HTMLInputElement>(null)
   const statusId = useId()
-  const glyphs: GlyphChoice[] = [...EMOJI_CHOICES.keys(), "initial"]
   const initial = initialOf(name)
-  const glyphLabel = (choice: GlyphChoice) =>
-    choice === "initial" ? t("avatar.initial", { letter: initial }) : t(`avatar.${choice}`)
+  const figureLabel = (figure: AvatarFigure) =>
+    figure === "initial"
+      ? t("avatar.initial", { letter: initial })
+      : t(`avatar.character.${figure}`)
 
   const pick = async (file: File) => {
     setImageState({ status: "reading" })
@@ -100,18 +101,15 @@ export function AvatarPicker({ t, name, value, onChange, disabled }: AvatarPicke
     >
       <div className="dshb-avatar-line">
         <RadioRow
-          label={t("form.glyph")}
-          count={glyphs.length}
-          selected={glyphs.indexOf(value.glyph)}
+          label={t("form.figure")}
+          items={AVATAR_FIGURES}
+          selected={value.figure}
           active={!imageInUse}
-          onSelect={(index) => onChange({ ...value, image: undefined, glyph: glyphs[index] ?? 0 })}
-          render={(index) => {
-            const choice = glyphs[index] ?? 0
-            return {
-              label: glyphLabel(choice),
-              content: <Avatar avatar={composeAvatar(choice, value.color, name)} size={24} />,
-            }
-          }}
+          onSelect={(figure) => onChange({ ...value, image: undefined, figure })}
+          render={(figure) => ({
+            label: figureLabel(figure),
+            content: <Avatar avatar={composeAvatar(figure, value.color, name)} size={24} />,
+          })}
         />
         <button
           type="button"
@@ -135,23 +133,15 @@ export function AvatarPicker({ t, name, value, onChange, disabled }: AvatarPicke
         </button>
       </div>
       <div className="dshb-avatar-line">
-        <RadioRow
+        <RadioRow<string>
           label={t("form.color")}
-          count={AVATAR_COLORS.length}
-          selected={AVATAR_COLORS.indexOf(value.color as (typeof AVATAR_COLORS)[number])}
+          items={AVATAR_COLORS}
+          selected={value.color}
           active={!imageInUse}
-          onSelect={(index) =>
-            onChange({
-              ...value,
-              image: undefined,
-              color: AVATAR_COLORS[index] ?? AVATAR_COLORS[0],
-            })
-          }
-          render={(index) => ({
+          onSelect={(color) => onChange({ ...value, image: undefined, color })}
+          render={(color, index) => ({
             label: t(`color.${index}`),
-            content: (
-              <span className="dshb-avatar-swatch" style={{ background: AVATAR_COLORS[index] }} />
-            ),
+            content: <span className="dshb-avatar-swatch" style={{ background: color }} />,
           })}
         />
       </div>
@@ -180,30 +170,33 @@ export function AvatarPicker({ t, name, value, onChange, disabled }: AvatarPicke
   )
 }
 
-interface RadioRowProps {
-  label: string
-  count: number
-  selected: number
-  active: boolean
-  onSelect(index: number): void
-  render(index: number): { label: string; content: ReactNode }
+interface RadioRowProps<T> {
+  readonly label: string
+  readonly items: readonly T[]
+  readonly selected: T
+  readonly active: boolean
+  onSelect(item: T): void
+  render(item: T, index: number): { label: string; content: ReactNode }
 }
 
-function RadioRow({ label, count, selected, active, onSelect, render }: RadioRowProps) {
-  const stop = selected < 0 ? 0 : selected
+function RadioRow<T>({ label, items, selected, active, onSelect, render }: RadioRowProps<T>) {
+  const selectedIndex = items.indexOf(selected)
+  const stop = Math.max(selectedIndex, 0)
   const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
-    const next = radioStep(event.key, index, count)
+    const next = radioStep(event.key, index, items.length)
     if (next === undefined) return
+    const item = items[next]
+    if (item === undefined) return
     event.preventDefault()
-    onSelect(next)
+    onSelect(item)
     const row = event.currentTarget.parentElement
     ;(row?.children[next] as HTMLElement | undefined)?.focus()
   }
   return (
     <div className="dshb-avatar-radios" role="radiogroup" aria-label={label}>
-      {Array.from({ length: count }, (_, index) => {
-        const item = render(index)
-        const checked = active && index === selected
+      {items.map((value, index) => {
+        const item = render(value, index)
+        const checked = active && index === selectedIndex
         return (
           // biome-ignore lint/a11y/useSemanticElements: -
           <button
@@ -216,7 +209,7 @@ function RadioRow({ label, count, selected, active, onSelect, render }: RadioRow
             aria-checked={checked}
             tabIndex={index === stop ? 0 : -1}
             onKeyDown={(event) => onKeyDown(event, index)}
-            onClick={() => onSelect(index)}
+            onClick={() => onSelect(value)}
           >
             {item.content}
           </button>
