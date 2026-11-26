@@ -16,7 +16,6 @@ export interface ShellPanels {
   readonly popovers: ShellPopovers
 }
 
-/** The side panels and popovers of the bot sessions, released with the sessions a bots list no longer names. */
 export function wirePanels(ctx: ClientContext, sources: PanelsSources): ShellPanels {
   const panels = createSidePanels(sources.viewer)
   const popovers = createShellPopovers({ panels, viewer: sources.viewer })

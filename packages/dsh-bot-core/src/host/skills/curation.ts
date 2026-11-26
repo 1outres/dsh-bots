@@ -1,16 +1,3 @@
-/**
- * When a bot's skills are curated (docs/specs/bot-skills.md §12): the daily
- * archive of unused skills once {@link SWEEP_EVERY_MS} has passed since the
- * last one, and the weekly curation by the model once
- * {@link CURATION_EVERY_MS} has, while the bot's `skillCurator` is on, after
- * its Main session has been quiet for {@link CURATION_QUIET_MS}, and only when
- * the skills call for it ({@link calledForCuration}). The last times are
- * stored, so a restart keeps counting from them. One timer wakes for the
- * earliest due bot; what cannot run now (an environment that cannot be read,
- * skills that do not call for it) waits for the bot's next change or
- * {@link CURATION_RETRY_MS}.
- */
-
 import type { CurationOutcome } from "./curation-run"
 import { DAY_MS } from "./retention"
 import type { SkillStore } from "./store"
@@ -18,14 +5,10 @@ import { SLIM_BYTES } from "./texts"
 
 export const SWEEP_EVERY_MS = DAY_MS
 export const CURATION_EVERY_MS = 7 * DAY_MS
-/** How long the Main session stays quiet before a curation starts. */
 export const CURATION_QUIET_MS = 30_000
-/** When a run that could not run is tried again, unless the bot changes first. */
 export const CURATION_RETRY_MS = 60 * 60_000
-/** Active skills that call for a curation (a merge needs two). */
 export const CURATION_MIN_SKILLS = 2
 
-/** Whether the bot's active skills call for a curation: two or more, or one SKILL.md over {@link SLIM_BYTES}. */
 export function calledForCuration(skills: readonly { readonly bytes: number }[]): boolean {
   return skills.length >= CURATION_MIN_SKILLS || skills.some((skill) => skill.bytes > SLIM_BYTES)
 }
@@ -35,33 +18,25 @@ export type SweepOutcome = "swept" | "unavailable"
 export interface SkillCurationDeps {
   bots(): readonly string[]
   store: Pick<SkillStore, "curation" | "markSwept" | "markCurated" | "curatorEnabled">
-  /** Archive the bot's unused skills. */
   sweep(botId: string): Promise<SweepOutcome>
-  /** The bot's active skills, or undefined while they cannot be read. */
   skills(botId: string): Promise<readonly { readonly bytes: number }[] | undefined>
   mainOf(botId: string): string | undefined
-  /** The session runs no turn and has nothing waiting (true for a session not loaded). */
   idle(sessionId: string): boolean
-  /** Curate the bot's skills with the model; resolves when it is over. */
   curate(botId: string): Promise<CurationOutcome>
   now(): number
   later(ms: number, work: () => void): () => void
-  /** Longest delay one timer may take. */
   readonly maxDelayMs: number
   warn(message: string): void
 }
 
 export interface SkillCuration {
-  /** Look again: the bot (every bot without one) changed; what waited for a change may run. */
   sync(botId?: string): void
-  /** Something happened in a session: a Main's quiet wait starts over. */
   activity(sessionId: string): void
   dispose(): void
 }
 
 interface Task {
   running: boolean
-  /** Not before this time (Infinity: not until the bot changes). */
   heldUntil: number
 }
 
@@ -69,7 +44,6 @@ interface BotState {
   readonly sweep: Task
   readonly curation: Task
   quiet: (() => void) | undefined
-  /** The quiet wait ended while the Main was working: it starts again at the Main's next activity. */
   awaitingIdle: boolean
 }
 

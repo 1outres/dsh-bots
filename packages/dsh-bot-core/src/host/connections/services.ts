@@ -1,7 +1,6 @@
 import type { ConnectionServiceView } from "../../shared/connections"
 import type { ConnectorCatalog } from "../connectors/catalog"
 
-/** The registered connectors each provider's accounts serve. */
 export interface ConnectionServices {
   of(provider: string): readonly ConnectionServiceView[]
 }

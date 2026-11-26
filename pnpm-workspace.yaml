@@ -17,10 +17,7 @@ onlyBuiltDependencies:
 
 allowBuilds:
   esbuild: true
-  # Peers of @deepseek-ai/dsh-ssh, installed only for type checking: their
-  # native builds are never needed in this repository.
   "@deepseek-ai/dsh-subprocess-local": false
   koffi: false
   node-pty: false
-  # Peer of @deepseek-ai/dsh-util-ripgrep, installed only for type checking.
   "@vscode/ripgrep": false

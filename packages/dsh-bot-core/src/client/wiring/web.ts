@@ -8,10 +8,8 @@ import type { WebLookupFeed } from "../web/feed"
 import { WebLookupSection } from "../web/WebLookupSection"
 import type { SettingsScreens } from "./screens"
 
-/** Id of the Web lookup section of the dsh-bots settings. */
 export const WEB_LOOKUP_SECTION = "bot-core.web"
 
-/** The Web lookup section, first in the dsh-bots settings. */
 export function wireWebLookup(
   ctx: ClientContext,
   feed: WebLookupFeed,

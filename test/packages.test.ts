@@ -26,7 +26,6 @@ const bundle = readManifest(bundleDirectory)
 const plugins = pluginDirectoryNames(root)
 const packageDirectories = [...plugins, BUNDLE_DIRECTORY]
 
-/** The smallest RGB distance two icon tiles may have, so no two plugins look alike. */
 const MIN_TILE_DISTANCE = 48
 
 describe.each(plugins)("%s", (directoryName) => {

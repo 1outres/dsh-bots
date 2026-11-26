@@ -4,33 +4,22 @@ import { createStore, type Observable } from "./observable"
 import type { StatusStore } from "./status"
 import type { SessionActivity, SessionListState, UiWorkspaceFace } from "./types"
 
-/** One of a bot's sessions besides Main, named as its row names it. */
 export interface BotSessionRef {
   readonly bot: BotView
   readonly sessionId: string
   readonly title: string
 }
 
-/** A session the Host refused to archive because it still runs work, awaiting the user's answer. */
 export interface ArchiveConfirmRequest {
   readonly session: BotSessionRef
   readonly activity: readonly SessionActivity[]
 }
 
-/** Archiving a bot's sessions and restoring them, as Workspaces' session rows do. */
 export interface SessionArchive {
-  /** The running session waiting for "Stop and archive", if any. */
   readonly confirming: Observable<ArchiveConfirmRequest | null>
-  /**
-   * Archive without stopping anything: a session with running work asks first
-   * (`confirming`); another refusal shows on the bot's row. Never rejects.
-   */
   archive(session: BotSessionRef): void
-  /** Stop the session's work and archive it; rejects for the confirmation to show. */
   stopAndArchive(request: ArchiveConfirmRequest): Promise<void>
-  /** Close the confirmation, the session left as it is. */
   settle(): void
-  /** Restore an archived session; a refusal shows on the bot's row. Never rejects. */
   unarchive(botId: string, sessionId: string): void
 }
 
@@ -43,7 +32,6 @@ export interface SessionArchiveSources {
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
-/** The session the main view shows. */
 function shownSession(list: SessionListState): string | undefined {
   return list.ids.find((id) => (list.byId[id]?.retainedBy?.mainView ?? 0) > 0)
 }
@@ -56,10 +44,6 @@ interface ArchiveRefusal {
   }
 }
 
-/**
- * The work a Host `workspace/session-active` refusal names, or undefined for
- * any other failure. Client bundles share no error classes, so the name decides.
- */
 export function activeSessionRefusal(reason: unknown): readonly SessionActivity[] | undefined {
   if (!(reason instanceof Error) || reason.name !== "WorkspaceArchiveError") return undefined
   const { rpcError } = reason as ArchiveRefusal
@@ -71,10 +55,6 @@ export function createSessionArchive(sources: SessionArchiveSources): SessionArc
   const { workspace, sessions, status, notices } = sources
   const confirming = createStore<ArchiveConfirmRequest | null>(null)
 
-  /**
-   * DSH clears the main view of an archived session; a bot's goes back to the
-   * bot's Main instead, unless the user moved elsewhere meanwhile.
-   */
   const archived = (session: BotSessionRef, wasShown: boolean) => {
     const { bot, sessionId } = session
     status.set(bot.id, undefined)

@@ -1,0 +1,22 @@
+# Workflow header.
+
+name: demo # trailing
+on:
+  push:
+    branches: [main, "#hash"] # trailing after flow
+env:
+  URL: https://example.com/#fragment
+  TAG: a#b
+  QUOTED: "# not a comment"
+  SINGLE: '# nor this'
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      # A comment between items.
+      - run: | # a block scalar header comment
+          # shell comment inside the block scalar, part of the value
+          echo "#"
+      - run: >-
+          folded # text
+          continues

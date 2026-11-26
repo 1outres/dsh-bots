@@ -5,15 +5,8 @@ import {
   writeSecrets,
 } from "../secret-record"
 
-/**
- * Secrets of web backends: one DSH credential record per backend
- * (`bot-core/web-<backend>`), shared by every bot. Nothing here returns a
- * secret to the browser; a backend that goes away keeps its record.
- */
 export interface WebSecretVault {
-  /** The stored secrets, by key ({} when none). @throws when the record is not bot-core's. */
   read(backendId: string): Promise<Readonly<Record<string, string>>>
-  /** Set one secret, or clear it with `undefined`; the others stay. */
   change(
     backendId: string,
     key: string,

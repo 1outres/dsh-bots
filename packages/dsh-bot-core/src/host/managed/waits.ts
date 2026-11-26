@@ -6,7 +6,6 @@ import type {
   DshQuestionRequest,
 } from "../interactions/dsh"
 
-/** A question, plan review or approval of a Workspace session that DSH's own UI holds for the owner. */
 export interface DshWait {
   readonly id: string
   readonly kind: "question" | "plan-review" | "approval"
@@ -14,18 +13,11 @@ export interface DshWait {
 }
 
 export interface ManagedWaitsDeps<A> {
-  /** The managed Workspace session an Agent's request waits in (a subagent's: its root session's). */
   managedOf(agent: A): BotManagedSession | undefined
-  /** It opened: tell the bot's Main session. */
   opened(session: BotManagedSession, wait: DshWait): void
   newId(): string
 }
 
-/**
- * What waits in managed Workspace sessions without bot-core holding it
- * (docs/specs/bot-managed-sessions.md §10.6): DSH's answerers keep it, this
- * only follows it until it settles. Used as the `next` of bot-core's answerers.
- */
 export interface ManagedWaits<A> {
   question(
     request: DshQuestionRequest<A>,

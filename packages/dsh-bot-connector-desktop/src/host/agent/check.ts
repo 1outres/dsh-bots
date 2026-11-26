@@ -1,8 +1,3 @@
-/**
- * Checks of untrusted JSON (the desktop agent runs in the bot's VM, where the
- * bot can replace it): each check returns the value typed or throws naming
- * the path of the first problem.
- */
 import type { ConnectorJson } from "@1outres/dsh-bot-core"
 
 export type Check<T> = (value: unknown, path: string) => T
@@ -86,7 +81,6 @@ type Fields = Record<string, Check<unknown>>
 type OptionalFields<F extends Fields> = { readonly [K in keyof F]?: Checked<F[K]> }
 type RequiredFields<F extends Fields> = { readonly [K in keyof F]: Checked<F[K]> }
 
-/** An object with these fields (`optional` ones may be absent); other fields are dropped. */
 export const object =
   <R extends Fields, O extends Fields = Record<never, Check<unknown>>>(
     required: R,
@@ -107,7 +101,6 @@ export const object =
     return out as RequiredFields<R> & OptionalFields<O>
   }
 
-/** The first of the checks that accepts the value. */
 export const either =
   <A, B>(first: Check<A>, second: Check<B>): Check<A | B> =>
   (value, path) => {
@@ -119,7 +112,6 @@ export const either =
     }
   }
 
-/** Any JSON, bounded in depth and size (as JSON text). */
 export const json =
   (maxDepth: number, maxLength: number): Check<ConnectorJson> =>
   (value, path) => {

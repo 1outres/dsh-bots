@@ -3,13 +3,10 @@ import { connectorToolName } from "../../shared/connectors"
 import type { ToolOutput } from "./execution"
 import type { ImageRef } from "./images"
 
-/** The frame every connector notice's text starts with (the message source is not shown to the model). */
 export const NOTICE_FRAME = "[BOT CONNECTOR NOTICE]"
 
-/** Longest notice summary (DSH's CONTEXT_SUMMARY_MAX_CHARS). */
 const MAX_SUMMARY = 120
 
-/** What a connector tool call returns to the bot: the text the model reads, the same as data, and images. */
 export interface ConnectorToolReply {
   readonly text: string
   readonly data: ConnectorJson
@@ -22,7 +19,6 @@ const nameOf = (action: ConnectorAction) => connectorToolName(action.connectorId
 const label = (action: ConnectorAction) =>
   `action ${action.id} (${nameOf(action)}: ${action.preview.title})`
 
-/** A result's text and data as the model reads them. */
 function resultText(text: string | undefined, data: ConnectorJson): string {
   return [text ?? "", data === null ? "" : `Result:\n${json(data)}`]
     .filter((part) => part !== "")
@@ -38,7 +34,6 @@ export function doneReply(tool: string, output: ToolOutput): ConnectorToolReply 
   }
 }
 
-/** The reply of a call whose action is still waiting for a decision. */
 export function awaitingReply(action: ConnectorAction): ConnectorToolReply {
   return {
     text: [
@@ -52,7 +47,6 @@ export function awaitingReply(action: ConnectorAction): ConnectorToolReply {
   }
 }
 
-/** The reply of a call whose action ended while the call waited for it. */
 export function endedReply(action: ConnectorAction): ConnectorToolReply {
   const { status } = action
   const base = { actionId: action.id, state: status.state }
@@ -91,7 +85,6 @@ export function endedReply(action: ConnectorAction): ConnectorToolReply {
   }
 }
 
-/** A notice to the bot's Main session about an action that ended after its call returned. */
 export interface ConnectorNotice {
   readonly text: string
   readonly summary: string
@@ -102,7 +95,6 @@ function summary(action: ConnectorAction, outcome: string): string {
   return line.length <= MAX_SUMMARY ? line : `${line.slice(0, MAX_SUMMARY - 1)}…`
 }
 
-/** The notice of an ended action, or undefined when it needs none (the bot cancelled it). */
 export function endedNotice(action: ConnectorAction): ConnectorNotice | undefined {
   const { status } = action
   const intro = `${NOTICE_FRAME} Your connector call that was awaiting approval has ended: ${label(action)}.`
@@ -155,7 +147,6 @@ export function endedNotice(action: ConnectorAction): ConnectorNotice | undefine
   }
 }
 
-/** One line per action, for connector_pending_list. */
 export function pendingListReply(actions: readonly ConnectorAction[]): ConnectorToolReply {
   const rows = actions.map((action) => ({
     actionId: action.id,

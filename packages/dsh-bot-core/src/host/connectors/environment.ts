@@ -1,23 +1,15 @@
-/**
- * A connector's way into the bot's environment (`BotConnectorEnvironment`):
- * commands through the environment's own `subprocess` (the bot's VM, as its
- * user), files with `sh` there. The subprocess is looked up at every call,
- * so a run uses the bot's currently registered preset revision.
- */
 import type {
   BotConnectorEnvironment,
   BotEnvironmentCommandResult,
   BotEnvironmentProcess,
 } from "../../connector-contract"
 
-/** A piped stdin of a dsh-subprocess handle, structurally (Node's `Writable`). */
 export interface PipedInput {
   write(chunk: Uint8Array, callback: (error?: Error | null) => void): unknown
   end(callback?: () => void): unknown
   on(event: "error", listener: (error: Error) => void): unknown
 }
 
-/** dsh-subprocess `SubprocessHandle` with piped stdout, structurally. */
 export interface ConnectorProcessHandle {
   readonly stdin: PipedInput | undefined
   readonly stdout: AsyncIterable<Uint8Array> | undefined
@@ -28,7 +20,6 @@ export interface ConnectorProcessHandle {
   terminate(): void
 }
 
-/** dsh-subprocess `SubprocessRuntime`, structurally, as connectors spawn with it. */
 export interface ConnectorSubprocess {
   spawn(spec: {
     argv: readonly string[]
@@ -44,18 +35,14 @@ export interface ConnectorSubprocess {
   }): ConnectorProcessHandle
 }
 
-/** The environment of one bot while it is available. */
 export interface EnvironmentAccess {
   readonly subprocess: ConnectorSubprocess
   readonly workspace: string
 }
 
 export interface ConnectorEnvironmentDeps {
-  /** The bot's environment now, or undefined while it is not available. */
   access(): EnvironmentAccess | undefined
-  /** The registered environment's workspace (also known while it is not available). */
   workspace: string
-  /** A signal that aborts after `ms`. */
   deadline(ms: number): AbortSignal
 }
 

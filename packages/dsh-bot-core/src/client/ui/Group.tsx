@@ -2,18 +2,13 @@ import { type ReactNode, useId } from "react"
 import type { DataMarks } from "./marks"
 
 export interface GroupProps {
-  /** The group's `h4` title; a group without one continues the group above. */
   readonly title?: ReactNode
-  /** Right after the title (a `Tag` such as DEV). */
   readonly tag?: ReactNode
-  /** At the right of the title line (a row `Button`, a filter). */
   readonly aside?: ReactNode
-  /** `Row`s, separated by hairlines. */
   readonly children: ReactNode
   readonly marks?: DataMarks
 }
 
-/** Rows that belong together: an optional title over a hairline frame. */
 export function Group({ title, tag, aside, children, marks }: GroupProps) {
   const id = useId()
   return (
@@ -36,14 +31,12 @@ export function Group({ title, tag, aside, children, marks }: GroupProps) {
   )
 }
 
-/** The title of a page or a detail page (`h3`), with its controls at the right. */
 export function PageTitle({
   children,
   tag,
   trailing,
 }: {
   readonly children: ReactNode
-  /** Right after the title (a `Tag` such as DEV). */
   readonly tag?: ReactNode
   readonly trailing?: ReactNode
 }) {

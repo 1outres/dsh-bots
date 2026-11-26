@@ -28,14 +28,9 @@ export interface ConnectionPanelDeps {
   tokens: Pick<ConnectionTokens, "forget">
   fetch: OAuthFetch
   deadline(ms: number): AbortSignal
-  /** Whether the bot is stored. */
   exists(botId: string): boolean
 }
 
-/**
- * Connections as the owner manages them in the Web UI (the `botConnections`
- * Remote): every call is refused unless its caller is the DSH Host's owner.
- */
 export interface ConnectionPanel {
   snapshot(): BotConnectionsSnapshot
   configureClient(

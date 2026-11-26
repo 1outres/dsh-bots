@@ -5,7 +5,6 @@ import { Spinner } from "../icons"
 import { Button, ErrorText, Group, Row, StatusPill } from "../ui"
 import { Actions, BackButton, Heading, type StepProps } from "./parts"
 
-/** The first bot: the New bot dialog's fields, created with the channels set up on this page. */
 export function BotPage(props: StepProps) {
   const { t, drafts, channels } = props
   const form = useBotCreationForm(t, props.creation)

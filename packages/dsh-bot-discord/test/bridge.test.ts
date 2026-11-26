@@ -113,7 +113,6 @@ function setup(
 }
 
 const typings = (calls: readonly string[]) => calls.filter((call) => call.startsWith("typing"))
-/** The calls but the commands' registration, the DM opened for the home and the pending list (posted and pinned at the start). */
 const without = (calls: readonly string[], prefix: string) => {
   const digests = new Set(
     calls.flatMap((call) => {

@@ -1,6 +1,5 @@
 import type { MainViewClient } from "./client"
 
-/** People's images as browser URLs, read once per attachment (content-addressed) while the page lives. */
 export interface TimelineImages {
   load(botId: string, sessionId: string, attachmentId: string): Promise<string>
   dispose(): void

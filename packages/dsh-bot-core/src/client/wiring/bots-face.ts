@@ -31,24 +31,17 @@ function unwrap<T>(result: RemoteResult<T>): T {
   return result.value
 }
 
-/** What the user can do to bots, through the `bots` Remote; failures of row actions land in `status`. */
 export interface BotActions {
   readonly status: StatusStore
   readonly expansion: ExpansionStore
   readonly archivedView: ArchivedViewStore
   readonly windows: SessionWindows
   setExpanded(botId: string, open: boolean): void
-  /** Never rejects: the outcome is a notice, a refusal lands on the bot's row. */
   startNewMain(bot: BotView): Promise<void>
   setArchivedShown(botId: string, shown: boolean): void
   newSession(bot: BotView): Promise<void>
-  /** The browser adds its language (its `format.locale`); a refused model rejects with a `ModelsError`. */
   createBot(input: BotCreationRequest): Promise<void>
   saveBot(id: string, change: BotUpdateInput): Promise<void>
-  /**
-   * Never rejects: resolves once the Host accepted the removal, after which the
-   * bot's row shows it until done; a refusal lands in `status`, on the bot's row.
-   */
   removeBot(id: string): Promise<void>
   readonly pending: PendingActions
   clearError(id: string): void
@@ -74,7 +67,6 @@ export function createBotActions(
     if (face === undefined) throw new Error("bots are unavailable")
     return face
   }
-  /** A request on a bot's row: a refusal is shown on the row. */
   const onRow = (id: string, request: () => Promise<RemoteResult<unknown>>) => {
     void (async () => {
       try {
@@ -114,8 +106,6 @@ export function createBotActions(
     },
     async newSession(bot) {
       setExpanded(bot.id, true)
-      // Through the Host (Bot.createSession): the stock draft's preset picker
-      // would compose the default preset in the bot's workspace.
       try {
         const { sessionId } = unwrap(await remote().createSession(bot.id))
         status.set(bot.id, undefined)
@@ -209,7 +199,6 @@ export function createBotsFace(ctx: ClientContext, sources: BotsFaceSources): Bo
   }
 }
 
-/** The Bots section, carried by the New Session row's `sidebar.session.action` layer. */
 export function wireBotsSection(ctx: ClientContext, face: BotsFace): void {
   ctx.effect(
     () =>

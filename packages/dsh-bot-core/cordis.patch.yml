@@ -1,6 +1,3 @@
-# Installs this plugin on its own (dsh plugin add @1outres/dsh-bot-core).
-# The @1outres/dsh-bots bundle inserts the same "bot-core" row, so select
-# one bundle or the other, never both.
 - insert:
     - id: bot-core
       name: "@1outres/dsh-bot-core"

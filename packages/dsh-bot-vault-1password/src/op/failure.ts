@@ -1,8 +1,3 @@
-/**
- * Why an op command failed, in words of this provider. op's own output is
- * only matched, never quoted: its stderr can echo parts of the token, and
- * its stdout holds values.
- */
 export type OpFailureReason =
   | "unauthorized"
   | "forbidden"
@@ -59,7 +54,6 @@ const PATTERNS: readonly (readonly [OpFailureReason, RegExp])[] = [
   ],
 ]
 
-/** The reason op's stderr names, `failed` when it names none this provider knows. */
 export function reasonOf(stderr: string): OpFailureReason {
   return PATTERNS.find(([, pattern]) => pattern.test(stderr))?.[0] ?? "failed"
 }

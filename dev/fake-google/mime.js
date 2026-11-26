@@ -1,15 +1,7 @@
-/**
- * A small MIME reader for the messages the Google connector builds (and the
- * fake Google stores): headers (RFC 2047 words decoded), a text/plain part
- * and attachments of a multipart/mixed. Verification only.
- */
-
-/** @param {string} text */
 function unfold(text) {
   return text.replace(/\r\n[ \t]+/g, " ")
 }
 
-/** @param {string} value */
 export function decodeWords(value) {
   return value
     .replace(/\?=\s+=\?/g, "?==?")
@@ -18,10 +10,6 @@ export function decodeWords(value) {
     )
 }
 
-/**
- * @param {string} block
- * @returns {Map<string, string>}
- */
 function headersOf(block) {
   const headers = new Map()
   for (const line of unfold(block).split("\r\n")) {
@@ -32,20 +20,17 @@ function headersOf(block) {
   return headers
 }
 
-/** @param {string} text */
 function split(text) {
   const at = text.indexOf("\r\n\r\n")
   return at < 0 ? { head: text, body: "" } : { head: text.slice(0, at), body: text.slice(at + 4) }
 }
 
-/** @param {Map<string, string>} headers @param {string} body */
 function decodeBody(headers, body) {
   const encoding = (headers.get("content-transfer-encoding") ?? "").toLowerCase()
   if (encoding === "base64") return Buffer.from(body.replace(/\s+/g, ""), "base64")
   return Buffer.from(body, "utf8")
 }
 
-/** @param {string} value @param {string} name */
 function parameter(value, name) {
   const extended = new RegExp(`${name}\\*=UTF-8''([^;]+)`, "i").exec(value)
   if (extended) return decodeURIComponent(extended[1])
@@ -55,10 +40,6 @@ function parameter(value, name) {
   return plain === null ? undefined : decodeWords(plain[1])
 }
 
-/**
- * @param {string} raw the message, CRLF line ends
- * @returns {{ headers: Record<string, string>, text: string, attachments: { filename: string, mimeType: string, data: Buffer }[] }}
- */
 export function parseMime(raw) {
   const { head, body } = split(raw)
   const headers = headersOf(head)

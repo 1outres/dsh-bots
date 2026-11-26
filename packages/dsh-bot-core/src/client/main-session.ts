@@ -2,10 +2,6 @@ import type { SessionListState, WorkspaceSnapshot } from "./dsh/context"
 import type { UiSessionFace } from "./dsh/session"
 import { derive, type Observable } from "./observable"
 
-/**
- * The session `main.conversation` is bound to, read from the source the Slot
- * renderer binds it with (`ctx.uiSession.adapter.current`, pinned in upstream.ts).
- */
 export function mainSession(
   uiSession: Pick<UiSessionFace, "adapter">,
 ): Observable<string | undefined> {
@@ -19,12 +15,6 @@ export function mainSession(
   }
 }
 
-/**
- * What the main view is bound to. `settling`: no session yet while DSH's
- * session and Workspace lists are pending, before which ui-workspace does not
- * restore the saved selection (upstream.ts); `none`: no session once both
- * lists have arrived, DSH's own home.
- */
 export type MainBinding =
   | { readonly kind: "settling" }
   | { readonly kind: "none" }

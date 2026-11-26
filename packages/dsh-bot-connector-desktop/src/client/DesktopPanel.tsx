@@ -61,7 +61,6 @@ function statusText(t: Translate, state: ScreenState, seconds: number | undefine
   }
 }
 
-/** In a popover, the panel sizes the screen to the desktop's aspect within the frame's bounds (styles.ts). */
 function frameStyle(frame: ConnectorPanelFrame, screen: Resolution): CSSProperties | undefined {
   switch (frame.presentation) {
     case "side":
@@ -75,7 +74,6 @@ function frameStyle(frame: ConnectorPanelFrame, screen: Resolution): CSSProperti
   }
 }
 
-/** The bot's desktop in its panel: the screen (view only unless you take over), who operates it, and the bot's request. */
 export function DesktopPanel({ t, openStream, frame, connector }: DesktopPanelProps) {
   const screen = useRef<HTMLDivElement>(null)
   const [session, setSession] = useState<ScreenSession>()

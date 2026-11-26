@@ -5,7 +5,6 @@ import { IDENTITY_SCOPES } from "./scopes"
 
 export const GOOGLE_PROVIDER = "google"
 
-/** Google as a provider of connections: a Web application OAuth client with offline access. */
 export function googleProvider(
   endpoints: GoogleEndpoints,
   fetch: HttpFetch,

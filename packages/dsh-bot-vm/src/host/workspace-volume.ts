@@ -1,11 +1,3 @@
-/**
- * A bot's workspace: a block custom volume of the project
- * (docs/specs/incus-endpoint.md §5.4), `<instancePrefix><botId>-workspace`,
- * tagged with the bot and the owner like its instance. It outlives the VM
- * (re-created VMs find the files), grows only while the VM is stopped and
- * never shrinks; a deleted bot's volume is marked and deleted after the
- * orphan grace period.
- */
 import type { IncusVolume } from "./incus"
 import { GIB, gibText, SIZE_KEY, sizeBytesOf } from "./spec"
 
@@ -14,10 +6,8 @@ export const volumeNameOf = (instance: string) => `${instance}-workspace`
 export type VolumePlan =
   | { readonly kind: "create" }
   | { readonly kind: "keep" }
-  /** Larger: the instance must be stopped while it is written. */
   | { readonly kind: "grow"; readonly size: string }
 
-/** @throws when the volume is not this bot's or would shrink. */
 export function volumePlan(
   volume: IncusVolume | undefined,
   wantedGiB: number,

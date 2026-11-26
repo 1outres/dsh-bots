@@ -1,9 +1,3 @@
-/**
- * Connectors' resident resources, one per bot and connector: opened by the
- * first run that needs one, shared by later runs, disposed when released
- * (the connector left `ready` for the bot, it unregistered, the bot is gone,
- * bot-core unloads) and forgotten once it ended by itself.
- */
 import type { BotConnectorAttachment, BotConnectorContext } from "../../connector-contract"
 import type { CatalogConnector } from "./catalog"
 
@@ -12,18 +6,12 @@ export interface ConnectorAttachmentsDeps {
 }
 
 export interface ConnectorAttachments {
-  /**
-   * The bot's resource of the connector, opened now when there is none.
-   * `context` builds the context the resource lives in, with its lifetime signal.
-   */
   get(
     botId: string,
     connector: CatalogConnector,
     context: (signal: AbortSignal) => BotConnectorContext,
   ): Promise<unknown>
-  /** Dispose the bot's resource of the connector (or of every connector). */
   release(botId: string, connectorId?: string): void
-  /** Dispose every resource. */
   dispose(): Promise<void>
 }
 

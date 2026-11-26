@@ -23,7 +23,6 @@ const STATUS: Readonly<
 export interface AccountRowProps {
   readonly t: Translate
   readonly connection: ConnectionView
-  /** A bot's side: whether the bot uses the account, and the switch that changes it. */
   readonly assignment?: { readonly assigned: boolean; onChange(assigned: boolean): void }
   readonly busy: boolean
   rename(label: string): Promise<CommitResult>
@@ -31,7 +30,6 @@ export interface AccountRowProps {
   disconnect(): void
 }
 
-/** One connected account: its letter, name and email, the bots using it, its state and its `…` menu. */
 export function AccountRow(props: AccountRowProps) {
   const { t, connection, assignment, busy } = props
   const [renaming, setRenaming] = useState(false)

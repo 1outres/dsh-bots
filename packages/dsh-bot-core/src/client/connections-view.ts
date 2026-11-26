@@ -7,7 +7,6 @@ import {
 } from "../shared/connections"
 import type { BotConnectorView } from "../shared/connectors"
 
-/** Ids of the providers the connectors act through, in the connectors' order. */
 export function providerIdsOf(connectors: readonly BotConnectorView[]): readonly string[] {
   return [
     ...new Set(
@@ -18,7 +17,6 @@ export function providerIdsOf(connectors: readonly BotConnectorView[]): readonly
   ]
 }
 
-/** The providers whose connectors the bot's Connectors section lists, in the connectors' order. */
 export function providersOf(
   snapshot: BotConnectionsSnapshot,
   connectors: readonly BotConnectorView[],
@@ -28,7 +26,6 @@ export function providersOf(
   )
 }
 
-/** How a provider's accounts stand for one bot, worst first. */
 export type ProviderStanding =
   | { readonly kind: "unconfigured" }
   | { readonly kind: "reauth"; readonly count: number }
@@ -48,7 +45,6 @@ export function providerStanding(
     : { kind: "connected", count: assigned.length }
 }
 
-/** A provider's connections: the bot's first, then the others. */
 export function accountsFor(snapshot: BotConnectionsSnapshot, provider: string, botId: string) {
   const mine = snapshot.connections.filter((connection) => connection.provider === provider)
   return {
@@ -57,7 +53,6 @@ export function accountsFor(snapshot: BotConnectionsSnapshot, provider: string, 
   }
 }
 
-/** The redirect URI to register: this page's origin and the provider's callback path. */
 export const redirectUriOf = (
   origin: string,
   provider: Pick<ConnectionProviderView, "callbackPath">,
@@ -74,18 +69,12 @@ export const attemptOf = (
 export const accountLabel = (connection: Pick<ConnectionView, "label" | "account">) =>
   connectionName(connection)
 
-/** Service names of a connection, as its provider names its connectors. */
 export const servicesLabel = (provider: ConnectionProviderView, services: readonly string[]) =>
   provider.services
     .filter((service) => services.includes(service.connectorId))
     .map((service) => service.name)
     .join(", ")
 
-/**
- * Open the sign-in in a new tab within the click (so no popup blocker stops
- * it), then send it where the Host answered; undefined when the browser
- * refused a tab (the page shows a link instead).
- */
 export async function openSignIn(
   start: () => Promise<{ readonly url: string; readonly attemptId: string }>,
 ): Promise<{ readonly attemptId: string; readonly url: string; readonly opened: boolean }> {

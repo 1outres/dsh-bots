@@ -1,12 +1,3 @@
-/**
- * `@1outres/dsh-bot-vm` (row `bot-vm`): registers the `incus-vm` bot
- * environment with bot-core. Every bot gets its own Incus VM; bot Agents
- * reach it over SSH (`sshd -i` through Incus' exec API, relayed by this
- * process) with the rows `rows()` returns.
- *
- * This file is the composition root: it wires the Host modules to Node
- * (the Incus API of the stored endpoint, files, child processes, timers).
- */
 import { execFile } from "node:child_process"
 import { createHash, randomBytes } from "node:crypto"
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs"
@@ -47,10 +38,6 @@ import { nodeImageFiles, nodeImageHttp, sha256 } from "./node/image-io"
 import { createIncusTransport } from "./node/incus-transport"
 
 export const name = "bot-vm"
-/**
- * The `bot` service of @1outres/dsh-bot-core. Only types come from that
- * package: a value import would bundle bot-core's runtime into this one.
- */
 const BOT = "bot"
 export const inject = ["bot"]
 
@@ -60,7 +47,6 @@ function botOf(ctx: Context): Bot {
   return bot
 }
 
-/** dsh-ssh 0.2.2-rc.5's lib/helper.js, as the base image installs it. */
 export const HELPER_SHA256 = "8cf436d3657343765ea0031bcc6e78edb20580fb9c2595fd7bb08b193021f40e"
 
 export interface Config {
@@ -214,12 +200,10 @@ export const Config: z<Config> = z.object({
     ),
 }) as z<Config>
 
-/** The tag of earlier versions: a hash of the state directory's real path. */
 export function earlierOwnerOf(stateDir: string): string {
   return createHash("sha256").update(realpathSync(stateDir)).digest("hex").slice(0, 16)
 }
 
-/** This installation's owner tag, stored once in `<stateDir>/owner` (src/host/owner.ts). */
 export function ownerOf(stateDir: string): string {
   mkdirSync(stateDir, { recursive: true, mode: 0o700 })
   const file = join(stateDir, OWNER_FILE)
@@ -271,7 +255,6 @@ export const runCommand: RunCommand = (file, args, options) =>
       { signal: options?.signal, timeout: options?.timeoutMs ?? 0, maxBuffer: 4 * 1024 * 1024 },
       (error, stdout, stderr) => {
         if (error !== null && typeof error.code !== "number") {
-          // Spawn failure, abort or timeout: no exit code to report.
           if (error.name === "AbortError") return reject(error)
           if (error.killed) return resolvePromise({ code: 255, stdout, stderr: "timed out" })
           return reject(error)
@@ -281,7 +264,6 @@ export const runCommand: RunCommand = (file, args, options) =>
     )
   })
 
-/** The ripgrep DSH's grep and glob spawn (@deepseek-ai/dsh-util-ripgrep, from the Host's DSH). */
 async function hostRipgrep(): Promise<string> {
   const { resolveRgPath } = await import("@deepseek-ai/dsh-util-ripgrep")
   return resolveRgPath()
@@ -302,10 +284,8 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   })
 }
 
-/** The relay's socket (src/host/guest-transport.ts). */
 export const guestRelaySocketOf = (stateDir: string) => join(stateDir, "run", "guest.sock")
 
-/** Environment settings from the plugin config, paths expanded. */
 export function settingsOf(config: Config, owner: string): EnvironmentSettings {
   const stateDir = expandHome(config.stateDir)
   return {
@@ -334,12 +314,10 @@ export function settingsOf(config: Config, owner: string): EnvironmentSettings {
   }
 }
 
-/** DSH's `credentials` service, as the client key of a paired VM host is kept in it. */
 interface CredentialServices {
   credentials: SecretRecords
 }
 
-/** DSH's secret records, while the `credentials` service is there; a paired VM host cannot be used without it. */
 function credentialRecords(records: () => SecretRecords | undefined): SecretRecords {
   function required(): SecretRecords {
     const found = records()
@@ -357,10 +335,8 @@ function credentialRecords(records: () => SecretRecords | undefined): SecretReco
   }
 }
 
-/** Downloads of the base image stall when no byte arrives for this long. */
 const IMAGE_STALL_MS = 60_000
 
-/** The base image of the project (docs/specs/incus-endpoint.md §5.5); downloads go under `<stateDir>/images`. */
 export function imageManagerOf(
   config: Config,
   stateDir: string,
@@ -502,10 +478,6 @@ export function apply(ctx: Context, config: Config): void {
   const warn = (what: string) => (error: unknown) => {
     if (!lifetime.signal.aborted) ctx.logger.warn(`bot-vm: ${what}: ${String(error)}`)
   }
-  // bot-core ensures every stored bot as soon as the environment registers
-  // (each is then kept); botIds() adds the stored ones, including bots being
-  // created or whose creation failed. Only after the delay is anything else
-  // of ours taken for a bot deleted meanwhile.
   if (config.reconcileDelayMs > 0) {
     let running = false
     const reconcile = () => {

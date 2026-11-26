@@ -1,6 +1,3 @@
-// Design rule 24: `as unknown as` only in a package's composition root.
-// src/index.ts narrows the untyped Cordis Context to the Host services it
-// reads; everywhere else a double cast hides a real type error.
 `$value as unknown as $type` as $cast where {
   register_diagnostic(
     span = $cast,

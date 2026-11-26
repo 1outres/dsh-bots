@@ -79,14 +79,12 @@ describe("shell menu", () => {
     pressed?.subscribe(heard)
     expect(pressed?.getSnapshot()).toBe(false)
     for (const item of entries) item.run(context, anchor)
-    // Files toggles the session's viewer and pushes its pressed state.
     expect(viewer.of("m1").open).toBe(true)
     expect(pressed?.getSnapshot()).toBe(true)
     expect(heard).toHaveBeenCalledTimes(1)
     files?.run(context, anchor)
     expect(viewer.of("m1").open).toBe(false)
     expect(heard).toHaveBeenCalledTimes(2)
-    // Another session's viewer does not touch it.
     viewer.toggle("m2")
     expect(heard).toHaveBeenCalledTimes(2)
   })

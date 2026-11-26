@@ -12,7 +12,6 @@ const failureOf = (error: unknown): ModelsFailure =>
     ? error.failure
     : { kind: "connection", message: error instanceof Error ? error.message : String(error) }
 
-/** DSH's model catalog, read once when the picker mounts. */
 export function useModelCatalog(read: () => Promise<BotModelCatalog>): CatalogState {
   const [state, setState] = useState<CatalogState>({ status: "loading" })
   useEffect(() => {

@@ -1,11 +1,3 @@
-/**
- * `@1outres/dsh-bot-core/sessions`: bot-core's own row inside every bot's
- * isolated `bot-environment` group (compose.ts puts it after the schedule
- * row; templates and overlays cannot name it). It registers the session
- * tools (docs/specs/bot-managed-sessions.md §5), shown only to the bot's
- * Main session, and passes every call to the `bot` service with the
- * revision's token.
- */
 import type { Context } from "@deepseek-ai/cordis"
 import { defineTool, ToolContextUnavailableError } from "@deepseek-ai/dsh-tools"
 import z from "@deepseek-ai/schemastery"
@@ -20,7 +12,6 @@ import {
 
 export interface Config {
   botId: string
-  /** The preset revision's token (compose.ts); bot-core refuses calls of other revisions. */
   token: string
 }
 
@@ -30,7 +21,6 @@ const SESSION_ID = {
   description: "The managed session (see session_list).",
 } as const
 
-/** What each tool says and takes; the parameters are DSH's JSON Schema subset. */
 export const SESSION_TOOLS: {
   readonly [Tool in SessionToolName]: {
     readonly description: string

@@ -1,17 +1,3 @@
-/**
- * `@1outres/dsh-bot-core/notes`: bot-core's own row inside every bot's
- * isolated `bot-environment` group (compose.ts puts it after the prompt
- * row; templates and overlays cannot name it). For the bot's Agents it
- * registers note_read, note_write, note_link and note_search, the
- * `bot:pinned-notes` context, and an `agent/pre-step` listener that brings
- * the notes up to date before each step and adds the notice of the notes an
- * owner's message names (docs/specs/bot-notes.md). Every call goes to the
- * `bot` service with the revision's token, which reads and writes the notes
- * through the bot's environment's file system.
- *
- * The context and the listener carry the scope of the preset revision this
- * row is mounted in, so DSH applies them only to that revision's Agents.
- */
 import type { Context } from "@deepseek-ai/cordis"
 import type { PreStepDecision } from "@deepseek-ai/dsh-agent"
 import { createUserMessage, type UserMessage } from "@deepseek-ai/dsh-llm"
@@ -43,7 +29,6 @@ import {
 
 export interface Config {
   botId: string
-  /** The preset revision's token (compose.ts), as every bot-core row carries it. */
   token: string
 }
 

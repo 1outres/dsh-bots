@@ -4,11 +4,6 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/
 const DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?$/
 const OFFSET = /(Z|[+-]\d{2}:\d{2})$/
 
-/**
- * A start or end as the bot writes it: a date (an all-day event), a time
- * with its offset, or a local time with `timeZone`.
- * @throws naming what is wrong.
- */
 export function eventTime(
   value: string,
   timeZone: string | undefined,
@@ -23,14 +18,12 @@ export function eventTime(
   return { dateTime: value, ...(timeZone === undefined ? {} : { timeZone }) }
 }
 
-/** An event's start or end as people read it. */
 export function showTime(time: calendar_v3.Schema$EventDateTime | undefined): string {
   if (time === undefined) return ""
   if (time.date) return `${time.date} (all day)`
   return `${time.dateTime ?? ""}${time.timeZone ? ` ${time.timeZone}` : ""}`
 }
 
-/** An RFC 3339 instant argument (time_min, time_max). */
 export function instant(value: string | undefined, what: string): string | undefined {
   if (value === undefined) return undefined
   if (DATE.test(value)) return `${value}T00:00:00Z`

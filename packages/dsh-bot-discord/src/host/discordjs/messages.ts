@@ -51,7 +51,6 @@ export function toDiscordMessage(message: Message): DiscordMessage {
   }
 }
 
-/** discord.js's options for a message the bot posts. */
 export function toMessageOptions(message: DiscordOutgoingMessage): MessageCreateOptions {
   const files = (message.files ?? []).map(
     (file): AttachmentPayload => ({

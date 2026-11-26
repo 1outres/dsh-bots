@@ -1,11 +1,5 @@
 import { inflateRawSync } from "node:zlib"
 
-/**
- * Takes one file out of a zip archive by its exact name: read from the
- * central directory, stored or deflated, its size bounded. Entry names are
- * only compared, never used as paths, so no entry can be written anywhere.
- */
-
 export class ZipError extends Error {
   override readonly name = "ZipError"
 }
@@ -30,7 +24,6 @@ function endOfCentralDirectory(view: DataView): number {
 const sameName = (zip: Uint8Array, at: number, length: number, name: Uint8Array) =>
   length === name.length && name.every((byte, index) => zip[at + index] === byte)
 
-/** @throws ZipError when the archive is malformed or has not exactly one such file. */
 export function extractZipEntry(zip: Uint8Array, entry: string, maxBytes: number): Uint8Array {
   const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength)
   const name = new TextEncoder().encode(entry)

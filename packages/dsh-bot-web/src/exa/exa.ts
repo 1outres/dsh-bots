@@ -13,11 +13,9 @@ import { fetchRequest, searchRequest, testRequest } from "./request"
 export interface ExaDeps {
   readonly options: ExaOptions
   readonly fetch: FetchFunction
-  /** Where Exa's warnings go (the Host's log). */
   warn(message: string): void
 }
 
-/** Exa's search, contents and connection test, each one request. */
 export interface Exa {
   search(request: WebSearchRequest, call: ExaCall): Promise<WebSearchResult>
   fetch(request: WebFetchRequest, call: ExaCall): Promise<WebFetchResult>

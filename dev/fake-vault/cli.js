@@ -1,9 +1,4 @@
 #!/usr/bin/env node
-/**
- * Serve the fake vault's test pages (inside a bot's VM, on localhost):
- *   node cli.js --port 8443 [--items items.json] [--passkeys passkeys.json]
- * --passkeys is the file the fake vault provider wrote (FAKE_VAULT_PASSKEYS).
- */
 import { existsSync } from "node:fs"
 import { createTestSite, readJson } from "./server.js"
 

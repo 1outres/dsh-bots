@@ -1,4 +1,3 @@
-/** Why the tag `tag` cannot release this tree: the tag, release.env and every package name one version. */
 export function versionProblems(tag, releaseEnv, manifests) {
   const version = releaseEnv.DSH_BOTS_VERSION
   const problems = []

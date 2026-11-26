@@ -12,26 +12,17 @@ import { useSecretEditor } from "./secret-editor"
 export interface SecretRowProps {
   readonly t: Translate
   readonly label: string
-  /** Whether a secret is saved; the secret itself never reaches the browser. */
   readonly saved: boolean
-  /** Save a typed secret; the editor stays open with the message when it fails. */
   commit(secret: string): Promise<CommitResult>
-  /** Remove the saved secret; without it the row offers no Remove. */
   remove?(): Promise<CommitResult>
   validate?(secret: string): string | null
-  /** Shown instead of the pill while present (a test result). */
   readonly status?: ReactNode
-  /** Row buttons before Set / Replace (Test). */
   readonly actions?: ReactNode
   readonly placeholder?: string
   readonly disabled?: boolean
   readonly marks?: DataMarks
 }
 
-/**
- * A secret setting: a Set / Not set pill and Set, Replace and Remove; Set and
- * Replace open a password field with ✓ and × in place of the controls.
- */
 export function SecretRow(props: SecretRowProps) {
   const { t, label, saved } = props
   const editor = useSecretEditor(props)
@@ -48,7 +39,7 @@ export function SecretRow(props: SecretRowProps) {
           spellCheck={false}
           aria-label={label}
           aria-invalid={editor.error === null ? undefined : true}
-          // biome-ignore lint/a11y/noAutofocus: the editor opens for typing the secret
+          // biome-ignore lint/a11y/noAutofocus: -
           autoFocus
           placeholder={props.placeholder}
           value={editor.text}

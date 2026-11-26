@@ -1,11 +1,8 @@
 import type { BotFilesClient } from "../files"
 import { MARKDOWN_RENDER_LIMIT } from "../markdown"
 
-/** Lines per page of a text preview; the Host caps a page at `files.maxLines`. */
 export const PAGE_LINES = 1000
-/** Lines shown above a requested line. */
 export const LINE_CONTEXT = 40
-/** Largest image previewed; the Host caps a complete read at `files.maxFileBytes`. */
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024
 
 const IMAGE_TYPES: Readonly<Record<string, string>> = {
@@ -17,7 +14,6 @@ const IMAGE_TYPES: Readonly<Record<string, string>> = {
   bmp: "image/bmp",
   ico: "image/x-icon",
   avif: "image/avif",
-  // Drawn through <img>, where an SVG's scripts never run.
   svg: "image/svg+xml",
 }
 
@@ -39,7 +35,6 @@ export function imageMimeType(path: string): string | undefined {
   return IMAGE_TYPES[extensionOf(path)]
 }
 
-/** The first line to read so that `line` shows with context above it. */
 export function lineWindowStart(line: number | undefined): number {
   if (line === undefined || !Number.isFinite(line) || line <= 1) return 1
   return Math.max(1, Math.floor(line) - LINE_CONTEXT)
@@ -49,7 +44,6 @@ export function splitLines(text: string, count: number): string[] {
   return count === 0 ? [] : text.split("\n")
 }
 
-/** One request to show a file, optionally at a line; a new `revision` asks for the same file again. */
 export interface PreviewRequest {
   readonly path: string
   readonly line?: number
@@ -66,7 +60,6 @@ export interface ImagePreview {
   readonly src: string
 }
 
-/** An image over {@link MAX_IMAGE_BYTES}, refused before its bytes travel. */
 export interface OversizedPreview {
   readonly kind: "oversized"
   readonly absolutePath: string
@@ -78,12 +71,9 @@ export interface TextPreview {
   readonly kind: "text"
   readonly absolutePath: string
   readonly markdown: boolean
-  /** 1-based number of the first line in `lines`. */
   readonly start: number
   readonly lines: readonly string[]
-  /** Whether `lines` ends with the file's last line. */
   readonly eof: boolean
-  /** The line asked for, highlighted and scrolled to. */
   readonly line?: number
 }
 
@@ -91,7 +81,6 @@ export type Preview = ImagePreview | OversizedPreview | TextPreview
 
 export type ExtendDirection = "before" | "after"
 
-/** Rejects with the client's failure, or with an abort. */
 export async function loadPreview(
   files: BotFilesClient,
   sessionId: string,
@@ -130,7 +119,6 @@ export async function loadPreview(
   }
 }
 
-/** The page before or after a text preview, joined on. */
 export async function extendPreview(
   files: BotFilesClient,
   sessionId: string,
@@ -160,7 +148,6 @@ export async function extendPreview(
   }
 }
 
-/** Markdown is rendered only for a whole file under the cap; anything else shows its source. */
 export function rendersMarkdown(preview: TextPreview): boolean {
   return (
     preview.markdown &&

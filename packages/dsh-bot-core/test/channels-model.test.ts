@@ -102,7 +102,7 @@ describe("createChannelsModel", () => {
   it("reports a broken stream as a connection failure", async () => {
     const watch = vi.fn(() => ({
       dispose() {},
-      // biome-ignore lint/correctness/useYield: the stream breaks before its first snapshot
+      // biome-ignore lint/correctness/useYield: -
       async *[Symbol.asyncIterator](): AsyncGenerator<BotChannelsSnapshot> {
         throw new Error("gone")
       },

@@ -1,4 +1,3 @@
-/** The copy of password managers, bots' logins and credential incidents (docs/specs/bot-vaults.md §7.3, §11). */
 export const VAULTS_EN = {
   "logins.stale": "Guard key changed",
   "logins.refingerprint": "Fingerprint again",

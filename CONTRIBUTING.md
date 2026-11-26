@@ -36,7 +36,7 @@ Install a local checkout into DSH with **Plugins** > **Add plugin**, giving the 
 
 `dev/fake-google` is a fake Google (OAuth, Gmail, Calendar) for the Google connector's tests and verification DSHs (`node dev/fake-google/cli.js`); like the probes it is never built, published or bundled.
 
-Select either the `@1outres/dsh-bots` bundle or a plugin's own bundle for a given plugin, never both: they insert the same row id.
+Select either the `@1outres/dsh-bots` bundle or a plugin's own bundle for a given plugin, never both: they insert the same row id. A row id (`bot-<name>`) is the settings namespace the plugin reads; disable the row (in the bundle or a profile patch) to turn the plugin off without uninstalling it.
 
 ## Adding a plugin
 

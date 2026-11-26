@@ -1,9 +1,3 @@
-/**
- * The work of note_read, note_write, note_link and note_search
- * (docs/specs/bot-notes.md §4). The model never sees an id: it reads and
- * writes links with titles, and a note is named by its title or by an alias
- * only one note has.
- */
 import { z } from "zod"
 import { foldName } from "../text-fold"
 import type { NoteCatalog } from "./catalog"
@@ -35,18 +29,15 @@ import { searchNotes } from "./search"
 export const NOTE_TOOLS = ["note_read", "note_write", "note_link", "note_search"] as const
 export type NoteTool = (typeof NOTE_TOOLS)[number]
 
-/** A refusal the model reads and can act on. */
 export class NoteToolError extends Error {
   override readonly name = "NoteToolError"
 }
 
-/** The link suggestions of a note's latest write, valid while the file still holds what it wrote. */
 interface SuggestionRecord {
   readonly text: string
   readonly suggestions: readonly Suggestion[]
 }
 
-/** One bot's notes: the notebook over its files and the suggestions of its notes' latest writes. */
 export interface BotNotesState {
   readonly notebook: Notebook
   readonly suggestions: Map<string, SuggestionRecord>
@@ -58,7 +49,6 @@ export const createNotesState = (notebook: Notebook): BotNotesState => ({
 })
 
 export interface NoteToolsDeps {
-  /** A new note id (UUIDv7). */
   newId(): string
 }
 
@@ -123,7 +113,6 @@ function parse<T>(schema: z.ZodType<T>, args: unknown): T {
   throw new NoteToolError(`Invalid arguments: ${issues.join("; ")}`)
 }
 
-/** Notes whose title or an alias contains the name or is contained in it. */
 function similar(catalog: NoteCatalog, wanted: string): readonly string[] {
   const key = foldName(wanted)
   return catalog
@@ -169,12 +158,6 @@ const dailyNote = (title: string, body = ""): Note => ({
   body,
 })
 
-/**
- * A written text as a file keeps it: every link named by a title (or an alias
- * only one note has) gets the note's id; a date nobody has a note for gets a
- * new daily note's id, added to `dailies`.
- * @throws NoteToolError naming every link that names no single note.
- */
 function storeText(
   text: string,
   catalog: NoteCatalog,
@@ -247,10 +230,8 @@ interface Change {
   readonly id: string
   readonly note: Note
   readonly mode: "create" | "replace"
-  /** The stored body before this write ("" for a new note): what it added gets suggestions. */
   readonly before: string
   readonly dailies: ReadonlyMap<string, string>
-  /** Suggestions to keep instead of finding new ones (note_link). */
   readonly suggestions?: readonly Suggestion[]
 }
 
@@ -272,7 +253,6 @@ export interface NoteTools {
 }
 
 export function createNoteTools(deps: NoteToolsDeps): NoteTools {
-  /** Refuse a write that would take pinned notes over the limit (one that shrinks them passes). */
   const checkPinned = (catalog: NoteCatalog, change: Change): number | undefined => {
     const before = catalog.note(change.id)
     if (!change.note.pinned && before?.pinned !== true) return undefined

@@ -31,7 +31,6 @@ import {
 import { type CardState, clip, leadingMessages, renderCard, staleCard } from "./render"
 import { text } from "./texts"
 
-/** Longest text a person may type into a modal (Discord's limit). */
 export const MODAL_TEXT_LIMIT = 4000
 const MODAL_PLACEHOLDER_LIMIT = 100
 
@@ -39,27 +38,15 @@ export interface InteractionPresenterDeps {
   link: Pick<BotChannelLink, "answer" | "hold">
   actions: Pick<DiscordActions, "send" | "edit">
   home: HomeTarget
-  /** Whether a press happened at the home. */
   atHome(place: DiscordPlace): boolean
-  /** The owners: only they answer approvals and plan reviews. */
   owners: ReadonlySet<string>
-  /** The language of the cards (the notice language). */
   locale: DiscordLocale
-  /** This channel's id, to tell its own answers from other channels'. */
   self: string
-  /** Posting and editing, in order with the bridge's other messages. */
   outbound: SerialQueue
   closed(): boolean
   warn(message: string): void
 }
 
-/**
- * bot-core's interactions at the home: one card, with one draft of a question
- * batch that whoever presses moves on, answered by its buttons, select menus
- * and modals (approvals and plan reviews by the owners only). The first answer
- * from anywhere wins; the card then shows who answered (or that it was
- * withdrawn) with its components disabled.
- */
 export interface InteractionPresenter {
   opened(interaction: BotInteraction): Promise<void>
   updated(interaction: BotInteraction): Promise<void>
@@ -68,7 +55,6 @@ export interface InteractionPresenter {
   submit(submit: DiscordModalSubmit): Promise<void>
 }
 
-/** A card at the home: the one posted, and any posted before a reconnection that someone pressed. */
 interface Card {
   readonly channelId: string
   readonly messageId: string
@@ -80,7 +66,6 @@ interface Held {
   draft: QuestionDraft | undefined
 }
 
-/** How a person's response to a component or modal is answered. */
 interface Response {
   readonly actor: DiscordActor
   readonly messageId: string | null
@@ -116,14 +101,12 @@ export function createInteractionPresenter(deps: InteractionPresenterDeps): Inte
       }
     })
 
-  /** Refuse a press away from the home; true when refused. */
   const away = async (response: Response): Promise<boolean> => {
     if (deps.atHome(response.actor)) return false
     await response.reply({ content: notHomeText(localeOf(response.actor.locale)), ephemeral: true })
     return true
   }
 
-  /** Refuse someone but an owner an approval or plan review; true when refused. */
   const notOwner = async (entry: Held, response: Response): Promise<boolean> => {
     if (entry.interaction.kind === "question" || deps.owners.has(response.actor.userId))
       return false
@@ -134,7 +117,6 @@ export function createInteractionPresenter(deps: InteractionPresenterDeps): Inte
     return true
   }
 
-  /** The interaction a component names, with the pressed card tracked (one posted before a reconnection too). */
   const entryOf = (interactionId: string, response: Response): Held | undefined => {
     const entry = held.get(interactionId)
     if (entry === undefined || response.messageId === null) return entry
@@ -195,7 +177,6 @@ export function createInteractionPresenter(deps: InteractionPresenterDeps): Inte
     return deliver(entry, response, draft, { kind: "question", answers: outcome.answers })
   }
 
-  /** After a choice, a skip or a text answer: a batch of one single-select question goes at once. */
   const settleChoice = (entry: Held, response: Response, draft: QuestionDraft) => {
     if (entry.interaction.kind !== "question") return
     const [only] = entry.interaction.questions

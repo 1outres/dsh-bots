@@ -7,7 +7,6 @@ import { createStore, type Observable } from "../observable"
 import type { BotInteractionsRemote, RemoteMount } from "../remote"
 import { cardsOf, type InteractionCard } from "./view"
 
-/** A bot session's interactions as this page follows them. */
 export type SessionInteractionsState =
   | { readonly status: "loading" }
   | { readonly status: "ready"; readonly cards: readonly InteractionCard[] }
@@ -15,11 +14,8 @@ export type SessionInteractionsState =
 
 export interface SessionInteractions extends Observable<SessionInteractionsState> {
   readonly sessionId: string
-  /** Answer from this page; its closure is not shown here. */
   answer(interactionId: string, answer: BotInteractionAnswer): Promise<BotAnswerResult>
-  /** The person started answering a timed question batch. */
   hold(interactionId: string): void
-  /** Put a closure away. */
   dismiss(interactionId: string): void
   dispose(): void
 }
@@ -55,11 +51,6 @@ const refusal = (message: string): BotAnswerResult => ({
   message,
 })
 
-/**
- * Follow one bot session's interactions through `remote.botInteractions`,
- * reconnecting with backoff (or at once on a new connection generation); the
- * last cards stay while it reconnects.
- */
 export function followSessionInteractions(
   deps: SessionInteractionsDeps,
   sessionId: string,

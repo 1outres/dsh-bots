@@ -1,24 +1,16 @@
 import type { BotQuestionWait } from "../../shared/interactions"
 
 export interface ForegroundWaitDeps {
-  /** What DSH's `attachWait` claim reported as left. */
   readonly remainingMs: number
   now(): number
   later(ms: number, work: () => void): () => void
-  /** The wait counted down to its deadline. */
   expired(): void
   changed(wait: BotQuestionWait): void
 }
 
-/**
- * The countdown of a timed question batch bot-core claimed from DSH: it runs
- * on bot-core's side, as a claiming Web card's does, until a person starts
- * answering (then it waits indefinitely) or it reaches the deadline.
- */
 export interface ForegroundWait {
   current(): BotQuestionWait
   hold(): void
-  /** It ended (answered, withdrawn): stop the timer. */
   stop(): void
 }
 

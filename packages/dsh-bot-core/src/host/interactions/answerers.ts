@@ -17,19 +17,15 @@ import {
   replyOf,
 } from "./presentation"
 
-/** DSH's `attachWait` claim of a timed call, held by bot-core. */
 export interface WaitClaim {
   readonly remainingMs: number
-  /** Let go of the claim (DSH closes the wait once the request settled). */
   release(): void
 }
 
 export interface QuestionAnswererDeps<A> {
   board: Pick<InteractionBoard, "open">
   continued: Pick<ContinuedQuestions, "adopt">
-  /** Where a question of this Agent waits: its bot session, when it is a bot's root session. */
   place(agent: A): InteractionPlace | undefined
-  /** Claim a timed call's foreground wait; undefined when the wait already ended. */
   claim(agent: A, callId: string): Promise<WaitClaim | undefined>
   now(): number
   later(ms: number, work: () => void): () => void
@@ -37,14 +33,11 @@ export interface QuestionAnswererDeps<A> {
 
 export interface ApprovalAnswererDeps<A> {
   board: Pick<InteractionBoard, "open">
-  /** Where an approval of this Agent waits: its bot's root session (a subagent's too). */
   place(agent: A): { readonly place: InteractionPlace; readonly delegated: boolean } | undefined
 }
 
-/** A waterfall participant: it answers for bots' Agents and passes every other request on. */
 export interface Answerer<Request, Result> {
   answer(request: Request, next: () => Promise<Result>): Promise<Result>
-  /** Hand every request still waiting to the next answerer (bot-core stops answering). */
   delegateAll(): void
 }
 
@@ -59,7 +52,6 @@ interface Deferred<T> {
   reject(reason: unknown): void
 }
 
-/** One request bot-core holds until it settles once. */
 function createSettlement<T>(signal: AbortSignal | undefined, onAbort: () => void) {
   let settled = false
   const cleanups: (() => void)[] = []
@@ -87,7 +79,6 @@ function createSettlement<T>(signal: AbortSignal | undefined, onAbort: () => voi
 
 type Settlement<T> = ReturnType<typeof createSettlement<T>>
 
-/** The requests an answerer holds, each handed to `next()` on `delegateAll`. */
 function createHeldRequests() {
   const delegates = new Set<() => void>()
   return {

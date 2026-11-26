@@ -9,7 +9,6 @@ import { developmentEndpoints } from "../src/host/endpoints"
 import { createGoogle } from "../src/host/google"
 import { googleProvider } from "../src/host/provider"
 
-/** The fake Google every test of a file shares. */
 export const world: { fake: ReturnType<typeof createFakeGoogle>; origin: string } = {
   fake: createFakeGoogle(),
   origin: "",
@@ -19,7 +18,6 @@ export async function startWorld() {
   world.origin = await world.fake.listen(0)
 }
 
-/** A bot's environment in memory. */
 export function memoryEnvironment(): BotConnectorEnvironment & { files: Map<string, Uint8Array> } {
   const files = new Map<string, Uint8Array>()
   return {
@@ -52,7 +50,6 @@ export function googleSetup() {
   return { ...setup, environment }
 }
 
-/** The whole sign-in as a browser does it: the fake's consent page, its redirect, bot-core's callback. */
 export async function signIn(
   setup: ReturnType<typeof googleSetup>,
   email: string,
@@ -110,7 +107,6 @@ export const call = (connectorId: string, tool: string, args: Record<string, unk
 })
 export const signal = () => new AbortController().signal
 
-/** Make an Ask call and let its short wait for a decision pass on the manual clock. */
 export async function ask(setup: ReturnType<typeof googleSetup>, request: ReturnType<typeof call>) {
   const before = setup.ledger.list("b1").length
   const pending = setup.broker.call(request, signal())

@@ -32,8 +32,6 @@ import type { BotInteractionsSnapshot } from "../src/shared/interactions"
 import { botPresetId } from "../src/shared/preset"
 import { REMOTE_PACKAGE } from "../src/shared/remote-contract"
 
-/** The browser half's apply() against a fake client context: how its registrations follow the sessions. */
-
 function value<T>(initial: T): Observable<T> & { set(next: T): void } {
   let current = initial
   const listeners = new Set<() => void>()
@@ -52,7 +50,6 @@ function value<T>(initial: T): Observable<T> & { set(next: T): void } {
   }
 }
 
-/** The `bots` Remote's watch stream, fed by the test. */
 function channel() {
   const queue: BotsSnapshot[] = []
   let wake: (() => void) | undefined
@@ -106,7 +103,6 @@ const summary = (id: string, agentPreset: string | null): SessionSummary => ({
   projectionValues: { agentPreset },
 })
 
-/** A ready session list whose summaries carry each session's agent preset. */
 const sessionList = (presets: Readonly<Record<string, string | null>>): SessionListState => ({
   phase: "ready",
   ids: Object.keys(presets),
@@ -127,16 +123,10 @@ function injectedBy<T>(registration: Registration | undefined): T {
 }
 
 interface FakeOptions {
-  /** Provide DSH's right sidebar services (ctx.inject runs its callback). */
   sidebar?: boolean
-  /** Make `ctx.remote.$mount` reject every contribution with this error. */
   mountFailure?: Error
 }
 
-/**
- * `ctx.remote` as typert and the Gateway have it: a package registers one
- * contribution, and each namespace it names becomes the `remote.<namespace>` service.
- */
 function typertRemote(faces: Readonly<Record<string, unknown>>, failure?: Error) {
   const contributions: RemoteContribution[] = []
   const services = new Map<string, unknown>()
@@ -156,7 +146,6 @@ function typertRemote(faces: Readonly<Record<string, unknown>>, failure?: Error)
   }
 }
 
-/** Single Slots, as ui-slots SlotCore has them: `entriesOfSlot` lists only the head (the lowest priority), and an equal priority is refused. */
 const SINGLE = new Set([
   "main.conversation",
   "rightbar.session",
@@ -167,7 +156,6 @@ const SINGLE = new Set([
 
 const priorityOf = (options: Record<string, unknown>) => Number(options.priority ?? 0)
 
-/** `message` as SlotCore words a refusal at bot-core's priority by `registrant`. */
 const refusedBy = (name: string, registrant: string) =>
   `single slot "${name}" already has a registration at priority ${BOT_SESSION_PRIORITY} (registered by ${registrant})`
 
@@ -362,7 +350,6 @@ function fakeContext(options: FakeOptions = {}) {
   }
   const listeners = new Map<string, Set<() => void>>()
   const notify = (key: string) => {
-    // Microtask-batched, as the slot registry notifies.
     queueMicrotask(() => {
       for (const listener of [...(listeners.get(key) ?? [])]) listener()
     })
@@ -459,7 +446,6 @@ function fakeContext(options: FakeOptions = {}) {
     registrations.filter((registration) => registration.options.name === name)
   const shells = () => named("main.conversation")
   const live = () => shells().filter((registration) => registration.live)
-  /** DSH's ui-sidebar-right registering its seat and ExpandButton with one store handle. */
   const registerDsh = (store: object) => {
     const offs = [
       register({ name: "rightbar.session", store }, "RightbarSeat"),
@@ -542,11 +528,9 @@ describe("client apply(): the bot session shell", () => {
   it("holds main.conversation at the bot session priority while the main view shows a bot or unclassified session", async () => {
     const fake = fakeContext()
     apply(fake.ctx)
-    // Restoring: no session yet while DSH's lists are pending, so neither DSH's home nor a header.
     expect(fake.live()).toHaveLength(1)
     expect(fake.shellFace().classification.getSnapshot()).toEqual({ kind: "unknown" })
 
-    // Nothing tells yet what m1 is: the neutral placeholder, never DSH's header.
     fake.current.set({ key: "m1" })
     expect(fake.live()).toHaveLength(1)
     const [shell] = fake.live()
@@ -592,17 +576,14 @@ describe("client apply(): the bot session shell", () => {
       source: "bots",
     })
 
-    // Another session of the same bot keeps the registration.
     fake.current.set({ key: "s1" })
     expect(fake.shells()).toHaveLength(1)
-    // A Workspace session: released, so DSH's ConversationRoot renders it.
     fake.current.set({ key: "w1" })
     expect(fake.live()).toEqual([])
     fake.current.set({ key: "m1" })
     expect(fake.live()).toHaveLength(1)
     expect(fake.section().registrations.shell.getSnapshot()).toEqual({ state: "active" })
 
-    // No session memory in localStorage: the bots list and the presets decide.
     expect([...storage.keys()]).toEqual([])
     fake.dispose()
     expect(fake.live()).toEqual([])
@@ -722,10 +703,8 @@ describe("client apply(): the bot session shell", () => {
     apply(fake.ctx)
     fake.sessions.set(sessionList({ m1: null, w1: null, w2: botPresetId("x") }))
 
-    // A legacy Main on the default preset reads as stock until the list says otherwise.
     fake.current.set({ key: "m1" })
     expect(fake.live()).toEqual([])
-    // A Workspace session on the bot's preset reads as the bot's, provisionally.
     fake.current.set({ key: "w2" })
     expect(fake.live()).toHaveLength(1)
     expect(fake.shellFace().classification.getSnapshot()).toEqual({
@@ -777,7 +756,6 @@ describe("client apply(): the bot session shell", () => {
     const fake = fakeContext({ sidebar: true })
     fake.registerDsh(handle)
     apply(fake.ctx)
-    // The tab type and its refusal-only body are registered up front.
     expect(fake.tabTypes.map((type) => type.id)).toEqual([BOT_FILE_TAB_ID])
     const [tab] = fake.named("sidebar.right.pane.tab")
     expect(tab?.component).toBe(RefusedFileTab)
@@ -804,15 +782,12 @@ describe("client apply(): the bot session shell", () => {
     expect(inject().handle).toBe("present")
     expect(fake.shellFace().files.linksAvailable.getSnapshot()).toBe(true)
     expect(fake.section().registrations.rightbar.getSnapshot()).toEqual({ state: "active" })
-    // canOpen follows the classification: a bot session's file yes, a Workspace session's no.
     const [type] = fake.tabTypes
     expect(type?.canOpen("dsh-resource://file/session/s1/a.md")).toBe(true)
     expect(type?.canOpen("dsh-resource://file/session/w1/a.md")).toBe(false)
 
-    // A Workspace session: DSH's own sidebar.
     fake.current.set({ key: "w1" })
     expect(fake.lockdowns()).toEqual([])
-    // Back on the bot session: the handle is still the corner's, though our entry heads rightbar.session.
     fake.current.set({ key: "m1" })
     expect(fake.lockdowns()[0]?.options.store).toBe(handle)
     fake.dispose()
@@ -826,7 +801,6 @@ describe("client apply(): the bot session shell", () => {
     fake.current.set({ key: "m1" })
     fake.stream.push(LISTED)
     await settle()
-    // rightbar.session held, DSH's seat not registered yet: locked, without a store.
     expect(fake.lockdowns()).toHaveLength(1)
     expect(fake.lockdowns()[0]?.options.store).toBeUndefined()
     const files = (): FilesFace => fake.shellFace().files
@@ -842,7 +816,6 @@ describe("client apply(): the bot session shell", () => {
     })
     expect(files().linksAvailable.getSnapshot()).toBe(true)
 
-    // DSH's effect re-runs with a fresh handle: re-registered with it.
     offDsh()
     const second = { create() {} }
     fake.registerDsh(second)
@@ -855,7 +828,6 @@ describe("client apply(): the bot session shell", () => {
 
   it("fails closed without DSH's store handle: the sidebar stays ours and links say they cannot open", async () => {
     const fake = fakeContext({ sidebar: true })
-    // DSH's seat without its corner button (a DSH change): nothing to borrow.
     fake.ctx.slots.register({ name: "rightbar.session" }, "RightbarSeat")
     apply(fake.ctx)
     fake.current.set({ key: "m1" })
@@ -1120,7 +1092,6 @@ describe("client apply(): bot-core's Remote", () => {
     expect(error).toHaveBeenCalledWith("bot-core: mounting the Remote failed", cause)
     expect(fake.section().bots.getSnapshot()).toEqual({ status: "failed", error: cause.message })
 
-    // Unclassifiable without a list or a session summary: the shell holds the view.
     fake.current.set({ key: "m1" })
     const tree = fake.shellFace().files.treeOf("m1")
     tree.load()

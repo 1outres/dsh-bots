@@ -4,7 +4,6 @@ import type { SessionListState } from "./dsh/context"
 import type { MainBinding } from "./main-session"
 import { derive, type Observable } from "./observable"
 
-/** How a session is shown: undecided, DSH's own UI, or a bot's. */
 export type SessionClass =
   | { readonly kind: "unknown" }
   | { readonly kind: "stock" }
@@ -12,11 +11,9 @@ export type SessionClass =
       readonly kind: "bot"
       readonly botId: string | undefined
       readonly bot: BotView | undefined
-      /** `bots`: the bots list decided; `preset`: the session's agent preset decided, until that list arrives. */
       readonly source: "bots" | "preset"
     }
 
-/** The bots list as the browser holds it. */
 export type BotsState =
   | { readonly status: "loading" }
   | { readonly status: "ready"; readonly snapshot: BotsSnapshot }
@@ -24,7 +21,6 @@ export type BotsState =
   | { readonly status: "unavailable"; readonly error?: string }
   | { readonly status: "failed"; readonly error: string }
 
-/** How a Slot registration made at a fixed priority stands. */
 export type RegistrationStatus =
   | { readonly state: "idle" | "active" }
   | { readonly state: "refused"; readonly error: string }
@@ -32,7 +28,6 @@ export type RegistrationStatus =
 const UNKNOWN: SessionClass = { kind: "unknown" }
 const STOCK: SessionClass = { kind: "stock" }
 
-/** The bots list a state carries: the last one delivered while ready or reconnecting. */
 export function snapshotOf(state: BotsState): BotsSnapshot | undefined {
   switch (state.status) {
     case "ready":
@@ -45,7 +40,6 @@ export function snapshotOf(state: BotsState): BotsSnapshot | undefined {
   }
 }
 
-/** Every session a bots list names: each bot's Main and other sessions, and those of pending bots. */
 export function botSessionIds(snapshot: BotsSnapshot): ReadonlySet<string> {
   const ids = new Set<string>()
   for (const pending of snapshot.pending) {
@@ -80,11 +74,6 @@ function classifyByPreset(sessions: SessionListState, sessionId: string): Sessio
   return { kind: "bot", botId, bot: undefined, source: "preset" }
 }
 
-/**
- * The class of one session. The bots list decides once it has arrived; until
- * then the session's agent preset does, provisionally (README: a legacy Main
- * reads as stock and a Workspace session on a bot's preset as a bot's).
- */
 export function classifySession(
   bots: BotsState,
   sessions: SessionListState,
@@ -102,16 +91,13 @@ export function sameClass(a: SessionClass, b: SessionClass): boolean {
 }
 
 export interface SessionClassifierSources {
-  /** What the main view is bound to (main-session.ts). */
   readonly main: Observable<MainBinding>
   readonly bots: Observable<BotsState>
   readonly sessions: Observable<SessionListState>
 }
 
 export interface SessionClassifier {
-  /** The class of the main view: unknown while its binding settles, stock without a session. */
   readonly main: Observable<SessionClass>
-  /** The one test of whether a session is a bot's. */
   classify(sessionId: string): SessionClass
 }
 

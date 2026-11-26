@@ -7,7 +7,6 @@ import {
 import type { ExaFailure } from "./failure"
 import type { ExaOptions } from "./options"
 
-/** A search result and the warnings Exa meant for the operator. */
 export interface MappedSearch {
   readonly result: WebSearchResult
   readonly warnings: readonly string[]
@@ -82,7 +81,6 @@ function warningsOf(payload: JsonRecord): readonly string[] {
   })
 }
 
-/** One source per URL, in Exa's order. */
 export function mapSearch(payload: unknown, options: ExaOptions): MappedSearch {
   if (!isRecord(payload) || !Array.isArray(payload.results)) {
     throw malformed("a search response without results")
@@ -118,7 +116,6 @@ function resultOf(payload: JsonRecord, url: string): JsonRecord | undefined {
   )
 }
 
-/** A crawl that failed with an HTTP status is the page's result; any other failure is Exa's. */
 export function mapFetch(payload: unknown, url: string, options: ExaOptions): WebFetchResult {
   if (!isRecord(payload)) throw malformed("a contents response that is not an object")
   const status = statusOf(payload, url)
@@ -146,14 +143,12 @@ export function mapFetch(payload: unknown, url: string, options: ExaOptions): We
   }
 }
 
-/** Whether a test search's answer is one Exa gives to a valid key. */
 export function testPayloadFailure(payload: unknown): ExaFailure | undefined {
   return isRecord(payload) && Array.isArray(payload.results)
     ? undefined
     : { kind: "malformed", message: "a search response without results" }
 }
 
-/** The human-readable part of an Exa error body, if any. */
 export function errorDetail(payload: unknown): string | undefined {
   if (!isRecord(payload)) return undefined
   const detail = text(payload.error) ?? text(payload.message)

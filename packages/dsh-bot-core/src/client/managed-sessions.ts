@@ -5,7 +5,6 @@ import type { BotManagedSessionsRemote, RemoteMount } from "./remote"
 import type { StatusStore } from "./status"
 import type { RemoteResult } from "./types"
 
-/** The sessions bots' Main sessions manage, and the owner's changes to them (a refusal shows on the bot's row). */
 export interface ManagedSessionsStore extends Observable<BotManagedSessionsSnapshot> {
   entrust(botId: string, sessionId: string): void
   release(botId: string, sessionId: string): void
@@ -17,7 +16,6 @@ const NONE: BotManagedSessionsSnapshot = { sessions: [] }
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
-/** Follow `botManagedSessions.watch`; the last snapshot stays while it reconnects. */
 export function watchManagedSessions(
   mount: Promise<RemoteMount>,
   generation: Observable<object | undefined>,

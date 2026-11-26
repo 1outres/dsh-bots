@@ -8,7 +8,6 @@ import type { BotEnvironmentHostRemote, RemoteMount } from "../remote"
 import { type FeedState, followed, mountedRemote, unwrap } from "../remote-feed"
 import type { RemoteResult } from "../types"
 
-/** The `botEnvironmentHost` Remote for the browser: one shared stream, and calls that reject with the Host's message. */
 export interface VmHostClient extends Observable<FeedState<BotEnvironmentHostState>> {
   check(): Promise<BotEnvironmentHostState>
   previewToken(token: string): Promise<TrustTokenPreview>

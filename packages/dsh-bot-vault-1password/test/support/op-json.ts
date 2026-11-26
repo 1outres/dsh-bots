@@ -1,5 +1,3 @@
-/** op's JSON as the provider meets it, with values that must never surface. */
-
 export const PASSWORD = "Hunter2-correct-horse"
 export const OLD_PASSWORD = "Old-password-in-history"
 export const OTP_SEED = "otpauth://totp/Example:bot?secret=JBSWY3DPEHPK3PXP&issuer=Example"
@@ -7,7 +5,6 @@ export const OTP_CODE = "492039"
 export const NOTE = "Recovery codes: 1111-2222-3333"
 export const OTHER_SECRET = "Concealed-api-key-9f8e7d"
 
-/** Every value the provider must never decode. */
 export const SECRETS = [PASSWORD, OLD_PASSWORD, OTP_SEED, OTP_CODE, NOTE, OTHER_SECRET]
 
 export const VAULT_ID = "vaultid0000000000000000001"

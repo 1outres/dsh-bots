@@ -5,7 +5,7 @@ declare const deps: {
 }
 
 export async function bypass(value: unknown) {
-  await deps.mainSettings.put("defaults", value) // rule: 52
-  await deps.mainOverrides.delete("b") // rule: 52
-  await deps.mainActivity.put("b", value) // rule: 52
+  await deps.mainSettings.put("defaults", value)
+  await deps.mainOverrides.delete("b")
+  await deps.mainActivity.put("b", value)
 }

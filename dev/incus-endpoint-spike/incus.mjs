@@ -1,5 +1,3 @@
-// Throw-away spike client for the Incus REST API: Unix socket or HTTPS with a client certificate.
-
 import { createHash, randomBytes } from "node:crypto"
 import { readFileSync } from "node:fs"
 import http from "node:http"
@@ -114,7 +112,6 @@ export async function waitOp(endpoint, envelope, timeout = 600) {
   return md
 }
 
-// Minimal RFC 6455 client over an HTTP upgrade.
 export function websocket(endpoint, path) {
   return new Promise((resolve, reject) => {
     const key = randomBytes(16).toString("base64")

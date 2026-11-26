@@ -11,14 +11,8 @@ export interface InitialSpecsDeps {
   readonly environment: Pick<EnvironmentKeeper, "current">
 }
 
-/** The spec a bot without one starts with, from what the registered environment can give it now. */
 export interface InitialSpecs {
-  /** What the environment accepts for the bot; the reason when it cannot be read. */
   capacity(botId: string): Promise<BotEnvironmentCapacityState>
-  /**
-   * `initialEnvironmentSpec` of the bot's capacity and `needs`.
-   * @throws when no environment is registered, its capacity cannot be read, or it cannot give what is needed.
-   */
   spec(botId: string, needs: readonly BotEnvironmentNeed[]): Promise<BotEnvironmentSpec>
 }
 

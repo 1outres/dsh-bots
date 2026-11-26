@@ -1,4 +1,3 @@
-/** At most `size` holders at a time; waiting for a slot follows an abort signal. */
 export interface Limiter {
   run<T>(task: () => Promise<T>, signal?: AbortSignal): Promise<T>
 }

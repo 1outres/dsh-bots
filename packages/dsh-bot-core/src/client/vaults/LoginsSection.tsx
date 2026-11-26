@@ -48,7 +48,6 @@ export interface LoginsSectionDeps {
 const ADD_PAGE = "add"
 const SHOWN_USES = 30
 
-/** A bot's logins: what it may fill, their uses and the incidents of the leak guard. */
 export function LoginsSection(props: SettingsSectionProps & LoginsSectionDeps) {
   const { t, bot, page } = props
   const feed = props.logins.feed(bot.id)

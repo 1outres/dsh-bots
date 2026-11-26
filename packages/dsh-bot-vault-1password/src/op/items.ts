@@ -2,14 +2,6 @@ import type { VaultItemField, VaultItemSummary } from "@1outres/dsh-bot-core"
 import type { JsonDocument, JsonNode } from "../json/reader"
 import { isOpId } from "./reference"
 
-/**
- * What the provider takes from op's JSON: names, ids, URLs and the
- * username, read field by field. A value of any other field (a password,
- * a one-time code's seed and current code, a password's history, a
- * reference) is never decoded.
- */
-
-/** The categories bots log in with (`op item list --categories` and `op item get`). */
 export const LOGIN_CATEGORIES = ["Login", "Password"] as const
 const ITEM_CATEGORIES = ["LOGIN", "PASSWORD"]
 
@@ -23,15 +15,12 @@ export interface OpVault {
   readonly name: string
 }
 
-/** An item as `op item list` shows it: no fields. */
 export interface OpListedItem {
   readonly vaultId: string
   readonly itemId: string
-  /** Changes whenever the item does. */
   readonly updatedAt: string
 }
 
-/** op's output was not what this provider reads; never quotes it. */
 export class OpOutputError extends Error {
   override readonly name = "OpOutputError"
 }
@@ -54,7 +43,6 @@ const opId = (doc: JsonDocument, node: JsonNode | undefined, key: string): strin
   return id
 }
 
-/** `op whoami`: a service account (its account URL and user id). */
 export function identityOf(doc: JsonDocument): OpIdentity {
   const root = doc.root
   if (!doc.isText(doc.member(root, "user_type"), "SERVICE_ACCOUNT")) {
@@ -71,7 +59,6 @@ export function identityOf(doc: JsonDocument): OpIdentity {
   return { subject: `${url}#${user}`, label: `1Password ${host}` }
 }
 
-/** `op vault list`. */
 export function vaultsOf(doc: JsonDocument): readonly OpVault[] {
   return doc.items(doc.root).map((vault) => ({
     id: opId(doc, vault, "id"),
@@ -79,7 +66,6 @@ export function vaultsOf(doc: JsonDocument): readonly OpVault[] {
   }))
 }
 
-/** `op item list --vault <id>`. */
 export function listedItemsOf(doc: JsonDocument): readonly OpListedItem[] {
   return doc.items(doc.root).map((item) => ({
     vaultId: opId(doc, doc.member(item, "vault"), "id"),
@@ -96,12 +82,6 @@ const fieldKindOf = (doc: JsonDocument, field: JsonNode): VaultItemField["kind"]
   return undefined
 }
 
-/**
- * `op item get <id> --vault <id>`: the item without values, or undefined
- * for a category bots do not log in with. Its first username, password
- * (the field whose purpose is PASSWORD, not other concealed ones) and
- * one-time password fields, each only when its id can be referenced.
- */
 export function itemOf(doc: JsonDocument): VaultItemSummary | undefined {
   const root = doc.root
   if (!ITEM_CATEGORIES.some((category) => doc.isText(doc.member(root, "category"), category))) {

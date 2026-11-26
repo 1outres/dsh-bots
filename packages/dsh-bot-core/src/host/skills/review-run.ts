@@ -1,25 +1,11 @@
-/**
- * One background skill review (docs/specs/bot-skills.md §6): a separate Agent
- * seeded with the reviewed session's completed turns, as DSH's fork backend
- * seeds a child (`dsh-subagent-fork-in-process`), on the same preset
- * revision and model, so its prompt and tool list are the session's and its
- * request reuses the session's cached prefix. It gets the review prompt once
- * and is disposed when that turn ends. It is no session of the bot's lists:
- * its header marks it a subagent of the reviewed session, and nothing of it
- * reaches the bot's channels.
- */
-
 import type { ReviewSessions } from "./review"
 import { REVIEW_PROMPT } from "./texts"
 
-/** The reviewed session's Agent, as far as a review reads it. */
 export interface ReviewSource {
   readonly id: string
   readonly session: {
     readonly header: { readonly cwd?: string; readonly agentPreset?: string }
-    /** Its whole log, contiguous from seq 0. */
     snapshotEvents(): readonly ReviewSeedEvent[]
-    /** The route of its latest model request. */
     requestHeader(): { readonly config: ReviewRoute } | undefined
   }
 }
@@ -35,7 +21,6 @@ export interface ReviewRoute {
   readonly reasoningEffort?: string
 }
 
-/** What creating the review Agent needs (dsh-agent `agents.create` with a fork seed). */
 export interface ReviewAgentRequest {
   readonly reviewId: string
   readonly parentSession: string
@@ -46,33 +31,25 @@ export interface ReviewAgentRequest {
 }
 
 export interface ReviewAgent {
-  /** Hand it the review prompt. */
   prompt(text: string, summary: string): void
   dispose(): Promise<void>
 }
 
 export interface ReviewRunnerDeps {
-  /** The reviewed session's live Agent. */
   source(sessionId: string): ReviewSource | undefined
-  /** The reviewed session's kind: only Main and Web sessions are reviewed. */
   kind(botId: string, sessionId: string): "main" | "web" | undefined
   reviews: Pick<ReviewSessions, "add">
   newId(): string
-  /** Create the review Agent; skill_manage is the only tool it may call. */
   create(request: ReviewAgentRequest): Promise<ReviewAgent>
   later(ms: number, work: () => void): () => void
-  /** Longest a review runs before it is stopped. */
   readonly limitMs: number
 }
 
 export interface ReviewRunner {
-  /** Review the session's conversation up to its last completed turn; resolves when the review is over. */
   run(botId: string, sessionId: string): Promise<void>
-  /** Follow the logs: a review's turn end ends it. */
   sessionEvent(sessionId: string, event: { readonly type: string }): void
 }
 
-/** The completed-turn prefix of a log: every event up to and including its last `turn/end`. */
 export function completedTurns(events: readonly ReviewSeedEvent[]): readonly ReviewSeedEvent[] {
   for (let index = events.length - 1; index >= 0; index -= 1) {
     const event = events[index] as ReviewSeedEvent

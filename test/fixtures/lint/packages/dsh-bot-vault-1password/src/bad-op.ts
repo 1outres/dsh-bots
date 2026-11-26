@@ -7,16 +7,16 @@ declare const buffer: Buffer
 declare const pattern: RegExp
 
 export function misuse() {
-  spawn("op", ["whoami"]) // rule: 68
-  execFile("op", ["read"]) // rule: 68
-  const token = process.env.OP_SERVICE_ACCOUNT_TOKEN // rule: 69
-  new TextDecoder().decode(bytes) // rule: 70
-  buffer.toString("utf8") // rule: 70
-  bytes.toString() // rule: 70
-  String.fromCharCode(...bytes) // rule: 70
-  void writeFile("/tmp/value", bytes) // rule: 71
-  fs.writeFileSync("/tmp/value", bytes) // rule: 71
-  fs.createWriteStream("/tmp/value") // rule: 71
+  spawn("op", ["whoami"])
+  execFile("op", ["read"])
+  const token = process.env.OP_SERVICE_ACCOUNT_TOKEN
+  new TextDecoder().decode(bytes)
+  buffer.toString("utf8")
+  bytes.toString()
+  String.fromCharCode(...bytes)
+  void writeFile("/tmp/value", bytes)
+  fs.writeFileSync("/tmp/value", bytes)
+  fs.createWriteStream("/tmp/value")
   pattern.exec("op")
   return [token, String(bytes.length), bytes.slice()]
 }

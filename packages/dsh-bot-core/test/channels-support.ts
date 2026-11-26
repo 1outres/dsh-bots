@@ -81,7 +81,6 @@ export const CAPABILITIES: BotChannelCapabilities = {
   commands: ["status", "stop"],
 }
 
-/** A channel that decides connector actions, its owners in the "users" field. */
 export const DECIDING: BotChannelCapabilities = { ...CAPABILITIES, connectorActions: true }
 
 export const SENDER: BotMessageSender = {
@@ -91,7 +90,6 @@ export const SENDER: BotMessageSender = {
   bot: false,
 }
 
-/** A direct message with text only, from {@link SENDER} unless told otherwise. */
 export function inboundMessage(
   text: string,
   overrides: Partial<BotInboundMessage> = {},
@@ -106,7 +104,6 @@ export function inboundMessage(
   }
 }
 
-/** A channel that records its links and outputs and lets the test close them. */
 export function recordingChannel(
   id = "chat",
   capabilities: BotChannelCapabilities = CAPABILITIES,
@@ -136,13 +133,11 @@ export function recordingChannel(
   return { channel: channel as unknown as BotChannel, links, closed, outputs }
 }
 
-/** Let queued promise callbacks run. */
 export async function settle(rounds = 10): Promise<void> {
   for (let index = 0; index < rounds; index += 1) await Promise.resolve()
   await new Promise((resolve) => setImmediate(resolve))
 }
 
-/** A Main feed over a real sequence and collection; files are delivered by `deliverFiles` (none by default). */
 export function mainFeed(
   deps: Pick<MainFeedDeps, "botOfMainSession" | "isSilent"> & {
     publish(botId: string, output: BotChannelOutput): void
@@ -160,7 +155,6 @@ export function mainFeed(
   })
 }
 
-/** Channel queries answering that nothing can be told (no channel plugin to ask). */
 export const idleQueries: ChannelQueries = {
   options: async () => ({ state: "unavailable", reason: { en: "Nothing to ask" } }),
   inspect: async () => ({ state: "ready", links: [], warnings: [] }),

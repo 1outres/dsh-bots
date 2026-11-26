@@ -6,7 +6,6 @@ import type {
   ConnectorJson,
 } from "../../shared/connectors"
 
-/** What happens to an action. Each applies to one state only; see {@link advance}. */
 export type ConnectorActionEvent =
   | { readonly kind: "approve"; readonly origin: ConnectorDecisionOrigin; readonly at: number }
   | { readonly kind: "reject"; readonly origin: ConnectorDecisionOrigin; readonly at: number }
@@ -95,7 +94,6 @@ function next(
   }
 }
 
-/** The action after `event`, or the state that does not take it. */
 export function advance(
   action: ConnectorAction,
   event: ConnectorActionEvent,
@@ -106,13 +104,11 @@ export function advance(
     : { ok: true, action: { ...action, status } }
 }
 
-/** Whether a person can still decide the action. */
 export function isOpen(action: ConnectorAction): boolean {
   const { state } = action.status
   return state === "pending" || state === "approved" || state === "executing"
 }
 
-/** When the action reached its terminal state, if it did. */
 export function finishedAt(action: ConnectorAction): number | undefined {
   const { status } = action
   switch (status.state) {
@@ -129,7 +125,6 @@ export function finishedAt(action: ConnectorAction): number | undefined {
   }
 }
 
-/** JSON with object keys sorted: equal arguments give equal text. */
 export function canonicalJson(value: ConnectorJson): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value)
   if (Array.isArray(value)) return `[${value.map((item) => canonicalJson(item)).join(",")}]`

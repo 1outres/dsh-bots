@@ -1,4 +1,3 @@
-/** Accounts (a bot's and the dsh-bots settings'): the account's letter, renaming in place and the add flow's buttons. */
 export const CONNECTIONS_CSS = `
 .dshb-account-letter {
   display: inline-flex;

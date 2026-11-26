@@ -1,8 +1,3 @@
-/**
- * The Main view's Host half (docs/specs/bot-main-view.md §2, §3): who wrote a
- * person's message, what of a Main's log the channels saw, and the timeline
- * across the bot's Mains, live and paged.
- */
 import { describe, expect, it } from "vitest"
 import { messageHeader } from "../src/host/channels/header"
 import type { LoggedEvent, SessionLog } from "../src/host/conversations/history"
@@ -80,7 +75,6 @@ describe("personTextOf", () => {
   })
 })
 
-/** A log under construction: every event gets the next seq and time. */
 function logBuilder() {
   const events: LoggedEvent[] = []
   let seq = 0

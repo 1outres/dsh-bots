@@ -1,6 +1,5 @@
 import type { VaultProviderStatus, VaultProviderStatusSource } from "@1outres/dsh-bot-core"
 
-/** The provider's status as state: read, watched, and set by the installer alone. */
 export interface StatusCell extends VaultProviderStatusSource {
   set(status: VaultProviderStatus): void
 }

@@ -1,8 +1,3 @@
-/**
- * What one run of a connector tool gets (`BotConnectorRun`): the bot, its
- * settings, its environment, the connector's resident resource and, for a
- * call, the caller's images.
- */
 import type {
   BotConnectorConnection,
   BotConnectorContext,
@@ -17,15 +12,12 @@ import type { CatalogConnector, CatalogTool } from "./catalog"
 import type { RunImages } from "./images"
 import type { ConnectorSettings } from "./settings"
 
-/** A run ready to go, with the images the caller may get back. */
 export interface PreparedRun {
   readonly run: BotConnectorRun<unknown>
   readonly images?: RunImages
-  /** End the run: every value its `vault` handed out is wiped. */
   release(): void
 }
 
-/** What a prepared run is for: a tool's `execute`, or the `snapshot` of an `ask` call (never given the vault). */
 export interface RunPurpose {
   readonly kind: "execute" | "snapshot"
   readonly callerSessionId?: string
@@ -38,23 +30,16 @@ export interface ConnectorRunsDeps {
   environment(botId: string): BotConnectorEnvironment
   attachments: Pick<ConnectorAttachments, "get">
   images(sessionId: string, signal: AbortSignal): RunImages
-  /** The account a run acts as. */
   connection(record: ConnectionRecord): BotConnectorConnection
-  /** The bot's logins, for a run of a tool that declares `vault`. */
   vault(context: VaultAccessContext): VaultRun
 }
 
 export interface ConnectorRuns {
-  /** The context of a connector hook for the bot, or undefined once the bot is gone. */
   context(
     botId: string,
     connector: CatalogConnector,
     signal: AbortSignal,
   ): BotConnectorContext | undefined
-  /**
-   * A run of one of the connector's tools; opens its resident resource first.
-   * @throws when the bot is gone or the resource cannot be opened.
-   */
   prepare(
     botId: string,
     entry: CatalogTool,

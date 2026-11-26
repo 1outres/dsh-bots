@@ -5,9 +5,7 @@ import type { AttachmentFact, OriginalFacts, Outgoing } from "./compose"
 import { readMessage } from "./message"
 import { buildMime, type MimeAttachment } from "./mime"
 
-/** Most bytes of every attachment of one message together. */
 export const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
-/** Most characters of a quoted or forwarded text. */
 export const MAX_ORIGINAL_TEXT = 100_000
 
 const TYPES: Readonly<Record<string, string>> = {
@@ -50,7 +48,6 @@ function within(attachments: readonly { readonly size: number }[]) {
   }
 }
 
-/** Read files of the bot's environment to attach. */
 export async function readFiles(
   environment: BotConnectorEnvironment,
   paths: readonly string[],
@@ -88,7 +85,6 @@ export async function downloadAttachment(
   return Buffer.from(response.data.data ?? "", "base64url")
 }
 
-/** Read the original of a reply or forward; its text only when it is needed. */
 export async function readOriginal(
   gmail: gmail_v1.Gmail,
   messageId: string,
@@ -114,7 +110,6 @@ export async function readOriginal(
   }
 }
 
-/** The original's attachments with their hashes, for a forward that carries them. */
 export async function forwardedAttachments(
   gmail: gmail_v1.Gmail,
   messageId: string,
@@ -139,10 +134,6 @@ export async function forwardedAttachments(
   return loaded
 }
 
-/**
- * The attachments' bytes now, checked against what the preview showed: a
- * file changed since then (or a forwarded attachment that differs) fails the send.
- */
 export async function loadApproved(
   facts: readonly AttachmentFact[],
   read: (fact: AttachmentFact) => Promise<Uint8Array>,
@@ -174,7 +165,6 @@ export function mimeOf(message: Outgoing, attachments: readonly MimeAttachment[]
   })
 }
 
-/** Send the MIME as is (an upload, so large attachments fit). */
 export async function sendMime(
   gmail: gmail_v1.Gmail,
   upload: { readonly rootUrl: string },
@@ -191,10 +181,6 @@ export async function sendMime(
   )
   return { id: response.data.id ?? "", threadId: response.data.threadId ?? "" }
 }
-/**
- * A forwarded attachment's bytes now: Gmail's attachment ids change between
- * reads, so it is found again by its place and name in the message.
- */
 export async function forwardedAttachment(
   gmail: gmail_v1.Gmail,
   messageId: string,

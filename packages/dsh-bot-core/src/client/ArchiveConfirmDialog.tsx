@@ -13,7 +13,6 @@ export interface ArchiveConfirmProps {
   readonly archive: Pick<SessionArchive, "confirming" | "stopAndArchive" | "settle">
 }
 
-/** Asks before a session with running work is stopped and archived, as Workspaces does. */
 export function ArchiveConfirmDialog({ t, archive }: ArchiveConfirmProps) {
   const request = useObservable(archive.confirming)
   if (request === null) return null
@@ -28,7 +27,6 @@ const FAMILIES: Readonly<Record<string, PluralKey>> = {
   schedule: "archive.confirm.schedules",
 }
 
-/** One family's line: its count and its items' labels (ids where a family has none). */
 export function activityLine(entry: SessionActivity, t: Translate): string {
   if (entry.kind === "turn") return t("archive.confirm.turn")
   const items = entry.items ?? []

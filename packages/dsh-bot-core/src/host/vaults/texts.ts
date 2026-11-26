@@ -6,7 +6,6 @@ export const CREDENTIALS_LIST_DESCRIPTION =
   "List the logins your owner lets you use: each one's handle, name, username (when shown), the sites it may be filled in, the fields you may use (username, password, otp, passkey) and whether desktop applications may get it. " +
   "Fill them with the connectors' credential tools, which take the handle; you never see a value."
 
-/** The prompt's paragraph for a bot with logins (docs/specs/bot-vaults.md §4). */
 export const VAULT_PROMPT =
   "## Logins\n" +
   "Your owner lets you use some logins (passwords, one-time codes, passkeys) kept in a password manager. " +
@@ -16,7 +15,6 @@ export const VAULT_PROMPT =
 
 const FIELD_ORDER = ["username", "password", "otp", "passkey"] as const
 
-/** The answer of `credentials_list`. */
 export function credentialsListAnswer(listed: readonly ListedCredential[]): {
   readonly text: string
   readonly data: unknown

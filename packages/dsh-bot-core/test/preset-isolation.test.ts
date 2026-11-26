@@ -4,23 +4,16 @@ import { BotIsolationError, createIsolation, type ToolEntry } from "../src/host/
 interface FakeAgent {
   id: string
   preset: string | undefined
-  /** The bot its session belongs to (by identity), or undefined. */
   bot: string | undefined
-  /** Why its session's bot cannot be verified (identity `unverified`). */
   unverified?: string
   parent?: FakeAgent
-  /** Tools of its preset: inherited, so restrictable; may shadow a global name. */
   presetTools: ToolEntry[]
-  /** Tools registered on its own scope: visible, never restrictable. */
   own: ToolEntry[]
-  /** Active deny lists. */
   masks: Set<readonly string[]>
-  /** Active call guards. */
   guards: Set<(tool: string) => string | undefined>
   inactive?: boolean
 }
 
-/** A fresh definition object, as dsh-tools returns them: only `name`, compared by identity. */
 const tool = (name: string): ToolEntry => ({ name })
 
 interface Options {
@@ -41,7 +34,6 @@ function setup(options: Options = {}) {
   let failRestrict = options.failRestrict === true
   let restricts = 0
   let onRestrict: () => void = () => {}
-  /** What the Agent sees, as dsh-tools derives it. */
   const visibleTools = (agent: FakeAgent): ToolEntry[] => {
     const hidden = new Set([...agent.masks].flat())
     const inherited = new Map(globals.map((entry) => [entry.name, entry]))
@@ -65,7 +57,6 @@ function setup(options: Options = {}) {
     restrict: (agent, deny) => {
       if (agent.inactive) throw Object.assign(new Error("inactive"), { code: "INACTIVE_EFFECT" })
       if (failRestrict) throw new Error("restrict failed")
-      // Like dsh-tools: only inherited (global and preset) names are restrictable.
       const known = new Set([...globals, ...agent.presetTools].map((entry) => entry.name))
       const unknown = deny.filter((name) => !known.has(name))
       if (unknown.length > 0) throw new Error(`names unknown global tools ${unknown.join(", ")}`)
@@ -105,7 +96,6 @@ function setup(options: Options = {}) {
   }
   const hidden = (agent: FakeAgent) => [...new Set([...agent.masks].flat())].sort()
   const visible = (agent: FakeAgent) => visibleTools(agent).map((entry) => entry.name)
-  /** Whether a call passes every guard on the Agent's scope. */
   const runs = (agent: FakeAgent, name: string) =>
     [...agent.guards].every((guard) => guard(name) === undefined)
   return {
@@ -154,7 +144,6 @@ describe("createIsolation: bot Agents", () => {
 
   it("does not mask or refuse a preset tool that shares a global tool's name", () => {
     const { isolation, agent, hidden, visible, runs } = setup({ hostTools: { a: [] } })
-    // The bot's own working_directory overrides the global one.
     const bot = agent("s1", "bot-a", "a", ["read", "working_directory"])
     isolation.created(bot)
     expect(hidden(bot)).toEqual(["ask", "team_task"])
@@ -262,7 +251,6 @@ describe("createIsolation: identity", () => {
   it("locks down a bot Agent an earlier bot-core pinned to a revision before environments", () => {
     const { isolation, agent, runs } = setup()
     const old = agent("s-old", "bot-a", "a")
-    // The record a pre-environment bot-core left on the Agent: its pin has no environment flag.
     isolation.created(old)
     const record = Reflect.get(old, Symbol.for("@1outres/dsh-bot-core/isolation")) as {
       pin?: { preset: string; revision: string; hostTools: ReadonlySet<string>; environment?: true }
@@ -275,7 +263,6 @@ describe("createIsolation: identity", () => {
       reason: expect.stringContaining("before bot environments"),
     })
     expect(runs(old, "read")).toBe(false)
-    // A fresh Agent on the current revision is a bot Agent.
     const fresh = agent("s-new", "bot-a", "a")
     isolation.created(fresh)
     expect(isolation.verdict(fresh)).toMatchObject({ kind: "bot" })
@@ -382,7 +369,6 @@ describe("createIsolation: life cycle", () => {
     isolation.dispose()
     globals.push(tool("late_tool"))
     expect(hidden(bot)).toEqual(["team_task", "working_directory"])
-    // A Host tool that appears while bot-core is gone is still refused.
     expect(runs(bot, "late_tool")).toBe(false)
     expect(runs(bot, "ask")).toBe(true)
   })
@@ -392,13 +378,11 @@ describe("createIsolation: life cycle", () => {
     const bot = first.agent("s1", "bot-a", "a")
     first.isolation.created(bot)
     first.isolation.dispose()
-    // A reload: a fresh isolation over the same live Agent.
     const second = setup({ hostTools: { a: ["ask", "working_directory"] } })
     second.agents.push(bot)
     second.isolation.resync()
     expect(bot.guards.size).toBe(1)
     expect(bot.masks.size).toBe(1)
-    // The pin made by the first load stays: the Agent's revision allowed only "ask".
     expect(second.hidden(bot)).toEqual(["team_task", "working_directory"])
   })
 

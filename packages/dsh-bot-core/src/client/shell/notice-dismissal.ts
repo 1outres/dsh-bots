@@ -1,6 +1,5 @@
 import { createStore, type Observable } from "../observable"
 
-/** A notice the user dismissed for the page's lifetime. */
 export interface NoticeDismissal extends Observable<boolean> {
   dismiss(): void
 }

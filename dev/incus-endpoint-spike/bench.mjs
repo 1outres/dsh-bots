@@ -1,5 +1,3 @@
-// Spike benchmark: dsh-ssh + dsh-fs-ssh + dsh-subprocess-ssh against one alias (as bot-vm composes them).
-// Usage: PATH=<dir with ssh wrapper>:$PATH node bench.mjs <alias> [concurrency]
 const M = "/home/loutres/src/dsh-bots/packages/dsh-bot-vm/node_modules/@deepseek-ai/"
 const { Context, Service } = await import(`${M}cordis/lib/index.mjs`).catch(
   () => import(`${M}cordis/lib/index.js`),

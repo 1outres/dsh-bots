@@ -2,28 +2,16 @@ import { compareVersions, type ReleaseNote } from "../../shared/release-notes"
 
 export interface ReleaseNotesKeeperDeps {
   readonly version: string
-  /** The newest version whose notes were seen, as stored. */
   seen(): string
-  /** Called after the stored onboarding state changed. */
   subscribe(listener: () => void): () => void
-  /** The notes due after `seen` up to {@link version}, newest first; rejects when they cannot be read. */
   fetch(seen: string, signal: AbortSignal): Promise<readonly ReleaseNote[]>
-  /** Store that every note up to {@link version} was seen: none was there to show. */
   record(version: string): Promise<void>
-  /** Run `work` after `ms`; the returned function cancels it. */
   later(work: () => void, ms: number): () => void
   readonly retry: { readonly firstMs: number; readonly maxMs: number }
   warn(message: string): void
 }
 
-/**
- * The release notes of the versions since the stored one, read from where
- * they are published while the stored version is behind: nothing is shown
- * or stored until they are read, and a failed read is retried with backoff.
- * Read notes are kept for the process; none due only records the version.
- */
 export interface ReleaseNotesKeeper {
-  /** The notes read so far (empty until read). */
   notes(): readonly ReleaseNote[]
   subscribe(listener: () => void): () => void
   dispose(): void

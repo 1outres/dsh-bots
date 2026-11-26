@@ -2,16 +2,12 @@ import type { BotWebTestResult } from "../../shared/web"
 import type { BotWebBackend } from "../../web-contract"
 
 export interface WebTesterDeps {
-  /** A signal that aborts after `ms`. */
   deadline(ms: number): AbortSignal
-  /** Default 15 s. */
   readonly timeoutMs?: number
 }
 
-/** One connection test at a time. */
 export interface WebTester {
   readonly busy: boolean
-  /** @throws only when a test is already running. */
   run(backend: BotWebBackend, secrets: Readonly<Record<string, string>>): Promise<BotWebTestResult>
 }
 

@@ -5,14 +5,12 @@ import type {
   MainTimelinePage,
 } from "../../shared/main-view"
 
-/** What is older than the items held: nothing, a cursor to read, a read running, or a failed one. */
 export type EarlierState =
   | { readonly kind: "none" }
   | { readonly kind: "more"; readonly cursor: MainTimelineCursor }
   | { readonly kind: "loading"; readonly cursor: MainTimelineCursor }
   | { readonly kind: "failed"; readonly cursor: MainTimelineCursor; readonly message: string }
 
-/** A bot's timeline as this page holds it; the items stay while it reconnects. */
 export type TimelineState =
   | { readonly status: "loading" }
   | {
@@ -35,7 +33,6 @@ const earlierOf = (cursor: MainTimelineCursor | undefined): EarlierState =>
 const sameCursor = (a: MainTimelineCursor, b: MainTimelineCursor) =>
   a.sessionId === b.sessionId && a.seq === b.seq
 
-/** A stream frame: `start` replaces what is held (a new stream may have missed items), `next` appends. */
 export function applyFrame(state: TimelineState, frame: MainTimelineFrame): TimelineState {
   if (frame.kind === "start" || state.status !== "ready") {
     return {
@@ -58,13 +55,11 @@ export function applyFrame(state: TimelineState, frame: MainTimelineFrame): Time
   }
 }
 
-/** The stream was lost: held items stay, marked as reconnecting. */
 export function streamLost(state: TimelineState, message: string | undefined): TimelineState {
   if (state.status === "ready") return { ...state, reconnecting: true, replying: false }
   return message === undefined ? state : { status: "failed", message }
 }
 
-/** The cursor an older page would be read from now, if one may be. */
 export function earlierCursor(state: TimelineState): MainTimelineCursor | undefined {
   if (state.status !== "ready") return undefined
   const { earlier } = state
@@ -76,7 +71,6 @@ export function pageLoading(state: TimelineState, cursor: MainTimelineCursor): T
   return { ...state, earlier: { kind: "loading", cursor } }
 }
 
-/** An older page, prepended unless the held items changed under it (a new stream started). */
 export function pageLoaded(
   state: TimelineState,
   cursor: MainTimelineCursor,

@@ -15,11 +15,9 @@ import {
 } from "./state"
 
 export interface TimelineModel extends FollowedModel<TimelineState> {
-  /** Read the next older page, unless one is being read or nothing is older. */
   loadEarlier(): void
 }
 
-/** One bot's timeline: its stream, reopened after a loss, and the older pages read on demand. */
 export function createTimelineModel(client: MainViewClient, botId: string): TimelineModel {
   const state = createStore<TimelineState>(LOADING_TIMELINE)
   let disposed = false
@@ -62,7 +60,6 @@ export interface TimelineFeed extends Observable<TimelineState> {
   loadEarlier(): void
 }
 
-/** Bots' timelines shared by everything that shows them: one stream per bot. */
 export interface TimelinesHub {
   feed(botId: string): TimelineFeed
 }

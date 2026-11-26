@@ -49,7 +49,6 @@ function failureOf(error: unknown, listing: boolean): DiscordLookupError {
 const missing = (error: unknown) =>
   error instanceof DiscordAPIError && typeof error.code === "number" && GONE.has(error.code)
 
-/** Serve {@link DiscordLookup} with discord.js's REST client and a bot token. */
 export function openDiscordJsLookup(
   token: string,
   rest = new REST({ version: "10" }),
@@ -193,5 +192,4 @@ export function openDiscordJsLookup(
   }
 }
 
-/** Open each lookup with discord.js's REST client. */
 export const discordJsLookups: OpenDiscordLookup = (token) => openDiscordJsLookup(token)

@@ -1,0 +1,125 @@
+{
+  "path": "packages/demo/src/suppressions.ts",
+  "diagnostics": [
+    {
+      "line": 3,
+      "column": 1,
+      "rule": 74,
+      "fixable": true
+    },
+    {
+      "line": 5,
+      "column": 1,
+      "rule": 74,
+      "fixable": true
+    },
+    {
+      "line": 7,
+      "column": 1,
+      "rule": 74,
+      "fixable": true
+    },
+    {
+      "line": 9,
+      "column": 1,
+      "rule": 74,
+      "fixable": true
+    },
+    {
+      "line": 11,
+      "column": 1,
+      "rule": 74,
+      "fixable": false
+    },
+    {
+      "line": 12,
+      "column": 1,
+      "rule": 74,
+      "fixable": false
+    },
+    {
+      "line": 13,
+      "column": 1,
+      "rule": 74,
+      "fixable": false
+    },
+    {
+      "line": 14,
+      "column": 1,
+      "rule": 74,
+      "fixable": false
+    },
+    {
+      "line": 15,
+      "column": 1,
+      "rule": 74,
+      "fixable": false
+    },
+    {
+      "line": 16,
+      "column": 1,
+      "rule": 74,
+      "fixable": false
+    },
+    {
+      "line": 17,
+      "column": 1,
+      "rule": 74,
+      "fixable": false
+    },
+    {
+      "line": 18,
+      "column": 1,
+      "rule": 74,
+      "fixable": false
+    },
+    {
+      "line": 19,
+      "column": 1,
+      "rule": 74,
+      "fixable": false
+    },
+    {
+      "line": 20,
+      "column": 1,
+      "rule": 74,
+      "fixable": false
+    },
+    {
+      "line": 21,
+      "column": 1,
+      "rule": 74,
+      "fixable": false
+    },
+    {
+      "line": 22,
+      "column": 1,
+      "rule": 74,
+      "fixable": false
+    },
+    {
+      "line": 23,
+      "column": 1,
+      "rule": 74,
+      "fixable": false
+    },
+    {
+      "line": 24,
+      "column": 1,
+      "rule": 74,
+      "fixable": false
+    },
+    {
+      "line": 25,
+      "column": 1,
+      "rule": 74,
+      "fixable": false
+    },
+    {
+      "line": 27,
+      "column": 1,
+      "rule": 73,
+      "fixable": true
+    }
+  ]
+}

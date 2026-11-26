@@ -8,17 +8,14 @@ import {
   environmentSpecProblems,
 } from "../../shared/environment"
 
-/** What each field of the VM page holds: CPUs as a count, memory and disk in GiB. */
 export type EnvironmentDraft = { readonly [Key in BotEnvironmentSpecKey]: string }
 
-/** How many MiB or GiB one unit a field shows is. */
 const PER_UNIT: { readonly [Key in BotEnvironmentSpecKey]: number } = {
   cpus: 1,
   memoryMiB: 1024,
   diskGiB: 1,
 }
 
-/** A key's value as its field shows it. */
 export function fieldText(key: BotEnvironmentSpecKey, value: number): string {
   return String(Math.round((value / PER_UNIT[key]) * 1000) / 1000)
 }
@@ -31,22 +28,16 @@ export function draftOf(spec: BotEnvironmentSpec): EnvironmentDraft {
 
 const NUMBER = /^\s*\d+(?:\.\d+)?\s*$/
 
-/** A field's text as the key's value, or undefined when it is not a number of whole units of the key. */
 export function parseField(key: BotEnvironmentSpecKey, text: string): number | undefined {
   if (!NUMBER.test(text)) return undefined
   const value = Number(text) * PER_UNIT[key]
   return Number.isSafeInteger(value) && value > 0 ? value : undefined
 }
 
-/** Where the draft stands against the stored spec. */
 export interface DraftCheck {
-  /** The whole spec the draft makes, when every field reads. */
   readonly spec?: BotEnvironmentSpec
-  /** Fields that do not read as a number. */
   readonly unreadable: readonly BotEnvironmentSpecKey[]
-  /** What the Host would refuse, per changed key. */
   readonly problems: readonly BotEnvironmentSpecProblem[]
-  /** Keys whose value differs from the stored one. */
   readonly changed: readonly BotEnvironmentSpecKey[]
 }
 
@@ -69,7 +60,6 @@ export function checkDraft(
   return { spec, unreadable, problems, changed }
 }
 
-/** The most an enabled connector needs of `key`, with those needing it. */
 export function neededOf(
   needs: readonly BotEnvironmentNeed[],
   key: BotEnvironmentSpecKey,

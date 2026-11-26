@@ -5,17 +5,14 @@ import type { TextDraft } from "./text-draft"
 
 export interface TextAreaProps {
   readonly draft: TextDraft
-  /** The field's accessible name (the row's label). */
   readonly label: string
   readonly placeholder?: string
   readonly rows?: number
-  /** Shown in an error (`danger`: an empty required list) or `warning` style (no owners) without an error of the draft's own. */
   readonly flag?: "danger" | "warning"
   readonly disabled?: boolean
   readonly marks?: DataMarks
 }
 
-/** A multi-line field over a `TextDraft` (a list, one item per line): leaving it saves, Escape drops the typed text. */
 export function TextArea(props: TextAreaProps) {
   const { draft, label, disabled, marks } = props
   const [focused, setFocused] = useState(false)

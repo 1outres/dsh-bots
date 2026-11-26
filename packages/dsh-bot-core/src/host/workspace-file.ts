@@ -3,12 +3,6 @@ import type { EnvironmentFileSystem } from "./files"
 
 const quote = (value: string) => JSON.stringify(value)
 
-/**
- * Read a regular file inside the bot's workspace through the environment's
- * own file system: relative paths start at the workspace, a final symlink is
- * never followed, and a path resolving outside the workspace is refused.
- * @throws an Error naming what is wrong with the path.
- */
 export async function readWorkspaceFile(
   fs: EnvironmentFileSystem,
   workspace: string,

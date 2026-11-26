@@ -21,14 +21,12 @@ import {
   WORKSPACE_FILES,
 } from "./texts"
 
-/** One section or context of bot-core's prompt: its name, order and text for an Agent. */
 export interface BotPromptPart {
   readonly name: string
   readonly order: number
   text(facts: BotPromptFacts): string
 }
 
-/** The variable the template's persona names the bot with. */
 export const BOT_NAME_VARIABLE = "bot_name"
 
 const SESSION_TEXT: Readonly<Record<BotSessionKind, string>> = {
@@ -40,10 +38,8 @@ const SESSION_TEXT: Readonly<Record<BotSessionKind, string>> = {
   curator: SESSION_CURATOR,
 }
 
-/** Sessions that work in the workspace for the owner: its files and notes apply. */
 const working = (session: BotSessionKind) => session !== "subagent" && session !== "curator"
 
-/** Sessions that talk with people: their messages and the bot's status apply. */
 const conversing = (session: BotSessionKind) => session === "main" || session === "web"
 
 function messages(channels: readonly BotPromptChannel[]): string {
@@ -53,11 +49,6 @@ function messages(channels: readonly BotPromptChannel[]): string {
   return [MESSAGES, ...hints].join("\n")
 }
 
-/**
- * The system prompt sections (docs/specs/bot-system-prompt.md §1). Each
- * text depends only on what is fixed for a session, so the system prompt
- * stays the same through it.
- */
 export const BOT_PROMPT_SECTIONS: readonly BotPromptPart[] = [
   { name: "bot:principles", order: 100, text: () => PRINCIPLES },
   { name: "bot:environment", order: 4000, text: () => ENVIRONMENT },
@@ -94,13 +85,11 @@ export const BOT_PROMPT_SECTIONS: readonly BotPromptPart[] = [
   },
 ]
 
-/** The runtime context of facts that change during a session (§3). */
 export const BOT_STATUS_CONTEXT: BotPromptPart = {
   name: "bot:status",
   order: 300,
   text: (facts) => (conversing(facts.session) ? renderStatus(facts.status) : ""),
 }
-/** The runtime context of how the Main session manages this session right now (docs/specs/bot-managed-sessions.md §9). */
 export const BOT_MANAGEMENT_CONTEXT: BotPromptPart = {
   name: "bot:management",
   order: 320,
@@ -113,20 +102,10 @@ export const BOT_MANAGEMENT_CONTEXT: BotPromptPart = {
         ].join("\n"),
 }
 
-/**
- * The runtime context of the bot's logins (docs/specs/bot-vaults.md §4): only
- * a bot with a login gets it, and one can be given or taken during a session,
- * so it is a context, never a section.
- */
 export const BOT_LOGINS_CONTEXT: BotPromptPart = {
   name: "bot:logins",
   order: 330,
   text: (facts) => (facts.logins ? VAULT_PROMPT : ""),
 }
 
-/**
- * The runtime context of the pinned notes (docs/specs/bot-notes.md §6),
- * registered by the notes row (src/plugins/notes.ts): its text changes as the
- * notes do, so it is a context, never a section.
- */
 export const PINNED_NOTES_CONTEXT = { name: "bot:pinned-notes", order: 310 } as const

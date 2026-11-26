@@ -26,7 +26,6 @@ describe("createSessionIdentity", () => {
     const { identity, agent } = setup()
     expect(identity(agent("s1", { agentPreset: "bot-x" }))).toEqual({ kind: "bot", botId: "x" })
     expect(identity(agent("w1", { agentPreset: "standard" }))).toEqual({ kind: "none" })
-    // A preset id of no bot of this bot-core.
     expect(identity(agent("z1", { agentPreset: "bot-z" }))).toEqual({ kind: "none" })
   })
 
@@ -36,7 +35,6 @@ describe("createSessionIdentity", () => {
     const child = agent("c1", { agentPreset: "bot-x", parentSession: "w1" })
     expect(identity(child)).toEqual({ kind: "none" })
     expect(botOfIdentity(identity(child))).toBeUndefined()
-    // Nor a grandchild under it.
     const grandchild = agent("g1", { agentPreset: "bot-x", parentSession: "c1" })
     expect(identity(grandchild)).toEqual({ kind: "none" })
   })
@@ -80,16 +78,13 @@ describe("createSessionIdentity", () => {
       reason: expect.stringContaining('bot "x"'),
     })
     expect(botOfIdentity(identity(orphan))).toBeUndefined()
-    // bot-core recorded it as the bot's: that record decides.
     expect(identity(agent("r1", { agentPreset: "bot-x", parentSession: "gone" }))).toEqual({
       kind: "bot",
       botId: "x",
     })
-    // A header naming no bot preset: no bot's (a bot preset is locked down by isolation).
     expect(identity(agent("c2", { agentPreset: "standard", parentSession: "gone" }))).toEqual({
       kind: "none",
     })
-    // Its own subagents stay unverified.
     expect(identity(agent("g1", { agentPreset: "bot-x", parentSession: "c1" }))).toMatchObject({
       kind: "unverified",
     })

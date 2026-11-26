@@ -12,7 +12,6 @@ export interface LifecycleSources {
   readonly notices: NoticeStore
 }
 
-/** The bot whose creation progress the main view shows; none at first. */
 export const createProgressView = (): Store<string | null> => createStore<string | null>(null)
 
 function react(
@@ -39,11 +38,6 @@ function react(
   }
 }
 
-/**
- * Follow pending bots: a notice when a creation completes or a creation or
- * removal fails, the main view on the new bot's Main when its progress was
- * shown, and the progress closed once the main view goes elsewhere.
- */
 export function wireLifecycle(ctx: ClientContext, sources: LifecycleSources): void {
   const { bots, binding, progress, notices } = sources
   ctx.effect(() => {

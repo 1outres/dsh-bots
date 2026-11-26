@@ -8,7 +8,6 @@ import { ChannelsError } from "./channels-model"
 import type { RemoteResult } from "./dsh/remote"
 import type { BotChannelsRemote, RemoteMount } from "./remote"
 
-/** What the Host's channels answer about settings; rejects with a {@link ChannelsError}. */
 export interface ChannelQueries {
   options(
     channelId: string,
@@ -28,7 +27,6 @@ export interface ChannelQueries {
   ): Promise<BotChannelCheck>
 }
 
-/** One channel's settings as its group asks about them. */
 export interface ChannelAsk {
   options(source: string, signal: AbortSignal): Promise<BotChannelOptions>
   inspect(signal: AbortSignal): Promise<BotChannelInspection>
@@ -76,7 +74,6 @@ export function createChannelQueries(mount: Promise<RemoteMount>): ChannelQuerie
   }
 }
 
-/** Questions about one channel's settings, as `settings` names them when asked. */
 export function askAbout(
   queries: ChannelQueries,
   channelId: string,

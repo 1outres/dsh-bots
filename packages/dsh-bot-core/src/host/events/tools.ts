@@ -1,8 +1,3 @@
-/**
- * bot-core's own tools of a connector: `<connector>_accounts` for one with
- * connections, `<connector>_events_list` / `_events_ack` for one whose
- * events a bot gets in a queue.
- */
 import type { ConnectorAccounts } from "../connections/accounts"
 import type { ConnectorCatalog } from "../connectors/catalog"
 import type { ConnectorToolReply } from "../connectors/texts"
@@ -15,16 +10,13 @@ export interface ConnectorOwnToolsDeps {
   catalog: Pick<ConnectorCatalog, "get">
   accounts: Pick<ConnectorAccounts, "list" | "resolve">
   store: Pick<EventStore, "unread" | "acknowledge">
-  /** How an account is named in the bot's text. */
   account(connectionId: string): string
   newNonce(): string
 }
 
 export interface ConnectorOwnTools {
   accounts(botId: string, connectorId: string): ConnectorToolReply
-  /** @throws when the arguments are not valid. */
   eventsList(botId: string, connectorId: string, args: unknown): ConnectorToolReply
-  /** @throws when the arguments are not valid. */
   eventsAck(botId: string, connectorId: string, args: unknown): Promise<ConnectorToolReply>
 }
 

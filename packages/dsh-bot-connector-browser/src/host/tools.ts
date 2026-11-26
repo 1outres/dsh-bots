@@ -1,9 +1,3 @@
-/**
- * Every offered Playwright MCP tool as a connector tool: its upstream JSON
- * Schema and description, its permission, readOnly from the server's
- * readOnlyHint (bot-core runs only those while a person operates the
- * desktop), one call at a time per bot, and long results (page snapshots).
- */
 import type {
   BotConnectorJsonArgs,
   BotConnectorResult,
@@ -19,11 +13,8 @@ import { resultOf } from "./result"
 import { toolSchema } from "./schema"
 import type { BrowserAttachment } from "./session"
 
-/** Snapshots of large pages run long; bot-core cuts what is beyond. */
 export const MAX_RESULT_CHARS = 128_000
-/** Playwright's own navigation timeout is 60 s, its actions' 5 s; wait_for may wait longer. */
 export const CALL_TIMEOUT_MS = 180_000
-/** The server does not queue calls; one page, one pointer. */
 export const EXCLUSIVE_PAGE = "page"
 
 const RECONNECTED =
@@ -39,7 +30,6 @@ export function previewOf(name: string, args: BotConnectorJsonArgs): ConnectorPr
   }
 }
 
-/** What the model should do about a failure of the server or its connection. */
 export function explain(error: unknown): Error {
   if (error instanceof McpUnavailableError || error instanceof McpProtocolError) {
     return new Error(
@@ -50,7 +40,6 @@ export function explain(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error))
 }
 
-/** The result, after a note when it is the first since the connection was opened again. */
 export function withReconnection(
   result: BotConnectorResult,
   connections: BrowserConnections,

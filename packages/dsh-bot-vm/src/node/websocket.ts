@@ -1,9 +1,3 @@
-/**
- * A minimal RFC 6455 websocket over an upgraded socket, as a {@link ByteChannel}:
- * every data frame's payload is bytes of one stream (message boundaries carry
- * no meaning for Incus' exec streams). Frames this side sends are masked when
- * it is the client.
- */
 import { createHash, randomFillSync } from "node:crypto"
 import type { Duplex } from "node:stream"
 import type { ByteChannel } from "../host/incus"
@@ -15,7 +9,6 @@ const OP_CLOSE = 0x8
 const OP_PING = 0x9
 const OP_PONG = 0xa
 const NORMAL_CLOSURE = 1000
-/** Unread bytes past which the socket is paused until the reader catches up. */
 const HIGH_WATER = 1024 * 1024
 const GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
@@ -49,7 +42,6 @@ function applyMask(payload: Uint8Array, mask: Uint8Array): Buffer {
   return out
 }
 
-/** One frame's header and payload; masked with a fresh key when `masked`. */
 export function encodeFrame(
   opcode: number,
   payload: Uint8Array,
@@ -68,7 +60,6 @@ export function encodeFrame(
   return [header, applyMask(payload, mask)]
 }
 
-/** Splits a byte stream into frames, unmasking as needed. */
 export class FrameDecoder {
   private buffer: Buffer = Buffer.alloc(0)
 
@@ -110,10 +101,6 @@ export class FrameDecoder {
   }
 }
 
-/**
- * The channel over an upgraded socket. `head` is what arrived with the
- * upgrade response. `masked`: this side is the client.
- */
 export function websocketChannel(socket: Duplex, head: Buffer, masked: boolean): ByteChannel {
   const decoder = new FrameDecoder()
   const queue: Buffer[] = []

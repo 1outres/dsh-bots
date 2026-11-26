@@ -2,14 +2,11 @@ import { useCallback, useEffect, useReducer, useRef } from "react"
 import type { CommitResult } from "./commit"
 import { usePendingEdit } from "./pending-edits"
 
-/** A single-line value typed in place: what is shown, and whether it waits for a save. */
 export interface DraftState {
   readonly text: string
-  /** The saved value the text was typed over. */
   readonly base: string
   readonly error: string | null
   readonly busy: boolean
-  /** A save succeeded; the text follows the next saved value however the owner stored it. */
   readonly settled: boolean
 }
 
@@ -30,7 +27,6 @@ export const initialDraft = (value: string): DraftState => ({
   settled: false,
 })
 
-/** Whether the text differs from the saved value and is not on its way to it. */
 export const isEditing = (state: DraftState): boolean => !state.settled && state.text !== state.base
 
 export function draftReducer(state: DraftState, action: DraftAction): DraftState {
@@ -56,26 +52,18 @@ export function draftReducer(state: DraftState, action: DraftAction): DraftState
 }
 
 export interface TextDraftOptions {
-  /** The saved value. */
   readonly value: string
-  /** What is wrong with `text`, in the user's language; `null` when it can be saved. */
   validate?(text: string): string | null
-  /** Save `text`; a failure keeps the text and shows the message. */
   commit(text: string): Promise<CommitResult>
 }
 
-/** A text field's draft, saved when committed (Enter or leaving the field). */
 export interface TextDraft {
   readonly text: string
-  /** The validation or save failure shown on the field. */
   readonly error: string | null
-  /** Typed text that is not saved: the surrounding settings screen asks before dropping it. */
   readonly editing: boolean
   readonly busy: boolean
   change(text: string): void
-  /** Save the text when it changed and is valid. */
   commit(): void
-  /** Drop the typed text. */
   reset(): void
 }
 

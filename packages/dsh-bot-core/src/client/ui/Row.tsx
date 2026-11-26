@@ -3,19 +3,12 @@ import { IconChevronRight, IconExternal, IconPlus } from "../icons"
 import type { DataMarks } from "./marks"
 
 export interface RowProps {
-  /** The row's name (14px primary). */
   readonly label: ReactNode
-  /** One line under the label: a value or a count, never a sentence. */
   readonly meta?: ReactNode
-  /** `danger` colours the meta (a field's error), `warning` a value that needs attention (no owners). */
   readonly metaTone?: "danger" | "warning"
-  /** Before the label: an icon or an avatar. */
   readonly leading?: ReactNode
-  /** At the right end: a status pill, controls. */
   readonly trailing?: ReactNode
-  /** What the row is about, as its tooltip and for screen readers; never shown as text. */
   readonly description?: string
-  /** `compact` rows are 40px (lists of tools). */
   readonly density?: "regular" | "compact"
   readonly marks?: DataMarks
 }
@@ -44,7 +37,6 @@ function rowAttributes(props: RowProps, kind: string) {
   }
 }
 
-/** A setting or a fact: label (and meta) at the left, its control at the right end. */
 export function Row(props: RowProps) {
   return (
     <div {...rowAttributes(props, "plain")}>
@@ -55,7 +47,6 @@ export function Row(props: RowProps) {
   )
 }
 
-/** A row whose control spans the width under its label (a textarea, a list). */
 export function BlockRow(props: RowProps & { readonly children: ReactNode }) {
   return (
     <div {...rowAttributes(props, "block")}>
@@ -73,11 +64,6 @@ export function BlockRow(props: RowProps & { readonly children: ReactNode }) {
   )
 }
 
-/**
- * A row that opens a detail page: the whole row is the button, ending in a
- * chevron; controls in `trailing` stay their own targets. With `expanded`
- * it discloses its details in place instead, its chevron turned down.
- */
 export function NavRow(props: RowProps & { onOpen(): void; readonly expanded?: boolean }) {
   return (
     <div {...rowAttributes(props, "open")} data-expanded={props.expanded === true ? "" : undefined}>
@@ -98,7 +84,6 @@ export function NavRow(props: RowProps & { onOpen(): void; readonly expanded?: b
   )
 }
 
-/** A row that opens a page outside DSH in a new tab (a setup guide), ending in ↗. */
 export function LinkRow(props: Omit<RowProps, "trailing"> & { readonly href: string }) {
   return (
     <a
@@ -116,7 +101,6 @@ export function LinkRow(props: Omit<RowProps, "trailing"> & { readonly href: str
   )
 }
 
-/** The dashed last row of a list that adds an item (+ Add account). */
 export function AddRow({
   label,
   onAdd,
@@ -142,10 +126,6 @@ export function AddRow({
   )
 }
 
-/**
- * A row that is one action (Delete bot…): the label is the button, `danger`
- * in red; no chevron, nothing at the right.
- */
 export function ButtonRow({
   label,
   onClick,

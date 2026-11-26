@@ -7,9 +7,9 @@ declare const deps: {
 }
 
 export async function write(id: string, record: unknown) {
-  await deps.connections.put(id, record) // rule: 48
-  await deps.grants.delete(id) // rule: 48
-  await deps.clients.put(id, record) // rule: 48
-  await deps.events.put(id, record) // rule: 49
-  await deps.cursors.delete(id) // rule: 49
+  await deps.connections.put(id, record)
+  await deps.grants.delete(id)
+  await deps.clients.put(id, record)
+  await deps.events.put(id, record)
+  await deps.cursors.delete(id)
 }

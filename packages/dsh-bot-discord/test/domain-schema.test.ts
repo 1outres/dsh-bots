@@ -2,10 +2,6 @@ import { describe, expect, it } from "vitest"
 import { z } from "zod"
 import { DISCORD_DOMAIN } from "../src/host/domain"
 
-/**
- * Records already stored must keep parsing: a changed snapshot needs either a
- * compatible change (a new optional field) or a version bump of the domain.
- */
 describe("DISCORD_DOMAIN", () => {
   it("keeps its stored shape unless its version goes up", async () => {
     const tables = Object.fromEntries(

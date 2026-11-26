@@ -20,11 +20,6 @@ function faceOf<Namespace extends RemoteNamespace>(
   return face as BotCoreRemote[Namespace]
 }
 
-/**
- * Mount bot-core's one Remote contribution and read every namespace's face
- * (design rule 8 allows the lookup only here). Never rejects: a failure is
- * logged and reported as `failed`, which is final.
- */
 export async function mountBotCoreRemote(ctx: ClientContext): Promise<RemoteMount> {
   try {
     await ctx.remote.$mount(BOT_CORE_REMOTE)
@@ -64,10 +59,6 @@ export interface BotsStore extends Observable<BotsState> {
 const BASE_DELAY_MS = 1000
 const MAX_DELAY_MS = 30_000
 
-/**
- * Wait `ms`, or less once the connection has a generation other than
- * `since`, the one the failed attempt ran on: the transport is back.
- */
 function pause(ms: number, generation: Observable<object | undefined>, since: object | undefined) {
   return new Promise<void>((resolve) => {
     const reconnected = () => {
@@ -93,12 +84,6 @@ function disconnected(state: BotsState, error: string | undefined): BotsState {
   return error === undefined ? { status: "unavailable" } : { status: "unavailable", error }
 }
 
-/**
- * Keep the bots list in sync through the mounted `remote.bots`, reconnecting
- * with backoff, or at once when the connection re-establishes its generation:
- * `reconnecting` keeps the last list, `unavailable` has none yet, `failed`
- * means the Remote could not be mounted.
- */
 export function watchBots(
   mount: Promise<RemoteMount>,
   generation: Observable<object | undefined>,

@@ -2,10 +2,8 @@ import type { Observable } from "../observable"
 import type { SettingsBadge, SettingsBadgeTone } from "../settings-frame/sections"
 import type { GlobalSettingsSection } from "./sections"
 
-/** The tones that call for the user: the Bots heading's ⚙ shows them. */
 const RANK: readonly SettingsBadgeTone[] = ["danger", "warning"]
 
-/** The worst of the sections' badges that calls for the user, or none. */
 export function worstBadge(badges: readonly (SettingsBadge | null)[]): SettingsBadge | null {
   for (const tone of RANK) {
     const found = badges.find((badge) => badge?.tone === tone)
@@ -14,10 +12,6 @@ export function worstBadge(badges: readonly (SettingsBadge | null)[]): SettingsB
   return null
 }
 
-/**
- * The dsh-bots settings' badges that call for the user, followed while
- * anything subscribes (each section's badge is subscribed meanwhile).
- */
 export function globalSettingsAttention(
   sections: Observable<readonly GlobalSettingsSection[]>,
 ): Observable<SettingsBadge | null> {

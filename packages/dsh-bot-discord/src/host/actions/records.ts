@@ -1,6 +1,5 @@
 import { type CardRecord, cardKey, type DigestRecord, digestKey } from "./domain"
 
-/** The slice of a storage-domain table the records use. */
 export interface RecordTable<V> {
   get(key: string): V | undefined
   entries(): Iterable<[string, V]>
@@ -13,11 +12,9 @@ export interface ApprovalTables {
   readonly digests: RecordTable<DigestRecord>
 }
 
-/** A record within one bot's records. */
 export type ApprovalCard = Omit<CardRecord, "botId">
 export type ApprovalDigest = Omit<DigestRecord, "botId">
 
-/** Where one bot's approval messages sit at its home: a card per action, and the list. */
 export interface ApprovalRecords {
   cards(): readonly ApprovalCard[]
   card(actionId: string): ApprovalCard | undefined
@@ -28,11 +25,6 @@ export interface ApprovalRecords {
   forgetDigest(): Promise<void>
 }
 
-/**
- * Keep, under their keys, the bot's records that sit at its home channel, and
- * forget the others: those of an earlier home, of another Discord bot, and
- * the version 2 records of approvers' DMs that are not the home.
- */
 export async function adoptApprovalRecords(
   tables: ApprovalTables,
   botId: string,
@@ -79,7 +71,6 @@ export function openApprovalRecords(tables: ApprovalTables, botId: string): Appr
   }
 }
 
-/** Forget the records of bots `keep` refuses (deleted bots). */
 export async function purgeApprovalRecords(
   tables: ApprovalTables,
   keep: (botId: string) => boolean,

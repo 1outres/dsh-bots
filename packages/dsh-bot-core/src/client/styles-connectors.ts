@@ -1,4 +1,3 @@
-/** A bot's Connectors settings: the tool list's sticky title and toolbar, and the preparation shown in a connector's page. */
 export const CONNECTORS_CSS = `
 [data-dshb-connector-tools] > .dshb-ui-group-head {
   position: sticky;

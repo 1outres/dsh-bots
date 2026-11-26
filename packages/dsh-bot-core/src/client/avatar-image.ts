@@ -1,16 +1,11 @@
 import { type BotAvatar, MAX_AVATAR_DATA_URL } from "../shared/bots"
 
-/** Image types an avatar can be made from; the browser decodes them all. */
 export const AVATAR_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"] as const
 export type AvatarImageType = (typeof AVATAR_IMAGE_TYPES)[number]
 
-/** Side, in pixels, an uploaded image is cropped and scaled to before it has to shrink to fit. */
 export const AVATAR_IMAGE_SIZE = 256
-/** Sides tried, largest first, when an encoding at the previous one is still too large. */
 export const AVATAR_IMAGE_SIZES = [AVATAR_IMAGE_SIZE, 192, 128, 96, 64] as const
-/** Lossy qualities tried at each side, best first. */
 export const AVATAR_IMAGE_QUALITIES = [0.92, 0.82, 0.72, 0.62, 0.52] as const
-/** Files above this are refused before decoding, so a huge photo cannot exhaust the page. */
 export const MAX_AVATAR_FILE_BYTES = 20 * 1024 * 1024
 
 export type AvatarEncoding = "image/png" | "image/webp" | "image/jpeg"
@@ -38,9 +33,7 @@ export class AvatarImageError extends Error {
 
 export interface AvatarImage {
   readonly avatar: BotAvatar
-  /** Side of the stored square. */
   readonly size: number
-  /** The source was an animated GIF; only its first frame is kept. */
   readonly animationDropped: boolean
 }
 
@@ -50,22 +43,16 @@ export interface SquareCrop {
   readonly side: number
 }
 
-/** The largest centered square of a `width` × `height` image. */
 export function centerSquare(width: number, height: number): SquareCrop {
   const side = Math.min(width, height)
   return { sx: (width - side) / 2, sy: (height - side) / 2, side }
 }
 
-/** Sides to render a `side`-pixel square at: never upscaled past the source. */
 export function targetSizes(side: number): number[] {
   const sizes = AVATAR_IMAGE_SIZES.filter((size) => size <= side)
   return sizes.length > 0 ? sizes : [Math.max(1, Math.floor(side))]
 }
 
-/**
- * Encodings to try, in order: per side, lossless PNG, then WebP at falling
- * quality, then JPEG for images without transparency (JPEG has no alpha).
- */
 export function encodeAttempts(sizes: readonly number[], opaque: boolean): EncodeAttempt[] {
   return sizes.flatMap((size) => [
     { size, type: "image/png" as const },
@@ -76,15 +63,10 @@ export function encodeAttempts(sizes: readonly number[], opaque: boolean): Encod
   ])
 }
 
-/** Whether a data URL carries `type`: a canvas answers an encoding it lacks with PNG. */
 export function dataUrlIs(dataUrl: string, type: AvatarEncoding): boolean {
   return dataUrl.startsWith(`data:${type};base64,`)
 }
 
-/**
- * The first attempt whose encoding exists and fits `limit` characters.
- * `encode` returns the canvas's data URL for an attempt.
- */
 export function fitEncoding(
   attempts: readonly EncodeAttempt[],
   encode: (attempt: EncodeAttempt) => string,
@@ -97,7 +79,6 @@ export function fitEncoding(
   return undefined
 }
 
-/** Whether every pixel of RGBA `data` is fully opaque. */
 export function isOpaque(data: ArrayLike<number>): boolean {
   for (let index = 3; index < data.length; index += 4) {
     if (data[index] !== 255) return false
@@ -108,7 +89,6 @@ export function isOpaque(data: ArrayLike<number>): boolean {
 const isAvatarImageType = (type: string): type is AvatarImageType =>
   (AVATAR_IMAGE_TYPES as readonly string[]).includes(type)
 
-/** Why a file cannot become an avatar before it is decoded, if it cannot. */
 export function checkAvatarFile(file: {
   readonly type: string
   readonly size: number
@@ -134,7 +114,6 @@ const skipSubBlocks = (bytes: Uint8Array, start: number): number => {
 const colorTableBytes = (packed: number): number =>
   packed & 0x80 ? 3 * 2 ** ((packed & 0x07) + 1) : 0
 
-/** Frames of a GIF, counted up to `stopAt`; 0 when the bytes are not a GIF. */
 export function gifFrameCount(bytes: Uint8Array, stopAt = 2): number {
   const signature = String.fromCharCode(...bytes.subarray(0, 6))
   if (signature !== "GIF87a" && signature !== "GIF89a") return 0
@@ -183,12 +162,6 @@ function squareCanvas(image: HTMLImageElement, crop: SquareCrop, size: number) {
   return { canvas, context }
 }
 
-/**
- * An image file as an avatar: cropped to its centered square, scaled down to
- * {@link AVATAR_IMAGE_SIZE} and re-encoded, smaller and lossier until it fits
- * {@link MAX_AVATAR_DATA_URL}. A GIF keeps its first frame.
- * @throws {AvatarImageError} naming why the file cannot be used.
- */
 export async function imageAvatar(file: File): Promise<AvatarImage> {
   const refused = checkAvatarFile(file)
   if (refused !== undefined) throw new AvatarImageError(refused)

@@ -1,7 +1,3 @@
-/**
- * Argument shapes several desktop tools share, and the checks the parameter
- * schema cannot express (bounds, one of two forms).
- */
 import { type AgentPoint, ELEMENT_ID } from "../agent/protocol"
 import { type FrameMemory, type Size, toScreen } from "../frame"
 
@@ -29,7 +25,6 @@ export function pointParameters<const P extends string>(prefix: P, what: string)
 
 export interface ResolvedPoint {
   readonly at: AgentPoint
-  /** The screen size the coordinates assume, when they came from a screenshot. */
   readonly screen?: Size
 }
 
@@ -38,7 +33,6 @@ export function elementId(value: string, name = "element"): string {
   return value
 }
 
-/** A point given as model coordinates of the latest screenshot or as an element. */
 export function resolvePoint(
   given: { readonly x?: number; readonly y?: number; readonly element?: string },
   frames: FrameMemory,
@@ -64,7 +58,6 @@ export function between(name: string, value: number, min: number, max: number): 
   return value
 }
 
-/** The screen expectation of the points that came from one screenshot. */
 export function expectation(...points: readonly ResolvedPoint[]): { expect_screen?: Size } {
   const screen = points.find((point) => point.screen !== undefined)?.screen
   return screen === undefined ? {} : { expect_screen: screen }

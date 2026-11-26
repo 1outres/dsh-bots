@@ -1,9 +1,3 @@
-/**
- * The MIME message the connector sends, built by hand (RFC 5322, 2045,
- * 2047, 2231): what the preview shows is what is sent, nothing is added.
- * Text is UTF-8 `text/plain` only, sent base64; attachments go in a
- * `multipart/mixed` whose boundary is derived from the content.
- */
 import { createHash } from "node:crypto"
 import type { Mailbox } from "./addresses"
 
@@ -38,7 +32,6 @@ function base64Lines(data: Uint8Array): string {
   return lines.join(CRLF)
 }
 
-/** RFC 2047 encoded words of at most 45 bytes each, never splitting a character. */
 function encodedWords(text: string): string {
   const words: string[] = []
   let chunk = ""
@@ -53,7 +46,6 @@ function encodedWords(text: string): string {
   return words.map((word) => `=?UTF-8?B?${Buffer.from(word).toString("base64")}?=`).join(`${CRLF} `)
 }
 
-/** Unstructured header text (Subject): as is when plain ASCII, else encoded. */
 export function headerText(text: string): string {
   return ASCII_TEXT.test(text) && text.length <= 900 ? text : encodedWords(text)
 }
@@ -73,7 +65,6 @@ function addressHeader(name: string, list: readonly Mailbox[]): string[] {
   return list.length === 0 ? [] : [`${name}: ${list.map(mailboxHeader).join(`,${CRLF} `)}`]
 }
 
-/** RFC 2231 parameter value of a file name. */
 function fileParameter(name: string, filename: string): string {
   if (ASCII_TEXT.test(filename) && !/["\\]/.test(filename)) return `${name}="${filename}"`
   return `${name}*=UTF-8''${encodeURIComponent(filename).replace(/['()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`)}`
@@ -100,7 +91,6 @@ function attachmentPart(attachment: MimeAttachment): string {
   ].join(CRLF)
 }
 
-/** The message as sent (CRLF line ends). */
 export function buildMime(message: MimeMessage): string {
   for (const id of [message.inReplyTo, ...(message.references ?? [])]) {
     if (id !== undefined && !MESSAGE_ID.test(id)) throw new Error(`"${id}" is not a Message-ID`)
@@ -133,7 +123,6 @@ export function buildMime(message: MimeMessage): string {
   ].join(CRLF)
 }
 
-/** base64url without padding, as Gmail's `raw` takes a message. */
 export function rawOf(mime: string): string {
   return Buffer.from(mime, "utf8").toString("base64url")
 }

@@ -2,7 +2,6 @@ const ACCENT = "var(--dsw-alias-state-business-primary)"
 const ACCENT_2 = "var(--dsw-alias-onboarding-accent, var(--dsw-alias-state-business-primary))"
 const EASE = "cubic-bezier(0.2, 0.8, 0.2, 1)"
 
-/** The welcome guide (a two-pane panel, a sheet on narrow screens) and the release notes dialog. */
 export const ONBOARDING_CSS = `
 .dshb-onboard-root {
   pointer-events: auto;

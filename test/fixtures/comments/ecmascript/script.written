@@ -1,0 +1,4 @@
+#!/usr/bin/env node
+const half = 10 / 2 / 1
+const slashes = "a/b".replace(/\//g, "")
+console.log(half, slashes, `${half}`)

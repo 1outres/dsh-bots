@@ -8,7 +8,6 @@ import { createStore, type Observable } from "../observable"
 import type { BotWebRemote, RemoteMount } from "../remote"
 import type { RemoteResult, StreamHandle } from "../types"
 
-/** Why the web lookup settings cannot be read or changed. */
 export type WebLookupFailure =
   | { readonly kind: "mount"; readonly message: string }
   | { readonly kind: "connection"; readonly message: string }
@@ -27,11 +26,6 @@ export type WebLookupState =
   | { readonly status: "ready"; readonly view: BotWebView }
   | { readonly status: "failed"; readonly failure: WebLookupFailure }
 
-/**
- * The web lookup settings of every bot, streamed while anything subscribes
- * (the section and the badges share one stream). Every change rejects with a
- * {@link WebLookupError}.
- */
 export interface WebLookupFeed extends Observable<WebLookupState> {
   setEnabled(capability: BotWebCapability, enabled: boolean): Promise<BotWebView>
   setSecret(key: string, change: BotWebSecretChange): Promise<BotWebView>

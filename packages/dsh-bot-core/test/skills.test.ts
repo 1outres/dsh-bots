@@ -189,7 +189,6 @@ describe("skill_manage", () => {
       }),
     ).toBe("Patched skills/s/SKILL.md (version v2).")
     expect(file("skills/s/SKILL.md")).toContain("1. Do it.")
-    // The Agent's own write counts as read; an edit made with bash does not.
     fs.put(`${WORKSPACE}/skills/s/SKILL.md`, skillMd("s", "d", "Edited by bash."))
     await expect(
       manage("web", {

@@ -30,11 +30,6 @@ export interface AgentCall {
 
 type Answer = (params: never) => unknown
 
-/**
- * An agent answering from a table; each answer goes through the real response
- * checks. A secret handed with a call is read into `secrets` (as the agent
- * would receive it) and wiped.
- */
 export function fakeAgent(
   answers: Partial<Record<AgentMethod | SecretAgentMethod, Answer | Error>>,
 ) {
@@ -154,7 +149,6 @@ export async function execute(
 
 export const WHERE = { active_window: null, focus: null }
 
-/** A recording environment: every exec answered by \`answer\`, files kept. */
 export function recordingEnvironment(
   answer: (
     command: BotEnvironmentCommand,

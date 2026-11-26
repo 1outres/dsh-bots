@@ -12,13 +12,11 @@ import {
 } from "./domain"
 
 export interface MainStoreDeps {
-  /** The tables of MAINS_DOMAIN; only the store writes them (design rule 50). */
   mainSettings: BotTable<StoredMainSettings>
   mainOverrides: BotTable<StoredMainOverride>
   mainActivity: BotTable<MainActivityRecord>
 }
 
-/** The activity of a bot's Main, read for one session: a record of another session reads as fresh. */
 export interface MainActivity {
   readonly firstTurnAt?: number
   readonly lastTurnAt?: number
@@ -28,31 +26,21 @@ export interface MainActivity {
 
 export const FRESH_ACTIVITY: MainActivity = { compactions: 0 }
 
-/** Settings and Main activity of every bot, as stored. Writes are serialized. */
 export interface MainStore {
   defaults(): MainRotationSettings
   setDefaults(settings: MainRotationSettings): Promise<MainRotationSettings>
   override(botId: string): MainRotationOverride
-  /** An empty override is deleted. */
   setOverride(botId: string, override: MainRotationOverride): Promise<void>
   activity(botId: string, sessionId: string): MainActivity
-  /** Change the activity of `sessionId` (a fresh one when the record describes another session). */
   updateActivity(
     botId: string,
     sessionId: string,
     change: (current: MainActivity) => MainActivity,
   ): Promise<void>
-  /** Drop the overrides and activity of bots `keep` refuses. */
   purge(keep: (botId: string) => boolean): Promise<void>
-  /** Called with the bot id after its override or activity changed, or with undefined after the defaults did. */
   subscribe(listener: (botId: string | undefined) => void): () => void
 }
 
-/**
- * Opens the store; a first start stores {@link DEFAULT_MAIN_ROTATION}, defaults
- * stored before a setting existed get its default value, and only stored values
- * are read after that.
- */
 export async function openMainStore(deps: MainStoreDeps): Promise<MainStore> {
   const stored = deps.mainSettings.get(MAIN_DEFAULTS_KEY)
   if (stored === undefined) {

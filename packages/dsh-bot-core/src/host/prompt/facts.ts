@@ -10,23 +10,16 @@ import type { BotWebStatus } from "../../shared/web"
 import { type KindAgent, type SessionKindDeps, sessionKindOf } from "./session-kind"
 
 export interface PromptFactsDeps<A extends KindAgent> {
-  /** Whether `token` is the token of a revision of the bot's preset registered during this load. */
   sealed(botId: string, token: string): boolean
   agent(agentId: string): A | undefined
-  /** The bot the Agent's session verifiably belongs to (host/preset/identity.ts). */
   botOf(agent: A): string | undefined
   kind: SessionKindDeps
-  /** How the Main session manages the session now, if it does. */
   management(botId: string, sessionId: string): BotManagementFacts | undefined
-  /** The stored bot's name, or undefined when it is not stored. */
   botName(botId: string): string | undefined
-  /** Every registered channel, with its formatting line. */
   channels(): readonly BotPromptChannel[]
-  /** The bot's channels its settings turn on, with their status and owners. */
   channelStatus(botId: string): readonly BotStatusChannel[]
   connectors(botId: string): readonly BotConnectorView[]
   web(): BotWebStatus
-  /** Whether the bot has a login (docs/specs/bot-vaults.md §4). */
   logins(botId: string): boolean
 }
 
@@ -37,7 +30,6 @@ function connectorOf(view: BotConnectorView): BotStatusConnector {
   return { name: view.connector.name, readiness: view.readiness, accounts }
 }
 
-/** What bot-core's prompt row says to each Agent of a bot (src/plugins/prompt.ts). */
 export function createPromptFacts<A extends KindAgent>(deps: PromptFactsDeps<A>) {
   return (botId: string, token: string, agentId: string): BotPromptFacts => {
     if (!deps.sealed(botId, token)) {

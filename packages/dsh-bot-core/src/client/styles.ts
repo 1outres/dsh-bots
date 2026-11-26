@@ -20,7 +20,6 @@ import { VM_HOST_CSS } from "./styles-vm-host"
 import { WEB_CSS } from "./styles-web"
 import { UI_CSS } from "./ui/styles"
 
-/** Every stylesheet of the browser half, injected once. */
 export const BOTS_CSS =
   UI_CSS +
   ROWS_CSS +

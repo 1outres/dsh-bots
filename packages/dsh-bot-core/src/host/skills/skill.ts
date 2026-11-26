@@ -1,19 +1,10 @@
-/**
- * The form of a bot's skill (docs/specs/bot-skills.md §2): a directory
- * `skills/<name>/` with `SKILL.md` (frontmatter `name` and `description`,
- * then the instructions) and supporting files only under references/,
- * templates/, scripts/ and assets/. Everything here is pure.
- */
-
 export const SKILLS_DIRECTORY = "skills"
 export const ARCHIVE_DIRECTORY = ".archive"
 export const SKILL_FILE = "SKILL.md"
 export const SUPPORT_DIRECTORIES = ["references", "templates", "scripts", "assets"] as const
 
 export const MAX_NAME_LENGTH = 64
-/** The catalog shows at most this much of a description (dsh-tool-skill's default cap). */
 export const MAX_DESCRIPTION_LENGTH = 500
-/** What a description should stay within; a longer one is saved with a warning. */
 export const DESCRIPTION_TARGET_BYTES = 160
 export const MAX_FILE_BYTES = 64 * 1024
 export const MAX_SKILL_BYTES = 512 * 1024
@@ -32,14 +23,12 @@ export interface SkillHeader {
 }
 
 export interface ParsedSkill extends SkillHeader {
-  /** The instructions after the frontmatter. */
   readonly body: string
 }
 
 const encoder = new TextEncoder()
 export const byteLength = (text: string): number => encoder.encode(text).length
 
-/** Why `name` cannot name a skill, or undefined. */
 export function nameProblem(name: string): string | undefined {
   if (name.length === 0) return "the name is empty"
   if (name.length > MAX_NAME_LENGTH) return `the name is longer than ${MAX_NAME_LENGTH} characters`
@@ -72,13 +61,8 @@ function scalar(raw: string): Checked<string> {
   return { ok: true, value }
 }
 
-/** `text` with LF line ends. */
 export const normalized = (text: string): string => text.replaceAll("\r\n", "\n")
 
-/**
- * Read SKILL.md: frontmatter of exactly `name` and `description` (one line
- * each), then a non-empty body.
- */
 export function parseSkill(source: string): Checked<ParsedSkill> {
   const text = normalized(source)
   if (!text.startsWith("---\n"))
@@ -126,7 +110,6 @@ export function parseSkill(source: string): Checked<ParsedSkill> {
   return { ok: true, value: { name, description, body } }
 }
 
-/** The warning a valid description earns, or undefined. */
 export function descriptionWarning(description: string): string | undefined {
   const bytes = byteLength(description)
   return bytes > DESCRIPTION_TARGET_BYTES
@@ -134,7 +117,6 @@ export function descriptionWarning(description: string): string | undefined {
     : undefined
 }
 
-/** Why `path` (relative to the skill's directory) cannot hold a supporting file, or undefined. */
 export function supportPathProblem(path: string): string | undefined {
   if (path === SKILL_FILE) return `${SKILL_FILE} is not a supporting file`
   if (path.includes("\\")) return "use / to separate the parts of a path"
@@ -152,7 +134,6 @@ export function supportPathProblem(path: string): string | undefined {
   return undefined
 }
 
-/** Why a skill's files as a whole cannot be kept, or undefined. */
 export function sizeProblem(
   files: readonly { readonly path: string; readonly text: string }[],
 ): string | undefined {
@@ -168,11 +149,9 @@ export function sizeProblem(
     : undefined
 }
 
-/** The directory of an active or an archived skill, relative to the workspace. */
 export const skillDirectory = (name: string, archived: boolean): string =>
   archived ? `${SKILLS_DIRECTORY}/${ARCHIVE_DIRECTORY}/${name}` : `${SKILLS_DIRECTORY}/${name}`
 
-/** The same files (paths and texts), whatever their order. */
 export function sameFiles(
   left: readonly { readonly path: string; readonly text: string }[],
   right: readonly { readonly path: string; readonly text: string }[],

@@ -23,14 +23,11 @@ import { DiscardConfirm, StepConfirm } from "./confirmations"
 import type { FrameControls, FrameTarget } from "./flow"
 import type { FrameSection, FrameSectionProps, SettingsBadge } from "./sections"
 
-/** Who or what the screen is about, on its one header line. */
 export interface FrameHeading {
-  /** Drawn before the title (a bot's 24px avatar), `null` for none. */
   readonly leading: ReactNode
   readonly title: string
 }
 
-/** What the screen's body shows: the open section, or a message while no section is registered. */
 export type FrameView<Props extends FrameSectionProps, Subject> =
   | { readonly kind: "section"; readonly section: FrameSection<Props, Subject> }
   | { readonly kind: "empty"; readonly message: ReactNode }
@@ -43,28 +40,15 @@ export interface SettingsFrameProps<Props extends FrameSectionProps, Subject> {
   readonly sections: readonly FrameSection<Props, Subject>[]
   readonly view: FrameView<Props, Subject>
   readonly subject: Subject
-  /** Another settings screen is open over this one: it stays as it is, out of reach. */
   readonly covered: boolean
-  /** Draws the open section's component with the props its screen adds to `base`. */
   renderSection(section: FrameSection<Props, Subject>, base: FrameSectionProps): ReactNode
-  /** Selectors of the elements focus returns to on closing when the opener is gone, in order of preference. */
   returnFocusTo(): readonly string[]
-  /** Data attributes that name the screen's dialog. */
   readonly marks: DataMarks
 }
 
-/** The nav shows only the statuses that call for the user. */
 const callsForUser = (badge: SettingsBadge | null | undefined): badge is SettingsBadge =>
   badge !== null && badge !== undefined && (badge.tone === "warning" || badge.tone === "danger")
 
-/**
- * A settings screen as a large popover over the app ({@link OverlayFrame}), in
- * the frame-wide `shell.overlay` layer: a one-line header, the sections' nav and the open
- * section's page (a sheet with the nav as its first page on a compact
- * window). Escape leaves a detail page, then the section (compact), then the
- * screen; × and the mask close it. Mount it once per opened screen (`key` it
- * by the screen).
- */
 export function SettingsFrame<Props extends FrameSectionProps, Subject>(
   props: SettingsFrameProps<Props, Subject>,
 ) {
@@ -208,12 +192,10 @@ export function SettingsFrame<Props extends FrameSectionProps, Subject>(
 
 interface PageViewProps {
   readonly detail: string | null
-  /** The back row over a detail page; `null` where the header's back button leaves the detail (compact). */
   readonly back: { readonly label: string; onBack(): void } | null
   readonly children: ReactNode
 }
 
-/** A section's page: scrolled to its top and focused at its start whenever a detail opens or closes. */
 function FramePageView({ detail, back, children }: PageViewProps) {
   const ref = useRef<HTMLDivElement>(null)
   const shown = useRef(detail)
@@ -243,7 +225,6 @@ interface NavProps<Props extends FrameSectionProps, Subject> {
   onSelect(section: FrameSection<Props, Subject>): void
 }
 
-/** The sections as a vertical tab list: ↑/↓/Home/End move focus, Enter or Space opens a section. */
 function SectionNav<Props extends FrameSectionProps, Subject>(
   props: NavProps<Props, Subject> & {
     tabId(section: FrameSection<Props, Subject>): string
@@ -299,7 +280,6 @@ function SectionNav<Props extends FrameSectionProps, Subject>(
   )
 }
 
-/** On a compact screen, the first page: one row per section. */
 function CompactNav<Props extends FrameSectionProps, Subject>(props: NavProps<Props, Subject>) {
   const { t, subject, sections, current, onSelect } = props
   return (

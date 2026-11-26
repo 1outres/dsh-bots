@@ -1,10 +1,3 @@
-/**
- * The relay of src/host/guest-transport.ts: a Unix socket in the DSH process.
- * Each connection names an instance; the relay asks `open` for the command's
- * streams (`sshd -i` in that instance) and carries the bytes both ways. The
- * proxy's end of file is the command's; the command's stdout ending ends the
- * connection.
- */
 import { chmod, mkdir, rm } from "node:fs/promises"
 import { connect, createServer, type Server, type Socket } from "node:net"
 import { dirname } from "node:path"
@@ -14,10 +7,8 @@ import { readLine } from "./line"
 
 export interface GuestRelayOptions {
   readonly socket: string
-  /** The streams of the guest's sshd for this instance; rejects when it may not be reached. */
   open(instance: string, signal: AbortSignal): Promise<ExecSession>
   readonly log: (message: string) => void
-  /** How long a new connection may take to name its instance. */
   readonly requestTimeoutMs: number
 }
 
@@ -45,7 +36,6 @@ async function relay(connection: Socket, session: ExecSession, log: (message: st
   await Promise.allSettled([toGuest, fromGuest, diagnostics])
 }
 
-/** Listen on `options.socket`; a stale socket file of an earlier process is replaced. */
 export async function startGuestRelay(options: GuestRelayOptions): Promise<GuestRelay> {
   const lifetime = new AbortController()
   const connections = new Set<Socket>()

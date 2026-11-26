@@ -1,4 +1,3 @@
-/** The notes panel's content, in the shell's side panel frame (styles-shell.ts); the note body reuses the file viewer's Markdown look. */
 export const NOTES_CSS = `
 .dshb-notes-body {
   flex: 1 1 auto;

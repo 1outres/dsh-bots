@@ -8,7 +8,6 @@ import {
 
 type Call = { method: string; path: string; body?: unknown }
 
-/** A channel that records what is written and yields `incoming`. */
 export function memoryChannel(incoming: readonly string[] = []) {
   const written: string[] = []
   let ended = false

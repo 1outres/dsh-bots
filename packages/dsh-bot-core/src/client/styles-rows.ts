@@ -1,4 +1,3 @@
-/** Bots section and row styles. Only theme tokens are shared with the host stylesheet. */
 export const ROWS_CSS = `
 .dshb-stack {
   flex: 1 1 auto;

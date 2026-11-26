@@ -42,7 +42,6 @@ type Props = GlobalSettingsSectionProps & VmHostSectionDeps
 
 const messageOf = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause))
 
-/** Where the bots' VMs run: this machine or a paired VM host, its check, isolation and base image. */
 export function VmHostSection(props: Props) {
   const { t, host } = props
   const state = useObservable(host)
@@ -152,7 +151,6 @@ function VmHostBody(props: Props & { readonly view: EnvironmentHostSettingsView 
   )
 }
 
-/** What belongs to the VM host in use: its check, isolation, left VM hosts and base image. */
 function PlacedGroups(
   props: Props & {
     readonly view: EnvironmentHostSettingsView
@@ -252,7 +250,6 @@ function PlacementRows(props: Props & { readonly placement: EnvironmentHostPlace
   }
 }
 
-/** The project field; a change not confirmed puts the field back. */
 function ProjectRow(props: {
   readonly t: Translate
   readonly value: string

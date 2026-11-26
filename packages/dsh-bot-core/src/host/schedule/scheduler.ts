@@ -1,8 +1,3 @@
-/**
- * When jobs are due: one timer for the earliest armed job. A due job's latest
- * occurrence runs once (missed ones collapse into it, an expired `at` runs
- * once), and its next occurrence is stored before the run starts.
- */
 import type { ScheduleJob } from "./domain"
 import { isArmed } from "./jobs"
 import type { ScheduleStore } from "./store"
@@ -10,17 +5,14 @@ import { decideDue } from "./timing"
 
 export interface SchedulerDeps {
   store: ScheduleStore
-  /** Start a run of the job for its occurrence; not awaited. */
   start(job: ScheduleJob, scheduledAt: number): void
   now(): number
   later(ms: number, work: () => void): () => void
-  /** Longest delay one timer may take; a later job is looked at again then. */
   readonly maxDelayMs: number
   warn(message: string): void
 }
 
 export interface Scheduler {
-  /** Re-arm after jobs changed. */
   sync(): void
   dispose(): void
 }

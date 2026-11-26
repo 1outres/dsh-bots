@@ -1,12 +1,9 @@
 import { type KeyboardEvent, type PointerEvent, useRef } from "react"
 import { separatorKeyWidth, type WidthBounds } from "./panel-width"
 
-/** The vertical separator on the panel's left edge: drag, or ←/→, Home and End with the keyboard. */
 export function ResizeHandle(props: {
-  /** The separator's accessible name. */
   label: string
   width: number
-  /** Undefined until the shell is measured. */
   bounds: WidthBounds | undefined
   onResize(width: number): void
 }) {
@@ -33,7 +30,7 @@ export function ResizeHandle(props: {
     onResize(next)
   }
   return (
-    // biome-ignore lint/a11y/useSemanticElements: a focusable splitter is a separator with a value (WAI-ARIA window splitter)
+    // biome-ignore lint/a11y/useSemanticElements: -
     <div
       className="dshb-files-resize"
       role="separator"

@@ -3,7 +3,6 @@ import { join } from "node:path"
 
 export const SCOPE = "@1outres"
 
-/** Every packages/<dir>/package.json, as { path, manifest }. */
 export function workspaceManifests(root) {
   return readdirSync(join(root, "packages"), { withFileTypes: true })
     .filter((entry) => entry.isDirectory())

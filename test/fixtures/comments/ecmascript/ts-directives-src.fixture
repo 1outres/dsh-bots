@@ -1,0 +1,9 @@
+// @ts-nocheck
+// @ts-expect-error
+export const a: number = "a"
+// @ts-ignore
+export const b: number = "b"
+/* @ts-ignore */
+export const c: number = "c"
+// @ts-ignore: with a reason
+export const d: number = "d"

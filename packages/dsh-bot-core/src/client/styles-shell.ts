@@ -1,9 +1,3 @@
-/**
- * The bot session shell (shell/). Up to the width handles, a copy of DSH's
- * ConversationRoot.module.css (upstream.ts) restated on the content Factory's
- * stable data attributes, each inside :where() so DSH's composer-overlay
- * rules still win; then bot-core's own parts.
- */
 export const SHELL_CSS = `
 .dshb-shell {
   position: relative;

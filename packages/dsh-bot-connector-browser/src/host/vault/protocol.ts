@@ -1,12 +1,3 @@
-/**
- * What the browser's login helpers in the bot's VM (vm/helper/) and the
- * Host say to each other over the helper's standard input and output
- * (docs/specs/bot-vaults.md §8). Every line is JSON; the only secret is
- * the raw bytes that follow a line announcing their `length`. A helper
- * answers with closed codes only, never with text of its own.
- */
-
-/** Why a helper stopped; each has a fixed explanation for the model. */
 export type HelperFailure =
   | "devtools"
   | "not-found"
@@ -21,7 +12,6 @@ export type HelperFailure =
   | "protocol"
   | "failed"
 
-/** Why an offered passkey went away. */
 export type PasskeyEnd = "used" | "expired" | "navigated" | "closed" | "released"
 
 export type HelperReply =
@@ -32,25 +22,21 @@ export type HelperReply =
   | { readonly kind: "cancelled" }
   | { readonly kind: "error"; readonly code: HelperFailure }
 
-/** The first line to the fill helper. */
 export interface FillRequest {
   readonly devtools: string
   readonly mark: string
   readonly field: "username" | "password" | "otp"
 }
 
-/** The line before the value's bytes. */
 export interface FillOrder {
   readonly fill: { readonly origin: string; readonly submit: boolean; readonly length: number }
 }
 
-/** The first line to the passkey helper. */
 export interface PasskeyRequest {
   readonly devtools: string
   readonly mark: string
 }
 
-/** The line before the private key's bytes (PKCS#8 DER). */
 export interface PasskeyOrder {
   readonly passkey: {
     readonly origin: string
@@ -97,7 +83,6 @@ const oneKey = (value: Record<string, unknown>) => {
   return keys[0] as string
 }
 
-/** One line of a helper, checked (the VM is the bot's: untrusted). */
 export function parseReply(value: unknown): HelperReply {
   if (!isRecord(value)) throw new HelperProtocolError("a line that is not an object")
   const key = oneKey(value)

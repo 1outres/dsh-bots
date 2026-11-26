@@ -30,11 +30,6 @@ import {
 const OTHER = "other"
 const messageOf = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause))
 
-/**
- * Pairing with a VM host (docs/specs/incus-endpoint.md §4): the token is read
- * first, so its server certificate can be compared with the VM host's before
- * anything is sent; then the address and project, and Pair.
- */
 export function PairingGroup(props: {
   readonly t: Translate
   readonly host: VmHostClient

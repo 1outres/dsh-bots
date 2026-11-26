@@ -1,22 +1,11 @@
-/**
- * Newline-delimited JSON-RPC 2.0 over a byte stream (`socat` to the agent's
- * Unix socket in the bot's VM). Replies are matched by id; a line longer
- * than the limit, or a stream that ends, fails every open call.
- *
- * A request that carries a secret (docs/specs/bot-vaults.md §6) has it in its
- * own `secret` member, base64: the line is assembled as bytes around the
- * value, never as a JS string, and wiped once written.
- */
 import type { BotEnvironmentProcess, SecretBytes, VaultKit } from "@1outres/dsh-bot-core"
 import { type Check, integer, json, matching, nullable, object, text } from "./check"
 
 export interface RpcDeps {
-  /** A signal that aborts after `ms`. */
   deadline(ms: number): AbortSignal
 }
 
 export interface RpcClientDeps extends RpcDeps {
-  /** Byte encodings for a request that carries a secret (`Bot.vaultKit()`). */
   readonly vaultKit: VaultKit
 }
 
@@ -27,18 +16,15 @@ export interface RpcCall {
 
 export interface RpcClient {
   call(method: string, params: object, options: RpcCall): Promise<unknown>
-  /** A call whose request also carries the secret; the secret is wiped in every case. */
   callSecret(
     method: string,
     params: object,
     secret: SecretBytes,
     options: RpcCall,
   ): Promise<unknown>
-  /** Settles once the stream ended; every later call fails. */
   readonly closed: Promise<void>
 }
 
-/** An error the agent answered with (its code and message). */
 export class AgentCallError extends Error {
   constructor(
     readonly code: string,

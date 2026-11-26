@@ -1,4 +1,3 @@
-/** The Skills section: usage beside each skill, and versions and their changes in the code face. */
 export const SKILLS_CSS = `
 .dshb-skills-usage { color: var(--dsw-alias-label-tertiary); font-size: 12px; white-space: nowrap; }
 .dshb-skills-diff {

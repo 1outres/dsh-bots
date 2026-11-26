@@ -2,7 +2,6 @@ import type { SidebarSurface } from "../dsh/sidebar-right"
 import type { MessageKey } from "../i18n"
 import { BOT_FILE_TAB_KIND } from "./file-tab"
 
-/** DSH's tab kinds the sweep treats specially (ui-sidebar-right seed.ts, ui-sidebar-files, ui-sidebar-browser, ui-plan). */
 export const GUIDE_KIND = "guide"
 export const FILES_KIND = "files"
 export const BROWSER_KIND = "browser"
@@ -17,19 +16,14 @@ export type SweepAction =
   | { readonly kind: "refused"; readonly tabId: string; readonly tabKind: string }
 
 export interface SweepPlan {
-  /** In tab order; routed before anything closes, since closing ends a tab's navigation record. */
   readonly actions: readonly SweepAction[]
-  /** Every tab but the guide, which DSH never closes while it stands alone. */
   readonly close: readonly string[]
   readonly collapse: boolean
 }
 
-/** What a sweep remembers between two layouts of one session. */
 export interface SweepMemory {
   readonly seen: ReadonlySet<string>
-  /** Tabs of the layout restored when the seat mounted: closed, never opened. */
   readonly restored: ReadonlySet<string>
-  /** Whether the last layout was expanded: a toggle is a change to expanded. */
   readonly expanded: boolean
 }
 
@@ -55,12 +49,6 @@ function actionOf(tab: { readonly id: string; readonly kind: string }): SweepAct
   }
 }
 
-/**
- * What to do with a bot session's DSH layout after a change. A tab not seen
- * before is routed unless the layout restored at mount held it; an expansion
- * that brought nothing but the default page is the toggle, and a layout that
- * stays expanded toggles nothing, so nothing flaps.
- */
 export function planSweep(
   surface: SidebarSurface | undefined,
   memory: SweepMemory,
@@ -92,7 +80,6 @@ const REFUSAL_KEYS: Readonly<Record<string, MessageKey>> = {
   scheduleTask: "notice.refused.schedule",
 }
 
-/** The notice for a tab of `kind` refused in a bot session; uncommon kinds share the generic one. */
 export function refusalKey(kind: string): MessageKey {
   return REFUSAL_KEYS[kind] ?? "notice.refused"
 }

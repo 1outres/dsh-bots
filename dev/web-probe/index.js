@@ -1,14 +1,3 @@
-// Verification only (spike for docs/specs/bot-web.md): never built, published or bundled.
-// One package, two roles. role "host" sits in the Host composition; role "group" sits inside an
-// isolated cordis:group of an Agent preset, next to a second @deepseek-ai/dsh-web.
-// The host role serves a fake Exa API on 127.0.0.1:<mockPort> and runs triggers:
-// JSON files dropped in <dir>/trigger/*.json, results appended to <dir>/results.log.
-//   {"op":"state"}                                   identities, provider lists, settings namespaces
-//   {"op":"setcred","ref":"NAME","value":"..."}      ctx.credentials.set
-//   {"op":"search","target":"host|group","query":"..."}
-//   {"op":"fetch","target":"host|group","url":"..."}
-//   {"op":"tool","name":"web_search|web_fetch","args":{...}}   the group's tool-web definition, executed directly
-
 import { appendFileSync, mkdirSync, readdirSync, readFileSync, renameSync } from "node:fs"
 import http from "node:http"
 import { join } from "node:path"

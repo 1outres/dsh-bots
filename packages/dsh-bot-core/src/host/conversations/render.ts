@@ -1,8 +1,3 @@
-/**
- * How found conversations read (docs/specs/bot-session-search.md §3, §4):
- * each conversation under a heading with its kind, title, span and session id,
- * each message under a line with its number, time and speaker, cut to size.
- */
 import { counted } from "../plural"
 import { spokenLines } from "../spoken-messages"
 import type { Conversation, ConversationMessage } from "./history"
@@ -10,7 +5,6 @@ import type { ConversationMatch, SearchOutcome } from "./search"
 import type { ConversationKind } from "./sources"
 import { RECORD_NOTE } from "./texts"
 
-/** Bounds of what one result shows, in code points. */
 export const RESULT_BOUNDS = {
   match: 400,
   beforeMatch: 120,
@@ -32,7 +26,6 @@ const LATER = { one: "later message", other: "later messages" } as const
 
 const ELLIPSIS = "…"
 
-/** At most `max` code points of `text` from `from`, marking what was cut. */
 function window(text: string, from: number, max: number): string {
   const points = [...text]
   const start = Math.max(0, Math.min(from, points.length - max))
@@ -46,7 +39,6 @@ function window(text: string, from: number, max: number): string {
 
 export const clipped = (text: string, max: number) => window(text, 0, max)
 
-/** "YYYY-MM-DD HH:MM" in the time zone. */
 export function formatTime(at: number, timezone: string): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: timezone,

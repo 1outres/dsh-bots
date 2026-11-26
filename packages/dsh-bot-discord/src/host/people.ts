@@ -2,7 +2,6 @@ import type { BotChannelConnectionState, BotChannelPerson } from "@1outres/dsh-b
 import type { DiscordLookup } from "./discord"
 import type { DiscordHome } from "./home"
 
-/** The owners by the names they go by at the home: their server nickname in channel mode. */
 export async function ownerNames(
   lookup: DiscordLookup,
   home: DiscordHome,
@@ -20,10 +19,6 @@ export async function ownerNames(
   return people
 }
 
-/**
- * The connection's state as reported, with the owners' names once they are
- * known: a connected state reported before them is reported again with them.
- */
 export function createPresence(report: (state: BotChannelConnectionState) => void) {
   let state: BotChannelConnectionState = { state: "connecting" }
   let people: Readonly<Record<string, BotChannelPerson>> | undefined

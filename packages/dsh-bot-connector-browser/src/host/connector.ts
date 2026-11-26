@@ -1,9 +1,3 @@
-/**
- * The browser connector (docs/specs/bot-connectors.md, 9 and 15): the
- * desktop's Google Chrome in the bot's environment, driven by Playwright
- * MCP there over DevTools, for every session of the bot. It requires the
- * desktop: the browser is the one on the screen a person watches.
- */
 import type { BotConnector, VaultKit } from "@1outres/dsh-bot-core"
 import { BROWSER_CONNECTOR_ID, DESKTOP_CONNECTOR_ID } from "../shared/connector"
 import { type GeneratedServer, offeredTools } from "./catalog"
@@ -14,14 +8,12 @@ import { type BrowserAttachment, browserAttachment } from "./session"
 import { browserTools } from "./tools"
 import { vaultTools } from "./vault/tools"
 
-/** The least memory for Chrome's pages beside Playwright MCP's Node process. */
 export const BROWSER_MIN_MEMORY_MIB = 3072
 
 export interface BrowserConnectorDeps extends McpClientDeps {
   readonly generated: GeneratedServer
   readonly installation: BrowserInstallation
   readonly kit: VaultKit
-  /** A new one-time mark for a login's target (32 lower-case hex digits). */
   mark(): string
 }
 

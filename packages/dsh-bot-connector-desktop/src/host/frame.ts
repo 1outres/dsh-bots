@@ -1,8 +1,3 @@
-/**
- * The latest screenshot as the model saw it: which part of the screen it
- * shows (in screen pixels) and the size the model got. A model coordinate
- * refers to it; nothing else maps model coordinates to the screen.
- */
 export type Size = {
   readonly width: number
   readonly height: number
@@ -19,11 +14,8 @@ export type Point = {
 }
 
 export type ScreenFrame = {
-  /** The screen's size when it was taken. */
   readonly screen: Size
-  /** The part of the screen it shows. */
   readonly region: Rect
-  /** The size the model sees. */
   readonly model: Size
 }
 
@@ -38,7 +30,6 @@ export class ScreenshotRequiredError extends Error {
   }
 }
 
-/** A model coordinate of the frame, as a screen pixel. @throws outside the frame. */
 export function toScreen(frame: ScreenFrame, point: Point): Point {
   if (point.x < 0 || point.y < 0 || point.x >= frame.model.width || point.y >= frame.model.height) {
     throw new Error(
@@ -51,7 +42,6 @@ export function toScreen(frame: ScreenFrame, point: Point): Point {
   }
 }
 
-/** A screen pixel as a model coordinate of the frame, if the frame shows it. */
 export function toModel(frame: ScreenFrame, point: Point): Point | undefined {
   const x = point.x - frame.region.x
   const y = point.y - frame.region.y
@@ -62,7 +52,6 @@ export function toModel(frame: ScreenFrame, point: Point): Point | undefined {
   }
 }
 
-/** A rectangle of model coordinates as screen pixels (for a zoomed screenshot). */
 export function regionToScreen(frame: ScreenFrame, region: Rect): Rect {
   const start = toScreen(frame, region)
   const end = toScreen(frame, {
@@ -72,7 +61,6 @@ export function regionToScreen(frame: ScreenFrame, region: Rect): Rect {
   return { x: start.x, y: start.y, width: end.x - start.x + 1, height: end.y - start.y + 1 }
 }
 
-/** The latest frame of one desktop connection. */
 export class FrameMemory {
   private latest: ScreenFrame | undefined
 
@@ -88,7 +76,6 @@ export class FrameMemory {
     return this.latest
   }
 
-  /** @throws ScreenshotRequiredError when there is none. */
   require(): ScreenFrame {
     if (this.latest === undefined)
       throw new ScreenshotRequiredError("no screenshot was taken on this connection")

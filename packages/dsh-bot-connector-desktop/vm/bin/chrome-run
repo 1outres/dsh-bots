@@ -1,6 +1,4 @@
 #!/bin/sh
-# The desktop's one Google Chrome: its own profile (Chrome refuses remote debugging on the default one),
-# DevTools on 127.0.0.1:9222 for the browser connector, the page content on AT-SPI.
 exec /opt/google/chrome/google-chrome --user-data-dir="$HOME/.local/share/dsh-desktop/chrome" \
   --remote-debugging-port=9222 --force-renderer-accessibility --no-first-run --no-default-browser-check \
   --password-store=basic --disable-features=Translate "$@"

@@ -1,15 +1,3 @@
-/**
- * `@1outres/dsh-bot-core/connectors`: bot-core's own row inside every bot's
- * isolated `bot-environment` group (compose.ts puts it after the channel
- * row; templates and overlays cannot name it). It registers the bot's
- * connector tools, the set the `bot` service hands it (tools of connectors
- * enabled for the bot whose permission is not `disallow`), each shown only
- * to the Agents the service lets use it (its connector's sessions), and
- * updates them whenever that set changes. A call goes to the `bot` service
- * (src/internal.ts) with the revision's token, which applies the bot's
- * permission before the connector's tool runs. Images of a result are
- * stored attachments, shown to the model as image blocks.
- */
 import type { Context } from "@deepseek-ai/cordis"
 import {
   type JsonSchemaNode,
@@ -30,7 +18,6 @@ import {
 
 export interface Config {
   botId: string
-  /** The preset revision's token (compose.ts); bot-core refuses calls of other revisions. */
   token: string
 }
 

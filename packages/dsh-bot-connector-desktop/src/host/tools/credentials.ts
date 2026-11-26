@@ -1,10 +1,3 @@
-/**
- * Typing the bot's logins into desktop applications (docs/specs/bot-vaults.md §9).
- * The agent chooses and checks the field first, bot-core then checks and
- * hands over the value, and the agent types it only if that field still has
- * the focus. The value goes from bot-core to the agent as bytes and never
- * into a result.
- */
 import type { BotConnectorToolDefinition, BotVaultAccess } from "@1outres/dsh-bot-core"
 import { TYPED_FIELDS } from "../agent/protocol"
 import type { DesktopSession } from "../session"

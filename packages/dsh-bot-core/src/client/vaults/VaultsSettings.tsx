@@ -29,7 +29,6 @@ export interface VaultsSettingsDeps {
   readonly text: ResolveText
 }
 
-/** The dsh-bots settings of password managers: each provider's state and its connected accounts. */
 export function VaultsSettings(props: GlobalSettingsSectionProps & VaultsSettingsDeps) {
   const { t, vaults } = props
   const state = useObservable(vaults)

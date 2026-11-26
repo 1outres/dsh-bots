@@ -4,12 +4,6 @@ import { describe, expect, it } from "vitest"
 import { CORE_PACKAGE, channelIdProblems, coreDependencyProblems } from "./support/channels"
 import { pluginDirectoryNames } from "./support/packages"
 
-/**
- * Design rules that span files or packages (18, 19), checked on every plugin
- * package and, so the checks themselves are known to work, on fixtures under
- * test/fixtures/structure.
- */
-
 const root = fileURLToPath(new URL("..", import.meta.url))
 const fixtures = join(root, "test", "fixtures", "structure", "packages")
 const channels = pluginDirectoryNames(root).filter((name) => `@1outres/${name}` !== CORE_PACKAGE)

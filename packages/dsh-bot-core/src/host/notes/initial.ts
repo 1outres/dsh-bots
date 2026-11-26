@@ -1,8 +1,3 @@
-/**
- * The pinned notes every bot starts with (docs/specs/bot-notes.md §6): Owner
- * and Now, placed once per bot, whatever language it has; the bot renames and
- * rewrites them. A note of that title already there is kept.
- */
 import type { InitialNotesVersion } from "../domain"
 import type { Note } from "./note"
 import type { NotesPlace } from "./notebook"
@@ -38,9 +33,7 @@ export const NOW_NOTE: Note = {
 export const INITIAL_NOTES: readonly Note[] = [OWNER_NOTE, NOW_NOTE]
 
 export interface InitialNotesDeps {
-  /** The registered revision's notes place of the bot, or undefined. */
   placeOf(botId: string): NotesPlace | undefined
-  /** Runs `work` with the bot's notes, one operation at a time. */
   withNotes<T>(botId: string, work: (state: BotNotesState) => Promise<T>): Promise<T>
   newId(): string
   readonly version: InitialNotesVersion
@@ -49,11 +42,6 @@ export interface InitialNotesDeps {
 }
 
 export interface InitialNotes {
-  /**
-   * Place the bot's initial notes unless they were placed before. Concurrent
-   * calls for a bot share one attempt.
-   * @throws when the environment cannot be reached or a note cannot be written.
-   */
   ensure(botId: string, signal: AbortSignal): Promise<void>
 }
 

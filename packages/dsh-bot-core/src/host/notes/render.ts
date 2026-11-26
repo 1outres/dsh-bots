@@ -1,9 +1,7 @@
-/** How notes read in tool results and notices (docs/specs/bot-notes.md §4, §5). */
 import type { NoteCatalog } from "./catalog"
 import { MISSING_NOTE } from "./links"
 import type { Suggestion } from "./matching"
 
-/** `Title (type — summary)`, or `Title (type)` for a note without a summary. */
 export function describeNote(catalog: NoteCatalog, id: string): string {
   const note = catalog.note(id)
   if (note === undefined) return MISSING_NOTE
@@ -38,7 +36,6 @@ export function suggestionsText(
     : [SUGGESTIONS_LEAD, ...suggestions.map((s) => suggestionLine(catalog, s))]
 }
 
-/** What note_read shows (§4). */
 export function renderNote(catalog: NoteCatalog, id: string): string {
   const note = catalog.note(id)
   if (note === undefined) throw new Error(`note ${id} is not in the catalog`)
@@ -70,7 +67,6 @@ export function renderNote(catalog: NoteCatalog, id: string): string {
   ].join("\n")
 }
 
-/** Files of the notes directory the catalog could not read, for a result's end. */
 export function invalidText(catalog: NoteCatalog): readonly string[] {
   return catalog.invalid.length === 0
     ? []

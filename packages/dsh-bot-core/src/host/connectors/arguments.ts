@@ -6,20 +6,13 @@ import {
 } from "@deepseek-ai/dsh-tools"
 import type { BotConnectorToolDefinition } from "../../connector-contract"
 
-/** Checks a call's arguments against a tool's schema, as dsh-tools validates a tool call. */
 export type ArgumentsCheck = (args: unknown) => readonly string[]
 
-/** A tool's arguments schema as the model sees it, and its check. */
 export interface CompiledArguments {
   readonly schema: JsonSchemaNode
   readonly check: ArgumentsCheck
 }
 
-/**
- * Compile a tool's `parameters` (dsh-tools' schema) or `inputSchema` (JSON
- * Schema) with dsh-tools' own compiler.
- * @throws when it has neither or both, or the schema is not one dsh-tools supports.
- */
 export function compileArguments(tool: BotConnectorToolDefinition<unknown>): CompiledArguments {
   const { parameters, inputSchema } = tool
   if ((parameters === undefined) === (inputSchema === undefined)) {

@@ -3,33 +3,20 @@ import { ONBOARDING_STATE_KEY, type OnboardingRecord } from "./domain"
 import { initialRecord, type PriorInstallation } from "./initial"
 
 export interface OnboardingStoreDeps {
-  /** The state table of ONBOARDING_DOMAIN; only the store writes it (design rule 57). */
   readonly onboardingState: BotTable<OnboardingRecord>
-  /** Read only when nothing is stored yet. */
   prior(): PriorInstallation
   readonly version: string
   now(): number
 }
 
-/** The stored onboarding state. Changes run one at a time. */
 export interface OnboardingStore {
   current(): OnboardingRecord
-  /**
-   * Run `work` alone among the store's changes and store the record it
-   * resolves with (nothing is written when it is the current one). A
-   * rejection stores nothing and rejects the change.
-   */
   change(
     work: (current: OnboardingRecord) => OnboardingRecord | Promise<OnboardingRecord>,
   ): Promise<OnboardingRecord>
-  /** Called after every stored change. */
   subscribe(listener: () => void): () => void
 }
 
-/**
- * Opens the store: a first start stores the record {@link initialRecord}
- * decides; only stored records are read after that.
- */
 export async function openOnboardingStore(deps: OnboardingStoreDeps): Promise<OnboardingStore> {
   const { onboardingState } = deps
   const stored = onboardingState.get(ONBOARDING_STATE_KEY)

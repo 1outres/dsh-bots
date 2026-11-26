@@ -1,9 +1,3 @@
-/**
- * The state of one bot session's notes screen, apart from React: what it
- * shows (the list or the calendar, the search, the type, the month, and the
- * notes opened from there) and the queries that show it, run again whenever
- * the bot's notes change (the status's revision).
- */
 import type { NoteDocument, NoteListing, NoteMonth, NoteType } from "../../shared/notes"
 import type { Timers } from "../files/search-model"
 import { createStore, type Observable } from "../observable"
@@ -14,12 +8,9 @@ export type NotesTab = "list" | "calendar"
 
 export interface NotesNavigation {
   readonly tab: NotesTab
-  /** The search as typed. */
   readonly query: string
   readonly type: NoteType | undefined
-  /** The calendar's month, `YYYY-MM`; undefined for today's in the bot's time zone. */
   readonly month: string | undefined
-  /** The notes opened, the last one shown; empty shows the tab. */
   readonly trail: readonly string[]
 }
 
@@ -43,18 +34,13 @@ export interface NotesModel {
   setQuery(query: string): void
   setType(type: NoteType | undefined): void
   showMonth(month: string | undefined): void
-  /** Show a note, after the one shown. */
   open(noteId: string): void
-  /** Back to the note before, or from the first note to the tab. */
   back(): void
-  /** Read the notes again for what is shown. */
   refresh(): void
-  /** Follow the notes and run the queries while the screen shows; returns the detach. */
   attach(): () => void
   dispose(): void
 }
 
-/** The search a query runs: blank lists the notes. */
 const queryKey = (term: string, type: NoteType | undefined) => JSON.stringify([term.trim(), type])
 
 export function createNotesModel(
@@ -63,7 +49,6 @@ export function createNotesModel(
   timers: Timers,
 ): NotesModel {
   const navigation = createStore<NotesNavigation>(INITIAL)
-  /** The search after the typing paused. */
   const term = createStore("")
   let pending: unknown
   const status = client.status(sessionId)
@@ -81,7 +66,6 @@ export function createNotesModel(
     client.month(sessionId, key === "" ? undefined : key, signal),
   )
 
-  /** The notes' revision while they can be read. */
   const readyRevision = () => {
     const feed = status.getSnapshot()
     return feed.status === "ready" && feed.value.state === "ready" ? feed.value.revision : undefined
@@ -139,7 +123,6 @@ export function createNotesModel(
           : { ...current, trail: [...current.trail, noteId] },
       ),
     back: () => navigation.update((current) => ({ ...current, trail: current.trail.slice(0, -1) })),
-    /** While the notes cannot be read, this asks for them again: a reading that succeeds makes the Host's status ready. */
     refresh: () => run(readyRevision() ?? 0, true),
     attach() {
       attached += 1

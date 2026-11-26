@@ -29,7 +29,6 @@ import { memoryTable } from "./channels-support"
 export const OWNER = { kind: "owner" }
 export const VIEWER = { kind: "viewer" }
 
-/** The example items' secrets (dev/fake-vault/items.example.json). */
 export const EXAMPLE = {
   vaultId: "botsvault1",
   login: { itemId: "example1", password: "correct-horse-battery-1" },
@@ -37,7 +36,6 @@ export const EXAMPLE = {
   short: { itemId: "shortpin1", password: "1234" },
 } as const
 
-/** DSH's credential store in memory. */
 export function memoryCredentials(): CredentialRecords & { records: Map<string, unknown> } {
   const records = new Map<string, unknown>()
   return {
@@ -57,7 +55,6 @@ export function memoryCredentials(): CredentialRecords & { records: Map<string, 
   }
 }
 
-/** Guard keys as bot-core derives them (src/index.ts), from a key and a salt. */
 export function testGuardKeys(key: Uint8Array, salt: Uint8Array): GuardKeys {
   const derive = (info: string, length: number) =>
     new Uint8Array(hkdfSync("sha256", key, salt, `dsh-bot-core vault-guard ${info}`, length))
@@ -68,7 +65,6 @@ export function testGuardKeys(key: Uint8Array, salt: Uint8Array): GuardKeys {
   }
 }
 
-/** A cheap scrypt, for tests only. */
 export const testDigest = async (bytes: Uint8Array, salt: Uint8Array) =>
   scryptSync(bytes, salt, 32, { N: 1024, r: 8, p: 1 }).toString("base64")
 
@@ -182,6 +178,5 @@ export const forRun = (
 
 export const run = (h: VaultHarness, botId = "a") => forRun(h, { botId }).access
 
-/** Read a secret's bytes as text, in a test only. */
 export const textOf = (secret: SecretBytes) =>
   secret.use((bytes) => new TextDecoder().decode(bytes))

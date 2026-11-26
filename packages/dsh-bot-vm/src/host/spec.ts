@@ -1,7 +1,3 @@
-/**
- * A bot's spec as Incus config: the instance's own `limits.cpu` and
- * `limits.memory`, and the size of its workspace volume (`diskGiB`).
- */
 import type { BotEnvironmentSpec } from "@1outres/dsh-bot-core"
 import type { IncusInstance, IncusVolume } from "./incus"
 
@@ -9,7 +5,6 @@ export const CPU_KEY = "limits.cpu"
 export const MEMORY_KEY = "limits.memory"
 export const SIZE_KEY = "size"
 
-/** What Incus gives a VM whose config sets no `limits.cpu` / `limits.memory`. */
 export const INCUS_VM_DEFAULT_CPUS = 1
 export const INCUS_VM_DEFAULT_MEMORY = "1GiB"
 
@@ -29,7 +24,6 @@ const UNITS: Readonly<Record<string, number>> = {
   TiB: 1024 ** 4,
 }
 
-/** An Incus size in bytes, or undefined for one this cannot read (a percentage). */
 export function sizeBytesOf(value: string | undefined): number | undefined {
   if (value === undefined) return undefined
   const match = /^(\d+(?:\.\d+)?)\s*([A-Za-z]*)$/.exec(value.trim())
@@ -38,14 +32,12 @@ export function sizeBytesOf(value: string | undefined): number | undefined {
   return unit === undefined ? undefined : Number(match[1]) * unit
 }
 
-/** The instance's own config the spec sets. */
 export function specConfigOf(spec: BotEnvironmentSpec): Readonly<Record<string, string>> {
   return { [CPU_KEY]: String(spec.cpus), [MEMORY_KEY]: `${spec.memoryMiB}MiB` }
 }
 
 export const gibText = (gib: number) => `${gib}GiB`
 
-/** The CPUs and memory an instance runs with; undefined where Incus's value cannot be read. */
 export interface InstanceSizes {
   readonly cpus: number | undefined
   readonly memoryBytes: number | undefined
@@ -60,7 +52,6 @@ export function instanceSizesOf(instance: IncusInstance): InstanceSizes {
   }
 }
 
-/** The spec of what the instance and its workspace volume run with. @throws when a value is not a whole number of the spec's units. */
 export function specOf(instance: IncusInstance, volume: IncusVolume): BotEnvironmentSpec {
   const sizes = instanceSizesOf(instance)
   const whole = (value: number | undefined, unit: number, what: string) => {

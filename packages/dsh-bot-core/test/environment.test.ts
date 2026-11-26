@@ -4,7 +4,6 @@ import { createEnvironmentKeeper, workspaceProblem } from "../src/host/environme
 import { DEFAULT_BOT_ENVIRONMENT_SPEC } from "../src/shared/environment"
 import { TEST_CAPACITY } from "./support/environment"
 
-/** A manual clock for `later`: tasks run only when the test ticks. */
 function manualClock() {
   let tasks: { work: () => void; at: number; cancelled: boolean }[] = []
   let now = 0
@@ -31,7 +30,6 @@ const settle = async () => {
   for (let i = 0; i < 20; i++) await Promise.resolve()
 }
 
-/** A fake environment whose `ensure` calls the test settles by hand. */
 function fakeEnvironment(id = "vm") {
   const calls: {
     target: BotEnvironmentTarget
@@ -70,7 +68,6 @@ function fakeEnvironment(id = "vm") {
     calls,
     removed,
     listeners,
-    /** Settle the latest `ensure` of `botId`. */
     finish(botId: string, error?: Error) {
       const call = calls.filter((entry) => entry.target.id === botId).at(-1)
       call?.settle(error)
@@ -196,11 +193,9 @@ describe("createEnvironmentKeeper", () => {
         ready: false,
         problem: expect.stringContaining("no capacity"),
       })
-      // The retry (the start-up grace timer runs much later).
       const next = Math.min(...clock.delays())
       delays.push(next)
       await clock.tick(next)
-      // Retrying: the failure stays (no flicker back to "being prepared").
       expect(keeper.status("a")).toMatchObject({
         ready: false,
         problem: expect.stringContaining("no capacity"),
@@ -209,7 +204,6 @@ describe("createEnvironmentKeeper", () => {
     }
     expect(delays).toEqual([100, 200, 400, 400])
     expect(fake.calls).toHaveLength(5)
-    // Warned once: every retry failed alike.
     expect(warnings).toHaveLength(1)
     fake.finish("a")
     await settle()
@@ -234,7 +228,6 @@ describe("createEnvironmentKeeper", () => {
       ready: false,
       problem: expect.stringContaining("vm stopped"),
     })
-    // Unknown bots are ignored.
     for (const listener of fake.listeners) listener("zz")
     await settle()
     expect(fake.calls).toHaveLength(2)
@@ -257,7 +250,6 @@ describe("createEnvironmentKeeper", () => {
     expect(fake.listeners.size).toBe(0)
     expect(keeper.status("a")).toMatchObject({ ready: false, pending: true })
     expect(changed).toEqual(["a"])
-    // The aborted ensure resolving later changes nothing.
     fake.finish("a")
     await clock.tick(1000)
     expect(keeper.status("a")).toMatchObject({ ready: false })
@@ -316,7 +308,6 @@ describe("createEnvironmentKeeper", () => {
     for (const listener of fake.listeners) listener("a")
     await settle()
     expect(keeper.progress("a")).toBeUndefined()
-    // A superseded ensure reports nothing.
     fake.calls[0]?.progress("connecting")
     expect(keeper.progress("a")).toBeUndefined()
   })
@@ -376,7 +367,6 @@ describe("createEnvironmentKeeper", () => {
     await settle()
     expect(fake.removed).toEqual(["a"])
     expect(keeper.removal("a")).toBeUndefined()
-    // The cancelled backoff does not run it once more.
     await clock.tick(1000)
     expect(fake.removed).toEqual(["a"])
   })
@@ -472,7 +462,6 @@ describe("createEnvironmentKeeper, configured", () => {
     })
     await clock.tick(100)
     expect(fake.removed).toEqual([])
-    // A scheduled retry keeps the first failure shown, its time included.
     expect(keeper.removal("a")).toMatchObject({ state: "failed", at: 7 })
     await clock.tick(200)
     expect(fake.removed).toEqual(["a"])

@@ -1,9 +1,3 @@
-// Design rule 34: tools are registered only inside a bot's own composition.
-// `tools.register(...)` may appear only in bot-core's channel, connectors,
-// schedule, notes and skills rows (src/plugins/channel.ts, src/plugins/connectors.ts,
-// src/plugins/schedule.ts, src/plugins/notes.ts, src/plugins/skills.ts), which run inside every bot's isolated group: a
-// tool registered anywhere else is a Host (global) tool, which isolation
-// hides from bot Agents unless a template's hostTools grants it.
 JsCallExpression(callee = $callee) as $call where {
   $callee <: or { `$receiver.register`, `$receiver?.register` },
   $receiver <: or { `tools`, `$_.tools`, `$_?.tools` },

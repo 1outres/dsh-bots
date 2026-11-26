@@ -1,17 +1,9 @@
-/**
- * Saves of one whole-object setting (a channel's, a connector's), one at a
- * time: each edit is applied over the value the save before it stored, so
- * quick changes of two fields do not undo each other.
- */
 export interface SerialSaves<Edit> {
-  /** Resolves once this edit is saved; rejects with its failure (the next edits still run). */
   save(edit: Edit): Promise<void>
 }
 
 export interface SerialSavesOptions<View, Edit> {
-  /** The stored value while no save runs. */
   current(): View
-  /** Store `edit` over `view`; resolves with what was stored. */
   apply(view: View, edit: Edit): Promise<View>
 }
 

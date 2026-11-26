@@ -1,0 +1,14 @@
+export function View({ items }: { items: string[] }) {
+  return (
+    <section title="a // b /* c */">
+      {/* A JSX comment child. */}
+      <p>// JSX text, not a comment /* nor this */</p>
+      <ul>{/* inline */}{items.map((item) => <li key={item}>{item}</li>)}</ul>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: - */}
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: the row handles keys */}
+      <div onClick={() => undefined}>{`// ${items.length} /* items */`}</div>
+      <input /* an attribute comment */ value="x" readOnly />
+      {/** A JSDoc-style JSX comment. */}
+    </section>
+  )
+}

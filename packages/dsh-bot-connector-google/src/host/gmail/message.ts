@@ -1,6 +1,5 @@
 import type { gmail_v1 } from "@googleapis/gmail"
 
-/** A received message as the tools read it: its headers, text and attachments. */
 export interface ReadMessage {
   readonly id: string
   readonly threadId: string
@@ -15,7 +14,6 @@ export interface ReadMessage {
   readonly references?: string
   readonly snippet: string
   readonly internalDate?: number
-  /** Its text: the text/plain part, else its HTML part as text. */
   readonly text: string
   readonly attachments: readonly ReadAttachment[]
 }
@@ -56,7 +54,6 @@ function walk(part: Part | undefined, visit: (part: Part) => void) {
   for (const child of part.parts ?? []) walk(child, visit)
 }
 
-/** HTML as plain text: tags out, entities read, never rendered. */
 export function htmlText(html: string): string {
   return html
     .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, "")
@@ -115,7 +112,6 @@ export function readMessage(message: gmail_v1.Schema$Message): ReadMessage {
   }
 }
 
-/** A message's headers in one line each, for summaries and search results. */
 export function headline(message: ReadMessage): string {
   return [
     `From: ${message.from ?? "(unknown)"}`,
@@ -124,5 +120,4 @@ export function headline(message: ReadMessage): string {
   ].join(" · ")
 }
 
-/** The headers a metadata read asks for. */
 export const METADATA_HEADERS = ["From", "To", "Cc", "Subject", "Date", "Message-ID"]

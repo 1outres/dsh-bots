@@ -4,14 +4,12 @@ export type FileAddress =
 
 const FILE_ADDRESS_PREFIX = "dsh-resource://file/"
 
-/** The glob a tab type claims every session-scoped file address with. */
 export const SESSION_FILE_PATTERN = "dsh-resource://file/session/**"
 
 function isDriveSegment(segment: string | undefined): boolean {
   return segment !== undefined && /^[A-Za-z]:$/.test(segment)
 }
 
-/** Copy of dsh-util-workspace-path `parseFileAddress` (pinned in upstream.ts; design rule 30 forbids importing it). */
 export function parseFileAddress(address: string): FileAddress | undefined {
   try {
     if (!address.startsWith(FILE_ADDRESS_PREFIX)) return undefined
@@ -44,14 +42,11 @@ export function parseFileAddress(address: string): FileAddress | undefined {
   }
 }
 
-/** A file of a bot session: what the bot viewer opens. */
 export interface BotFileTarget {
   readonly sessionId: string
-  /** Workspace-relative or absolute path in the bot's environment; never empty. */
   readonly path: string
 }
 
-/** The bot file a session-scoped address names; an `absolute` address carries no session, so it is never a bot's. */
 export function botFileTarget(
   address: string,
   isBotSession: (sessionId: string) => boolean,
@@ -63,7 +58,6 @@ export function botFileTarget(
     : undefined
 }
 
-/** The last segment of a path, for titles. */
 export function baseName(path: string): string {
   const trimmed = path.replace(/\/+$/, "")
   const name = trimmed.slice(trimmed.lastIndexOf("/") + 1)

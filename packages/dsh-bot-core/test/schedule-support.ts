@@ -28,7 +28,6 @@ export function job(overrides: Partial<JobRecord> = {}): JobRecord {
   }
 }
 
-/** A runner and scheduler over memory tables, a manual clock and recorded effects. */
 export function scheduleSetup() {
   const clock = manualClock(NOW)
   const jobs = memoryTable<JobRecord>()

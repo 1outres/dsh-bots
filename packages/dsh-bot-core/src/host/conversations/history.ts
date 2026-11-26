@@ -1,16 +1,7 @@
-/**
- * A conversation as it was said, from a session's raw log: the person's
- * messages and the bot's replies that were appended to the session
- * (docs/specs/bot-session-search.md §2, §6). Reading the log, not the derived
- * history, keeps what a compaction replaced; events a fork inherited are the
- * other session's and are left out, and so is every message the caller still
- * has in its context as it was said.
- */
 import { type SpokenMessage, spokenMessageOf, type TranscriptMessage } from "../spoken-messages"
 import type { ConversationSource } from "./sources"
 import { surfaceOf } from "./surface"
 
-/** One event of a session's log (dsh-session `SessionEvent`), as far as read here. */
 export interface LoggedEvent {
   readonly type: string
   readonly seq: number
@@ -19,7 +10,6 @@ export interface LoggedEvent {
   readonly data: unknown
 }
 
-/** A session's raw log (dsh-session-query `SessionObservation`), as far as read here. */
 export interface SessionLog {
   readonly inheritedEventCount: number
   readonly events: readonly LoggedEvent[]
@@ -32,7 +22,6 @@ export interface ConversationMessage extends SpokenMessage {
 
 export interface Conversation extends ConversationSource {
   readonly title?: string
-  /** Oldest first. */
   readonly messages: readonly ConversationMessage[]
 }
 
@@ -85,7 +74,6 @@ const MESSAGE_EVENTS: readonly string[] = ["user/message", "assistant/message"]
 const isAppendedMessage = (event: LoggedEvent) =>
   MESSAGE_EVENTS.includes(event.type) && event.surfaceOp === "append"
 
-/** The ids of the messages a session's model sees as they were appended (a fork's inherited ones included). */
 export type InContext = ReadonlySet<string>
 
 export function inContextOf(log: SessionLog): InContext {

@@ -32,12 +32,10 @@ import {
   type WebTestState,
 } from "./model"
 
-/** What the section needs of the surface it is on: the dsh-bots settings or the welcome guide. */
 export type WebLookupSurface = Pick<GlobalSettingsSectionProps, "t" | "confirm">
 
 export interface WebLookupSectionDeps {
   readonly feed: WebLookupFeed
-  /** A backend's text in the active language. */
   text(text: BotWebText): string
 }
 
@@ -64,7 +62,6 @@ const TEST_FAILURE: Readonly<Record<TestFailure, MessageKey>> = {
 
 const messageOf = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause))
 
-/** What the key's row shows in place of its pill while a test runs or just ended. */
 function testPill(
   t: Translate,
   test: WebTestState,
@@ -88,7 +85,6 @@ function testPill(
   }
 }
 
-/** Web lookup of every bot: the backend's key (with its test) and the capabilities' switches. */
 export function WebLookupSection(props: WebLookupSurface & WebLookupSectionDeps) {
   const { t, feed } = props
   const state = useObservable(feed)

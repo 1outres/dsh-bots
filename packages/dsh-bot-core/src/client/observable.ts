@@ -1,10 +1,8 @@
-/** A value that changes over time, in the shape `useSyncExternalStore` reads. */
 export interface Observable<T> {
   getSnapshot(): T
   subscribe(listener: () => void): () => void
 }
 
-/** An {@link Observable} its owner writes. */
 export interface Store<T> extends Observable<T> {
   set(next: T): void
   update(change: (current: T) => T): void
@@ -31,12 +29,10 @@ function createListeners() {
   }
 }
 
-/** A value that never changes. */
 export function constant<T>(value: T): Observable<T> {
   return { getSnapshot: () => value, subscribe: () => () => {} }
 }
 
-/** A writable value; listeners hear only changes that `equals` tells apart. */
 export function createStore<T>(initial: T, equals: Equality<T> = Object.is): Store<T> {
   let current = initial
   const listeners = createListeners()
@@ -53,11 +49,6 @@ export function createStore<T>(initial: T, equals: Equality<T> = Object.is): Sto
   }
 }
 
-/**
- * A value computed from `sources`. It is recomputed only when a source's
- * snapshot changes, and keeps its previous snapshot while `equals` holds, so
- * readers see a stable reference.
- */
 export function derive<const Sources extends readonly Observable<unknown>[], T>(
   sources: Sources,
   compute: (...values: SnapshotsOf<Sources>) => T,

@@ -12,7 +12,6 @@ import { CAPABILITIES, settle } from "./channels-support"
 
 type Entry = { type: "file" | "directory" | "symlink"; data?: Uint8Array; to?: string }
 
-/** A file system of absolute paths, links resolved once. */
 function memoryFs(entries: Record<string, Entry>): EnvironmentFileSystem {
   const absolute = (path: string, cwd = "/") =>
     path.startsWith("/") ? path : `${cwd.replace(/\/$/, "")}/${path}`

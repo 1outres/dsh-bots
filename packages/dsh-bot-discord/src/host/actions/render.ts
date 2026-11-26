@@ -12,21 +12,17 @@ import { actionText } from "./texts"
 
 const TITLE_LIMIT = 256
 const DESCRIPTION_LIMIT = 4096
-/** Longest preview field value shown on a card. */
 export const FIELD_VALUE_LIMIT = 300
-/** Longest excerpt of a result shown on a card. */
 export const RESULT_LIMIT = 500
 
 const MARKDOWN = /[\\`*_~|>#[\]()<@:-]/g
 
-/** Untrusted text shown as itself: no formatting, links, mentions or headings. */
 export function literal(value: string): string {
   return value.replace(MARKDOWN, (character) => `\\${character}`)
 }
 
 const FENCE = "```"
 
-/** Untrusted text in a code block, which shows it as typed; a fence inside cannot close it. */
 export function codeBlock(value: string): string {
   return `${FENCE}text\n${value.replaceAll(FENCE, "`\u200b``")}\n${FENCE}`
 }
@@ -47,7 +43,6 @@ function who(decision: ConnectorDecisionRecord, self: string, locale: DiscordLoc
 const resultOf = (text: string | undefined, data: ConnectorJson): string | undefined =>
   text ?? (data === null ? undefined : JSON.stringify(data))
 
-/** The card's first line: where the action stands, who decided and how it ended. */
 export function statusLine(view: ConnectorActionView, self: string, locale: DiscordLocale): string {
   const { status } = view
   switch (status.state) {
@@ -80,7 +75,6 @@ export function statusLine(view: ConnectorActionView, self: string, locale: Disc
   }
 }
 
-/** The preview as an embed: the title, the connector and tool, the fields, the body (cut to fit) and the times. */
 export function actionEmbed(view: ConnectorActionView, locale: DiscordLocale): DiscordEmbed {
   const { preview } = view
   const head = `-# ${literal(view.connector.name ?? view.connector.id)} · \`${view.toolName}\``
@@ -130,7 +124,6 @@ function decisionRow(view: ConnectorActionView, locale: DiscordLocale): DiscordC
   ]
 }
 
-/** A connector action's card: its state, its preview, and the decision buttons while it is pending. */
 export function renderActionCard(
   view: ConnectorActionView,
   self: string,
@@ -143,7 +136,6 @@ export function renderActionCard(
   }
 }
 
-/** What a card of an action the ledger no longer keeps becomes. */
 export function goneCard(locale: DiscordLocale): DiscordMessageEdit {
   return { content: actionText("gone", locale), components: [] }
 }

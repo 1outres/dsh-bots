@@ -1,8 +1,3 @@
-/**
- * The calendar changes this process made itself, remembered for a while so
- * the events poll marks them `own` (bot-core keeps them untold): a bot is
- * not woken by its own edit.
- */
 export interface OwnChanges {
   record(connectionId: string, eventId: string): void
   isOwn(connectionId: string, eventId: string): boolean

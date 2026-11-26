@@ -1,7 +1,3 @@
-/**
- * The desktop agent's JSON-RPC methods (vm/agent/dsh_desktop_agent/server.py):
- * what each takes and the checked shape of what it answers.
- */
 import type { VaultRevealKind } from "@1outres/dsh-bot-core"
 import {
   boolean,
@@ -38,7 +34,6 @@ export const MODIFIERS = ["ctrl", "shift", "alt", "super"] as const
 export const SCROLL_DIRECTIONS = ["up", "down", "left", "right"] as const
 export const PASTE_COMBOS = ["ctrl+v", "ctrl+shift+v"] as const
 export const KEY_COMBO = /^[A-Za-z0-9_]+(\+[A-Za-z0-9_]+)*$/
-/** The fields of a login the agent types (docs/specs/bot-vaults.md §9). */
 export const TYPED_FIELDS = [
   "username",
   "password",
@@ -140,14 +135,12 @@ export const RESULTS = {
   type_secret: object({ application: text(NAME), ...where }),
 } satisfies Record<string, Check<unknown>>
 
-/** Methods whose request carries a secret beside its params (`RpcClient.callSecret`). */
 export type SecretAgentMethod = keyof SecretAgentParams
 export type AgentMethod = Exclude<keyof typeof RESULTS, SecretAgentMethod>
 export type AgentResult<M extends keyof typeof RESULTS> = Checked<(typeof RESULTS)[M]>
 export type AgentWindow = Checked<typeof window>
 export type AgentFocus = Checked<typeof focus>
 
-/** A point on the screen in screen pixels, or the centre of an element. */
 export type AgentPoint = { readonly x: number; readonly y: number } | { readonly element: string }
 
 export type AgentInput =
@@ -180,14 +173,11 @@ export type AgentInput =
   | { readonly kind: "hold_key"; readonly keys: string; readonly duration_ms: number }
   | { readonly kind: "type"; readonly text: string; readonly paste: (typeof PASTE_COMBOS)[number] }
 
-/** One step of a `sequence`: an input, or raising a window by its id. */
 export type AgentStep = (
   | AgentInput
   | { readonly kind: "activate"; readonly id: string }
-  /** Wait until the focused element has this role; the sequence fails when it does not in time. */
   | { readonly kind: "await_focus"; readonly role: string; readonly timeout_ms: number }
 ) & {
-  /** How long to let the desktop settle after the step; the sequence's default otherwise. */
   readonly settle_ms?: number
 }
 
@@ -241,21 +231,17 @@ export interface AgentParams {
       readonly width: number
       readonly height: number
     }
-    /** The image's width; the region's own width when absent. */
     readonly width?: number
     readonly format: "png" | "jpeg"
   }
   sheet_read: { readonly range?: string; readonly max_cells: number }
-  /** Check the focused field (or focus the element) for a login's field; answers a token for type_secret. */
   secret_target: { readonly field: TypedField; readonly element?: string }
 }
 
 export interface SecretAgentParams {
-  /** Type the secret into the field secret_target chose, if it still has the focus. */
   type_secret: { readonly token: string; readonly submit: boolean }
 }
 
-/** How long each method may take before the call fails. */
 export const METHOD_TIMEOUT_MS: Record<keyof typeof RESULTS, number> = {
   status: 15_000,
   launch: 45_000,

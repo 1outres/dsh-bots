@@ -1,8 +1,3 @@
-// Design rule 17: channel plugins stay away from the Host services bot-core owns.
-// In packages/dsh-bot-* other than dsh-bot-core, the names sessionController,
-// agentPresets, workspaceRegistry and credentials must not appear (identifiers,
-// property names or strings such as an `inject` entry): bot-core delivers to
-// a bot's Main session and keeps a channel's secrets for it.
 or {
   JsReferenceIdentifier(),
   JsIdentifierBinding(),

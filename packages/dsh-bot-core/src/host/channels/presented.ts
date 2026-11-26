@@ -1,12 +1,10 @@
 import type { SessionEventLike } from "./feed"
 
-/** One file `present` declared: its absolute path in the bot's environment, and its description. */
 export interface PresentedFile {
   readonly path: string
   readonly description?: string
 }
 
-/** dsh-tool-present's `deliverables/presented` event data, as far as read here. */
 export interface Presentation {
   readonly turn: number
   readonly files: readonly PresentedFile[]
@@ -14,7 +12,6 @@ export interface Presentation {
 
 export const PRESENTED_EVENT = "deliverables/presented"
 
-/** The files a session log event presents, if it is a presentation. */
 export function presentationOf(event: SessionEventLike): Presentation | undefined {
   if (event.type !== PRESENTED_EVENT) return undefined
   const data = event.data as Presentation
@@ -29,16 +26,9 @@ export function presentationOf(event: SessionEventLike): Presentation | undefine
   }
 }
 
-/**
- * The files each session's running turn presented for its channels. A path
- * is kept once, at its first presentation, with the description of its
- * latest one (none when that one has none). Held in memory only.
- */
 export interface PresentedFiles {
   record(sessionId: string, presentation: Presentation): void
-  /** The turn's files, in order of first presentation; the session's collection is forgotten. */
   take(sessionId: string, turn: number): readonly PresentedFile[]
-  /** Forget what the session collected (a turn started, or ended with nothing to send). */
   forget(sessionId: string): void
 }
 

@@ -1,14 +1,4 @@
 #!/usr/bin/env bash
-# Build (or rebuild) the dsh bot base VM image and publish it as an Incus
-# image alias. Idempotent: the alias is moved to the new image and the
-# previous image is deleted, unless another alias still names it.
-#
-# Usage: ./build-base-image.sh     (as a user that can talk to Incus)
-# Builds in PROJECT, a VM host's project (install.sh), on the pool and network it declares.
-# Tunables: ALIAS (dsh-bot-base), SOURCE (images:debian/13/cloud),
-#           PROJECT (dsh-bots), NODE_MAJOR (24), BOT_USER (bot),
-#           HELPER_SHA256 (expected sha256 of dsh-ssh lib/helper.js; build fails on mismatch)
-# The dsh-ssh helper is the DSH_VERSION of infra/release.env.
 set -eEuo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 # shellcheck source=lib.sh
@@ -65,8 +55,6 @@ push 0644 "$BROWSER_VM/install-mcp.sh" "$BROWSER_MCP_STAGE/install-mcp.sh"
 for helper in "$BROWSER_VM"/helper/*.mjs; do push 0644 "$helper" "$BROWSER_HELPER_STAGE/$(basename "$helper")"; done
 push 0644 "$BROWSER_VM/install-helper.sh" "$BROWSER_HELPER_STAGE/install-helper.sh"
 
-# Provisioning runs detached in the builder (a transient unit) and is polled with
-# short execs: one long incus exec stream dies when the host is busy.
 log "Provisioning"
 PROVISION=/root/dsh-provision
 provision_env=$(mktemp)
@@ -101,7 +89,6 @@ published=$(incus publish "${p[@]}" "$BUILDER" --compression zstd \
 new_fp=$(awk '/fingerprint:/ {print $NF}' <<<"$published")
 [[ $new_fp =~ ^[0-9a-f]{64}$ ]] || { echo "no fingerprint in: $published" >&2; exit 1; }
 
-# One update of the alias's target: VMs created meanwhile get the old or the new image, never none.
 if [[ -n $old_fp ]]; then
   log "Pointing $ALIAS at $new_fp"
   incus query -X PATCH "/1.0/images/aliases/$ALIAS?project=$PROJECT" --data "{\"target\": \"$new_fp\"}" >/dev/null

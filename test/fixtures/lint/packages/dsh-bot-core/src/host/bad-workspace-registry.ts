@@ -5,8 +5,8 @@ interface Registry {
   get(id: string): unknown
 }
 export async function touch(services: { workspaceRegistry: Registry }) {
-  await services.workspaceRegistry.create("/tmp") // rule: 7
-  await services.workspaceRegistry.delete("w") // rule: 7
-  await services.workspaceRegistry.archiveSession("s") // rule: 7
+  await services.workspaceRegistry.create("/tmp")
+  await services.workspaceRegistry.delete("w")
+  await services.workspaceRegistry.archiveSession("s")
   return services.workspaceRegistry.get("w")
 }

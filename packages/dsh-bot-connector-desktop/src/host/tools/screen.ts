@@ -7,7 +7,6 @@ import { between, elementId } from "./arguments"
 import { argumentFields, type DesktopToolDeps, desktopTool } from "./define"
 
 export const SCREENSHOT_LIMITS = { maxBytes: 12 << 20, maxSide: 8192 } as const
-/** A region is enlarged at most this much (and never beyond the screen's width). */
 const MAX_ZOOM = 4
 
 export function screenTools(deps: DesktopToolDeps): BotConnectorToolDefinition<DesktopSession>[] {

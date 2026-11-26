@@ -37,7 +37,6 @@ const TIME = /^([01]\d|2[0-3]):[0-5]\d$/
 
 const messageOf = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause))
 
-/** Which switch a value field belongs to: the value is greyed while that switch is off. */
 const SWITCH_OF: { readonly [Id in MainFieldId]?: FieldsOf<boolean> } = {
   "idleCompaction.minUsagePercent": "idleCompaction.enabled",
   "daily.time": "daily.enabled",
@@ -45,7 +44,6 @@ const SWITCH_OF: { readonly [Id in MainFieldId]?: FieldsOf<boolean> } = {
   "compactions.count": "compactions.enabled",
 }
 
-/** The groups the fields are shown in, in order; the first has no title. */
 const GROUPS: readonly {
   readonly title?: "mains.group.compaction" | "mains.group.rotation" | "mains.group.memory"
   readonly fields: readonly MainFieldId[]
@@ -75,14 +73,12 @@ const fieldOf = (id: MainFieldId): MainField => {
   return field
 }
 
-/** A field's value as the forms show it. */
 function shown(t: Translate, field: MainField, values: MainFieldValues): string {
   const value = values[field.id]
   if (typeof value === "boolean") return t(value ? "mains.on" : "mains.off")
   return String(value)
 }
 
-/** What is wrong with a typed value, or null. */
 function problem(t: Translate, field: MainField, text: string): string | null {
   if (field.kind === "number") {
     return parseBoundedInteger(text, field.bounds) === undefined
@@ -101,9 +97,7 @@ interface FieldRowProps {
   readonly t: Translate
   readonly field: MainField
   readonly values: MainFieldValues
-  /** Save the field's new value. */
   save(field: MainField, value: MainFieldValues[MainFieldId]): Promise<CommitResult>
-  /** A bot's row: the default and whether the bot sets the field itself. */
   readonly inherit?: {
     readonly defaults: MainFieldValues
     readonly own: boolean
@@ -120,7 +114,6 @@ function useFieldDraft(props: FieldRowProps) {
   })
 }
 
-/** One setting: a switch, or a field that saves on Enter or leaving it; a bot's own value shows the default beside it. */
 function FieldRow(props: FieldRowProps) {
   const { t, field, values, inherit } = props
   const draft = useFieldDraft(props)
@@ -215,7 +208,6 @@ function failed<T>(state: FeedState<T>): state is Extract<FeedState<T>, { status
   return state.status === "failed"
 }
 
-/** The dsh-bots defaults of every bot's Main session, each saved as it changes. */
 export function GlobalMainsSection(
   props: GlobalSettingsSectionProps & {
     readonly mains: Pick<MainsClient, "defaults" | "setDefaults">
@@ -243,7 +235,6 @@ export interface BotMainsSectionDeps {
   startNewMain(botId: string): void
 }
 
-/** A bot's Main session: the current one with its New Main button, then its values over the defaults. */
 export function BotMainsSection(props: SettingsSectionProps & BotMainsSectionDeps) {
   const { t, bot, mains } = props
   const state = useObservable(mains.bot(bot.id))

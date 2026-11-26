@@ -6,7 +6,6 @@ export type ScheduleMode = (typeof SCHEDULE_MODES)[number]
 export const RUN_TRIGGERS = ["schedule", "manual"] as const
 export type RunTrigger = (typeof RUN_TRIGGERS)[number]
 
-/** A run is `running` until it ends in one of the other states. */
 export const RUN_STATES = [
   "running",
   "skipped",
@@ -21,7 +20,6 @@ export type RunState = (typeof RUN_STATES)[number]
 export const FAILURE_STAGES = ["check", "run"] as const
 export type FailureStage = (typeof FAILURE_STAGES)[number]
 
-/** When a job runs, as stored: an `after` is fixed to its `at` at creation. */
 export const storedScheduleSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("at"), at: z.number().int() }),
   z.object({ kind: z.literal("every"), everySeconds: z.number().int().positive() }),
@@ -35,7 +33,6 @@ export const scheduleCheckSchema = z.object({
 })
 export type ScheduleCheck = z.infer<typeof scheduleCheckSchema>
 
-/** One job of a bot, keyed by job id. `nextRunAt` absent: it runs no more (an `at` that ran). */
 export const jobRecordSchema = z.object({
   botId: z.string().min(1),
   name: z.string().min(1),
@@ -61,7 +58,6 @@ export const runFailureSchema = z.object({
 })
 export type RunFailure = z.infer<typeof runFailureSchema>
 
-/** One run of a job, keyed by run id; the job's latest runs are kept. */
 export const runRecordSchema = z.object({
   botId: z.string().min(1),
   jobId: z.string().min(1),
@@ -70,23 +66,19 @@ export const runRecordSchema = z.object({
   startedAt: z.number().int().nonnegative(),
   state: z.enum(RUN_STATES),
   endedAt: z.number().int().nonnegative().optional(),
-  /** The separate session of a `separate` run. */
   sessionId: z.string().min(1).optional(),
   failure: runFailureSchema.optional(),
 })
 export type RunRecord = z.infer<typeof runRecordSchema>
 
-/** A stored job and its id. */
 export interface ScheduleJob extends JobRecord {
   readonly id: string
 }
 
-/** A stored run and its id. */
 export interface ScheduleRun extends RunRecord {
   readonly id: string
 }
 
-/** bot-core's schedules of bots (design rule 27). */
 export const SCHEDULES_DOMAIN = {
   name: "dsh_bot_schedules",
   version: 1,

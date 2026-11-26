@@ -1,7 +1,3 @@
-// Design rule 6: bot records are written in one place.
-// `table.put(...)` / `table.delete(...)` (a receiver named `table` or ending in
-// `.table`) may appear only in host/registry.ts. Matching on the receiver name
-// keeps Map/Set `.delete` calls out of scope.
 JsCallExpression(callee = $callee) as $call where {
   $callee <: or { `$receiver.put`, `$receiver.delete`, `$receiver?.put`, `$receiver?.delete` },
   $receiver <: or { `table`, `$_.table`, `$_?.table` },

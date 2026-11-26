@@ -7,7 +7,6 @@ import type {
 } from "@1outres/dsh-bot-core"
 import { GENERATED_SERVER } from "../src/host/catalog"
 
-/** A process whose standard output the test (or `answer`) writes, line by line. */
 export function fakeProcess(answer?: (message: Record<string, unknown>) => unknown) {
   const written: Record<string, unknown>[] = []
   const queue: Uint8Array[] = []
@@ -63,7 +62,6 @@ export function fakeProcess(answer?: (message: Record<string, unknown>) => unkno
   return { process, written, push, end }
 }
 
-/** Answers as Playwright MCP: initialize, tools/list (the generated tools unless given), tools/call. */
 export function playwrightAnswers(
   options: {
     readonly tools?: readonly unknown[]
@@ -96,7 +94,6 @@ export function playwrightAnswers(
   }
 }
 
-/** An environment answering commands from `answer` and spawning `spawn`'s processes. */
 export function fakeEnvironment(
   answer: (
     command: BotEnvironmentCommand,

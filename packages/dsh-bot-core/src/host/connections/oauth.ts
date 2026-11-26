@@ -1,11 +1,6 @@
-/**
- * OAuth 2.0 for a confidential Web client (RFC 6749, PKCE RFC 7636, token
- * revocation RFC 7009): the requests themselves, over an injected fetch.
- */
 import { z } from "zod"
 import type { BotConnectionOAuth } from "../../connector-contract"
 
-/** The slice of `fetch` the protocol uses. */
 export type OAuthFetch = (
   url: string,
   init: {
@@ -16,7 +11,6 @@ export type OAuthFetch = (
   },
 ) => Promise<{ readonly status: number; text(): Promise<string> }>
 
-/** A token endpoint's error (`invalid_grant`: the refresh token no longer works). */
 export class OAuthError extends Error {
   override readonly name = "OAuthError"
   constructor(
@@ -30,10 +24,8 @@ export class OAuthError extends Error {
 
 export interface OAuthTokens {
   readonly accessToken: string
-  /** Seconds the access token lives. */
   readonly expiresIn: number
   readonly refreshToken?: string
-  /** The scopes granted, when the endpoint says. */
   readonly scopes?: readonly string[]
 }
 
@@ -50,7 +42,6 @@ const errorSchema = z.object({
   error_description: z.string().optional(),
 })
 
-/** Access tokens without a stated lifetime are kept this long. */
 const DEFAULT_EXPIRES_IN = 3600
 
 export interface AuthorizationRequest {
@@ -62,7 +53,6 @@ export interface AuthorizationRequest {
   readonly loginHint?: string
 }
 
-/** The URL the browser opens to sign in. */
 export function authorizationUrl(oauth: BotConnectionOAuth, request: AuthorizationRequest): string {
   const url = new URL(oauth.authorizationEndpoint)
   const parameters: Record<string, string> = {
@@ -172,7 +162,6 @@ export async function refreshAccess(
   return tokensOf(status, body)
 }
 
-/** @throws an {@link OAuthError} when the endpoint does not confirm. */
 export async function revokeToken(
   fetch: OAuthFetch,
   revocationEndpoint: string,

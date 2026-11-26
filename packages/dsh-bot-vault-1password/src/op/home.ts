@@ -2,7 +2,6 @@ import { chmod, mkdir, mkdtemp, rm } from "node:fs/promises"
 import { join } from "node:path"
 import type { OpHomePaths } from "./environment"
 
-/** A home of op's own for one session: `HOME` and `OP_CONFIG_DIR`, both 0700 (op refuses others). */
 export interface OpHome extends OpHomePaths {
   remove(): Promise<void>
 }

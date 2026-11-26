@@ -13,15 +13,12 @@ import type { MainStore } from "./store"
 export interface MainPanelDeps {
   store: MainStore
   controller: Pick<MainController, "maintenance" | "startNew" | "pokeAll" | "poke">
-  /** A listed bot's current Main and when it became the Main. */
   main(botId: string): { readonly sessionId: string; readonly startedAt: number } | undefined
 }
 
-/** What the `botMains` Remote serves. */
 export interface MainPanel {
   defaults(): MainRotationSettings
   setDefaults(settings: unknown): Promise<MainRotationSettings>
-  /** @throws for a bot that is not listed. */
   view(botId: string): BotMainsView
   configure(botId: string, override: unknown): Promise<BotMainsView>
   startNew(botId: string): Promise<MainRotationOutcome>

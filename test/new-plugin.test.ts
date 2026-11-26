@@ -1,8 +1,9 @@
-import { cpSync, mkdtempSync, readFileSync, rmSync } from "node:fs"
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { parse } from "yaml"
 import { createPlugin, titleOf } from "../scripts/new-plugin.mjs"
 import {
   BUNDLE_DIRECTORY,
@@ -59,13 +60,40 @@ describe("createPlugin", () => {
   })
 
   it("adds the package to the bundle dependencies and patch", async () => {
-    await createPlugin(root, "my-thing")
     const bundleDir = join(root, "packages", BUNDLE_DIRECTORY)
+    const patchPath = join(bundleDir, "cordis.patch.yml")
+    const before = readFileSync(patchPath, "utf8")
+    await createPlugin(root, "my-thing")
+    const after = readFileSync(patchPath, "utf8")
 
     expect(readManifest(bundleDir).dependencies?.["@1outres/dsh-bot-my-thing"]).toBe("workspace:*")
-    expect(readFileSync(join(bundleDir, "cordis.patch.yml"), "utf8")).toContain(
-      '    - id: bot-my-thing\n      name: "@1outres/dsh-bot-my-thing"\n',
+    expect(after).toBe(`${before}    - id: bot-my-thing\n      name: "@1outres/dsh-bot-my-thing"\n`)
+    expect(parse(after)).toEqual([
+      {
+        insert: [
+          ...parse(before)[0].insert,
+          { id: "bot-my-thing", name: "@1outres/dsh-bot-my-thing" },
+        ],
+      },
+    ])
+  })
+
+  it("refuses a bundle patch without exactly one insert operation", async () => {
+    const patchPath = join(root, "packages", BUNDLE_DIRECTORY, "cordis.patch.yml")
+    writeFileSync(patchPath, "- remove: bot-old\n")
+
+    await expect(createPlugin(root, "my-thing")).rejects.toThrow("0 insert operations")
+    expect(existsSync(join(root, "packages", "dsh-bot-my-thing"))).toBe(false)
+  })
+
+  it("refuses a plugin the bundle patch already inserts", async () => {
+    const patchPath = join(root, "packages", BUNDLE_DIRECTORY, "cordis.patch.yml")
+    writeFileSync(
+      patchPath,
+      '- insert:\n    - id: bot-my-thing\n      name: "@1outres/dsh-bot-my-thing"\n',
     )
+
+    await expect(createPlugin(root, "my-thing")).rejects.toThrow("already inserts bot-my-thing")
   })
 
   it("refuses a name that is not kebab-case", async () => {

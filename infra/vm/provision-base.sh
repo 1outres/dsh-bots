@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
-# Runs INSIDE the builder VM (as root) via `incus exec ... bash -s`.
-# Turns a stock Debian 13 cloud image into the dsh bot base image.
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 NODE_MAJOR=${NODE_MAJOR:-24}
 BOT_USER=${BOT_USER:-bot}
-# dsh-bot-vm's guestUid/guestGid default; bot VMs map it to the DSH user in the shared workspace.
 BOT_UID=1001
 DSH_VERSION=${DSH_VERSION:?DSH_VERSION required}
 HELPER_SHA256=${HELPER_SHA256:-}
@@ -22,12 +19,8 @@ apt-get install -y -q --no-install-recommends \
   build-essential pkg-config make jq less unzip xz-utils zstd file procps \
   iproute2 netbase locales tzdata sudo
 
-# The desktop connector's packages (its debian-packages.txt; google-chrome-stable
-# from Google's source, copied in by build-base-image.sh), so that its
-# preparation finds them installed instead of downloading them.
 apt-get install -y -q --no-install-recommends "${desktop_packages[@]}"
 
-# Node.js from NodeSource (Debian 13 ships nodejs 20.x; DSH needs >= 22).
 install -d -m 0755 /etc/apt/keyrings
 curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
   -o /etc/apt/keyrings/nodesource.asc
@@ -45,11 +38,8 @@ Pin-Priority: 600
 EOF
 apt-get update -q
 apt-get install -y -q nodejs
-# DSH's grep and glob spawn the Host's ripgrep path; dsh-bot-vm links that path
-# to this one in every VM (its guestRipgrep).
 rg --version | head -1
 
-# SSH helper used by @deepseek-ai/dsh-ssh (root-owned, not writable by bot).
 HELPER_DIR=/opt/dsh-ssh-helper
 install -d -m 0755 -o root -g root "$HELPER_DIR"
 npm install --prefix "$HELPER_DIR" --no-fund --no-audit "@deepseek-ai/dsh-ssh@${DSH_VERSION}"
@@ -64,17 +54,12 @@ chown -R root:root "$HELPER_DIR"
 chmod -R go-w "$HELPER_DIR"
 npm cache clean --force >/dev/null 2>&1 || true
 
-# The browser connector's Playwright MCP, from its vm/mcp shrinkwrap with its own
-# install script, as its preparation installs it.
 sh "$BROWSER_MCP_STAGE/install-mcp.sh" "$BROWSER_MCP_STAGE" "$BROWSER_MCP_DIR"
 rm -rf "$BROWSER_MCP_STAGE"
-# Its login helpers (vm/helper), with its own install script.
 sh "$BROWSER_HELPER_STAGE/install-helper.sh" "$BROWSER_HELPER_STAGE" "$BROWSER_HELPER_DIR"
 rm -rf "$BROWSER_HELPER_STAGE"
 rm -rf /root/.npm
 
-# Bot user (no password; passwordless sudo, see below); ~/workspace is the bot cwd.
-# The builder's cloud-init created the image's default user (debian, uid 1000): not wanted.
 if id debian >/dev/null 2>&1; then
   userdel --remove debian
   rm -f /etc/sudoers.d/90-cloud-init-users
@@ -92,9 +77,6 @@ install -d -m 0700 -o "$BOT_USER" -g "$BOT_USER" "/home/$BOT_USER/.ssh"
 chown "$BOT_USER:$BOT_USER" "/home/$BOT_USER/.ssh/authorized_keys"
 chmod 0600 "/home/$BOT_USER/.ssh/authorized_keys"
 
-# Passwordless sudo for the bot user (decision: the VM is the isolation
-# boundary; host-side ACL / port isolation / anti-spoofing / guestapi=false
-# do not depend on the guest's root being unreachable).
 cat >/etc/sudoers.d/90-dsh-bot <<EOF
 $BOT_USER ALL=(ALL) NOPASSWD:ALL
 EOF
@@ -102,7 +84,6 @@ chown root:root /etc/sudoers.d/90-dsh-bot
 chmod 0440 /etc/sudoers.d/90-dsh-bot
 visudo -c -q
 
-# Key-only SSH, only for the bot user.
 cat >/etc/ssh/sshd_config.d/10-dsh-bot.conf <<EOF
 PasswordAuthentication no
 KbdInteractiveAuthentication no
@@ -114,9 +95,6 @@ AllowAgentForwarding no
 # dsh-ssh talks to its helper over a forwarded Unix socket.
 AllowStreamLocalForwarding yes
 EOF
-# sshd listens ONLY on AF_VSOCK port 22 (host connects via vsock, not the
-# network). Socket-activated per-connection sshd (`sshd -i`), like the
-# systemd-ssh-generator units. The network listener is disabled.
 cat >/etc/modules-load.d/dsh-vsock.conf <<'EOF2'
 vmw_vsock_virtio_transport
 EOF2
@@ -158,9 +136,6 @@ systemctl disable ssh.service ssh.socket 2>/dev/null || true
 systemctl mask ssh.service ssh.socket
 systemctl enable sshd-vsock.socket
 
-# incus-agent copies the instance's cloud-init user-data (which carries the
-# injected SSH host private key) to /var/lib/cloud/seed/nocloud-net/ world-
-# readable. Lock it down every boot, before cloud-init and sshd start.
 cat >/etc/systemd/system/dsh-cloud-seed-perms.service <<'EOF2'
 [Unit]
 Description=Restrict cloud-init seed permissions (dsh)
@@ -177,8 +152,6 @@ WantedBy=sysinit.target
 EOF2
 systemctl enable dsh-cloud-seed-perms.service
 
-# cloud-init: do not create the distro default user; per-instance user-data
-# supplies the bot user's key (see README). Keep only what we need.
 cat >/etc/cloud/cloud.cfg.d/90-dsh-bot.cfg <<EOF
 users: []
 disable_root: true
@@ -189,16 +162,13 @@ package_update: false
 package_upgrade: false
 EOF
 
-# Faster, quieter boots: no periodic apt/man-db jobs in throwaway VMs.
 systemctl disable --now apt-daily.timer apt-daily-upgrade.timer man-db.timer \
   e2scrub_all.timer 2>/dev/null || true
-# GRUB: no menu delay.
 if [[ -f /etc/default/grub ]]; then
   sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=0/' /etc/default/grub
   update-grub >/dev/null 2>&1 || true
 fi
 
-# Clean up for publishing.
 apt-get autoremove -y -q
 apt-get clean
 rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*

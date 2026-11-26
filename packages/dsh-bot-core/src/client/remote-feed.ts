@@ -10,20 +10,17 @@ export type FeedState<T> =
 export const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : String(error)
 
-/** The mounted Remote, or the reason it is not. */
 export async function mountedRemote(mount: Promise<RemoteMount>) {
   const mounted = await mount
   if (mounted.status === "failed") throw new Error(mounted.error)
   return mounted.remote
 }
 
-/** A call's value, or a rejection with the Host's message. */
 export function unwrap<T>(result: RemoteResult<T>): T {
   if (!result.ok) throw new Error(result.error.message ?? "request refused")
   return result.value
 }
 
-/** An observable that follows `open`'s stream while it has subscribers. */
 export function followed<R, T>(
   open: (remote: R) => StreamHandle<T>,
   remote: () => Promise<R>,

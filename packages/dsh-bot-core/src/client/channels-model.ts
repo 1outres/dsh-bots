@@ -8,16 +8,13 @@ import { createStore, type Observable } from "./observable"
 import type { BotChannelsRemote, RemoteMount } from "./remote"
 import type { StreamHandle } from "./types"
 
-/** Why the channel settings cannot be read or saved. */
 export type ChannelsFailure =
   | { readonly kind: "mount"; readonly message: string }
   | { readonly kind: "connection"; readonly message: string }
   | { readonly kind: "refused"; readonly message: string }
   | { readonly kind: "protocol"; readonly message: string }
-  /** The channel refused the settings the save would make. */
   | { readonly kind: "check"; readonly message: string; readonly reason: BotChannelText }
 
-/** The failure of settings the channel refused. */
 export const checkFailure = (reason: BotChannelText): ChannelsFailure => ({
   kind: "check",
   message: reason.en,
@@ -36,9 +33,7 @@ export type ChannelsState =
   | { readonly status: "ready"; readonly snapshot: BotChannelsSnapshot }
   | { readonly status: "failed"; readonly failure: ChannelsFailure }
 
-/** One bot's channel settings, followed while the dialog is open. */
 export interface ChannelsModel extends Observable<ChannelsState> {
-  /** Save one channel's change; rejects with a {@link ChannelsError}. */
   configure(channelId: string, change: BotChannelChange): Promise<BotChannelView>
   dispose(): void
 }

@@ -1,11 +1,3 @@
-/**
- * The browser's login tools (docs/specs/bot-vaults.md §8): fill one field of
- * a login of the bot into the element of a ref, and offer a login's passkey
- * to the current tab. Playwright MCP only marks the target; the helper in
- * the VM finds it over DevTools, checks the frame's origin as the browser
- * reports it, and gets the value on its standard input. No value, page
- * text or snapshot is returned.
- */
 import type {
   BotConnectorRun,
   BotConnectorTool,
@@ -29,14 +21,12 @@ import { type FillOrder, type FillRequest, HelperProtocolError, type HelperReply
 export const FILL_FIELDS = ["username", "password", "otp"] as const
 type FillField = (typeof FILL_FIELDS)[number]
 
-/** Finding the field, fetching the value and typing it. */
 const FILL_TIMEOUT_MS = 60_000
 const EXCLUSIVE_PAGE = "page"
 
 export interface VaultToolDeps {
   readonly connections: BrowserConnections
   readonly kit: VaultKit
-  /** A new one-time mark (32 lower-case hex digits). */
   mark(): string
   deadline(ms: number): AbortSignal
 }
@@ -44,7 +34,6 @@ export interface VaultToolDeps {
 type Run = BotConnectorRun<BrowserAttachment>
 type Parameters = NonNullable<BotConnectorTool["parameters"]>
 
-/** A tool typed from its parameters (bot-core's connectorTools, which is a value this package cannot import). */
 const tool = <const S extends Parameters>(
   definition: BotConnectorTool<S, BrowserAttachment>,
 ): BotConnectorToolDefinition<BrowserAttachment> =>

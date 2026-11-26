@@ -12,12 +12,9 @@ import { onePasswordProvider } from "./provider"
 export const name = "bot-vault-1password"
 export const inject = ["bot"]
 
-/** The plugin's data directory: `<DSH home>/bot-vault-1password` (the CLI under `op/<version>/`). */
 export const dataDirectory = () => join(resolveDshHome(), name)
 
-/** Registers 1Password as a password manager of the bots, and installs its CLI. */
 export function apply(ctx: Context): void {
-  // bot-core is a peer dependency: its types only, the service by name.
   const bot = ctx.get("bot") as Bot
   const lifetime = new AbortController()
   const status = createStatusCell({ state: "preparing", step: "Checking the 1Password CLI" })

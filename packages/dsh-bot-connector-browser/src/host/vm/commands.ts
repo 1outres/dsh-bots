@@ -1,7 +1,3 @@
-/**
- * Commands in the bot's environment through bot-core's environment access:
- * one that must succeed, and the bot's account.
- */
 import type { BotConnectorEnvironment, BotEnvironmentCommandResult } from "@1outres/dsh-bot-core"
 import type { VmUser } from "./layout"
 
@@ -9,7 +5,6 @@ export interface CommandOptions {
   readonly timeoutMs?: number
   readonly maxOutputBytes?: number
   readonly signal: AbortSignal
-  /** Exit codes that are answers rather than failures. Default: 0. */
   readonly accept?: readonly number[]
 }
 

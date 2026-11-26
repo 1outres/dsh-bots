@@ -16,13 +16,10 @@ import type { BotVaultsApi } from "./vaults"
 import type { BotWebApi } from "./web"
 import type { BotWorkspacesApi } from "./workspaces"
 
-/** The npm package that owns bot-core's Remote; both faces register under it. */
 export const REMOTE_PACKAGE = "@1outres/dsh-bot-core"
 
-/** Type symbol of the JSON codec every argument and result of bot-core's Remote uses. */
 export const REMOTE_JSON_TYPE = `${REMOTE_PACKAGE}/json`
 
-/** Every Host API of bot-core's Remote, keyed by its wire namespace (`remote.<namespace>`). */
 export interface BotCoreApi {
   readonly bots: BotsApi
   readonly botFiles: BotFilesApi
@@ -69,7 +66,6 @@ export const REMOTE_NAMESPACES = [
   "botVaults",
 ] as const satisfies readonly RemoteNamespace[]
 
-/** Gateway refusals of a call whose shape is not the Host's declared contract: the two faces disagree. */
 export const REMOTE_CONTRACT_CODES = [
   "gateway/arguments-invalid",
   "gateway/input-invalid",
@@ -78,28 +74,20 @@ export const REMOTE_CONTRACT_CODES = [
 
 export type RemoteContractCode = (typeof REMOTE_CONTRACT_CODES)[number]
 
-/** One wire argument: its `args` field and whether the caller may omit it. */
 export interface RemoteParameter {
   readonly name: string
   readonly optional?: true
 }
 
 export interface RemoteMethodContract {
-  /** The wire arguments, in the Host method's parameter order, before the trailing `signal`. */
   readonly parameters: readonly RemoteParameter[]
   readonly stream?: true
-  /** The Host method takes a trailing `signal`. */
   readonly cancellable?: true
-  /** The Client sends JSON items back on the stream (`RemoteInvocation.uplink()`). */
   readonly uplink?: true
 }
 
 export type RemoteMethodContracts<Api> = { readonly [Method in keyof Api]: RemoteMethodContract }
 
-/**
- * The wire contract of every Remote method, declared rather than read from the
- * Host methods' parameter identifiers, which a bundler may rename.
- */
 export const REMOTE_METHODS: {
   readonly [Namespace in RemoteNamespace]: RemoteMethodContracts<BotCoreApi[Namespace]>
 } = {
@@ -272,9 +260,7 @@ export const REMOTE_METHODS: {
   },
 }
 
-/** One Remote method with its endpoint identity. */
 export interface RemoteEndpoint {
-  /** Stable across both faces: `<package>#<namespace>/<method>`. */
   readonly id: string
   readonly namespace: RemoteNamespace
   readonly method: string

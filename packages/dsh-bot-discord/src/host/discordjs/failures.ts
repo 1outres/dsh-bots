@@ -16,7 +16,6 @@ export function loginFailure(error: unknown): DiscordFailure {
   return { retryable: true, reason: `Could not connect to Discord: ${messageOf(error)}` }
 }
 
-/** A close discord.js does not recover from (`shardDisconnect`). */
 export function closeFailure(code: number): DiscordFailure {
   switch (code) {
     case GatewayCloseCodes.AuthenticationFailed:
@@ -41,13 +40,11 @@ const UNREACHABLE: ReadonlySet<number> = new Set([
 const codeOf = (error: unknown): number | string | undefined =>
   error instanceof DiscordAPIError ? error.code : undefined
 
-/** Discord no longer has the message or its channel, or no longer lets this bot reach them. */
 export function isUnreachable(error: unknown): boolean {
   const code = codeOf(error)
   return typeof code === "number" && UNREACHABLE.has(code)
 }
 
-/** Why Discord refused a pin, when it says. */
 export function pinRefusal(error: unknown): "full" | "forbidden" | undefined {
   switch (codeOf(error)) {
     case RESTJSONErrorCodes.MaximumNumberOfPinsReachedForTheChannel:

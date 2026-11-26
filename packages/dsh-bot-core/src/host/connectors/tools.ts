@@ -16,17 +16,13 @@ import type { ConnectorSettings } from "./settings"
 export const PENDING_LIST_TOOL = "connector_pending_list"
 export const PENDING_CANCEL_TOOL = "connector_pending_cancel"
 
-/** One tool the bot's connectors row registers. */
 export interface ConnectorToolSpec {
   readonly name: string
   readonly description: string
-  /** The arguments' JSON Schema. */
   readonly parameters: JsonSchemaNode
-  /** Which sessions of the bot see it. */
   readonly sessions: ConnectorSessions
 }
 
-/** Where a call of one of those tools goes. */
 export type ConnectorRoute =
   | { readonly kind: "connector"; readonly connectorId: string; readonly tool: string }
   | { readonly kind: "pending-list" }
@@ -40,7 +36,6 @@ const ASKS =
 const ASKS_FOR_SOME =
   "For some accounts it asks the user first: the call is then kept with its arguments until they approve or reject it, and you may get an awaiting-approval result instead of the outcome."
 
-/** The most events one events_list call returns. */
 export const MAX_EVENTS_LISTED = 100
 
 const PENDING_LIST: ConnectorToolSpec = {
@@ -70,13 +65,10 @@ export interface ConnectorToolSurfaceDeps {
   permissions: Pick<ConnectorPermissions, "effective" | "subscribe">
   settings: Pick<ConnectorSettings, "enabled" | "delivery" | "subscribe">
   ledger: Pick<ConnectorLedger, "list" | "subscribe">
-  /** The bot's accounts a call of the connector may act as now. */
   usableAccounts(botId: string, connector: CatalogConnector): readonly string[]
-  /** Called after the bot's accounts may have changed. */
   subscribeAccounts(listener: () => void): () => void
 }
 
-/** bot-core's own tools of one connector, made once per registration so their schemas stay the same objects. */
 interface OwnTools {
   readonly accounts?: ConnectorToolSpec
   readonly eventsList?: ConnectorToolSpec
@@ -131,20 +123,9 @@ function ownTools(connector: CatalogConnector): OwnTools {
   }
 }
 
-/**
- * The connector tools a bot's Agents see: every tool of a connector enabled
- * for the bot whose permission is not `disallow`, and bot-core's two
- * pending-action tools (Main session only) while the bot has a visible
- * connector tool or an open action. Each tool says which
- * sessions see it (its connector's `sessions`). A permission or settings
- * change, a connector's (un)registration or an action change updates the
- * set at once, without recomposing the bot's preset. A connector's readiness
- * does not change the set: a call while it is not ready answers why.
- */
 export interface ConnectorToolSurface {
   tools(botId: string): readonly ConnectorToolSpec[]
   route(botId: string, name: string): ConnectorRoute | undefined
-  /** Called with the current set now and with every different set later. */
   watch(botId: string, listener: (tools: readonly ConnectorToolSpec[]) => void): () => void
 }
 
@@ -174,7 +155,6 @@ export function createConnectorToolSurface(deps: ConnectorToolSurfaceDeps): Conn
     }
     return own
   }
-  /** The permissions a bot's calls of the tool may meet: the tool's, or each usable account's. */
   const permissionsOf = (botId: string, entry: CatalogTool) => {
     const connectorId = entry.connector.id
     if (entry.connector.connections === undefined) {

@@ -14,11 +14,6 @@ export interface ArchiveWiringSources {
   readonly face: Pick<BotsFace, "bots" | "workspaces" | "setArchivedShown" | "managed">
 }
 
-/**
- * Archiving bot sessions: the session rows' menu, the confirmation before
- * running work is stopped, and the frame-wide notices (which offer Undo and
- * Show archived after an archive).
- */
 export function wireArchive(ctx: ClientContext, sources: ArchiveWiringSources): void {
   const { archive, notices, face } = sources
   registerBotSessionMenu(ctx, face, archive, ctx.locale.bind(NAMESPACE))

@@ -1,19 +1,3 @@
-/**
- * One OpenSSH connection to a bot VM and its dsh-ssh helper.
- *
- * Copied from @deepseek-ai/dsh-ssh 0.2.2-rc.5 src/index.ts (`SshConnection`;
- * MIT, Copyright (c) 2026 DeepSeek; see LICENSE.dsh-ssh). The helper and the
- * wire protocol stay dsh-ssh's (`@deepseek-ai/dsh-ssh/protocol`,
- * `/schemas`). Changes from the original:
- * - every `ssh` runs with `-F <configFile>`, the bot's own OpenSSH config
- *   (the user's ~/.ssh/config and /etc/ssh/ssh_config are not read);
- * - a plain class, not a Cordis service: `src/plugins/ssh.ts` owns it;
- * - `failed` tells whether it failed or closed (the original keeps it private);
- * - results are checked by any `{ parse }` (the zod of dsh-ssh and of this
- *   package may be different copies).
- * Keep it in step with dsh-ssh when DSH moves on: diff against that version's
- * src/index.ts, and keep test/ssh-providers.test.ts passing.
- */
 import { type ChildProcessWithoutNullStreams, execFile, spawn } from "node:child_process"
 import { mkdtemp, rm } from "node:fs/promises"
 import { createConnection, type Socket } from "node:net"
@@ -25,12 +9,10 @@ import { authenticateStream } from "./stream-security"
 
 export type Hello = z.infer<typeof helloSchema>
 
-/** What checks a helper's result: dsh-ssh's zod schemas, or anything with `parse`. */
 export interface ResultSchema<T> {
   parse(value: unknown): T
 }
 
-/** The part of dsh-ssh's `SshRpcPeer` this connection uses. */
 interface RpcPeer {
   request<T>(
     method: string,
@@ -49,7 +31,6 @@ const nullResult: ResultSchema<null> = {
   },
 }
 
-/** Installed helper invocation; script deployments may also install a PTC bootstrap. */
 export type HelperLaunch =
   | {
       kind: "node-script"
@@ -59,11 +40,8 @@ export type HelperLaunch =
     }
   | { kind: "executable" }
 
-/** dsh-ssh's connection config, plus the OpenSSH config file of the host. */
 export interface SshConnectionConfig {
-  /** Host alias the config file's `Host` block names. */
   host: string
-  /** Absolute OpenSSH client config (`ssh -F`). */
   configFile: string
   launch: HelperLaunch
   helper: string
@@ -122,9 +100,7 @@ export const SSH_CONNECTION_DEFAULTS = {
   leaseMs: 30_000,
 } as const
 
-/** One non-reconnecting SSH session; loss invalidates all active operations. */
 export class SshConnection {
-  /** Verified remote helper coordinates. */
   readonly ready: Promise<Hello>
   private rpc: RpcPeer | undefined
   private child: ChildProcessWithoutNullStreams | undefined
@@ -155,12 +131,10 @@ export class SshConnection {
     })
   }
 
-  /** Whether the connection failed or was closed: no call succeeds on it any more. */
   get failed(): boolean {
     return this.failure !== undefined || this.closed
   }
 
-  /** Verified remote PTC launch configuration; script deployments require a verified bootstrap. */
   get ptcLaunch(): PtcLaunch {
     if (this.remote === undefined) throw new Error("SSH helper is not ready")
     const launch = this.config.launch
@@ -176,7 +150,6 @@ export class SshConnection {
     }
   }
 
-  /** Send a helper operation; cancellation never replays an ambiguous mutation. */
   async request<T>(
     method: string,
     params: unknown,
@@ -195,7 +168,6 @@ export class SshConnection {
     return (this.rpc as RpcPeer).request(method, params, result, bounded)
   }
 
-  /** Forward one authenticated stream through an independent SSH channel; resolves paused. */
   async connectStream(endpoint: SshStreamEndpoint, signal?: AbortSignal): Promise<Socket> {
     return this.track(this.establishStream(endpoint, signal))
   }
@@ -213,7 +185,6 @@ export class SshConnection {
     const local = join(this.directory as string, `s${this.nextSocket++}`)
     const forward = `${local}:${remote}`
     const cancelForward = async (): Promise<void> => {
-      // An unavailable master already removed its forwarding listeners.
       if (!this.closed) await this.controlCommand(["-O", "cancel", "-L", forward]).catch(() => {})
       await rm(local, { force: true })
     }
@@ -277,7 +248,6 @@ export class SshConnection {
     return authenticated
   }
 
-  /** Tear down the helper's remote managed ranges before releasing the SSH master when reachable. */
   dispose(): Promise<void> {
     this.disposal ??= this.disposeOnce()
     return this.disposal
@@ -437,7 +407,7 @@ export class SshConnection {
         resolve()
       })
     })
-    child.stderr.resume() // SSH diagnostics can contain configured paths; operation errors remain structured.
+    child.stderr.resume()
     child.once("error", (error) => {
       this.fail(error)
     })

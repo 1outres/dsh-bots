@@ -1,6 +1,3 @@
-// Design rule 23: tool masks are deny lists.
-// An `allow` list on `restrict(...)` also hides the tools a bot preset
-// contributes from an ancestor scope, so isolation always passes `deny`.
 JsCallExpression(callee = $callee, arguments = $arguments) as $call where {
   $callee <: or { `$_.restrict`, `$_?.restrict`, `restrict` },
   $arguments <: contains or {

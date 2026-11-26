@@ -4,12 +4,10 @@ import { Button } from "../ui/Button"
 import { Group } from "../ui/Group"
 import { Row } from "../ui/Row"
 
-/** What bot-core injects into its page of DSH's settings. */
 export interface DshSettingsPageFace {
   openGlobalSettings(): void
 }
 
-/** Leave DSH's settings for the dsh-bots settings: DSH's panel closes first, so the two never stack. */
 export function leaveForGlobalSettings(
   owner: SettingsSectionOwnerProps,
   face: DshSettingsPageFace,
@@ -18,7 +16,6 @@ export function leaveForGlobalSettings(
   face.openGlobalSettings()
 }
 
-/** bot-core's page in DSH's settings: no settings of its own, only the way to the dsh-bots settings. */
 export function DshSettingsPage(
   props: SettingsSectionOwnerProps & DshSettingsPageFace & { readonly t: Translate },
 ) {

@@ -13,7 +13,6 @@ import { brokerSetup, settle } from "./connectors-support"
 
 const OWNER = { kind: "owner" }
 
-/** A queue the test pushes uplink items into, as the Gateway delivers them. */
 function uplinkQueue() {
   const items: unknown[] = []
   let wake: (() => void) | undefined

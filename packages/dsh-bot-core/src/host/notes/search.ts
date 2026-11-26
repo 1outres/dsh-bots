@@ -1,19 +1,10 @@
-/**
- * How notes are searched (docs/specs/bot-notes.md §4 note_search, and the
- * notes screen): the query, folded with NFKC and case, as a substring of a
- * title or an alias, of the summary, or of a body line with its links shown
- * by title. Title and alias matches come first, the rest after, each in
- * creation order.
- */
 import { foldName } from "../text-fold"
 import type { NoteCatalog } from "./catalog"
 import type { NoteType } from "./note"
 
 export interface NoteMatch {
   readonly id: string
-  /** The title or an alias matched. */
   readonly named: boolean
-  /** Indexes of the body lines that match. */
   readonly lines: readonly number[]
 }
 

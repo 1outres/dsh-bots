@@ -1,9 +1,3 @@
-/**
- * The passkey offered in a bot's browser: at most one passkey helper per
- * bot, part of the connector's resident resource (it outlives the tool's
- * call), ended by the next offer, by the helper itself (used once, time up,
- * the tab left the origin) or when the resource is disposed.
- */
 import type {
   BotConnectorEnvironment,
   SecretBytes,
@@ -15,28 +9,23 @@ import { HelperFailureError } from "./failures"
 import { type HelperRun, startHelper } from "./helper"
 import { HelperProtocolError, type PasskeyOrder, type PasskeyRequest } from "./protocol"
 
-/** How long an offered passkey waits for the site. */
 export const PASSKEY_SECONDS = 60
 const STEP_TIMEOUT_MS = 30_000
 
 export interface PasskeySlotDeps {
   readonly environment: BotConnectorEnvironment
-  /** The resident resource's lifetime. */
   readonly signal: AbortSignal
   readonly kit: VaultKit
   deadline(ms: number): AbortSignal
 }
 
-/** The tab the helper found; the passkey goes to it, or the offer is cancelled. */
 export interface PasskeyTab {
   readonly origin: string
-  /** Resolves once the site can use the passkey; the private key is spent either way. */
   offer(passkey: VaultPasskey): Promise<void>
   cancel(): void
 }
 
 export interface PasskeySlot {
-  /** End the passkey offered so far, then find the tab marked with `mark`. */
   locate(mark: string): Promise<PasskeyTab>
   release(): void
 }

@@ -16,15 +16,15 @@ declare const deps: {
 declare const pending: Map<string, unknown>
 
 export async function bypass(args: unknown) {
-  await entry.tool.recheck(args) // rule: 39
-  await entry.tool.execute(args) // rule: 39
-  await entry.tool.snapshot(args) // rule: 39
-  await connector.preparation.prepare() // rule: 43
-  await connector.preparation.unprepare() // rule: 43
-  await connector.attachment.open() // rule: 43
-  await deps.actions.put("a", args) // rule: 40
-  await deps.actions.delete("a") // rule: 40
-  await deps.notices.put("n", args) // rule: 41
-  await deps.notices.delete("n") // rule: 41
+  await entry.tool.recheck(args)
+  await entry.tool.execute(args)
+  await entry.tool.snapshot(args)
+  await connector.preparation.prepare()
+  await connector.preparation.unprepare()
+  await connector.attachment.open()
+  await deps.actions.put("a", args)
+  await deps.actions.delete("a")
+  await deps.notices.put("n", args)
+  await deps.notices.delete("n")
   pending.delete("a")
 }

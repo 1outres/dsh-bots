@@ -32,7 +32,6 @@ const text = (offset: number, lines: string[], eof: boolean): BotFileText => ({
   eof,
 })
 
-/** A call that settles only when the test says so, recording its signal. */
 function deferred<T>() {
   const calls: { signal: AbortSignal; resolve(value: T): void; reject(error: unknown): void }[] = []
   const run = (signal: AbortSignal | undefined) =>

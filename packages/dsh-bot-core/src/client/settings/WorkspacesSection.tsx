@@ -66,7 +66,6 @@ function useWorkspaceOptions(read: () => Promise<BotWorkspaceOptions>): OptionsS
   return state
 }
 
-/** One save at a time per grant; a refusal stays on the field it was about. */
 function useGrantSave(save: (change: BotWorkspaceSettingsChange) => Promise<void>): {
   readonly busy: boolean
   readonly failure: { readonly field: keyof BotWorkspaceSettings; readonly message: string } | null
@@ -96,7 +95,6 @@ function useGrantSave(save: (change: BotWorkspaceSettingsChange) => Promise<void
   }
 }
 
-/** The DSH Workspaces the bot's Main session may orchestrate, each saved as it is changed. */
 export function WorkspacesSection({
   t,
   bot,

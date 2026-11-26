@@ -4,7 +4,6 @@ import { DesktopControl } from "../src/host/control"
 import { readVmSources } from "../src/index"
 import { VAULT_KIT } from "./support"
 
-/** docs/specs/bot-connectors.md, 9: the desktop's tools (bot-core's connectors-fit test registers the connector in its catalog). */
 const SPEC_TOOLS = [
   "screenshot",
   "click",
@@ -28,7 +27,6 @@ const SPEC_TOOLS = [
   "text",
   "sheet",
   "request_handoff",
-  // docs/specs/bot-vaults.md, 9
   "type_credential",
 ]
 

@@ -171,7 +171,6 @@ const release = (tag: string, body: string | null, draft = false) => ({
   html_url: `https://github.com/o/r/releases/tag/${tag}`,
 })
 
-/** A fake GitHub releases API serving `pages`, recording the URLs asked. */
 function githubOf(pages: readonly unknown[][], status = 200) {
   const urls: string[] = []
   const fetch: HttpFetch = async (url) => {

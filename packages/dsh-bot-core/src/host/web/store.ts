@@ -4,19 +4,15 @@ import type { BotTable } from "../registry"
 import { WEB_SETTINGS_KEY } from "./domain"
 
 export interface WebSettingsStoreDeps {
-  /** The settings table of WEB_DOMAIN; only the store writes it (design rule 44). */
   webSettings: BotTable<BotWebSettings>
 }
 
-/** Every bot's web lookup settings, as stored. Writes are serialized. */
 export interface WebSettingsStore {
   current(): BotWebSettings
   setEnabled(capability: BotWebCapability, enabled: boolean): Promise<BotWebSettings>
-  /** Called after every stored change. */
   subscribe(listener: () => void): () => void
 }
 
-/** Opens the store; a first start stores {@link DEFAULT_WEB_SETTINGS}, and only stored values are read after that. */
 export async function openWebSettingsStore(deps: WebSettingsStoreDeps): Promise<WebSettingsStore> {
   const { webSettings } = deps
   let current = webSettings.get(WEB_SETTINGS_KEY)

@@ -7,19 +7,8 @@ import {
 } from "react"
 import type { ShellPhase } from "./shell-phase"
 
-/**
- * The main Conversation's transcript width axis and drag handles, copied from
- * DSH's ConversationWidthControls (skeleton/ConversationWidthControls.tsx,
- * see upstream.ts). Classes renamed (`dshb-width-handle`, styles-shell.ts);
- * the persisted preference key is DSH's own, so the bot shell and the stock
- * shell share one width.
- */
-
-/** localStorage key for the dragged transcript width preference (px). */
 const WIDTH_PREF_KEY = "dsh.conversation.contentWidth"
-/** Floor for a dragged content width; matches the layout center-column minimum. */
 const CONTENT_MIN = 640
-/** Horizontal room reserved for both handles and their safe edge zones. */
 const CONTENT_EDGE_BUDGET = 176
 const WHEEL_DELTA_LINE = 1
 const WHEEL_DELTA_PAGE = 2
@@ -30,7 +19,6 @@ export interface ShellWidthControlsProps {
   readonly phase: ShellPhase
 }
 
-/** Read a valid persisted width preference, or null when absent or corrupt. */
 function readWidthPreference(): number | null {
   let raw: string | null
   try {
@@ -43,14 +31,12 @@ function readWidthPreference(): number | null {
   return Number.isFinite(value) && value > 0 ? value : null
 }
 
-/** Resolve the width displayed for one measured Conversation column. */
 export function resolveContentWidth(columnWidth: number, preference: number | null): number {
   const max = Math.max(CONTENT_MIN, columnWidth - CONTENT_EDGE_BUDGET)
   if (preference !== null) return Math.min(Math.max(preference, CONTENT_MIN), max)
   return Math.max(680, Math.min(columnWidth * 0.64, 920))
 }
 
-/** Convert a wheel event's vertical delta to scrollport pixels. */
 function wheelDeltaY(event: ReactWheelEvent, scrollport: HTMLElement): number {
   if (event.deltaMode === WHEEL_DELTA_LINE) {
     const lineHeight = Number.parseFloat(getComputedStyle(scrollport).lineHeight)
@@ -68,7 +54,6 @@ interface HandleProps {
   onEnd: () => void
 }
 
-/** One pointer-captured transcript width handle. */
 function WidthHandle(props: HandleProps) {
   const dragging = useRef(false)
   const base = useRef(0)
@@ -121,7 +106,6 @@ function WidthHandle(props: HandleProps) {
     event.currentTarget.releasePointerCapture(event.pointerId)
     cancelFrame()
     latest.current = event.clientX
-    // A press-only gesture must not overwrite a wider preference with its window-clamped display value.
     if (latest.current !== origin.current) callbacks.current.onCommit(outwardWidth())
     callbacks.current.onEnd()
   }, [])
@@ -129,7 +113,6 @@ function WidthHandle(props: HandleProps) {
     if (!dragging.current) return
     dragging.current = false
     event.currentTarget.toggleAttribute("data-dragging", false)
-    // Cancellation abandons persistence and restores the saved width through onEnd.
     cancelFrame()
     callbacks.current.onEnd()
   }, [])
@@ -157,7 +140,6 @@ function WidthHandle(props: HandleProps) {
   )
 }
 
-/** Install the main Conversation width axis and render its drag handles (active phase only). */
 export function ShellWidthControls({ container, phase }: ShellWidthControlsProps) {
   const publishWidths = useCallback((element: HTMLDivElement): void => {
     const target = element.parentElement ?? element
@@ -204,9 +186,7 @@ export function ShellWidthControls({ container, phase }: ShellWidthControlsProps
       if (container === null) return
       try {
         localStorage.setItem(WIDTH_PREF_KEY, `${resolveContentWidth(container.offsetWidth, width)}`)
-      } catch {
-        // Storage unavailable: the width lasts until the next resize.
-      }
+      } catch {}
     },
     [container],
   )

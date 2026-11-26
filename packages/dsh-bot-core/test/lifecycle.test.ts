@@ -12,7 +12,6 @@ const settle = async () => {
   for (let i = 0; i < 20; i++) await Promise.resolve()
 }
 
-/** A registry and environment keeper of plain maps, driven by the test. */
 function setup() {
   let clock = 100
   const creating = new Map<string, CreatingBot>()
@@ -144,7 +143,6 @@ function setup() {
     failCleanup(error: Error | undefined) {
       cleanupError = error
     },
-    /** The environment reports a status for a bot. */
     environmentIs(id: string, status: EnvironmentStatus) {
       statuses.set(id, status)
       for (const listener of [...statusListeners]) listener(id)
@@ -252,7 +250,6 @@ describe("createBotLifecycle", () => {
       failure: { message: "no vsock id", at: 105 },
     })
     expect(h.warnings).toEqual([expect.stringContaining("no vsock id")])
-    // Still failing on the next report: stored once.
     h.environmentIs(id, { ready: false, problem: "other" })
     await settle()
     expect(h.pending(id)?.failure?.message).toBe("no vsock id")

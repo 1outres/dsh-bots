@@ -20,7 +20,6 @@ export const PHASE_LABELS: { readonly [Phase in CreationPhase]: MessageKey } = {
   "starting-main": "phase.starting-main",
 }
 
-/** What a pending bot's row says it is doing. */
 export function pendingLabel(pending: PendingBotView): MessageKey {
   const { operation, failure } = pending
   if (operation.kind === "remove")
@@ -32,13 +31,11 @@ interface PendingRowProps
   extends Pick<BotsFace, "pending" | "openProgress" | "status" | "clearError"> {
   readonly t: Translate
   readonly node: PendingNode
-  /** Key of the tree's single tab stop. */
   readonly tabKey: string | undefined
   readonly index: number
   readonly count: number
 }
 
-/** A bot being created or removed: a faded row with its step, or its failure and what to do about it. */
 export function PendingBotRow({ t, node, tabKey, index, count, ...props }: PendingRowProps) {
   const { pending, key, selected } = node
   const [details, setDetails] = useState(false)
@@ -49,7 +46,7 @@ export function PendingBotRow({ t, node, tabKey, index, count, ...props }: Pendi
   const detailsId = `dshb-pending-${pending.id}-details`
   return (
     <>
-      {/* biome-ignore lint/a11y/useKeyWithClickEvents: the tree handles keys for its treeitems */}
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: - */}
       <div
         className="dshb-row dshb-pending-row"
         role="treeitem"

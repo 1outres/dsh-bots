@@ -1,9 +1,3 @@
-/**
- * Searching a bot's past conversations with its owner
- * (docs/specs/bot-session-search.md): which sessions are read, what of their
- * logs is searched, the search and the read, their bounds, who may call them,
- * and the row that registers the tools.
- */
 import { Context, Service } from "@deepseek-ai/cordis"
 import { describe, expect, it } from "vitest"
 import { createBotConversations } from "../src/host/conversations/bot-conversations"
@@ -26,7 +20,6 @@ import {
 import BotConversationTools from "../src/plugins/conversations"
 
 const TZ = "Asia/Tokyo"
-/** 2026-11-20 09:00 in Tokyo. */
 const DAY = Date.UTC(2026, 10, 20, 0, 0)
 const MINUTE = 60_000
 
@@ -108,7 +101,6 @@ const log = (events: LoggedEvent[], inheritedEventCount = 0): SessionLog => ({
   events,
 })
 
-/** Bot "a": Main "main", former Main "old-main", web "web", "run" (schedule), "child" (delegated). */
 const KINDS: Pick<SessionKindDeps, "isMain" | "isScheduleRun" | "isStartedByMain"> = {
   isMain: (_botId, id) => id === "main",
   isScheduleRun: (_botId, id) => id === "run",

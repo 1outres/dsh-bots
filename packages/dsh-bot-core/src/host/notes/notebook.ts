@@ -1,11 +1,3 @@
-/**
- * A bot's notes as files in its environment (docs/specs/bot-notes.md §9). The
- * files are the source of truth; the notebook keeps what it last read of each
- * (by the file system's version) and the catalog built from them, and brings
- * both up to date from the files before every use, so an edit made another
- * way (the bot's own bash) is seen. Reads and writes go through the bot's
- * environment's file system only.
- */
 import type { FileTarget } from "../files"
 import { buildCatalog, type InvalidNote, type NoteCatalog } from "./catalog"
 import {
@@ -18,14 +10,12 @@ import {
   serializeNote,
 } from "./note"
 
-/** Largest note file read; a larger one is reported as invalid. */
 export const MAX_NOTE_BYTES = 256 * 1024
 
 export type NoteWriteGuard =
   | { readonly kind: "createIfAbsent" }
   | { readonly kind: "replaceIfVersion"; readonly version: string }
 
-/** dsh-fs `FileSystem`, as far as notes use it. */
 export interface NotesFileSystem {
   resolve(path: string, options?: { cwd?: string; signal?: AbortSignal }): Promise<FileTarget>
   stat(
@@ -63,7 +53,6 @@ export interface NotesFileSystem {
   ): Promise<{ readonly version: string }>
 }
 
-/** Where a bot's notes are: its environment's file system and workspace. */
 export interface NotesPlace {
   readonly fs: NotesFileSystem
   readonly workspace: string
@@ -71,25 +60,17 @@ export interface NotesPlace {
 
 interface Entry {
   readonly version: string
-  /** The file's text as read or written. */
   readonly text: string
   readonly parsed: Parsed<Note>
 }
 
-/** The notes as they are now. */
 export interface NotesView {
   readonly catalog: NoteCatalog
-  /** A note file's text as it is now. */
   text(id: string): string | undefined
 }
 
 export interface Notebook {
-  /** @throws when the environment cannot list or read the notes. */
   load(place: NotesPlace, signal: AbortSignal): Promise<NotesView>
-  /**
-   * Write one note: `create` only where no file is, `replace` only over the
-   * version last read (an edit made meanwhile fails the write).
-   */
   write(
     place: NotesPlace,
     id: string,
@@ -97,7 +78,6 @@ export interface Notebook {
     mode: "create" | "replace",
     signal: AbortSignal,
   ): Promise<NotesView>
-  /** What the last load or write saw, or undefined before the first. */
   current(): NotesView | undefined
 }
 

@@ -1,12 +1,8 @@
-/** The version recorded for an installation whose notes were never seen: every release up to now is shown. */
 export const NO_VERSION = "0.0.0"
 
-/** One dsh-bots release as its GitHub release tells it: the author's Markdown, in English. */
 export interface ReleaseNote {
   readonly version: string
-  /** The release's Markdown body, drawn as Markdown (never as HTML). */
   readonly body: string
-  /** The release's page on GitHub. */
   readonly url: string
 }
 
@@ -18,7 +14,6 @@ interface ParsedVersion {
   readonly prerelease: readonly string[]
 }
 
-/** Whether `value` is a version {@link compareVersions} reads. */
 export function isVersion(value: unknown): value is string {
   return typeof value === "string" && VERSION.test(value)
 }
@@ -42,10 +37,6 @@ function compareIdentifiers(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0
 }
 
-/**
- * Semantic version order: negative when `a` is older, positive when newer.
- * @throws when either is not a version.
- */
 export function compareVersions(a: string, b: string): number {
   const left = parse(a)
   const right = parse(b)
@@ -67,6 +58,5 @@ export function compareVersions(a: string, b: string): number {
   return 0
 }
 
-/** Whether `version` is after `seen` and not after `current`: a release whose notes are due. */
 export const dueBetween = (version: string, seen: string, current: string): boolean =>
   compareVersions(version, seen) > 0 && compareVersions(version, current) <= 0

@@ -1,6 +1,5 @@
 import type { VaultGrantAvailability } from "../../shared/vaults"
 
-/** What bot-core last learned of whether each login's item can be read (in memory). */
 export interface VaultAvailability {
   get(botId: string, grantId: string): VaultGrantAvailability
   set(botId: string, grantId: string, state: Exclude<VaultGrantAvailability, "unchecked">): void

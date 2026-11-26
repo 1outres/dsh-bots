@@ -15,23 +15,15 @@ export interface VaultSessionsDeps {
   warn(message: string): void
 }
 
-/** The provider sessions of connected accounts: one per account, opened when first needed. */
 export interface VaultSessions {
-  /** @throws when the account or its provider is gone, or it cannot connect (its status says why). */
   session(accountId: string, signal: AbortSignal): Promise<VaultSession>
-  /** Keep a session opened for a new account. */
   adopt(accountId: string, session: VaultSession): void
-  /** Close the account's session (removed, its provider gone). */
   close(accountId: string): Promise<void>
   dispose(): Promise<void>
 }
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
-/**
- * A provider's setup from stored values: secret fields as bytes the
- * provider then owns, the others as text.
- */
 export function vaultSetupOf(
   provider: BotVaultProvider,
   values: Readonly<Record<string, string>>,
@@ -48,14 +40,12 @@ export function vaultSetupOf(
   return { text, secrets }
 }
 
-/** Wipe the secrets of a setup the provider did not take (its `open` failed). */
 export function wipeSetup(setup: VaultSetup): void {
   for (const secret of Object.values(setup.secrets)) secret.wipe()
 }
 
 export function createVaultSessions(deps: VaultSessionsDeps): VaultSessions {
   const open = new Map<string, { provider: string; session: Promise<VaultSession> }>()
-  /** Bumped when an account's session is closed: a connect that started before it is thrown away. */
   const generations = new Map<string, number>()
   const closeEntry = async (accountId: string) => {
     generations.set(accountId, (generations.get(accountId) ?? 0) + 1)

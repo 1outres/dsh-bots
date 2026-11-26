@@ -1,19 +1,12 @@
-/**
- * Copied from @deepseek-ai/dsh-ssh 0.2.2-rc.5 src/stream-security.ts (MIT,
- * Copyright (c) 2026 DeepSeek; see LICENSE.dsh-ssh), unchanged but for
- * formatting: dsh-ssh does not export it.
- */
 import type { Socket } from "node:net"
 import { type ConnectionOptions, connect, type TLSSocket } from "node:tls"
 
-/** Certificate-free PSK authentication and AEAD records; no unauthenticated cipher fallback. */
 export const SSH_STREAM_TLS_OPTIONS = {
   ciphers: "PSK-AES256-GCM-SHA384",
   minVersion: "TLSv1.2",
   maxVersion: "TLSv1.2",
 } as const satisfies ConnectionOptions
 
-/** Authenticate a forwarded socket with its private administrative-channel key. */
 export async function authenticateStream(
   socket: Socket,
   capability: string,

@@ -34,7 +34,6 @@ import { headline, METADATA_HEADERS, type ReadMessage, readMessage } from "./mes
 import { rawOf } from "./mime"
 
 const MAX_TEXT = 20_000
-/** Labels whose change is a trash or spam move: only the Ask tools do that. */
 const GUARDED_LABELS = ["TRASH", "SPAM"]
 
 const strings = (description: string) =>
@@ -83,14 +82,12 @@ function summaryOf(message: ReadMessage) {
   }
 }
 
-/** The send/reply/forward snapshot: who it is from, the original, the attachments as shown. */
 interface MailSnapshot {
   readonly from: string
   readonly original?: OriginalFacts
   readonly attachments: readonly AttachmentFact[]
 }
 
-/** The snapshot this connector stored with an action (its own JSON, read back). */
 function snapshotOf(snapshot: ConnectorJson | undefined): MailSnapshot {
   const value: unknown = snapshot === undefined ? undefined : JSON.parse(JSON.stringify(snapshot))
   const facts = value as Partial<MailSnapshot> | undefined
@@ -106,7 +103,6 @@ export function gmailTools(google: Google): BotConnectorToolDefinition[] {
   const as = <T>(run: BotConnectorRun, work: (gmail: gmail_v1.Gmail) => Promise<T>) =>
     google.as(connectionOf(run), (apis) => work(apis.gmail))
 
-  /** Send an outgoing message whose attachments the preview showed (re-read and checked). */
   const deliver = (run: BotConnectorRun, message: Outgoing, forwardedFrom?: string) =>
     google.as(connectionOf(run), async ({ gmail, gmailUpload }) => {
       const attachments = await loadApproved(message.attachments, async (fact) => {

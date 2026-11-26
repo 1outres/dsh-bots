@@ -18,7 +18,6 @@ function chunk(type: string, data: Uint8Array): Buffer {
   return Buffer.concat([head, data, crc])
 }
 
-/** A black PNG of the size. */
 export function png(width: number, height: number): Buffer {
   const header = Buffer.alloc(13)
   header.writeUInt32BE(width, 0)

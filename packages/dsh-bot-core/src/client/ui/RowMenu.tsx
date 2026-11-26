@@ -4,18 +4,15 @@ import { useLayer } from "./layers"
 import type { DataMarks } from "./marks"
 import { type Placement, placeUnder } from "./placement"
 
-/** One entry of a row's menu. */
 export interface RowMenuItem {
   readonly id: string
   readonly label: string
-  /** `danger`: a destructive entry (Disconnect…), in red. */
   readonly tone?: "danger"
   readonly disabled?: boolean
   run(): void
 }
 
 export interface RowMenuProps {
-  /** The menu button's accessible name (More for {account}). */
   readonly label: string
   readonly items: readonly RowMenuItem[]
   readonly disabled?: boolean
@@ -24,7 +21,6 @@ export interface RowMenuProps {
 
 const MENU_WIDTH = 180
 
-/** A row's `…` button and the menu it opens: ↑/↓ move, Enter picks, Escape or a click elsewhere closes. */
 export function RowMenu({ label, items, disabled, marks }: RowMenuProps) {
   const [open, setOpen] = useState(false)
   const [placement, setPlacement] = useState<Placement | null>(null)

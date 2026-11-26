@@ -35,11 +35,6 @@ import type { Translate } from "./types"
 export { CreateBotDialog } from "./CreateBotDialog"
 export type { ActionProps, BotsFace } from "./face"
 
-/**
- * Occupies the New Session row's HOC layer. Expanded, it returns the row
- * unchanged and portals the Bots section to just above Workspaces (below the
- * panel list). The collapsed rail shows no bots.
- */
 export function BotsAction(props: ActionProps & { children: ReactNode }) {
   const { wide, children } = props
   const [host, setHost] = useState<HTMLElement | null>(null)
@@ -193,11 +188,6 @@ function RegistrationNotice(props: {
   )
 }
 
-/**
- * The bots as one ARIA tree with a single tab stop (roving tabindex), like the
- * Workspaces tree: ↑/↓/Home/End move, → expands or enters, ← collapses or
- * returns to the bot, Enter/Space activate (open, or Show more / Show less).
- */
 function BotsTree(props: ActionProps & { snapshot: BotsSnapshot }) {
   const { snapshot: bots, ...face } = props
   const { t, setExpanded, windows } = face
@@ -218,7 +208,6 @@ function BotsTree(props: ActionProps & { snapshot: BotsSnapshot }) {
     { expansion, archivedShown, windows: windowed },
     progress,
   )
-  // Rows that raised a bot's window keep it raised, as Workspaces' watermarks.
   useEffect(() => {
     for (const node of nodes) {
       if (node.kind === "bot" && node.expanded) windows.raise(node.bot.id, node.window)

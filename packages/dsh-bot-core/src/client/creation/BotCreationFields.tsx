@@ -29,7 +29,6 @@ import { Switch } from "../ui/Switch"
 import { TextInput } from "../ui/TextInput"
 import type { BotCreationForm } from "./use-creation-form"
 
-/** The New bot form's fields, the dialog's and the welcome guide's alike. */
 export function BotCreationFields({
   t,
   form,
@@ -106,7 +105,6 @@ interface MainModelProps {
   onChange(choice: BotModelChoice): void
 }
 
-/** The new bot's main model, DSH's default until another is picked. */
 function MainModel({ t, catalog, value, disabled, onChange }: MainModelProps) {
   const read = catalogOf(catalog)
   const menu = useMemo(() => modelMenu(read, [value]), [read, value])
@@ -149,7 +147,6 @@ interface CreationOptionsProps {
   onChange(option: BotCreationOption, on: boolean): void
 }
 
-/** One switch row per creation option some registered connector belongs to, then the VM they get. */
 function CreationOptions({
   t,
   state,

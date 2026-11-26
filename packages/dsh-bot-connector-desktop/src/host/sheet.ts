@@ -1,14 +1,8 @@
-/**
- * LibreOffice Calc through the desktop: cell addresses, the input steps that
- * write a block of values (AT-SPI cannot set a cell; selecting one makes a
- * range that typing cycles through), and the grid rendering of what a sheet shows.
- */
 import type { AgentStep } from "./agent/protocol"
 
 export type SheetValue = string | number | boolean | null
 
 export interface CellAddress {
-  /** 0-based. */
   readonly row: number
   readonly column: number
 }
@@ -19,9 +13,7 @@ const MAX_ROWS = 1_048_576
 const MAX_COLUMNS = 16_384
 const ADDRESS = /^([A-Za-z]{1,3})([1-9][0-9]{0,6})$/
 const RANGE = /^([A-Za-z]{1,3}[1-9][0-9]{0,6})(?::([A-Za-z]{1,3}[1-9][0-9]{0,6}))?$/
-/** Calc's shortcut to the Name Box, where typing an address and Enter moves the cursor there. */
 const NAME_BOX = "ctrl+shift+F5"
-/** The Name Box has the focus as a text; the sheet as a table. */
 const NAME_BOX_ROLE = "text"
 const SHEET_ROLE = "table"
 
@@ -37,7 +29,6 @@ export function formatAddress(address: CellAddress): string {
   return `${columnLabel(address.column)}${address.row + 1}`
 }
 
-/** @throws for anything but an address like B3 within a Calc sheet. */
 export function parseAddress(text: string): CellAddress {
   const match = ADDRESS.exec(text.trim())
   if (match === null) throw new Error(`"${text}" is not a cell address like B3`)
@@ -51,7 +42,6 @@ export function parseAddress(text: string): CellAddress {
   return address
 }
 
-/** @throws for anything but a range like A1:C10 (or one cell). */
 export function parseRange(text: string): {
   readonly start: CellAddress
   readonly end: CellAddress
@@ -83,19 +73,10 @@ function cellText(value: Exclude<SheetValue, null>, at: string): string {
 
 export interface SheetWritePlan {
   readonly steps: readonly AgentStep[]
-  /** The block the values cover. */
   readonly range: string
   readonly cells: number
 }
 
-/**
- * The steps that write `values` (rows of cells) with its top-left cell at
- * `start`, into the Calc window `windowId`: each cell is reached through the
- * Name Box (waiting for the focus to get there and back, since the shortcut
- * is sometimes missed), typed (or cleared, for "") and entered. `null`
- * leaves a cell as it is.
- * @throws for a block that is empty, too large, outside the sheet or holds an unusable value.
- */
 export function planSheetWrite(
   windowId: string,
   start: string,
@@ -153,7 +134,6 @@ export interface SheetCells {
   readonly cells: readonly { readonly address: string; readonly text: string }[]
 }
 
-/** The non-empty cells, one line per sheet row: `A1="Price" C1=120`. */
 export function renderSheet(sheet: SheetCells): string {
   const head = [
     `sheet ${JSON.stringify(sheet.name)} (${sheet.rows}x${sheet.columns})`,

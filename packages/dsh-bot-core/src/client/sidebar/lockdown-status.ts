@@ -1,11 +1,9 @@
 import { createStore, derive, type Observable } from "../observable"
 import type { RegistrationStatus } from "../session-classification"
 
-/** How the right sidebar lockdown of bot sessions stands. */
 export interface LockdownStatus {
   readonly handle: "present" | "missing"
   readonly registration: RegistrationStatus
-  /** The sweep could not read what landed in the sidebar. */
   readonly broken: boolean
 }
 
@@ -15,7 +13,6 @@ export const INITIAL_LOCKDOWN_STATUS: LockdownStatus = {
   broken: false,
 }
 
-/** File links reach the bot viewer only through the borrowed store of a standing lockdown. */
 export function linksAvailable(status: LockdownStatus): boolean {
   return status.handle === "present" && status.registration.state !== "refused" && !status.broken
 }
@@ -26,7 +23,6 @@ const sameRegistration = (a: RegistrationStatus, b: RegistrationStatus) =>
 const sameStatus = (a: LockdownStatus, b: LockdownStatus) =>
   a.handle === b.handle && a.broken === b.broken && sameRegistration(a.registration, b.registration)
 
-/** What the sweep reports into the status. */
 export interface LockdownReporter {
   markBroken(): void
 }

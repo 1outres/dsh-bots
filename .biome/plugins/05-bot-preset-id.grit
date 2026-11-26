@@ -1,7 +1,3 @@
-// Design rule 5: bot preset ids are derived in one place.
-// A `bot-${...}` template literal or a "bot-" + ... concatenation may appear
-// only in shared/preset.ts; everything else calls botPresetId(), so the id
-// format session logs record never drifts.
 or {
   JsTemplateExpression() as $match where { $match <: r"(?s)`bot-\$\{.*" },
   JsBinaryExpression(left = $left) as $match where { $left <: r"[\"']bot-[\"']" }

@@ -2,7 +2,6 @@ import { spawn } from "node:child_process"
 import type { OpEnvironment } from "./environment"
 import { OpFailure, reasonOf } from "./failure"
 
-/** One op invocation; `name` (`item get`…) is what errors say. */
 export interface OpCommand {
   readonly name: string
   readonly args: readonly string[]
@@ -26,13 +25,6 @@ function joined(chunks: readonly Uint8Array[], length: number): Uint8Array {
   return out
 }
 
-/**
- * Run op (design rule 68: the only process this package starts): no shell,
- * the given environment only, stdout kept as bytes the caller owns and
- * wipes. Every chunk read is wiped once copied; on any failure stdout is
- * wiped and the error names a reason, never op's output.
- * @throws OpFailure
- */
 export function runOp(
   binary: string,
   command: OpCommand,

@@ -5,10 +5,8 @@ import { SkillsSection } from "../skills/SkillsSection"
 import type { ClientContext } from "../types"
 import type { SettingsScreens } from "./screens"
 
-/** Id of the Skills section of a bot's settings. */
 export const SKILLS_SECTION = "bot-core.skills"
 
-/** A bot's Skills section: its skills, their history and restores, and the background review. */
 export function wireSkills(
   ctx: ClientContext,
   sources: { readonly skills: SkillsClient; readonly screens: Pick<SettingsScreens, "bot"> },

@@ -1,4 +1,3 @@
-/** The settings screens (a bot's, dsh-bots') in the overlay frame (styles-overlay.ts): the sections' nav and the page. */
 export const SETTINGS_CSS = `
 .dshb-settings {
   display: grid;

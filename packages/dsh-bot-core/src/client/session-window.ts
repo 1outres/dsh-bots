@@ -1,17 +1,13 @@
 import { createStore, type Observable } from "./observable"
 
-/** Non-Main rows a bot lists while nothing raises its window (Workspaces' `SESSION_WATERMARK_BASE`). */
 export const WINDOW_BASE = 5
-/** The farthest row a running session raises the window to on its own (Workspaces' `SESSION_WATERMARK_AUTO_MAX`). */
 export const WINDOW_AUTO_MAX = 50
 
-/** What a row tells the window about itself. */
 export interface WindowRow {
   readonly selected: boolean
   readonly running: boolean
 }
 
-/** The row under the fold of a bot's list: show the rest, or fold back. */
 export type SessionOverflow =
   | { readonly kind: "more"; readonly hidden: number }
   | { readonly kind: "less" }
@@ -19,14 +15,9 @@ export type SessionOverflow =
 export interface WindowedRows<Row> {
   readonly rows: readonly Row[]
   readonly overflow: SessionOverflow | undefined
-  /** How many rows the window holds, to keep it from shrinking under them. */
   readonly limit: number
 }
 
-/**
- * The smallest window that shows the selected row wherever it is, and every
- * running row within {@link WINDOW_AUTO_MAX}.
- */
 export function requiredWindow(rows: readonly WindowRow[]): number {
   let required = 0
   rows.forEach((row, index) => {
@@ -36,11 +27,6 @@ export function requiredWindow(rows: readonly WindowRow[]): number {
   return required
 }
 
-/**
- * The rows a bot lists, newest first, as Workspaces' "Show more": the window
- * is the larger of the user's (`stored`, the base when absent) and what the
- * rows require; the overflow row shows while the folded window hides any.
- */
 export function windowRows<Row extends WindowRow>(
   rows: readonly Row[],
   stored: number | undefined,
@@ -57,20 +43,15 @@ export function windowRows<Row extends WindowRow>(
   return { rows: shown, overflow, limit }
 }
 
-/** The window after "Show more": the next {@link WINDOW_BASE} rows, or all once that few remain. */
 export function widenedWindow(limit: number, hidden: number): number {
   return hidden <= WINDOW_BASE ? Number.POSITIVE_INFINITY : limit + WINDOW_BASE
 }
 
 export type Windows = Readonly<Record<string, number>>
 
-/** Each bot's window over its sessions for this page; a bot without one has the base window. */
 export interface SessionWindows extends Observable<Windows> {
-  /** Keep the window at least `limit`, so rows that raised it stay listed. */
   raise(botId: string, limit: number): void
-  /** Answer the overflow row: show more rows, or fold back to the base window. */
   toggle(botId: string, overflow: SessionOverflow, limit: number): void
-  /** Back to the base window, as when the bot is collapsed. */
   reset(botId: string): void
 }
 

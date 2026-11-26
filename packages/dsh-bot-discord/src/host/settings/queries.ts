@@ -30,7 +30,6 @@ import { SETTINGS_TEXTS, settingsText } from "./texts"
 
 type Request = BotChannelSettingsRequest<DiscordSettings>
 
-/** The Discord answers about a bot's settings, over REST. */
 export interface DiscordSettingsQueries {
   options(request: BotChannelOptionsRequest<DiscordSettings>): Promise<BotChannelOptions>
   check(request: Request): Promise<BotChannelCheck>
@@ -39,7 +38,6 @@ export interface DiscordSettingsQueries {
 
 const unavailable = (reason: BotChannelText) => ({ state: "unavailable", reason }) as const
 
-/** A lookup failure as a reason the form shows; anything else is not Discord's answer. */
 function reasonOf(error: unknown): BotChannelText {
   if (!(error instanceof DiscordLookupError)) throw error
   switch (error.failure) {
@@ -81,7 +79,6 @@ interface HomeChannel {
 }
 
 export function createDiscordSettingsQueries(open: OpenDiscordLookup): DiscordSettingsQueries {
-  /** The text channels of the server the bot may make its home. */
   const homesIn = async (
     lookup: DiscordLookup,
     app: DiscordApplicationInfo,
@@ -140,7 +137,6 @@ export function createDiscordSettingsQueries(open: OpenDiscordLookup): DiscordSe
     return { state: "ready", options, suggested: [DM_HOME] }
   }
 
-  /** The people the settings name who are not among `options`, by their account, so the picker names them. */
   const withStored = async (
     lookup: DiscordLookup,
     options: BotChannelOptions,

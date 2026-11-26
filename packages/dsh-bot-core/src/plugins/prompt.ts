@@ -1,16 +1,3 @@
-/**
- * `@1outres/dsh-bot-core/prompt`: bot-core's own row inside every bot's
- * isolated `bot-environment` group (compose.ts puts it after the schedule
- * row; templates and overlays cannot name it). For the bot's Agents it
- * registers bot-core's prompt sections, the `bot:status`, `bot:management` and `bot:logins` contexts and the
- * `{{bot_name}}` variable (docs/specs/bot-system-prompt.md), each worded from
- * what the `bot` service tells about the assembling Agent, and takes
- * {@link BOT_PROMPT_EXCLUSIONS} out of their prompt.
- *
- * Registrations and the `system-prompt/assemble` listener of this row carry
- * the scope of the preset revision it is mounted in, so DSH applies them only
- * to assemblies of Agents bound to that revision (their scope's parent).
- */
 import type { Context } from "@deepseek-ai/cordis"
 import type { AssembleContext } from "@deepseek-ai/dsh-system-prompt"
 import z from "@deepseek-ai/schemastery"
@@ -30,7 +17,6 @@ import { BOT_PROMPT_EXCLUSIONS } from "../shared/prompt"
 
 export interface Config {
   botId: string
-  /** The preset revision's token (compose.ts), as every bot-core row carries it. */
   token: string
 }
 
@@ -48,7 +34,6 @@ export default class BotPrompt {
       throw new Error(`the "${BOT_SERVICE}" service cannot describe a bot's prompt`)
     }
     const describe = (method as DescribePrompt).bind(bot)
-    // One answer per assembly, so every part of it reads the same facts.
     const assemblies = new WeakMap<AssembleContext, BotPromptFacts>()
     const factsOf = (context: AssembleContext): BotPromptFacts => {
       const known = assemblies.get(context)

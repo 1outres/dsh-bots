@@ -5,15 +5,12 @@ import type {
   BotTurnState,
 } from "@1outres/dsh-bot-core"
 
-/** The languages the bot's own Discord texts come in. */
 export type DiscordLocale = "en" | "ja"
 
-/** A Discord locale ("ja", "en-US", …) as one of ours: Japanese for "ja", English otherwise. */
 export function localeOf(discordLocale: string): DiscordLocale {
   return discordLocale.toLowerCase().startsWith("ja") ? "ja" : "en"
 }
 
-/** The `language` setting: "ja", or English when empty. */
 export function settingsLocale(language: string): DiscordLocale {
   return language === "ja" ? "ja" : "en"
 }
@@ -21,7 +18,6 @@ export function settingsLocale(language: string): DiscordLocale {
 type Texts = { readonly [K in DiscordLocale]: string }
 const pick = (texts: Texts, locale: DiscordLocale) => texts[locale]
 
-/** The notice a turn's end gets, or none (it started, or completed). */
 export function turnNotice(turn: BotTurnState, locale: DiscordLocale): string | undefined {
   switch (turn.phase) {
     case "started":

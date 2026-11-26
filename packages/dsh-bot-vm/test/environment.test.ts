@@ -53,7 +53,6 @@ const volumeName = "dsh-bot-1a2b3c4d-workspace"
 const dir = "/state/bots/1a2b3c4d"
 const OWNED = { "user.dsh-bot.id": target.id, "user.dsh-bot.owner": "owner-a" }
 
-/** The instance's own config and devices ensure writes for {@link SPEC}. */
 const LAYOUT = layoutOf({
   spec: SPEC,
   placement: { pool: "dsh", network: "dshbr0" },
@@ -177,7 +176,6 @@ function fakeIncus() {
       volumes.delete(`${pool}/${name}`)
     },
   })
-  /** An instance some other tool or installation created under a bot's name. */
   const foreign = (name: string, config: Record<string, string> = {}) =>
     instances.set(name, { name, status: "Running", config, devices: {} })
   const foreignVolume = (name: string, config: Record<string, string>) =>
@@ -213,7 +211,6 @@ interface Harness {
   files: ReturnType<typeof fakeFiles>
   commands: string[][]
   clock: { now: number }
-  /** Exit codes the readiness probe returns, in order (then 0). */
   probe: number[]
   egress: { botId: string; report: EgressReport }[]
 }
@@ -754,7 +751,6 @@ describe("incus-vm environment", () => {
       "user.dsh-bot.owner": "b",
     })
 
-    // A fresh process: nothing ensured yet.
     const fresh = setup({ incus: h.incus, files: h.files, clock: h.clock })
     h.clock.now = 1_000
     expect(await fresh.environment.reconcile([listed.id])).toEqual({

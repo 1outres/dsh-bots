@@ -1,7 +1,3 @@
-// Verification only (dev/, never built, published or bundled). See README.md.
-// A password manager whose items are a JSON file (or the built-in example
-// items): passwords, TOTP seeds, and passkeys made when an account is opened.
-// It reads its values as JS strings, which a real provider must not do.
 import { createHash, generateKeyPairSync, randomBytes } from "node:crypto"
 import { readFileSync, writeFileSync } from "node:fs"
 import { totp } from "./otp.js"
@@ -50,7 +46,6 @@ function passkeysOf(vaults) {
   return keys
 }
 
-/** Where the test pages' server reads the passkeys' public halves (FAKE_VAULT_PASSKEYS). */
 function publishPasskeys(path, keys) {
   const entries = [...keys.values()].map((key) => ({
     rpId: key.rpId,
@@ -61,11 +56,6 @@ function publishPasskeys(path, keys) {
   writeFileSync(path, `${JSON.stringify(entries, null, 2)}\n`, { mode: 0o600 })
 }
 
-/**
- * The provider. `secret` is bot-core's `vaultKit().secret`; `passkeys` a
- * file the passkeys' public halves are written to; `now` the clock of the
- * one-time codes.
- */
 export function fakeVaultProvider({ secret, passkeys, now = Date.now }) {
   return {
     id: FAKE_VAULT_ID,

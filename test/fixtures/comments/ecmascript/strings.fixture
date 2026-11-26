@@ -1,0 +1,8 @@
+const url = "https://example.com/*not*/a//comment"
+const single = '/* still a string */ // and this'
+const nested = `outer ${`inner // ${"/* deep */"} done`} tail // text`
+const pattern = /\/\/[/*]+/g
+const ratio = 4 / 2 // divided
+const regexAfterParen = (/a\/\*b/).test(url)
+const division = ratio / 2 / 1
+export const values = [url, single, nested, pattern, ratio, regexAfterParen, division]

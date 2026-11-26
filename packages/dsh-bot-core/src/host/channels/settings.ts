@@ -11,27 +11,23 @@ import { type ChannelRecord, channelRecordKey } from "./domain"
 import type { SecretVault } from "./vault"
 
 export interface ChannelSettingsDeps {
-  /** The channels table of CHANNELS_DOMAIN (not the bots table). */
   records: BotTable<ChannelRecord>
   vault: SecretVault
   now(): number
   warn(message: string): void
 }
 
-/** The channel as the settings read it. */
 export type SettingsChannel = Pick<
   BotChannel,
   "id" | "fields" | "settingsVersion" | "upgradeSettings"
 >
 
-/** A bot's stored settings for a channel, without secret values. */
 export interface ChannelSettingsView {
   readonly enabled: boolean
   readonly values: BotChannelPublicValues
   readonly secrets: Readonly<Record<string, boolean>>
 }
 
-/** Whether a bot's settings let it connect to a channel. */
 export type ChannelReadiness =
   | { readonly state: "off" }
   | { readonly state: "incomplete"; readonly missing: readonly string[] }
@@ -40,26 +36,16 @@ export type ChannelReadiness =
 export interface ChannelSettings {
   view(botId: string, channel: SettingsChannel): ChannelSettingsView
   readiness(botId: string, channel: SettingsChannel): ChannelReadiness
-  /** Changes with every stored change of the bot's settings for the channel (in this process). */
   revision(botId: string, channelId: string): number
-  /** Store a parsed change; secrets go to the vault first. Saves of one store never interleave. */
   configure(botId: string, channel: SettingsChannel, change: BotChannelChange): Promise<void>
-  /**
-   * Every field's value, secrets included ("" when unset), as the stored settings hold them now.
-   * @throws when a secret the settings name is gone from the vault.
-   */
   resolve(botId: string, channel: SettingsChannel): Promise<BotChannelPublicValues>
-  /** The same, as `change` would leave them; nothing is stored. */
   preview(
     botId: string,
     channel: SettingsChannel,
     change: BotChannelChange,
   ): Promise<BotChannelPublicValues>
-  /** Store again, in the channel's current shape, every settings record of an older version. */
   upgrade(channel: SettingsChannel): Promise<void>
-  /** Forget the settings (and secrets) of bots `keep` refuses. */
   purge(keep: (botId: string) => boolean): Promise<void>
-  /** Called with the bot and channel after every stored change. */
   subscribe(listener: (botId: string, channelId: string) => void): () => void
 }
 
@@ -71,7 +57,6 @@ type Upgraded =
     }
   | { readonly state: "newer" }
 
-/** A record's values in the channel's current shape; a record of a newer version is not read. */
 function upgradedOf(record: ChannelRecord, channel: SettingsChannel): Upgraded {
   const from = record.settingsVersion ?? 1
   const current = settingsVersionOf(channel)

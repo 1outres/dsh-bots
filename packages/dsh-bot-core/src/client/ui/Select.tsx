@@ -5,9 +5,7 @@ import type { DataMarks } from "./marks"
 export interface SelectProps<Value extends string> {
   readonly value: Value
   readonly choices: readonly Choice<Value>[]
-  /** Called when another choice is picked; the setting is saved then. */
   onChange(value: Value): void
-  /** The select's accessible name (the row's label). */
   readonly label: string
   readonly disabled?: boolean
   readonly marks?: DataMarks
@@ -21,7 +19,6 @@ function SelectOption<Value extends string>({ choice }: { readonly choice: Choic
   )
 }
 
-/** A native select in DSH's field look; grouped choices are listed under their group. */
 export function Select<Value extends string>(props: SelectProps<Value>) {
   const { value, choices, onChange, label, disabled, marks } = props
   return (

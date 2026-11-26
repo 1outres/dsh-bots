@@ -1,85 +1,46 @@
 import { createStore, type Observable, type Store } from "../observable"
 import type { PendingEdits } from "../ui/pending-edits"
 
-/** Where an open settings screen is. */
 export interface FrameTarget {
-  /** The section shown, `null` while no section is registered. */
   readonly section: string | null
-  /** The detail page the section pushed over its first page, `null` on the first page. */
   readonly detail: string | null
-  /** Whether a compact (sheet) screen shows its list of sections instead of the section; a wide screen shows both. */
   readonly nav: boolean
 }
 
-/** Where the user asked to go while typed text waits: elsewhere on the screen, or out of it. */
 export type FrameLeave = "move" | "close"
 
 export interface FrameGuard {
-  /** Whether an inline editor holds typed, unsaved text. */
   readonly pending: boolean
-  /** The way out waiting for the user to discard the typed text, while the confirmation is shown. */
   readonly leaving: FrameLeave | null
 }
 
-/** What a section asks the user to confirm before it goes on, in the user's language. */
 export interface FrameConfirmation {
   readonly title: string
-  /** One line. */
   readonly description: string
-  /** The label of the button that goes on. */
   readonly confirm: string
-  /** `danger` for a step that weakens a safeguard, interrupts work or deletes. */
   readonly tone: "primary" | "danger"
 }
 
-/** What a settings screen's frame drives. */
 export interface FrameControls {
   readonly guard: Observable<FrameGuard>
-  /** Inline editors hold this while they have typed, unsaved text. */
   readonly edits: PendingEdits
-  /** The confirmation shown, until the user answers it. */
   readonly asking: Observable<FrameConfirmation | null>
-  /** Show `section`'s first page. */
   select(section: string): void
-  /** Push a detail page of the open section; another detail replaces it. */
   openDetail(detail: string): void
-  /** From a detail page back to the section's first page. */
   back(): void
-  /** On a compact screen, back from the section to the list of sections. */
   showNav(): void
-  /** Close the screen. */
   close(): void
-  /** Close at once, typed text dropped. */
   dismiss(): void
-  /** Drop the typed text and take the way out that waits. */
   discard(): void
-  /** Stay where the user was, typed text kept. */
   keepEditing(): void
-  /**
-   * Ask the user to confirm a step of the open section. Resolves with the
-   * answer; false when the screen closes, moves elsewhere or another
-   * confirmation replaces this one.
-   */
   confirm(request: FrameConfirmation): Promise<boolean>
   answer(confirmed: boolean): void
 }
 
-/**
- * Opening, moving through and closing one settings screen. Every move (another
- * section, a detail page, back, closing) waits for the user to discard typed
- * text an inline editor holds.
- */
 export interface FrameFlow<Target extends FrameTarget> extends FrameControls {
   readonly target: Observable<Target | null>
-  /**
-   * The registered id of `section`, or the first registered section when
-   * omitted (`null` when none is).
-   * @throws when `section` is not registered.
-   */
   sectionOf(section?: string): string | null
-  /** Show `target`; on the same screen already open, this moves there. */
   open(target: Target): void
-  /** Show `target` at once, typed text dropped (the section shown went away). */
   replace(target: Target): void
   dispose(): void
 }
@@ -87,9 +48,7 @@ export interface FrameFlow<Target extends FrameTarget> extends FrameControls {
 export interface FrameFlowOptions<Target extends FrameTarget> {
   readonly store: Store<Target | null>
   readonly sections: Observable<readonly { readonly id: string }[]>
-  /** Names the sections in errors. */
   readonly noun: string
-  /** Whether two targets are the same screen; typed text is forgotten across screens. */
   sameScreen(a: Target, b: Target): boolean
 }
 
@@ -99,7 +58,6 @@ const sameGuard = (a: FrameGuard, b: FrameGuard) =>
 const samePlace = (a: FrameTarget, b: FrameTarget) =>
   a.section === b.section && a.detail === b.detail && a.nav === b.nav
 
-/** A waiting way out: where to (`null` closes), or nothing. */
 type Way<Target> = { readonly to: Target | null } | null
 
 export function createFrameFlow<Target extends FrameTarget>(

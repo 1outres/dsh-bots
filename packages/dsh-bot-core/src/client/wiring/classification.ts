@@ -8,13 +8,7 @@ import {
 import type { ClientContext } from "../types"
 
 export interface Classification extends SessionClassifier {
-  /** What the main view is bound to. */
   readonly binding: Observable<MainBinding>
-  /**
-   * Whether bot-core holds the main view's single Slots: for a bot session,
-   * for one not classified yet, so DSH's own UI never shows before it is
-   * known, and while a bot's creation progress is shown.
-   */
   readonly occupies: Observable<boolean>
 }
 

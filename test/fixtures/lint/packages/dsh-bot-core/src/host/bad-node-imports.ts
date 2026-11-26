@@ -1,5 +1,5 @@
-import { randomUUID } from "node:crypto" // rule: 14
-import { homedir } from "node:os" // rule: 14
+import { randomUUID } from "node:crypto"
+import { homedir } from "node:os"
 import { join } from "node:path"
 
 export const values = [randomUUID, homedir, join]

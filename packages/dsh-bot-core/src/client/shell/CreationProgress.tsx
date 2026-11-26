@@ -45,7 +45,6 @@ interface ProgressProps extends Pick<ShellFace, "bots" | "pending"> {
   readonly botId: string
 }
 
-/** A bot's creation in the main view: its steps, the time it has taken, and its failure. */
 export function CreationProgress({ t, bots, pending: actions, botId }: ProgressProps) {
   const snapshot = snapshotOf(useObservable(bots))
   const pending = snapshot === undefined ? undefined : pendingOf(snapshot, botId)
@@ -87,7 +86,6 @@ export interface CreationCardProps {
   readonly titleId: string
 }
 
-/** A creation's steps, the time it has taken, and its failure with a retry and a discard. */
 export function CreationCard({ t, bot, phase, now, actions, titleId }: CreationCardProps) {
   const failure = bot.failure
   const failed = failure !== undefined

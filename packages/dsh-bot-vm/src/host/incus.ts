@@ -1,26 +1,13 @@
-/**
- * The slice of the Incus REST API (https://linuxcontainers.org/incus/docs/main/rest-api/)
- * this package needs. The transport (src/node/incus-transport.ts: the Unix
- * socket, or HTTPS with a pinned server certificate) is injected, so this
- * module only shapes requests and reads the response envelopes. Every request
- * of a project's resources names the project.
- */
-
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
 
-/** One raw HTTP exchange with the Incus daemon. */
 export interface IncusResponse {
   readonly status: number
   readonly body: unknown
 }
 
-/** A bidirectional byte stream (one websocket of an Incus operation). */
 export interface ByteChannel extends AsyncIterable<Uint8Array> {
-  /** Resolves once the transport took the bytes (backpressure). */
   write(data: Uint8Array): Promise<void>
-  /** Close the sending side: the peer reads end of file. Reading continues. */
   end(): Promise<void>
-  /** Tear both directions down now. */
   destroy(error?: Error): void
 }
 
@@ -49,10 +36,8 @@ export interface IncusInstance {
   readonly ephemeral?: boolean
   readonly stateful?: boolean
   readonly profiles?: readonly string[]
-  /** "Running", "Stopped", "Frozen", "Error", ... */
   readonly status: string
   readonly config: Readonly<Record<string, string>>
-  /** The config with its profiles' applied. */
   readonly expanded_config?: Readonly<Record<string, string>>
   readonly devices: Readonly<Record<string, IncusDevice>>
   readonly expanded_devices?: Readonly<Record<string, IncusDevice>>
@@ -68,19 +53,14 @@ export interface InstanceSpec {
   readonly start: boolean
 }
 
-/** A change of an instance's own config and devices. */
 export interface InstanceUpdate {
-  /** Config keys to set. */
   readonly config?: Readonly<Record<string, string>>
-  /** Devices to set; one named here replaces the instance's own device of that name. */
   readonly devices?: Readonly<Record<string, IncusDevice>>
 }
 
 export type StateAction = "start" | "stop" | "unfreeze"
 
-/** What the Incus server's machine has (`GET /1.0/resources`). */
 export interface IncusHostResources {
-  /** Logical CPUs (threads). */
   readonly cpus: number
   readonly memoryBytes: number
 }
@@ -90,23 +70,17 @@ export interface IncusProfile {
   readonly devices: Readonly<Record<string, IncusDevice>>
 }
 
-/** `GET /1.0`: who the server takes this client for, and what it runs. */
 export interface IncusServer {
   readonly auth: "trusted" | "untrusted"
   readonly apiExtensions: readonly string[]
-  /** e.g. "6.0.4"; empty for an untrusted client. */
   readonly serverVersion: string
-  /** Instance drivers, e.g. ["lxc", "qemu"]; empty for an untrusted client. */
   readonly drivers: readonly string[]
 }
 
-/** A custom storage volume of the project. */
 export interface IncusVolume {
   readonly name: string
-  /** "block" or "filesystem". */
   readonly contentType: string
   readonly config: Readonly<Record<string, string>>
-  /** Instances and profiles using it, as API paths. */
   readonly usedBy: readonly string[]
 }
 
@@ -115,7 +89,6 @@ export interface VolumeSpec {
   readonly name: string
   readonly contentType: "block" | "filesystem"
   readonly description?: string
-  /** `size` and `user.*` keys. */
   readonly config: Readonly<Record<string, string>>
 }
 
@@ -130,7 +103,6 @@ export interface IncusImage {
   readonly aliases: readonly string[]
 }
 
-/** A command run in an instance (`POST /1.0/instances/<name>/exec`, non-interactive). */
 export interface ExecRequest {
   readonly command: readonly string[]
   readonly user: number
@@ -139,103 +111,58 @@ export interface ExecRequest {
   readonly cwd?: string
 }
 
-/** A running command's standard streams. */
 export interface ExecSession {
-  /** Its stdin: `end()` is end of file. */
   readonly stdin: ByteChannel
   readonly stdout: ByteChannel
   readonly stderr: ByteChannel
-  /** Send a signal to the command. */
   signal(signal: number): Promise<void>
-  /** The exit code, once the command ended (waits at most the operation deadline). */
   exitCode(signal?: AbortSignal): Promise<number>
-  /** Close every stream now. */
   destroy(): void
 }
 
 export interface IncusClient {
-  /** The server, as this client's credentials see it. */
   server(signal?: AbortSignal): Promise<IncusServer>
-  /** The instance, or `undefined` when it does not exist. */
   instance(name: string, signal?: AbortSignal): Promise<IncusInstance | undefined>
-  /** Every instance of the project, with its config. */
   instances(signal?: AbortSignal): Promise<readonly IncusInstance[]>
-  /**
-   * Create a virtual machine from an image alias; resolves when the operation
-   * finished. Once Incus accepted the request, an abort still waits for the
-   * operation to end (bounded by the operation deadline), then rejects, so
-   * no half-created instance is left behind unobserved.
-   */
   create(spec: InstanceSpec, signal?: AbortSignal): Promise<void>
-  /** Set `user.*` config keys of an instance; an empty value clears a key. */
   patchConfig(
     name: string,
     config: Readonly<Record<string, string>>,
     signal?: AbortSignal,
   ): Promise<void>
-  /**
-   * Change an instance's own config and devices: read it, apply the change
-   * and write it back whole (PUT). PATCH cannot remove a key: an empty value
-   * stays in the instance's config, hides the profiles' value and fails the
-   * project's limits check ("has no limits.memory config"). The caller
-   * serializes changes of one instance.
-   */
   update(name: string, change: InstanceUpdate, signal?: AbortSignal): Promise<void>
   setState(name: string, action: StateAction, signal?: AbortSignal): Promise<void>
-  /** Stop (forcibly) and delete the instance. Resolves when it is gone, also when it never existed. */
   destroy(name: string, signal?: AbortSignal): Promise<void>
-  /** Run a command in a running instance, its streams connected. */
   exec(name: string, request: ExecRequest, signal?: AbortSignal): Promise<ExecSession>
-  /** The server machine's CPUs and memory. */
   hostResources(signal?: AbortSignal): Promise<IncusHostResources>
-  /** The project's own config (`limits.memory`, `user.dsh-bots.pool`, …). */
   projectConfig(signal?: AbortSignal): Promise<Readonly<Record<string, string>>>
-  /** A profile of the project, or undefined when it does not exist. */
   profile(name: string, signal?: AbortSignal): Promise<IncusProfile | undefined>
-  /** Every profile of the project. */
   profiles(signal?: AbortSignal): Promise<readonly IncusProfile[]>
-  /** Whether the project may use the network (it lists only the allowed ones). */
   hasNetwork(name: string, signal?: AbortSignal): Promise<boolean>
-  /** A storage pool's total space in bytes. */
   poolSpace(pool: string, signal?: AbortSignal): Promise<number>
-  /** A custom volume, or undefined when it does not exist. */
   volume(pool: string, name: string, signal?: AbortSignal): Promise<IncusVolume | undefined>
-  /** Every custom volume of the project on the pool. */
   volumes(pool: string, signal?: AbortSignal): Promise<readonly IncusVolume[]>
   createVolume(spec: VolumeSpec, signal?: AbortSignal): Promise<void>
-  /** Set config keys of a custom volume (`size`, `user.*`); an empty `user.*` value clears it. */
   patchVolume(
     pool: string,
     name: string,
     config: Readonly<Record<string, string>>,
     signal?: AbortSignal,
   ): Promise<void>
-  /** Delete a custom volume. Resolves also when it never existed. */
   deleteVolume(pool: string, name: string, signal?: AbortSignal): Promise<void>
-  /**
-   * Import a unified image tarball; resolves with the fingerprint Incus
-   * computed. The upload gets `timeoutMs`, the operation after it the
-   * operation deadline.
-   */
   importImage(body: AsyncIterable<Uint8Array>, options: ImageUpload): Promise<string>
   image(fingerprint: string, signal?: AbortSignal): Promise<IncusImage | undefined>
   deleteImage(fingerprint: string, signal?: AbortSignal): Promise<void>
-  /** The fingerprint an alias points to, or undefined. */
   alias(name: string, signal?: AbortSignal): Promise<string | undefined>
-  /** Point an alias at an image, creating it when missing. */
   setAlias(name: string, fingerprint: string, signal?: AbortSignal): Promise<void>
   deleteAlias(name: string, signal?: AbortSignal): Promise<void>
-  /** Add this client's certificate to the server's trust store with a trust token. */
   trustWithToken(token: string, signal?: AbortSignal): Promise<void>
 }
 
 export interface IncusClientOptions {
   readonly transport: IncusTransport
-  /** Incus project of every project-scoped request. */
   readonly project: string
-  /** Deadline for one asynchronous operation (create, start, stop, delete, import). */
   readonly operationTimeoutMs: number
-  /** Deadline for one HTTP exchange; a long-poll wait gets its own wait time on top. */
   readonly requestTimeoutMs: number
 }
 
@@ -275,7 +202,6 @@ function stringsOf(value: unknown): Readonly<Record<string, string>> {
 
 const isNotFound = (error: unknown) => error instanceof IncusError && error.status === 404
 
-/** Whether a request concerns the server rather than one project's resources. */
 const UNSCOPED = /^\/1\.0(\/certificates(\/|$)|$)/
 
 export function createIncusClient(options: IncusClientOptions): IncusClient {
@@ -344,7 +270,6 @@ export function createIncusClient(options: IncusClientOptions): IncusClient {
     }
   }
 
-  /** Follow an async response's operation to its end; resolves with the operation's metadata. */
   async function wait(
     what: string,
     envelope: Envelope,
@@ -354,7 +279,6 @@ export function createIncusClient(options: IncusClientOptions): IncusClient {
     const operation = envelope.operation
     if (operation === undefined) throw new Error(`Incus ${what}: async response without operation`)
     let remainingMs = operationTimeoutMs
-    // The wait endpoint takes whole seconds and may return while still running.
     while (remainingMs > 0) {
       signal?.throwIfAborted()
       const seconds = Math.max(1, Math.min(30, Math.ceil(remainingMs / 1000)))
@@ -368,7 +292,6 @@ export function createIncusClient(options: IncusClientOptions): IncusClient {
           seconds * 1000,
         )
       } catch (error) {
-        // Incus answers a wait that timed out on a running operation with an error.
         if (error instanceof IncusError && /deadline exceeded/i.test(error.message)) {
           remainingMs -= seconds * 1000
           continue
@@ -474,7 +397,6 @@ export function createIncusClient(options: IncusClientOptions): IncusClient {
     ]
     void (async () => {
       for await (const _ of control) {
-        // Incus sends nothing the client needs on the control socket.
       }
     })().catch(() => {})
     return {
@@ -536,7 +458,6 @@ export function createIncusClient(options: IncusClientOptions): IncusClient {
         },
         signal,
       )
-      // Accepted: follow the operation to its end even when aborted meanwhile.
       await wait(`create ${spec.name}`, envelope, undefined)
       signal?.throwIfAborted()
     },

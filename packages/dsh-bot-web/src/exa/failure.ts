@@ -1,6 +1,5 @@
 import { WebError } from "@deepseek-ai/dsh-web"
 
-/** Why a call to Exa got no usable answer. */
 export type ExaFailure =
   | { readonly kind: "http"; readonly status: number; readonly detail?: string }
   | { readonly kind: "unreachable"; readonly message: string }
@@ -30,7 +29,6 @@ function httpMessage(status: number, detail: string | undefined): string {
     : `Exa API error (HTTP ${status}): ${detail}`
 }
 
-/** A sentence for a person or the model; never carries the API key. */
 export function failureMessage(failure: ExaFailure): string {
   switch (failure.kind) {
     case "http":

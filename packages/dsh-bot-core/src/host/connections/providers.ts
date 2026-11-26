@@ -12,7 +12,6 @@ const isUrl = (value: unknown) => {
   }
 }
 
-/** Why a provider cannot be registered, or undefined. */
 export function providerProblem(provider: BotConnectionProvider): string | undefined {
   if (typeof provider !== "object" || provider === null) return "the provider is not an object"
   if (typeof provider.id !== "string" || !ID.test(provider.id)) {
@@ -49,7 +48,6 @@ export function providerProblem(provider: BotConnectionProvider): string | undef
 }
 
 export interface ConnectionProviders {
-  /** @throws when the provider is invalid or its id is taken. */
   register(provider: BotConnectionProvider): () => void
   get(providerId: string): BotConnectionProvider | undefined
   list(): readonly BotConnectionProvider[]

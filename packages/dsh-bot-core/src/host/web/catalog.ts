@@ -6,14 +6,10 @@ import {
 } from "../../shared/web"
 import type { BotWebBackend } from "../../web-contract"
 
-/** The registered web backends. Pure in-memory bookkeeping. */
 export interface WebBackendCatalog {
-  /** @throws when the descriptor is invalid or its id is taken. */
   register(backend: BotWebBackend): () => void
   get(id: string): BotWebBackend | undefined
-  /** In registration order. */
   list(): readonly BotWebBackend[]
-  /** Called with the backend id after every register or unregister. */
   subscribe(listener: (backendId: string) => void): () => void
 }
 
@@ -27,10 +23,6 @@ function checkText(text: unknown, what: string): void {
     throw new Error(`${what}.ja is not text`)
 }
 
-/**
- * Check a backend's descriptor as a plugin declares it.
- * @throws naming the first problem.
- */
 export function checkWebBackendDescriptor(backend: BotWebBackend): void {
   if (!isWebBackendId(backend.id)) {
     throw new Error(

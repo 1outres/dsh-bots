@@ -19,18 +19,12 @@ export interface SearchSelectProps<Value extends string> {
   readonly t: Translate
   readonly value: Value
   readonly choices: readonly Choice<Value>[]
-  /** Called when another choice is picked; the setting is saved then. */
   onChange(value: Value): void
-  /** The control's accessible name (the row's label). */
   readonly label: string
   readonly disabled?: boolean
   readonly marks?: DataMarks
 }
 
-/**
- * A select over a long list (time zones, models): the list opens with a
- * search field that filters it; grouped choices are listed under their group.
- */
 export function SearchSelect<Value extends string>(props: SearchSelectProps<Value>) {
   const { t, value, choices, onChange, label, disabled, marks } = props
   const [open, setOpen] = useState(false)
@@ -145,7 +139,7 @@ export function SearchSelect<Value extends string>(props: SearchSelectProps<Valu
             <IconSearch size={14} />
             <input
               className="dshb-ui-popover-input"
-              // biome-ignore lint/a11y/noAutofocus: the list opens for typing its filter
+              // biome-ignore lint/a11y/noAutofocus: -
               autoFocus
               role="combobox"
               aria-label={t("ui.select.search")}
@@ -172,7 +166,7 @@ export function SearchSelect<Value extends string>(props: SearchSelectProps<Valu
                     {choice.group}
                   </div>
                 )}
-                {/* biome-ignore lint/a11y/useKeyWithClickEvents: the search field drives the options with the arrow keys and Enter (aria-activedescendant) */}
+                {/* biome-ignore lint/a11y/useKeyWithClickEvents: - */}
                 <div
                   id={optionId(index)}
                   role="option"

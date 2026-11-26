@@ -24,79 +24,56 @@ export interface VaultGuardDeps {
   store: Pick<VaultStore, "grant" | "fingerprints" | "putFingerprint" | "recordIncident">
   keys(): Promise<GuardKeys>
   digest: GuardDigest
-  /** Tell the bot's owner (channels); a failure is the caller's to log. */
   report(incident: VaultIncidentView): void
   newId(): string
   now(): number
-  /** Most bytes of text (its readings included) one scan reads; the rest is withheld unread. */
   readonly scanLimit: number
 }
 
-/** Who a check is for. */
 export interface GuardSubject {
   readonly botId: string
   readonly sessionId?: string
   readonly tool?: string
 }
 
-/** A secret of a login found in what was checked. */
 export interface GuardFinding {
   readonly grantId: string
   readonly kind: VaultSecretKind
   readonly label: string
 }
 
-/** What a scan of JSON found: the same JSON with each secret (and anything not read) replaced. */
 export type GuardScan<T> =
   | { readonly changed: false }
   | {
       readonly changed: true
       readonly redacted: T
       readonly findings: readonly GuardFinding[]
-      /** Text past the scan limit was withheld without being read. */
       readonly cut: boolean
     }
 
-/** A login's fingerprints were made with another guard key: nothing can be vouched for. */
 export class GuardStaleError extends Error {
   override readonly name = "GuardStaleError"
 }
 
-/**
- * The leak guard (docs/specs/bot-vaults.md §7): fingerprints secrets as
- * they are revealed, looks for them in what a bot's Agent reads and writes,
- * replaces them, and records an incident for the owner. Every method that
- * scans or records rejects when it cannot, so its caller fails closed.
- */
 export interface VaultGuard {
-  /** Fingerprint a secret of the login (replacing the previous ones). The bytes stay the caller's. */
   fingerprint(
     botId: string,
     grantId: string,
     kind: VaultSecretKind,
     bytes: Uint8Array,
   ): Promise<void>
-  /** Whether the bot has any secret to look for. */
   guards(botId: string): boolean
-  /** The id of the guard key, once read. */
   keyId(): string | undefined
-  /** Look for the bot's secrets in every string and number of a JSON value. @throws GuardStaleError */
   scan<T>(botId: string, value: T): Promise<GuardScan<T>>
-  /** Store one incident per finding and tell the owner. */
   record(
     subject: GuardSubject,
     source: VaultIncidentSource,
     outcome: VaultIncidentOutcome,
     findings: readonly GuardFinding[],
   ): Promise<readonly VaultIncidentView[]>
-  /**
-   * Text bot-core hands a bot (or keeps for it): its secrets withheld and
-   * recorded as redacted. @throws when it cannot scan or record.
-   */
   shield<T>(subject: GuardSubject, source: VaultIncidentSource, value: T): Promise<T>
 }
 
-/** What a model reads in place of a secret. */
 export const withheldText = (finding: GuardFinding) =>
   `[withheld: secret of ${finding.label} (${finding.kind})]`
 
@@ -111,7 +88,6 @@ export function incidentView(record: VaultIncidentRecord): VaultIncidentView {
 
 const isImageBlock = (value: object) => (value as { readonly type?: unknown }).type === "image"
 
-/** Lists of content blocks (a tool result's and a decision's), whose image blocks carry pixels in `data`. */
 const BLOCK_LISTS = new Set(["content", "feedback"])
 const IMAGE_DATA = "data"
 

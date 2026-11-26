@@ -1,10 +1,3 @@
-/**
- * The streams connectors' panels open for a person (`BotConnectorPanel.streams`,
- * the `botConnectorStreams` Remote): only the DSH Host's owner opens one, only
- * while the connector is ready for the bot, at most
- * {@link MAX_CONNECTOR_STREAMS} at once per bot and connector. Each ends when
- * its viewer leaves or the connector leaves `ready` for the bot (released).
- */
 import type { BotConnectorContext } from "../../connector-contract"
 import { type ConnectorJson, MAX_CONNECTOR_STREAMS } from "../../shared/connectors"
 import type { RemoteCaller } from "./approvals"
@@ -14,9 +7,7 @@ import type { ConnectorReadinessKeeper } from "./readiness"
 export interface ConnectorStreamsDeps {
   catalog: Pick<ConnectorCatalog, "get">
   readiness: Pick<ConnectorReadinessKeeper, "state">
-  /** Whether the bot is stored. */
   exists(botId: string): boolean
-  /** The context of a hook for the bot, or undefined once the bot is gone. */
   context(
     botId: string,
     connector: CatalogConnector,
@@ -29,20 +20,14 @@ export interface ConnectorStreamRequest {
   readonly botId: string
   readonly connectorId: string
   readonly stream: string
-  /** The browser's items, as the Gateway delivers them. */
   readonly uplink: AsyncIterable<unknown>
-  /** The viewer's cancellation. */
   readonly signal: AbortSignal
 }
 
 export interface ConnectorStreams {
-  /** @throws before the first item when the caller, the bot, the connector or its readiness refuses it. */
   open(request: ConnectorStreamRequest): AsyncIterable<ConnectorJson>
-  /** End the bot's streams of the connector (or of every connector). */
   release(botId: string, connectorId?: string): void
-  /** The number of streams open for the bot and connector. */
   count(botId: string, connectorId: string): number
-  /** End every stream. */
   dispose(): void
 }
 

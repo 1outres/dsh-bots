@@ -1,12 +1,10 @@
 import type { SessionEventLike } from "./feed"
 
-/** A session's turn starting or ending, as its log tells. */
 export interface TurnBoundary {
   readonly edge: "start" | "end"
   readonly turn: number
 }
 
-/** The turn boundary a session log event marks, if any. */
 export function turnBoundaryOf(event: SessionEventLike): TurnBoundary | undefined {
   switch (event.type) {
     case "turn/start":
@@ -18,13 +16,8 @@ export function turnBoundaryOf(event: SessionEventLike): TurnBoundary | undefine
   }
 }
 
-/**
- * Which sessions' running turns keep their replies off the channels
- * (`stay_silent`). A turn starts not silent; its end forgets it.
- */
 export interface TurnSilence {
   follow(sessionId: string, boundary: TurnBoundary): void
-  /** Silences the session's running turn: its number, or undefined when none runs. */
   silence(sessionId: string): number | undefined
   isSilent(sessionId: string): boolean
 }

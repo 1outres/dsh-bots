@@ -93,11 +93,9 @@ function eventText(event: Event): string {
   )
 }
 
-/** Guests other than the account itself. */
 const othersOf = (event: Event) =>
   (event.attendees ?? []).filter((attendee) => attendee.self !== true)
 
-/** Whether only the account is on the event, as its organizer: changing it tells nobody. */
 function personalProblem(event: Event): string | undefined {
   if (othersOf(event).length > 0)
     return "it has guests: use gcal_update_event, which asks the user first"
@@ -121,7 +119,6 @@ interface ContentArguments {
   readonly time_zone?: string
 }
 
-/** The fields an event takes from the arguments: only these, never its status, guests or notifications. */
 function contentOf(args: ContentArguments): Event {
   return {
     ...(args.summary === undefined ? {} : { summary: args.summary }),
@@ -145,7 +142,6 @@ function contentFields(args: ContentArguments): ConnectorPreviewField[] {
   ]
 }
 
-/** An event as an Ask snapshot keeps it: what the preview shows and what recheck compares. */
 interface EventFacts {
   readonly etag: string
   readonly summary: string

@@ -6,20 +6,10 @@ import type { InvocationDescriptor } from "@deepseek-ai/dsh-typert-protocol"
 import { remoteMethods } from "@deepseek-ai/dsh-typert-protocol"
 import { build } from "esbuild"
 import { beforeAll, describe, expect, it } from "vitest"
-// @ts-expect-error -- plain .mjs build helper without type declarations
+// @ts-expect-error
 import { hostBuildOptions } from "../../../scripts/build-options.mjs"
 import { BOT_CORE_REMOTE } from "../src/client/remote"
 import type { HOST_REMOTE_CONTRIBUTION, REMOTE_SERVICES } from "../src/index"
-
-/**
- * The wire the Gateway serves from the shipped Host bundle. The bundle is built
- * here with the options scripts/build.mjs uses (lib/index.js is the same
- * output), into node_modules/.cache so its external imports resolve as the
- * package's, and loaded as plain JavaScript. For each `@Remote` method the
- * Gateway takes a strict definition registered with typert when there is one,
- * and otherwise derives the arguments from the method's source text
- * (dsh-api-gateway `methodParameterNames`), which a bundler may rename.
- */
 
 interface BuiltHost {
   readonly REMOTE_SERVICES: typeof REMOTE_SERVICES
@@ -42,12 +32,9 @@ async function buildHost(): Promise<BuiltHost> {
     ...hostBuildOptions(join(packageRoot, "src", "index.ts"), outfile),
     logLevel: "silent",
   })
-  return (await import(
-    /* @vite-ignore */ `${pathToFileURL(outfile).href}?t=${Date.now()}`
-  )) as BuiltHost
+  return (await import(`${pathToFileURL(outfile).href}?t=${Date.now()}`)) as BuiltHost
 }
 
-/** dsh-api-gateway `methodParameterNames`: the identifiers between the first parentheses. */
 function sourceParameterNames(method: unknown): string[] {
   const source = Function.prototype.toString.call(method)
   const open = source.indexOf("(")

@@ -1,7 +1,6 @@
 import type { ReactNode } from "react"
 import type { WizardStep } from "./steps"
 
-/** The welcome guide's pictures, one per page; every colour comes from the theme through `dshb-art-*` classes. */
 export type ArtKind = WizardStep
 
 function Bot({ x, y, r, tone }: { x: number; y: number; r: number; tone: "a" | "b" | "c" }) {
@@ -146,7 +145,6 @@ const ART: { readonly [Kind in ArtKind]: () => ReactNode } = {
   bot: NewBot,
 }
 
-/** The welcome page's features, each a small glyph drawn with the current colour. */
 export type FeatureKind = "bots" | "vm" | "main" | "google"
 
 const FEATURE_PATHS: { readonly [Kind in FeatureKind]: string } = {

@@ -1,5 +1,3 @@
-// Byte-level encodings of a secret for a DevTools message: never a JS string.
-
 const BASE64 = new TextEncoder().encode(
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/",
 )
@@ -14,7 +12,6 @@ const SHORT = new Map([
   [92, 0x5c],
 ])
 
-/** Standard base64 with padding. */
 export function base64Bytes(bytes) {
   const out = new Uint8Array(Math.ceil(bytes.length / 3) * 4)
   let at = 0
@@ -30,7 +27,6 @@ export function base64Bytes(bytes) {
   return out
 }
 
-/** The body of a JSON string (without quotes) holding the UTF-8 bytes. */
 export function jsonStringBytes(bytes) {
   let length = 0
   for (const byte of bytes) length += SHORT.has(byte) ? 2 : byte < 0x20 ? 6 : 1
@@ -51,7 +47,6 @@ export function jsonStringBytes(bytes) {
   return out
 }
 
-/** Whether the bytes are well-formed UTF-8 (Input.insertText takes text). */
 export function isUtf8(bytes) {
   let i = 0
   while (i < bytes.length) {

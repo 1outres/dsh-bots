@@ -11,7 +11,6 @@ import type { MainPreparations } from "./preparations"
 import { FRESH_ACTIVITY, type MainActivity, type MainStore } from "./store"
 import { dailyBoundaryAfter } from "./timing"
 
-/** A listed bot, as the controller reads it. */
 export interface MainBot {
   readonly id: string
   readonly name: string
@@ -19,12 +18,9 @@ export interface MainBot {
   readonly mainSessionId: string
 }
 
-/** The Main's live Agent, as far as idleness and usage go. */
 export interface MainAgentState {
   readonly status: "idle" | "running"
-  /** Nothing waits in its inbox (next turn and next step). */
   readonly inboxEmpty: boolean
-  /** How full its context is, in percent; undefined when unknown. */
   readonly usagePercent: number | undefined
 }
 
@@ -32,15 +28,10 @@ export interface MainControllerDeps {
   bot(botId: string): MainBot | undefined
   bots(): readonly MainBot[]
   store: MainStore
-  /** The session's live Agent without resuming it; undefined while it is not loaded. */
   agentOf(sessionId: string): MainAgentState | undefined
-  /** The session's Agent, resumed if needed. @throws when it cannot be. */
   resolve(sessionId: string): Promise<MainAgentState>
-  /** Interactions (questions, approvals, plan reviews) open in the bot's Main. */
   openInteractions(botId: string): number
-  /** `compactNow` of the Main's own compaction realm; resolves to whether anything was compacted. */
   compact(botId: string, sessionId: string, signal: AbortSignal): Promise<boolean>
-  /** `Bot.createSession` for a new Main. @throws {@link NotReadyError} while the bot's preset is not ready. */
   createMain(botId: string, title: string): Promise<string>
   replaceMain(
     botId: string,
@@ -48,45 +39,25 @@ export interface MainControllerDeps {
     next: string,
     reason: MainRotationReason,
   ): Promise<void>
-  /** Archive a former Main, stopping whatever it still runs. */
   archive(sessionId: string): Promise<void>
-  /** The bot's Main changed: deliver its waiting notices to the new one. */
   mainChanged(botId: string): void
   preparations: Pick<MainPreparations, "list">
   runTurn(sessionId: string, prompt: MainTurnPrompt): Promise<MainTurnResult>
   now(): number
   later(ms: number, work: () => void): () => void
-  /** Aborts after `ms` and when the plugin unloads. */
   deadline(ms: number): AbortSignal
-  /** Whether a failure is a preset that is not ready (no session could be created). */
   notReady(error: unknown): boolean
-  /** Longest a maintenance may take (its preparations and the compaction). */
   readonly maintenanceLimitMs: number
-  /** How long a maintenance that did not happen keeps the bot from trying again; doubled after each further one. */
   readonly retry: { readonly initialMs: number; readonly maxMs: number }
   warn(message: string): void
 }
 
-/**
- * Compacts bots' Mains while the conversation pauses and replaces them
- * (docs/specs/bot-main-rotation.md). Every input bot-core hands a Main goes
- * through {@link admit}; a maintenance and the inputs of a bot exclude each other.
- */
 export interface MainController {
-  /** Look at the bot again (soon, once). */
   poke(botId: string): void
   pokeAll(): void
-  /** An ordinary turn of the session ended at `at`. */
   turnEnded(sessionId: string, at: number): void
-  /** The session's log holds `count` successful compactions. */
   compactionsCounted(sessionId: string, count: number): void
-  /**
-   * Hand an input to the bot's Main: waits for a running maintenance, lets a
-   * rotation due before an input happen first, then runs `work` with the
-   * Main it goes to (undefined for a bot without one).
-   */
   admit<T>(botId: string, work: (sessionId: string | undefined) => Promise<T>): Promise<T>
-  /** The owner starts a new Main now. @throws for an unknown bot. */
   startNew(botId: string): Promise<MainRotationOutcome>
   maintenance(botId: string): MainMaintenanceState
   subscribe(listener: (botId: string) => void): () => void
@@ -100,11 +71,8 @@ interface Entry {
   inputs: number
   timer: (() => void) | undefined
   poked: boolean
-  /** A maintenance that did not happen keeps the next one off until then. */
   retryAt: number | undefined
-  /** Maintenances in a row that did not happen. */
   failures: number
-  /** Activity writes not stored yet: nothing is decided on the activity before they land. */
   writing: Promise<void> | undefined
 }
 
@@ -175,7 +143,6 @@ export function createMainController(deps: MainControllerDeps): MainController {
     })
   }
 
-  /** Idle as far as the bot knows without resuming the Agent. */
   const looksIdle = (bot: MainBot) => {
     const agent = deps.agentOf(bot.mainSessionId)
     return (
@@ -192,7 +159,6 @@ export function createMainController(deps: MainControllerDeps): MainController {
     message,
   })
 
-  /** Ask every preparation; a refusal when one rejects or the time is up. */
   const prepare = async (
     bot: MainBot,
     maintenance: MainMaintenance,
@@ -282,7 +248,6 @@ export function createMainController(deps: MainControllerDeps): MainController {
       : compact(current, signal)
   }
 
-  /** Run one maintenance of the bot; the entry holds it from the first synchronous step. */
   const maintain = (
     bot: MainBot,
     maintenance: MainMaintenance,
@@ -319,7 +284,6 @@ export function createMainController(deps: MainControllerDeps): MainController {
     return done
   }
 
-  /** Store an activity change of the bot's Main; the bot is looked at again once it landed. */
   const record = (
     bot: MainBot,
     sessionId: string,

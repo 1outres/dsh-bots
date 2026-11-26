@@ -1,9 +1,3 @@
-/**
- * dsh-fs-ssh and dsh-subprocess-ssh, unchanged, on this package's ssh service
- * (its copy of dsh-ssh's connection) with dsh-ssh's real helper: a stub ssh
- * on PATH runs the helper locally and forwards its streams. Every ssh
- * invocation must carry the bot's -F config.
- */
 import { createHash } from "node:crypto"
 import {
   chmodSync,
@@ -58,7 +52,6 @@ afterAll(() => {
   rmSync(dir, { recursive: true, force: true })
 })
 
-/** What the full-access policy's base service injects; sessions ask nothing here. */
 class Projections extends Service {
   constructor(ctx: Context) {
     super(ctx, "sessionProjections")

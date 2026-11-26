@@ -1,8 +1,3 @@
-/**
- * Finding a text in what was said (docs/specs/bot-session-search.md §3): NFKC
- * and lower case, as a substring of a message's text (not of the tools it
- * named), newest first.
- */
 import { foldName, foldText, originalRange } from "../text-fold"
 import type { Conversation, ConversationMessage } from "./history"
 import { type Period, withinPeriod } from "./period"
@@ -10,17 +5,13 @@ import { type Period, withinPeriod } from "./period"
 export interface ConversationMatch {
   readonly conversation: Conversation
   readonly message: ConversationMessage
-  /** The message's index in the conversation. */
   readonly index: number
-  /** Where the text was found in the message's text (code units). */
   readonly start: number
   readonly end: number
 }
 
 export interface SearchOutcome {
-  /** The newest `limit` matching messages, newest first. */
   readonly matches: readonly ConversationMatch[]
-  /** Every matching message. */
   readonly total: number
 }
 

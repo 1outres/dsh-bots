@@ -40,11 +40,6 @@ interface ConnectorToolsProps {
   readonly confirm: SettingsSectionProps["confirm"]
 }
 
-/**
- * The bot's permission of each tool of a connector, then the accounts'
- * exceptions. A change is saved at once; letting a tool run without
- * asking against its default asks first.
- */
 export function ConnectorTools({ t, view, feed, confirm }: ConnectorToolsProps) {
   const rows = toolRows(view)
   const [query, setQuery] = useState("")

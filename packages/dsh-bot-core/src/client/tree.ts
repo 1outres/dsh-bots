@@ -3,8 +3,6 @@ import type { BotFlags } from "./bot-flags"
 import { type SessionOverflow, type Windows, windowRows } from "./session-window"
 import type { SessionListState, SessionSummary, WorkspaceSnapshot } from "./types"
 
-/** Pure derivation and keyboard navigation of the Bots tree (no React, no DOM). */
-
 export const isSelected = (list: SessionListState, id: string | undefined) =>
   id !== undefined && (list.byId[id]?.retainedBy?.mainView ?? 0) > 0
 
@@ -13,7 +11,6 @@ export const pendingKey = (botId: string) => `pending:${botId}`
 export const sessionKey = (sessionId: string) => `session:${sessionId}`
 export const overflowKey = (botId: string) => `overflow:${botId}`
 
-/** One of a bot's sessions besides Main, as its row shows it. */
 export interface SessionRow {
   readonly id: string
   readonly archived: boolean
@@ -21,76 +18,55 @@ export interface SessionRow {
   readonly running: boolean
 }
 
-/** One bot with the facts its rows render. */
 export interface BotNode {
   readonly kind: "bot"
   readonly bot: BotView
   readonly key: string
   readonly expanded: boolean
-  /** Listed non-Main sessions, newest first, within the bot's window. */
   readonly sessions: readonly SessionRow[]
-  /** The row below them, while the window folds any away. */
   readonly overflow: SessionOverflow | undefined
-  /** How many rows the window holds. */
   readonly window: number
   readonly mainSelected: boolean
   readonly childSelected: boolean
   readonly running: boolean
 }
 
-/** A bot being created or removed: one row, no sessions. */
 export interface PendingNode {
   readonly kind: "pending"
   readonly pending: PendingBotView
   readonly key: string
-  /** Its progress is what the main view shows. */
   readonly selected: boolean
 }
 
 export type TreeNode = BotNode | PendingNode
 
-/** What activating a treeitem does. */
 export type TreeActivation =
   | { readonly kind: "session"; readonly sessionId: string }
-  /** An archived session, which cannot be opened (as in Workspaces). */
   | { readonly kind: "archived"; readonly sessionId: string }
-  /** The progress of a bot being created. */
   | { readonly kind: "progress"; readonly botId: string }
-  /** Show more of the bot's sessions, or fold them back. */
   | {
       readonly kind: "overflow"
       readonly botId: string
       readonly overflow: SessionOverflow
       readonly window: number
     }
-  /** Nothing: a bot being removed. */
   | { readonly kind: "none" }
 
-/** One visible treeitem, in document order. */
 export interface TreeItem {
   readonly key: string
   readonly level: 1 | 2
   readonly botId: string
-  /** What the item does: a bot row opens Main. */
   readonly activates: TreeActivation
-  /** Listed bots' rows only: a pending bot has nothing to expand. */
   readonly expanded?: boolean
-  /** Rows inside a bot only. */
   readonly parentKey?: string
 }
 
-/** How the user arranged the tree: pinned expansions, archived views and windows. */
 export interface TreeView {
   readonly expansion: BotFlags
   readonly archivedShown: BotFlags
   readonly windows: Windows
 }
 
-/**
- * The bot's sessions besides Main, newest first: subagent sessions are left
- * out, archived ones unless the bot shows them, and a blank (never prompted)
- * session shows only while it is selected.
- */
 export function botSessionRows(
   bot: BotView,
   list: SessionListState,
@@ -110,17 +86,10 @@ export function botSessionRows(
   })
 }
 
-/** What a non-Main session row is called. */
 export type SessionLabel =
   | { readonly kind: "titled"; readonly title: string }
   | { readonly kind: "untitled"; readonly ordinal: number }
 
-/**
- * The session's DSH title, or, until DSH's title projection names it, its
- * ordinal among the bot's other sessions in creation order (archived ones
- * counted), which stays the same as sessions are titled, archived or listed
- * newest first.
- */
 export function sessionLabel(
   bot: BotView,
   sessionId: string,
@@ -132,10 +101,6 @@ export function sessionLabel(
   return { kind: "untitled", ordinal }
 }
 
-/**
- * Bots newest first. A bot without a saved expansion follows the selection:
- * it is open while one of its non-Main sessions is selected.
- */
 export function deriveBotNodes(
   bots: readonly BotView[],
   list: SessionListState,
@@ -161,11 +126,6 @@ export function deriveBotNodes(
   })
 }
 
-/**
- * Listed and pending bots in one tree, newest first by creation: a bot being
- * removed keeps its place. `progress` is the bot whose progress the main view
- * shows; while it does, no session row is selected.
- */
 export function deriveTreeNodes(
   bots: readonly BotView[],
   pending: readonly PendingBotView[],
@@ -217,7 +177,6 @@ export function sessionActivation(row: SessionRow): TreeActivation {
     : { kind: "session", sessionId: row.id }
 }
 
-/** The treeitems inside an expanded bot: Main, its listed sessions, then the overflow row. */
 export function botChildren(node: BotNode): TreeItem[] {
   const { bot, key } = node
   const child = (itemKey: string, activates: TreeActivation): TreeItem => ({
@@ -243,7 +202,6 @@ export function botChildren(node: BotNode): TreeItem[] {
   ]
 }
 
-/** Visible treeitems in document order: each bot, then its children while expanded. */
 export function flattenTree(nodes: readonly TreeNode[]): TreeItem[] {
   return nodes.flatMap((node): TreeItem[] => {
     if (node.kind === "pending") {
@@ -268,7 +226,6 @@ export function flattenTree(nodes: readonly TreeNode[]): TreeItem[] {
   })
 }
 
-/** The key of the row showing the main view: the bot row while its sessions are hidden. */
 export function selectedKey(nodes: readonly TreeNode[]): string | undefined {
   for (const node of nodes) {
     if (node.kind === "pending") {
@@ -284,7 +241,6 @@ export function selectedKey(nodes: readonly TreeNode[]): string | undefined {
   return undefined
 }
 
-/** The single tab stop: the last focused row, else the selected row, else the first row. */
 export function rovingKey(
   items: readonly TreeItem[],
   focused: string | undefined,
@@ -301,12 +257,6 @@ export type TreeAction =
   | { readonly kind: "focus"; readonly key: string }
   | { readonly kind: "expand" | "collapse" | "activate"; readonly item: TreeItem }
 
-/**
- * The tree's response to a key on the focused row, following the WAI-ARIA tree
- * pattern: ↑/↓ move, Home/End jump, → expands a bot or enters its first
- * session, ← collapses a bot or returns to the parent, Enter/Space activate.
- * @returns undefined when the key is not the tree's.
- */
 export function treeKeyAction(
   items: readonly TreeItem[],
   current: string,

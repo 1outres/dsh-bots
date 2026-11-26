@@ -4,10 +4,8 @@ import type { ShellMenuEntry } from "../shell-menu"
 import { CONNECTOR_PANEL_GLYPHS } from "./icons"
 import type { ConnectorPanelPlaces } from "./places"
 
-/** After the built-in Files (150) and Actions (160) entries. */
 const FIRST_ORDER = 200
 
-/** The menu bar button of each connector the bot has on that has a panel, with a dot while it requests. */
 export function connectorEntries(
   views: readonly BotConnectorView[],
   places: ConnectorPanelPlaces,

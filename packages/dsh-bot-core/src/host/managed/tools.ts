@@ -1,7 +1,3 @@
-/**
- * The session tools' work (docs/specs/bot-managed-sessions.md §5): only the
- * bot's Main session may call them, and only on the sessions it manages.
- */
 import { z } from "zod"
 import type { BotSessionModelRequest } from "../../contract"
 import type { SessionToolName, SessionToolRequest, SessionToolResponse } from "../../internal"
@@ -28,60 +24,42 @@ import type { DshWait } from "./waits"
 export type SessionActivity = "idle" | "running"
 
 export interface ManagedToolsDeps {
-  /** Why the Agent may not use the tools (not the bot's Main session, a stale revision); undefined when it may. */
   refusal(botId: string, token: string, agentId: string): string | undefined
   sessions: ManagedSessions
-  /** The bot's `main` and `delegates` choices. */
   models(botId: string): {
     readonly main: BotModelChoice
     readonly delegates: readonly BotModelChoice[]
   }
-  /** Bot.createSession for the Main session: recorded as started by it. Resolves to the session id. */
   create(botId: string, title: string, model: BotSessionModelRequest): Promise<string>
-  /**
-   * A DSH session in the granted Workspace, under the grant's preset and permission, on `model`
-   * (checked against DSH's registry). Resolves to the session id.
-   */
   createInWorkspace(
     grant: BotWorkspaceGrant,
     options: { readonly title: string; readonly model: BotModelChoice },
   ): Promise<string>
-  /** The bot's granted Workspaces, oldest grant first. */
   workspaces(
     botId: string,
   ): readonly { readonly grant: BotWorkspaceGrant; readonly workspace: DshWorkspace }[]
-  /** Why the Main session's running turn may not operate Workspace sessions, or undefined (§10.8). */
   authority(mainSessionId: string): string | undefined
   botName(botId: string): string
-  /** Hand the Main session's message to a session: queued as its own turn, or into its running turn. */
   send(sessionId: string, message: MainMessage, mode: "queue" | "steer"): Promise<void>
-  /** The session's messages, its Agent loaded (resumed if needed). */
   messages(sessionId: string): Promise<readonly TranscriptMessage[]>
   activity(sessionId: string): SessionActivity
-  /** The session's open interactions (the board's). */
   interactions(sessionId: string): readonly BotInteraction[]
-  /** What waits in the session in DSH's own UI (a Workspace session's). */
   waits(sessionId: string): readonly DshWait[]
-  /** Answer one of them as the Main session. */
   answer(
     sessionId: string,
     interactionId: string,
     answer: BotInteractionAnswer,
   ): Promise<BotAnswerResult>
-  /** Stop the session's running turn (`session.cancel`). */
   stop(sessionId: string): void
   archive(sessionId: string): Promise<void>
   follow: Pick<ManagedFollow, "stopping">
 }
 
 export interface ManagedTools {
-  /** Whether the Agent sees the tools at its step. */
   available(botId: string, token: string, agentId: string): boolean
-  /** @throws with the reason the call was refused or failed. */
   call(botId: string, token: string, request: SessionToolRequest): Promise<SessionToolResponse>
 }
 
-/** A refused or malformed call; its message is the tool's error. */
 export class SessionToolError extends Error {
   constructor(message: string) {
     super(message)
@@ -214,7 +192,6 @@ export function createManagedTools(deps: ManagedToolsDeps): ManagedTools {
   }) =>
     `- workspace:${workspace.workspaceId} "${workspace.title}" at ${workspace.path}: Agent preset ${grant.agentPreset}, ${PERMISSION_TEXT(grant)}, model ${modelIdOf(grant.model)}`
 
-  /** Workspace sessions answer only a turn of the owner's side (§10.8). */
   const authorize = (mainSessionId: string, target: BotManagedTarget) => {
     if (target.kind !== "workspace") return
     const refused = deps.authority(mainSessionId)
@@ -265,7 +242,6 @@ export function createManagedTools(deps: ManagedToolsDeps): ManagedTools {
       mode,
     )
 
-  /** The managed session a call names, once the turn may operate it. */
   const managed = (botId: string, mainSessionId: string, sessionId: string) => {
     const session = deps.sessions.require(botId, sessionId)
     authorize(mainSessionId, session.target)

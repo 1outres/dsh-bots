@@ -1,8 +1,3 @@
-// Design rule 46: only the bot's owner decides a connector action.
-// `$_.recordDecision(...)` (the broker's entry for a decision) may appear only
-// in host/connectors/approvals.ts, which takes a decision from the Web UI's
-// Remote when its caller is the DSH owner and from a channel link when the
-// person is one of the approvers the bot's settings of that channel name.
 JsCallExpression(callee = $callee) as $call where {
   $callee <: or { `$_.recordDecision`, `$_?.recordDecision` },
   register_diagnostic(

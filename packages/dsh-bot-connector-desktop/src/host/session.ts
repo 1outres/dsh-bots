@@ -1,7 +1,3 @@
-/**
- * The desktop connector's resident resource per bot: the connection to the
- * agent and the frame of the latest screenshot on that connection.
- */
 import type { BotConnectorAttachmentSource } from "@1outres/dsh-bot-core"
 import type { DesktopAgent } from "./agent/client"
 import { connectAgent } from "./agent/connect"

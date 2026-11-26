@@ -1,0 +1,11 @@
+{
+  "path": "packages/demo/src/View.test.tsx",
+  "diagnostics": [
+    {
+      "line": 5,
+      "column": 5,
+      "rule": 75,
+      "fixable": true
+    }
+  ]
+}

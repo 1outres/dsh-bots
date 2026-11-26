@@ -4,7 +4,6 @@ import type { BotSkillsRemote, RemoteMount } from "../remote"
 import { type FeedState, followed, mountedRemote, unwrap } from "../remote-feed"
 import type { RemoteResult } from "../types"
 
-/** The `botSkills` Remote for the browser: a shared stream per bot while anything subscribes, and calls that reject with the Host's message. */
 export interface SkillsClient {
   bot(botId: string): Observable<FeedState<BotSkillsView>>
   history(botId: string, name: string): Promise<BotSkillHistory>

@@ -3,16 +3,13 @@ import type { Timers } from "../files/search-model"
 import type { NotesClient } from "./client"
 import { createNotesModel, type NotesModel } from "./model"
 
-/** What the notes panel reads and drives. */
 export interface NotesFace {
   readonly width: PanelWidth
   modelOf(sessionId: string): NotesModel
 }
 
-/** Each bot session's notes screen, kept while the page lives so closing the panel keeps where it was. */
 export interface NotesModels {
   modelOf(sessionId: string): NotesModel
-  /** Release the models of every session `keep` refuses. */
   forget(keep: (sessionId: string) => boolean): void
   dispose(): void
 }

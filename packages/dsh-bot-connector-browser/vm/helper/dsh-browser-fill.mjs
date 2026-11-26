@@ -1,9 +1,5 @@
 #!/usr/bin/env node
 import { isUtf8, jsonStringBytes } from "./bytes.mjs"
-// Types one login value into the element the Host marked (browser connector, browser_fill_credential).
-// stdin: {"devtools","mark","field"}, then, after this answers {"located"}, {"fill":{"origin","length",
-// "submit"}} followed by the value's bytes (or nothing: the Host refused). stdout: JSON lines with
-// closed codes only. The value is never a JS string here, never printed and wiped after use.
 import { connectBrowser, parseEndpoint } from "./cdp.mjs"
 import { openChannel } from "./channel.mjs"
 import {

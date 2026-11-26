@@ -12,7 +12,6 @@ import type { ConnectorSettings } from "./settings"
 import type { ConnectorStatuses } from "./statuses"
 import type { ConnectorToolSurface } from "./tools"
 
-/** Who calls a bot's connector tool, as bot-core classified the Agent. */
 export type ConnectorCaller =
   | { readonly kind: "main" | "bot"; readonly sessionId: string }
   | { readonly kind: "refused"; readonly reason: string }
@@ -29,10 +28,6 @@ export interface ConnectorsBackendDeps {
   panel: ConnectorPanel
   own: ConnectorOwnTools
   exists(botId: string): boolean
-  /**
-   * The calling Agent: refused unless `token` is the bot's registered preset
-   * revision's and the Agent is a session of the bot; `main` for its Main session.
-   */
   caller(botId: string, token: string, agentId: string): ConnectorCaller
 }
 
@@ -47,7 +42,6 @@ const issueOf = (error: {
 const MAIN_ONLY =
   "works only in the bot's Main session, the conversation its channels are connected to (not in other sessions or subagents)"
 
-/** The `bot` service's connector methods, over the catalog, settings, readiness, permissions, ledger and broker. */
 export function createConnectorsBackend(deps: ConnectorsBackendDeps): BotConnectorsBackend {
   const requireBot = (botId: string) => {
     if (!deps.exists(botId)) throw new Error(`bot "${botId}" does not exist`)

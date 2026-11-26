@@ -1,8 +1,3 @@
-/**
- * Making the bot's environment ready for the desktop, one idempotent path:
- * the packages (installed only when missing), the files, the user services,
- * the screen size, and a check of the display and the agent.
- */
 import type { BotConnectorContext, BotConnectorPreparation } from "@1outres/dsh-bot-core"
 import { type Resolution, resolutionOf } from "../../shared/resolution"
 import { connectAgent } from "../agent/connect"
@@ -44,11 +39,6 @@ const APT = [
   "DPkg::Lock::Timeout=600",
 ]
 
-/**
- * Arguments: the staging directory, the count of directories to empty and
- * them, the count of package files to divert and them, then (file, mode,
- * target) triples.
- */
 const INSTALL = [
   "set -eu",
   "stage=$1; shift",
@@ -59,10 +49,9 @@ const INSTALL = [
   'while [ $# -gt 0 ]; do install -D -o root -g root -m "$2" -- "$stage/$1" "$3"; shift 3; done',
 ].join("\n")
 
-// biome-ignore lint/suspicious/noTemplateCurlyInString: dpkg-query's own field syntax
+// biome-ignore lint/suspicious/noTemplateCurlyInString: -
 const DPKG_FORMAT = "-f=${Package} ${db:Status-Status}\n"
 
-/** The packages of the list that dpkg-query does not report installed. */
 export function missingPackages(dpkgStatus: string): readonly string[] {
   const installed = new Set(
     dpkgStatus
@@ -74,7 +63,6 @@ export function missingPackages(dpkgStatus: string): readonly string[] {
   return DESKTOP_PACKAGES.filter((name) => !installed.has(name))
 }
 
-/** The display's size from `xdpyinfo`. */
 export function displaySize(xdpyinfo: string): Resolution {
   const match = /dimensions:\s+([0-9]+)x([0-9]+) pixels/.exec(xdpyinfo)
   if (match === null) throw new Error("xdpyinfo did not report the display's size")
@@ -129,7 +117,6 @@ export function createDesktopPreparation(deps: DesktopPreparationDeps): BotConne
     )
   }
 
-  /** The units whose way of starting installing `files` changes (running ones then restart). */
   const changedUnits = async (context: BotConnectorContext, files: readonly InstalledFile[]) => {
     const changed = new Set<string>()
     for (const [unit, targets] of Object.entries(RESTARTED_BY)) {

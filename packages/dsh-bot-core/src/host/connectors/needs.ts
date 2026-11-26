@@ -1,7 +1,6 @@
 import type { BotEnvironmentNeed } from "../../shared/environment"
 import type { CatalogConnector } from "./catalog"
 
-/** What the bot's enabled connectors need of its environment: each that declares a `minimumSpec`. */
 export function environmentNeeds(
   connectors: readonly CatalogConnector[],
   enabled: (connectorId: string) => boolean,

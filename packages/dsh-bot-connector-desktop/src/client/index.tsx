@@ -1,7 +1,3 @@
-/**
- * The desktop connector's browser half: the body of its panel in a bot's
- * shell (bot-core's `bot-core.connector.panel` Slot, key `desktop`).
- */
 import type { ConnectorPanelSlot } from "@1outres/dsh-bot-core"
 import { DESKTOP_CONNECTOR_ID } from "../shared/connector"
 import { DesktopPanel } from "./DesktopPanel"

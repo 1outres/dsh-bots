@@ -1,4 +1,3 @@
-/** Where a popover is drawn, in viewport pixels (`position: fixed`). */
 export interface Placement {
   readonly left: number
   readonly width: number
@@ -11,7 +10,6 @@ const GAP = 4
 const MARGIN = 16
 const MAX_HEIGHT = 320
 
-/** Under the anchor, right-aligned to it, or above it when there is more room there. */
 export function placeUnder(anchor: HTMLElement, minWidth = 280): Placement {
   const rect = anchor.getBoundingClientRect()
   const below = window.innerHeight - rect.bottom - GAP - MARGIN

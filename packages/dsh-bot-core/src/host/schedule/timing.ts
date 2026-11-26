@@ -1,9 +1,3 @@
-/**
- * When a job runs. Every calendar computation goes to DSH's own schedule
- * libraries: `@deepseek-ai/dsh-schedule` (cron validation, fixed-rate
- * decisions) and `@deepseek-ai/dsh-util-time` (zones, instants, the parsed
- * cron rule and its occurrences). Pure: the caller passes `now`.
- */
 import { parseCronInput, resolveEveryOccurrence } from "@deepseek-ai/dsh-schedule"
 import {
   Cron,
@@ -15,23 +9,19 @@ import {
 } from "@deepseek-ai/dsh-util-time"
 import type { StoredSchedule } from "./domain"
 
-/** When a job runs, as the agent states it. */
 export type ScheduleInput =
   | { readonly kind: "at"; readonly at: string }
   | { readonly kind: "after"; readonly delay: string }
   | { readonly kind: "every"; readonly interval: string }
   | { readonly kind: "cron"; readonly expr: string }
 
-/** A stored schedule with the zone it is read in. */
 export interface Timing {
   readonly schedule: StoredSchedule
   readonly timezone: string
 }
 
-/** Closest two runs of one recurring job may be. */
 export const MIN_INTERVAL_SECONDS = 5 * 60
 
-/** A job field that cannot be used (a schedule, zone, span…); the message is for the agent. */
 export class InvalidScheduleError extends Error {
   constructor(message: string) {
     super(message)
@@ -41,7 +31,6 @@ export class InvalidScheduleError extends Error {
 
 const iso = (ms: number) => new Date(ms).toISOString()
 
-/** The canonical IANA name of a zone. */
 export function canonicalTimezone(value: string): string {
   const result = canonicalizeTimeZone(value)
   if (result.kind === "rejected") {
@@ -54,7 +43,6 @@ export function canonicalTimezone(value: string): string {
 
 const DELAY = /^(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/
 
-/** Seconds of a span written as `1d2h30m15s` (any of the parts, in that order). */
 export function parseDelay(text: string): number {
   const compact = text.replaceAll(/\s+/g, "")
   const match = compact === "" ? null : DELAY.exec(compact)
@@ -71,7 +59,6 @@ export function parseDelay(text: string): number {
 
 const AT = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(:\d{2}(?:\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})?$/
 
-/** The instant of an ISO 8601 date-time; one without an offset is local time in `timezone`. */
 export function parseAt(text: string, timezone: string): number {
   const match = AT.exec(text.trim())
   if (match === null) {
@@ -111,12 +98,6 @@ const cronOf = (expression: string, timezone: string): Cron => {
   return parsed.rule
 }
 
-/**
- * The shortest gap between two runs the expression's minute and hour fields
- * allow, in minutes: two matched minutes of one hour, or the last minute of
- * a matched hour and the first of the next matched one (23 → 0 counts, the
- * next day may match). Clock changes (DST) are not considered.
- */
 export function cronMinimumGapMinutes(
   minutes: readonly number[],
   hours: readonly number[],
@@ -133,7 +114,6 @@ export function cronMinimumGapMinutes(
   return gap
 }
 
-/** The stored form of a schedule, checked; `after` becomes its `at`. */
 export function planSchedule(input: ScheduleInput, timezone: string, now: number): StoredSchedule {
   switch (input.kind) {
     case "at": {
@@ -170,7 +150,6 @@ export function planSchedule(input: ScheduleInput, timezone: string, now: number
   }
 }
 
-/** The first run of a schedule set at `now`; undefined when it has none. */
 export function firstRun(timing: Timing, now: number): number | undefined {
   const { schedule } = timing
   switch (schedule.kind) {
@@ -185,13 +164,11 @@ export function firstRun(timing: Timing, now: number): number | undefined {
   }
 }
 
-/** A due job's run: its latest due occurrence (missed ones collapse into it) and the next one. */
 export interface DueDecision {
   readonly occurrenceAt: number
   readonly next?: number
 }
 
-/** Decide a job due at `nextRunAt` (≤ `now`). */
 export function decideDue(timing: Timing, nextRunAt: number, now: number): DueDecision {
   const { schedule } = timing
   const decided = (occurrence: { occurrenceAt: string; nextScheduledAt?: string }) => ({
@@ -215,7 +192,6 @@ export function decideDue(timing: Timing, nextRunAt: number, now: number): DueDe
   }
 }
 
-/** Up to `count` runs from `nextRunAt` on. */
 export function upcomingRuns(
   timing: Timing,
   nextRunAt: number | undefined,
@@ -244,7 +220,6 @@ export function upcomingRuns(
   }
 }
 
-/** An instant as local ISO 8601 time with its offset, e.g. `2026-05-01T09:00:00+09:00`. */
 export function formatLocal(ms: number, timezone: string): string {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: timezone,
@@ -263,7 +238,6 @@ export function formatLocal(ms: number, timezone: string): string {
   return `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}:${part("second")}${zone === "" ? "Z" : zone}`
 }
 
-/** A span such as `1d 2h 5m` (seconds only under a minute). */
 export function formatSpan(ms: number): string {
   const { days, hours, minutes, seconds } = Duration.fromMilliseconds(Math.max(0, ms)).decompose()
   const parts = [
@@ -274,7 +248,6 @@ export function formatSpan(ms: number): string {
   return parts.length > 0 ? parts.join(" ") : `${seconds}s`
 }
 
-/** A stored schedule as the agent reads it. */
 export function describeSchedule(timing: Timing): string {
   const { schedule, timezone } = timing
   switch (schedule.kind) {

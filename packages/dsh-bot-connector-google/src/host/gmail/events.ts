@@ -6,7 +6,6 @@ import { METADATA_HEADERS, readMessage } from "./message"
 
 export const MESSAGE_RECEIVED = "gmail.message.received"
 
-/** Pages of history one poll reads at most; the rest waits for the next poll, which resumes after the last record read. */
 const MAX_PAGES = 10
 const MAX_MESSAGES = 200
 
@@ -26,7 +25,6 @@ async function profileCursor(gmail: gmail_v1.Gmail): Promise<Cursor> {
   return { historyId }
 }
 
-/** New messages in the inbox, from Gmail's history (users.history.list) since the last poll. */
 export function gmailEvents(google: Google): BotConnectorEvents {
   return {
     kinds: [

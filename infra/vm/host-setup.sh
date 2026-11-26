@@ -1,25 +1,4 @@
 #!/usr/bin/env bash
-# VM host setup for dsh-bots: the machine that runs the bots' Incus VMs. Runs as
-# root, never asks, and is idempotent: every phase checks what is there and
-# changes only the rest.
-#
-# Usage: ./host-setup.sh <phase>...
-#   packages  Incus, QEMU and the file system tools
-#   incus     storage pool, bridge, network ACL and the project bot VMs run in
-#   firewall  ufw / firewalld / Docker forwarding for the bridge
-#   all       the three above, in this order
-#   local     DSH runs on this machine: DSH_USER joins incus-admin (the Unix socket)
-#   remote    DSH runs on another machine: core.https_address and a trust token
-#             restricted to the project (written to DSH_BOTS_TOKEN_FILE, else printed)
-#
-# Environment:
-#   DSH_USER                  with local: the user that runs DSH
-#   DSH_BOTS_THIRD_PARTY=yes  allow the third-party Incus repository this OS needs
-#                             (Zabbly on Debian 12 / Ubuntu 24.04)
-#   POOL (dsh), POOL_SIZE (80GiB), NET (dshbr0), NET_CIDR (10.240.80.1/24),
-#   ACL (dsh-bot-egress), PROJECT (dsh-bots), LIMIT_VMS / LIMIT_CPU / LIMIT_MEMORY /
-#   LIMIT_DISK (the project's limits, none by default),
-#   HTTPS_ADDRESS (:8443, when core.https_address is unset), CLIENT_NAME (dsh-bots)
 set -eEuo pipefail
 
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -45,7 +24,6 @@ MODULES_FILE=/etc/modules-load.d/dsh-bots.conf
 
 detect_os
 [[ $OS_FAMILY != unsupported ]] || fail "This machine cannot be a VM host: $OS_WHY." "Use one of the VM hosts in the README."
-# Debian 12 has no Incus, Ubuntu 24.04's is 6.0.0: both use the Incus maintainers' packages (Zabbly).
 case $OS_ID:$OS_VERSION in
   debian:12 | ubuntu:24.04) INCUS_SOURCE=zabbly ;;
   *) INCUS_SOURCE=distro ;;
@@ -56,7 +34,6 @@ need_third_party() {
     fail "Incus for $OS_NAME comes from the third-party repository $1." "Allow it with DSH_BOTS_THIRD_PARTY=yes (install.sh asks)."
 }
 
-# ---------------------------------------------------------------- packages
 zabbly_source() {
   local key=/etc/apt/keyrings/zabbly.asc list=/etc/apt/sources.list.d/zabbly-incus-lts-6.0.sources codename
   if [[ ! -s $key ]]; then
@@ -102,7 +79,6 @@ phase_packages() {
       dnf install -y incus incus-agent qemu-system-x86-core edk2-ovmf swtpm btrfs-progs e2fsprogs nftables zstd
       ;;
   esac
-  # Incus' exec reaches a VM's incus-agent over vsock.
   printf '%s\n' "# Managed by dsh-bots infra/vm/host-setup.sh" vhost_vsock >"$MODULES_FILE"
   [[ -d /sys/module/vhost_vsock ]] || modprobe vhost_vsock ||
     fail "Loading the kernel module vhost_vsock failed." "Check that the running kernel ships it (modinfo vhost_vsock)."
@@ -119,7 +95,6 @@ phase_packages() {
   note "Incus $version"
 }
 
-# ---------------------------------------------------------------- incus
 phase_incus() {
   log "Incus objects"
   incus storage show "$POOL" >/dev/null 2>&1 || incus storage create "$POOL" btrfs size="$POOL_SIZE"
@@ -129,7 +104,6 @@ phase_incus() {
   note "project $PROJECT (pool $POOL, network $NET)"
 }
 
-# ---------------------------------------------------------------- firewall
 DOCKER_UNIT=/etc/systemd/system/dsh-bots-docker-forward.service
 
 docker_unit() {
@@ -164,7 +138,6 @@ EOF
   fi
 }
 
-# Base chains of a forward hook with policy drop, outside Incus' own table: "<family> <table> <chain>".
 dropping_forward_chains() {
   nft list chains 2>/dev/null | awk '
     $1 == "table" { table = $2 " " $3 }
@@ -207,7 +180,6 @@ phase_firewall() {
     "Allow forwarding from and to $NET in that firewall, then run this again."
 }
 
-# ---------------------------------------------------------------- local
 phase_local() {
   log "Socket access for the DSH user"
   [[ -n ${DSH_USER:-} ]] || fail "DSH_USER is not set." "Set DSH_USER to the user that runs DSH."
@@ -222,7 +194,6 @@ phase_local() {
   note "$DSH_USER joined incus-admin"
 }
 
-# ---------------------------------------------------------------- remote
 phase_remote() {
   log "HTTPS API and a trust token"
   local address port

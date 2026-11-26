@@ -7,7 +7,6 @@ import type {
 import type { BotChannelDescriptor } from "../../shared/channels"
 import { BOT_INTERACTION_KINDS } from "../../shared/interactions"
 
-/** Every operation bot-core runs for a channel, in the order channels list them. */
 export const BOT_COMMANDS: readonly BotCommandSpec[] = [
   {
     id: "stop",
@@ -38,9 +37,7 @@ export const BOT_COMMANDS: readonly BotCommandSpec[] = [
 const COMMAND_IDS: ReadonlySet<string> = new Set(BOT_COMMANDS.map((command) => command.id))
 const INTERACTION_KINDS: ReadonlySet<string> = new Set(BOT_INTERACTION_KINDS)
 
-/** Upper bound of any byte limit a channel declares. */
 export const MAX_CHANNEL_BYTES = 1024 * 1024 * 1024
-/** Upper bound of the attachments a channel may declare per message. */
 export const MAX_CHANNEL_ATTACHMENTS = 100
 
 function checkBytes(value: unknown, what: string): void {
@@ -79,10 +76,6 @@ function checkOwnersOutput(
   }
 }
 
-/**
- * Check what a channel declares it can carry, against its descriptor.
- * @throws naming the first problem.
- */
 export function checkChannelCapabilities(
   channel: Pick<BotChannelDescriptor, "id" | "owners">,
   capabilities: unknown,
@@ -116,7 +109,6 @@ export function checkChannelCapabilities(
   checkOwnersOutput("credentialIncidents", value.credentialIncidents, channel.owners, what)
 }
 
-/** The specs of the commands a channel declared, in its order. */
 export function commandsOf(capabilities: BotChannelCapabilities): readonly BotCommandSpec[] {
   return capabilities.commands.map((id: BotCommandId) => {
     const spec = BOT_COMMANDS.find((command) => command.id === id)
@@ -125,7 +117,6 @@ export function commandsOf(capabilities: BotChannelCapabilities): readonly BotCo
   })
 }
 
-/** Whether a channel with these capabilities takes the output. */
 export function carries(capabilities: BotChannelCapabilities, output: BotChannelOutput): boolean {
   switch (output.kind) {
     case "reply":

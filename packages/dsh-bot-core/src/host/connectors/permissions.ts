@@ -8,47 +8,27 @@ import type { ConnectorCatalog } from "./catalog"
 import { type PermissionRecord, permissionRecordKey } from "./domain"
 
 export interface ConnectorPermissionsDeps {
-  /** The permissions table of CONNECTORS_DOMAIN. */
   records: BotTable<PermissionRecord>
   catalog: Pick<ConnectorCatalog, "tools" | "tool">
   now(): number
 }
 
-/**
- * Bots' permissions of connector tools: each tool's default unless the bot
- * overrides it; for a connector with connections the bot may override it
- * per account, and an account without its own override follows the tool's.
- */
 export interface ConnectorPermissions {
-  /**
-   * The permission in force (as `connectionId` when given); undefined for a
-   * tool no registered connector has.
-   */
   effective(
     botId: string,
     connectorId: string,
     tool: string,
     connectionId?: string,
   ): ConnectorPermission | undefined
-  /**
-   * Every registered tool's permission for the bot; `accounts` names the
-   * bot's accounts of a connector with connections, listed per tool.
-   */
   list(
     botId: string,
     accounts?: (connectorId: string) => readonly string[] | undefined,
   ): readonly ConnectorToolPermission[]
-  /**
-   * Store or drop an override. Saves never interleave.
-   * @throws when no registered connector has the tool.
-   */
   set(botId: string, change: ConnectorPermissionChange): Promise<void>
-  /** Forget the overrides of bots `keep` refuses, and of accounts `keepAccount` refuses for their bot. */
   purge(
     keep: (botId: string) => boolean,
     keepAccount?: (botId: string, connectionId: string) => boolean,
   ): Promise<void>
-  /** Called with the bot after every stored change. */
   subscribe(listener: (botId: string) => void): () => void
 }
 

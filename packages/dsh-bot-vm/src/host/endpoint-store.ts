@@ -1,11 +1,6 @@
-/**
- * The stored endpoint in `<stateDir>/endpoint.json` (0600), and the client
- * key in a secret record of DSH's store (docs/specs/incus-endpoint.md §6.2).
- */
 import type { ClientKeyStore, EndpointStore } from "./endpoint"
 import { parseStoredScope, serializeStoredScope } from "./endpoint"
 
-/** Files as src/index.ts provides them (atomic writes). */
 export interface StoreFiles {
   read(path: string): Promise<string | undefined>
   write(path: string, content: string, mode: number): Promise<void>
@@ -25,7 +20,6 @@ export function fileEndpointStore(path: string, files: StoreFiles): EndpointStor
   }
 }
 
-/** The slice of DSH's secret record store (a `grant` record with an owner-defined payload). */
 export interface SecretRecords {
   readRecord(
     key: string,
@@ -42,7 +36,6 @@ export interface ClientKeyPayload {
   readonly clientKey: string
 }
 
-/** `<plugin>/incus-client`: the record's scope is this plugin's registered name. */
 export const clientKeyRecord = (plugin: string) => `${plugin}/incus-client`
 
 export function recordClientKeyStore(records: SecretRecords, key: string): ClientKeyStore {

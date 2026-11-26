@@ -5,7 +5,6 @@ import {
 } from "../../shared/mains"
 import type { MessageKey } from "../i18n"
 
-/** Every field of the Main settings, flattened from its section. */
 export interface MainFieldValues {
   readonly quietMinutes: number
   readonly "idleCompaction.enabled": boolean
@@ -35,7 +34,6 @@ export type MainField =
   | { readonly kind: "switch"; readonly id: FieldsOf<boolean>; readonly label: MessageKey }
   | { readonly kind: "time"; readonly id: FieldsOf<string>; readonly label: MessageKey }
 
-/** The fields in the order the forms show them, each switch before its value. */
 export const MAIN_FIELDS: readonly MainField[] = [
   {
     kind: "number",
@@ -69,7 +67,6 @@ export const MAIN_FIELDS: readonly MainField[] = [
   { kind: "switch", id: "memoryFlush.enabled", label: "mains.memoryFlush" },
 ]
 
-/** Every field's value in the settings. */
 export function fieldValues(settings: MainRotationSettings): MainFieldValues {
   return {
     quietMinutes: settings.quietMinutes,
@@ -85,7 +82,6 @@ export function fieldValues(settings: MainRotationSettings): MainFieldValues {
   }
 }
 
-/** Complete settings from every field's value (checked by the Host). */
 export function settingsOf(values: MainFieldValues): MainRotationSettings {
   return {
     quietMinutes: values.quietMinutes,
@@ -100,7 +96,6 @@ export function settingsOf(values: MainFieldValues): MainRotationSettings {
   }
 }
 
-/** The fields an override sets. */
 export function overriddenFields(override: MainRotationOverride): ReadonlySet<MainFieldId> {
   const set: { readonly [Id in MainFieldId]: boolean } = {
     quietMinutes: override.quietMinutes !== undefined,
@@ -135,7 +130,6 @@ function defined<T extends Record<string, unknown>>(value: T): Partial<T> {
   ) as Partial<T>
 }
 
-/** The override that sets exactly the `own` fields to their values. */
 export function overrideOf(
   values: MainFieldValues,
   own: ReadonlySet<MainFieldId>,
@@ -173,7 +167,6 @@ export function overrideOf(
   }
 }
 
-/** A typed number, or undefined while it is not an integer within `bounds`. */
 export function parseBoundedInteger(
   text: string,
   bounds: { readonly min: number; readonly max: number },

@@ -122,7 +122,6 @@ import { VAULT_KIT } from "./vault-bytes"
 import type { BotVaultProvider, VaultKit } from "./vault-contract"
 import type { BotWebBackend } from "./web-contract"
 
-/** The Host modules the `bot` service delegates to; `apply` wires every one of them. */
 export interface BotBackend {
   readonly registry: Pick<BotRegistry, "list">
   readonly botIds: () => Iterable<string>
@@ -154,7 +153,6 @@ export interface BotBackend {
   readonly vaults: BotVaultsBackend
 }
 
-/** What the `bot` service's vault methods delegate to (host/vaults/, wired in src/index.ts). */
 export interface BotVaultsBackend {
   register(provider: BotVaultProvider): () => void
   list(): readonly BotVaultProvider[]
@@ -164,13 +162,11 @@ export interface BotVaultsBackend {
   readonly listCredentials: ListCredentials
 }
 
-/** What the `bot` service's conversation tool methods delegate to (host/conversations/bot-conversations.ts). */
 export interface BotConversationsBackend {
   readonly available: ConversationToolsAvailable
   readonly call: CallConversationTool
 }
 
-/** What the `bot` service's skill methods delegate to (host/skills/bot-skills.ts). */
 export interface BotSkillsBackend {
   readonly available: SkillToolAvailable
   readonly call: CallSkillTool
@@ -180,14 +176,12 @@ export interface BotSkillsBackend {
   readonly watch: WatchSkills
 }
 
-/** What the `bot` service's note methods delegate to (host/notes/bot-notes.ts). */
 export interface BotNotesBackend {
   readonly call: CallNoteTool
   readonly prepare: PrepareNotes
   readonly pinned: PinnedNotes
 }
 
-/** What the `bot` service's model methods delegate to (host/models/, wired in src/index.ts). */
 export interface BotModelsBackend {
   view(botId: string): BotModelsView
   configure(botId: string, change: unknown): Promise<BotModelsView>
@@ -196,7 +190,6 @@ export interface BotModelsBackend {
   subscribe(listener: (botId: string) => void): () => void
 }
 
-/** What the `bot` service's web methods delegate to (host/web/, wired in src/index.ts). */
 export interface BotWebLookupBackend {
   register(backend: BotWebBackend): () => void
   list(): readonly BotWebBackend[]
@@ -207,19 +200,16 @@ export interface BotWebLookupBackend {
   readonly fetch: WebOperation<WebFetchRequest, WebFetchResult>
 }
 
-/** What the `bot` service's schedule tool methods delegate to (host/schedule/tools.ts). */
 export interface BotSchedulesBackend {
   readonly available: ScheduleToolAvailable
   readonly call: CallScheduleTool
 }
 
-/** What the `bot` service's session tool methods delegate to (host/managed/tools.ts). */
 export interface BotManagedSessionsBackend {
   readonly available: SessionToolsAvailable
   readonly call: CallSessionTool
 }
 
-/** What the `bot` service's connector methods delegate to (wired in src/index.ts). */
 export interface BotConnectorsBackend {
   register(connector: BotConnector<unknown>): () => void
   list(): readonly BotConnector<unknown>[]
@@ -245,7 +235,6 @@ export interface BotConnectorsBackend {
 
 const BACKEND = Symbol("botBackend")
 
-/** Host service `bot`: the bot list, channels, templates, bot presets and bot sessions. */
 export class BotService extends Service implements Bot {
   readonly [BACKEND]: BotBackend
 
@@ -377,7 +366,6 @@ export class BotService extends Service implements Bot {
     return this[BACKEND].environments.register(environment)
   }
 
-  /** For bot-core's own `files` row only (src/internal.ts). */
   [ATTACH_ENVIRONMENT_SERVICES](
     botId: string,
     token: string,
@@ -386,7 +374,6 @@ export class BotService extends Service implements Bot {
     return this[BACKEND].environmentServices.attach(botId, token, services)
   }
 
-  /** For bot-core's own `compaction` row only (src/internal.ts). */
   [ATTACH_COMPACTION](botId: string, token: string, compactor: BotCompactor): () => void {
     return this[BACKEND].compactors.attach(botId, token, compactor)
   }
@@ -395,7 +382,6 @@ export class BotService extends Service implements Bot {
     return this[BACKEND].mainPreparations.register(preparation)
   }
 
-  /** For bot-core's own `connectors` row only (src/internal.ts). */
   [WATCH_CONNECTOR_TOOLS](
     botId: string,
     token: string,
@@ -404,12 +390,10 @@ export class BotService extends Service implements Bot {
     return this[BACKEND].connectors.watchTools(botId, token, listener)
   }
 
-  /** For bot-core's own `connectors` row only (src/internal.ts). */
   [CONNECTOR_TOOL_AVAILABLE](botId: string, token: string, agentId: string, name: string): boolean {
     return this[BACKEND].connectors.toolAvailable(botId, token, agentId, name)
   }
 
-  /** For bot-core's own `connectors` row only (src/internal.ts). */
   [CALL_CONNECTOR_TOOL](
     botId: string,
     token: string,
@@ -419,7 +403,6 @@ export class BotService extends Service implements Bot {
     return this[BACKEND].connectors.callTool(botId, token, request, signal)
   }
 
-  /** For bot-core's own `channel` row only (src/internal.ts). */
   [STAY_CHANNEL_SILENT](
     botId: string,
     token: string,
@@ -428,7 +411,6 @@ export class BotService extends Service implements Bot {
     return this[BACKEND].stayChannelSilent(botId, token, request)
   }
 
-  /** For bot-core's own `schedule` row only (src/internal.ts). */
   [SCHEDULE_TOOL_AVAILABLE](
     botId: string,
     token: string,
@@ -438,7 +420,6 @@ export class BotService extends Service implements Bot {
     return this[BACKEND].schedules.available(botId, token, agentId, tool)
   }
 
-  /** For bot-core's own `schedule` row only (src/internal.ts). */
   [CALL_SCHEDULE_TOOL](
     botId: string,
     token: string,
@@ -447,12 +428,10 @@ export class BotService extends Service implements Bot {
     return this[BACKEND].schedules.call(botId, token, request)
   }
 
-  /** For bot-core's own `sessions` row only (src/internal.ts). */
   [SESSION_TOOLS_AVAILABLE](botId: string, token: string, agentId: string): boolean {
     return this[BACKEND].managedSessions.available(botId, token, agentId)
   }
 
-  /** For bot-core's own `sessions` row only (src/internal.ts). */
   [CALL_SESSION_TOOL](
     botId: string,
     token: string,
@@ -477,72 +456,58 @@ export class BotService extends Service implements Bot {
     return this[BACKEND].web.subscribe(listener)
   }
 
-  /** For bot-core's own `web` row only (src/internal.ts). */
   [WEB_READY](botId: string, token: string, capability: "search" | "fetch"): Promise<boolean> {
     return this[BACKEND].web.ready(botId, token, capability)
   }
 
-  /** For bot-core's own `web` row only (src/internal.ts). */
   [WEB_SEARCH](botId: string, token: string, request: WebSearchRequest, signal: AbortSignal) {
     return this[BACKEND].web.search(botId, token, request, signal)
   }
 
-  /** For bot-core's own `web` row only (src/internal.ts). */
   [WEB_FETCH](botId: string, token: string, request: WebFetchRequest, signal: AbortSignal) {
     return this[BACKEND].web.fetch(botId, token, request, signal)
   }
 
-  /** For bot-core's own `prompt` row only (src/internal.ts). */
   [DESCRIBE_PROMPT](botId: string, token: string, agentId: string) {
     return this[BACKEND].describePrompt(botId, token, agentId)
   }
 
-  /** For bot-core's own `notes` row only (src/internal.ts). */
   [CALL_NOTE_TOOL](botId: string, token: string, request: NoteToolRequest, signal: AbortSignal) {
     return this[BACKEND].notes.call(botId, token, request, signal)
   }
 
-  /** For bot-core's own `notes` row only (src/internal.ts). */
   [PREPARE_NOTES](botId: string, token: string, request: NoteStepRequest, signal: AbortSignal) {
     return this[BACKEND].notes.prepare(botId, token, request, signal)
   }
 
-  /** For bot-core's own `skills` row only (src/internal.ts). */
   [SKILL_TOOL_AVAILABLE](botId: string, token: string, agentId: string) {
     return this[BACKEND].skills.available(botId, token, agentId)
   }
 
-  /** For bot-core's own `skills` row only (src/internal.ts). */
   [CALL_SKILL_TOOL](botId: string, token: string, request: SkillToolRequest, signal: AbortSignal) {
     return this[BACKEND].skills.call(botId, token, request, signal)
   }
 
-  /** For bot-core's own `skills` row only (src/internal.ts). */
   [PREPARE_SKILLS](botId: string, token: string, agentId: string, signal: AbortSignal) {
     return this[BACKEND].skills.prepare(botId, token, agentId, signal)
   }
 
-  /** For bot-core's own `skills` row only (src/internal.ts). */
   [LIST_SKILLS](botId: string, token: string, signal: AbortSignal) {
     return this[BACKEND].skills.list(botId, token, signal)
   }
 
-  /** For bot-core's own `skills` row only (src/internal.ts). */
   [LOAD_SKILL](botId: string, token: string, name: string, signal: AbortSignal) {
     return this[BACKEND].skills.load(botId, token, name, signal)
   }
 
-  /** For bot-core's own `skills` row only (src/internal.ts). */
   [WATCH_SKILLS](botId: string, token: string, listener: () => void) {
     return this[BACKEND].skills.watch(botId, token, listener)
   }
 
-  /** For bot-core's own `conversations` row only (src/internal.ts). */
   [CONVERSATION_TOOLS_AVAILABLE](botId: string, token: string, agentId: string) {
     return this[BACKEND].conversations.available(botId, token, agentId)
   }
 
-  /** For bot-core's own `conversations` row only (src/internal.ts). */
   [CALL_CONVERSATION_TOOL](
     botId: string,
     token: string,
@@ -552,7 +517,6 @@ export class BotService extends Service implements Bot {
     return this[BACKEND].conversations.call(botId, token, request, signal)
   }
 
-  /** For bot-core's own `notes` row only (src/internal.ts). */
   [PINNED_NOTES](botId: string, token: string, agentId: string) {
     return this[BACKEND].notes.pinned(botId, token, agentId)
   }
@@ -569,22 +533,18 @@ export class BotService extends Service implements Bot {
     return VAULT_KIT
   }
 
-  /** For bot-core's own `vault-guard` row only (src/internal.ts). */
   [GUARD_TOOL_ARGUMENTS](botId: string, token: string, request: GuardArgumentsRequest) {
     return this[BACKEND].vaults.guardArguments(botId, token, request)
   }
 
-  /** For bot-core's own `vault-guard` row only (src/internal.ts). */
   [GUARD_TOOL_RESULT](botId: string, token: string, request: GuardResultRequest) {
     return this[BACKEND].vaults.guardResult(botId, token, request)
   }
 
-  /** For bot-core's own `vaults` row only (src/internal.ts). */
   [CREDENTIALS_AVAILABLE](botId: string, token: string, agentId: string) {
     return this[BACKEND].vaults.credentialsAvailable(botId, token, agentId)
   }
 
-  /** For bot-core's own `vaults` row only (src/internal.ts). */
   [LIST_CREDENTIALS](botId: string, token: string, agentId: string, signal: AbortSignal) {
     return this[BACKEND].vaults.listCredentials(botId, token, agentId, signal)
   }

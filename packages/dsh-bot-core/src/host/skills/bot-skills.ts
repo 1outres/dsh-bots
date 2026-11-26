@@ -1,13 +1,3 @@
-/**
- * What the skills row asks the `bot` service (src/plugins/skills.ts): the
- * bot's skills for its skill provider, skill_manage, and the step
- * preparation (skills/ read again, the step counted for the review). Only an
- * Agent of the bot, asking with a token of a revision registered during this
- * load, is answered; its session's kind decides what it may do
- * (docs/specs/bot-skills.md §7): skill_manage changes skills only in the
- * bot's conversations with its owner (Main and Web sessions), their
- * background reviews and the bot's skill curation (§12).
- */
 import { posix } from "node:path"
 import type { BotSessionKind, BotSkillEntry, SkillToolRequest } from "../../internal"
 import type { InvalidSkill } from "../../shared/skills"
@@ -28,33 +18,22 @@ import { parseSkill, SKILL_FILE, skillDirectory } from "./skill"
 import type { SkillStore } from "./store"
 
 export interface BotSkillsDeps<A extends KindAgent> {
-  /** Whether `token` is the token of a revision of the bot's preset registered during this load. */
   sealed(botId: string, token: string): boolean
   agent(agentId: string): A | undefined
-  /** The bot the Agent's session verifiably belongs to (host/preset/identity.ts). */
   botOf(agent: A): string | undefined
   kind: SessionKindDeps
   reviews: Pick<ReviewSessions, "get">
-  /** The file system that revision's files row handed over, with the environment's workspace. */
   placeOf(botId: string, token: string): SkillsPlace | undefined
-  /** The history every change is kept in, and its clock and ids. */
   history: Omit<SkillManagerDeps, "changed">
   store: Pick<SkillStore, "recordUse">
-  /** A step of a Main or Web session (not a review's) is about to run. */
   stepped(botId: string, sessionId: string): void
-  /**
-   * Skills as the bot's prompt and its skill tool show them, with its secrets
-   * withheld (docs/specs/bot-vaults.md §7.2). @throws when the vault guard cannot check them.
-   */
   shield<T>(botId: string, value: T): Promise<T>
   now(): number
   warn(message: string): void
 }
 
-/** Sessions where skill_manage changes skills (a review reads as the session it reviews). */
 const MANAGING_SESSIONS: readonly BotSessionKind[] = ["main", "web", "curator"]
 
-/** The active skills and what is not a valid skill, as the Web UI lists them. */
 export interface SkillsReading {
   readonly active: readonly { readonly name: string; readonly description: string }[]
   readonly archived: readonly { readonly name: string; readonly description: string }[]
@@ -77,20 +56,15 @@ export interface BotSkills {
     name: string,
     signal: AbortSignal,
   ): Promise<(BotSkillEntry & { content: string }) | undefined>
-  /** Hear when the bot's skills change; a revision watches while it mounts, before its token is registered, and is told nothing but that. */
   watch(botId: string, token: string, listener: () => void): () => void
-  /** The owner's change from the Web UI, through the same checks and history. */
   manageAsOwner(
     botId: string,
     place: SkillsPlace,
     args: SkillManageArgs,
     signal: AbortSignal,
   ): Promise<string>
-  /** Read the bot's active and archived skills (the Web UI). */
   read(botId: string, place: SkillsPlace, signal: AbortSignal): Promise<SkillsReading>
-  /** Read the bot's active skills again (the curation weighs them). */
   catalog(botId: string, place: SkillsPlace, signal: AbortSignal): Promise<SkillCatalog>
-  /** The daily archive of unused skills (SkillManager.sweep). */
   sweep(
     botId: string,
     place: SkillsPlace,
@@ -98,7 +72,6 @@ export interface BotSkills {
     reason: string,
     signal: AbortSignal,
   ): Promise<readonly string[]>
-  /** Called with the bot id whenever its skills changed. */
   subscribe(listener: (botId: string) => void): () => void
   forget(exists: (botId: string) => boolean): void
 }
@@ -171,7 +144,6 @@ export function createBotSkills<A extends KindAgent>(deps: BotSkillsDeps<A>): Bo
     description,
     directory: posix.join(place.workspace, skillDirectory(name, false)),
   })
-  /** Read skills/ again; the watchers hear of a change. */
   const rescan = (botId: string, place: SkillsPlace, signal: AbortSignal) =>
     withSkills(botId, async (state) => {
       const before = state.library.current()?.fingerprint

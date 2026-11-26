@@ -3,21 +3,15 @@ import type { BotTable } from "../registry"
 import type { ManagedSessionRecord } from "./domain"
 
 export interface ManagedStoreDeps {
-  /** The sessions table of MANAGED_SESSIONS_DOMAIN; only this store writes it (design rule 53). */
   readonly managedSessions: BotTable<ManagedSessionRecord>
 }
 
-/** The sessions bots' Main sessions manage. Writes are serialized. */
 export interface ManagedStore {
-  /** Every managed session, oldest first; only `botId`'s when given. */
   list(botId?: string): BotManagedSession[]
   get(sessionId: string): BotManagedSession | undefined
   put(sessionId: string, record: ManagedSessionRecord): Promise<BotManagedSession>
-  /** Resolves to whether it was managed. */
   delete(sessionId: string): Promise<boolean>
-  /** Drop the sessions of bots `keep` refuses. */
   purge(keep: (botId: string) => boolean): Promise<void>
-  /** Called after every change. */
   subscribe(listener: () => void): () => void
 }
 

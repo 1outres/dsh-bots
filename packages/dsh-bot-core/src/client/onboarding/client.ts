@@ -5,20 +5,12 @@ import { createStore, type Observable } from "../observable"
 import type { BotOnboardingRemote, RemoteMount } from "../remote"
 import type { RemoteResult } from "../types"
 
-/**
- * The welcome guide and the release notes as the Host keeps them, followed
- * while the page is open (undefined until the first view; the last one stays
- * while it reconnects), and the changes the page asks for.
- */
 export interface OnboardingClient extends Observable<BotOnboardingView | undefined> {
-  /** Resolves with the new bot's id; a refused model rejects with a `ModelsError`, anything else with the Host's message. */
   createBot(
     request: BotCreationRequest,
     channels: readonly BotWelcomeChannelSetup[],
   ): Promise<string>
-  /** Rejects with the Host's message. */
   finishWelcome(): Promise<void>
-  /** Rejects with the Host's message. */
   acknowledgeReleaseNotes(version: string): Promise<void>
   dispose(): void
 }
@@ -26,7 +18,6 @@ export interface OnboardingClient extends Observable<BotOnboardingView | undefin
 export interface OnboardingClientSources {
   readonly mount: Promise<RemoteMount>
   readonly generation: Observable<object | undefined>
-  /** The language bot-core is shown in, which a new bot greets in. */
   language(): string
 }
 

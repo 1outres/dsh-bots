@@ -1,10 +1,3 @@
-/**
- * The VM host bot VMs run on now (docs/specs/incus-endpoint.md §5.1): the
- * stored choice, or this machine's socket and the configured project while
- * none is stored. It is connected on first use, again after a failed attempt,
- * and again after the choice changed; a change closes the earlier connection
- * (its streams, SSH relays included, end).
- */
 import type { ClientKeyStore, EndpointStore, IncusEndpoint, StoredScope } from "./endpoint"
 import { endpointOf } from "./endpoint"
 import type { IncusClient } from "./incus"
@@ -13,12 +6,10 @@ export interface ActiveScope {
   readonly kind: IncusEndpoint["kind"]
   readonly project: string
   readonly stored: StoredScope
-  /** Whether the person chose it; false while nothing is stored (this machine by default). */
   readonly chosen: boolean
   readonly incus: IncusClient
 }
 
-/** A connected client of one endpoint and project. */
 export interface ScopeConnection {
   readonly incus: IncusClient
   close(): void
@@ -27,26 +18,18 @@ export interface ScopeConnection {
 export interface EndpointScopeDeps {
   readonly store: EndpointStore
   readonly keys: ClientKeyStore
-  /** What is used while nothing is stored. */
   readonly defaults: StoredScope & { readonly endpoint: { readonly kind: "local" } }
   connect(endpoint: IncusEndpoint, project: string): ScopeConnection
 }
 
 export interface EndpointScope {
-  /** What is used while nothing is stored. */
   readonly defaults: StoredScope & { readonly endpoint: { readonly kind: "local" } }
   current(): Promise<ActiveScope>
-  /** The project of the latest scope resolved or chosen; undefined before that and while the stored choice cannot be read. */
   project(): string | undefined
-  /** The stored choice now (undefined: none). @throws when it cannot be read. */
   stored(): Promise<StoredScope | undefined>
-  /** Store a new choice (with the key of a paired VM host) and connect to it from the next call on. */
   choose(scope: StoredScope, clientKey?: string): Promise<void>
-  /** @throws when the client key of a paired VM host could not be kept (DSH's credential store is missing). */
   keysUsable(): Promise<void>
-  /** Keep the VM host, use another project on it. */
   setProject(project: string): Promise<void>
-  /** Forget the stored choice: this machine's socket by default again. */
   clear(): Promise<void>
   close(): void
 }

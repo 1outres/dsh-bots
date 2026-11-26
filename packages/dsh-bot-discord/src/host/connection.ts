@@ -12,13 +12,10 @@ import type {
 } from "./discord"
 import type { Scheduler } from "./ports"
 
-/** First delay before a failed client is replaced; doubles up to {@link MAX_RETRY_MS}. */
 export const BASE_RETRY_MS = 1_000
 export const MAX_RETRY_MS = 60_000
 
-/** What the connection passes on to the bridge. */
 export interface DiscordSessionEvents {
-  /** A new Gateway session started (also on a replacement client). */
   ready(account: DiscordAccount): void
   message(message: DiscordMessage): void
   command(invocation: DiscordCommandInvocation): void
@@ -35,16 +32,10 @@ export interface DiscordConnectionDeps {
   report(state: BotChannelConnectionState): void
 }
 
-/** The actions of the current client, until {@link close}. */
 export interface DiscordConnection extends DiscordActions {
   close(): Promise<void>
 }
 
-/**
- * Keeps one bot logged in: reports the client's state, and replaces a client
- * that stopped for a retryable reason after a backoff. A client that stopped
- * for good (a rejected token) is not replaced.
- */
 export function createDiscordConnection(deps: DiscordConnectionDeps): DiscordConnection {
   let closed = false
   let delay = BASE_RETRY_MS

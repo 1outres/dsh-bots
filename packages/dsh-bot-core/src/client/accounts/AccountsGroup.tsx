@@ -35,7 +35,6 @@ export interface AccountsGroupProps {
   readonly snapshot: BotConnectionsSnapshot
   readonly connections: ConnectionsFeed
   readonly confirm: FrameSectionProps["confirm"]
-  /** A bot's side: the bot's accounts first, each with its switch, and the way to add one. */
   readonly bot?: BotView
 }
 
@@ -67,7 +66,6 @@ const ATTEMPT: Readonly<
   },
 }
 
-/** A provider's accounts, on a bot's side or in the dsh-bots settings: the same rows on both. */
 export function AccountsGroup({
   t,
   provider,

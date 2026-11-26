@@ -1,8 +1,3 @@
-/**
- * Pinned notes (docs/specs/bot-notes.md §6): their bodies, links shown by
- * title, are in every conversation's context, within one limit for all of
- * them, counted in characters as shown.
- */
 import { characters, groupDigits } from "./names"
 import type { Note, NoteType } from "./note"
 
@@ -12,13 +7,10 @@ export interface PinnedNote {
   readonly id: string
   readonly title: string
   readonly type: NoteType
-  /** The note's block in the context. */
   readonly block: string
-  /** Characters of {@link block}. */
   readonly size: number
 }
 
-/** The pinned notes of `notes` (in id order, which is creation order), shown with `show`. */
 export function pinnedNotes(
   notes: Iterable<readonly [string, Note]>,
   show: (body: string) => string,
@@ -40,7 +32,6 @@ export const pinnedSize = (pinned: readonly PinnedNote[]) =>
 export const pinnedUsage = (size: number) =>
   `Pinned notes: ${groupDigits(size)} / ${groupDigits(PINNED_LIMIT)} characters.`
 
-/** The context's text: empty while nothing is pinned. */
 export function renderPinned(pinned: readonly PinnedNote[]): string {
   if (pinned.length === 0) return ""
   const size = pinnedSize(pinned)

@@ -2,7 +2,6 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { pathToFileURL } from "node:url"
 
-/** The fields of a package.json that the repository conventions look at. */
 export interface PackageManifest {
   name: string
   version: string
@@ -36,7 +35,6 @@ export const ICON_SIZE = 64
 export const MAX_ICON_BYTES = 256 * 1024
 export const BUILD_SCRIPT = "node ../../scripts/build.mjs"
 
-/** Words that keep their capital letter inside a sentence-case title. */
 const PROPER_NOUNS = new Set(["DSH", "Discord", "Slack", "Telegram", "X"])
 
 export function readJson<T>(path: string): T {
@@ -47,7 +45,6 @@ export function readManifest(directory: string): PackageManifest {
   return readJson<PackageManifest>(join(directory, "package.json"))
 }
 
-/** Directory names of the plugin packages under `packages/`, sorted. */
 export function pluginDirectoryNames(root: string): string[] {
   return readdirSync(join(root, "packages"))
     .filter((name) => name.startsWith(PLUGIN_PREFIX))
@@ -75,10 +72,6 @@ function missingFrom(list: readonly string[] | undefined, required: readonly str
   return required.filter((entry) => !(list ?? []).includes(entry))
 }
 
-/**
- * Manifest fields every package in this repository shares: identity, license,
- * repository link, engines, and the bundle patch.
- */
 export function commonManifestProblems(
   directory: string,
   directoryName: string,
@@ -115,7 +108,6 @@ export function commonManifestProblems(
   return problems
 }
 
-/** Manifest fields of a plugin package on top of the common ones. */
 export function pluginManifestProblems(directory: string, directoryName: string): string[] {
   const manifest = readManifest(directory)
   const problems: string[] = []
@@ -146,17 +138,11 @@ export function pluginManifestProblems(directory: string, directoryName: string)
   return problems
 }
 
-/** Source directories whose `<name>.ts` files scripts/build.mjs builds to `lib/<name>.js`. */
 export const LIB_ENTRY_DIRECTORIES = ["plugins", "standalone", "worker"] as const
 
-/**
- * Every `src/plugins/<name>.ts` is exported as `./<name>` -> `./lib/<name>.js`,
- * and every other `./lib/<name>.js` export has a source the build turns into it.
- */
 export function entryExportProblems(directory: string, manifest: PackageManifest): string[] {
   const problems: string[] = []
   const sources = new Set<string>()
-  // lib/index.js and lib/client.js come from src/index.ts and src/client/.
   const outputs = new Map<string, string>([
     ["index", "src/index.ts"],
     ["client", "src/client/"],
@@ -185,7 +171,6 @@ export function entryExportProblems(directory: string, manifest: PackageManifest
   return problems
 }
 
-/** Locale files and the icon that Plugin Manager and Settings read. */
 export function displayResourceProblems(directory: string): string[] {
   const problems: string[] = []
   const locales = DISPLAY_LANGUAGES.map(
@@ -236,14 +221,12 @@ function iconProblems(directory: string, title: unknown): string[] {
   return problems
 }
 
-/** The fill of the rounded 60x60 tile every icon draws first. */
 export function tileColorOf(svg: string): string | undefined {
   return /<rect x="2" y="2" width="60" height="60" rx="14" fill="(#[0-9A-Fa-f]{6})"\s*\/>/.exec(
     svg,
   )?.[1]
 }
 
-/** Text a person reads: no placeholders, sentence-case English, consistent Japanese terms. */
 export function displayTextProblems(directory: string): string[] {
   const problems: string[] = []
   const manifest = readManifest(directory)
@@ -276,7 +259,6 @@ export function displayTextProblems(directory: string): string[] {
   return problems
 }
 
-/** Client dictionaries in `src/client/i18n.ts` translate the same keys in en and ja. */
 export async function clientDictionaryProblems(directory: string): Promise<string[]> {
   const path = join(directory, "src", "client", "i18n.ts")
   if (!existsSync(path)) return []
@@ -304,7 +286,6 @@ export async function clientDictionaryProblems(directory: string): Promise<strin
   return problems
 }
 
-/** Distance between two #RRGGBB colors in RGB space. */
 export function colorDistance(left: string, right: string): number {
   const channels = (color: string) =>
     [1, 3, 5].map((start) => Number.parseInt(color.slice(start, start + 2), 16))

@@ -41,13 +41,8 @@ export interface SettingsSources {
   readonly deletion: BotDeletion
 }
 
-/** The dsh-bots settings section of connections (providers' OAuth clients, every account). */
 export const CONNECTIONS_SECTION = "bot-core.connections"
 
-/**
- * A bot's settings screen: bot-core's sections, the screen in `shell.overlay`,
- * closed once its bot is gone, and the confirmation of a bot's deletion over it.
- */
 export function wireSettings(ctx: ClientContext, sources: SettingsSources): void {
   const { bots, screens, channels, connectors, connections, actions, deletion } = sources
   const { flow, sections } = screens.bot

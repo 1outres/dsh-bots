@@ -4,15 +4,9 @@ import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { build } from "esbuild"
 import { describe, expect, it } from "vitest"
-// @ts-expect-error -- plain .mjs build helper without type declarations
+// @ts-expect-error
 import { hostBuildOptions } from "../scripts/build-options.mjs"
 import { pluginDirectoryNames } from "./support/packages"
-
-/**
- * Host entries bundle only their own package: another package's code in a
- * built lib/*.js would run as a second copy and drag that package's
- * dependencies along, which a profile install cannot resolve.
- */
 
 const root = fileURLToPath(new URL("..", import.meta.url))
 
@@ -40,12 +34,10 @@ async function metafileOf(entry: string) {
   return result.metafile
 }
 
-/** Source files esbuild put into the bundle, relative to the repository. */
 async function bundledSources(entry: string): Promise<string[]> {
   return Object.keys((await metafileOf(entry)).inputs)
 }
 
-/** Packages a built bundle imports at run time (type-only imports are erased). */
 async function runtimeImports(entry: string): Promise<string[]> {
   const outputs = Object.values((await metafileOf(entry)).outputs)
   return outputs.flatMap((output) =>

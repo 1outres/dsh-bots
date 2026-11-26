@@ -9,7 +9,6 @@ import { shownValue } from "./loader"
 import type { NotesModel } from "./model"
 import { failureText, linkButtons, linkText, TypeTag } from "./parts"
 
-/** One note: its type, aliases and summary, its body with links by title, then Links and Backlinks. */
 export function NotePage({ t, model }: { readonly t: Translate; readonly model: NotesModel }) {
   const load = useObservable(model.document)
   const shown = shownValue(load)

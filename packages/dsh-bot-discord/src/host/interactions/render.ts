@@ -29,9 +29,7 @@ const TITLE_LIMIT = 256
 const DESCRIPTION_LIMIT = 4096
 const BUTTON_LABEL_LIMIT = 80
 const OPTION_TEXT_LIMIT = 100
-/** A question's detail longer than this goes in messages of its own, before the card. */
 export const INLINE_DETAIL_LIMIT = 1500
-/** Choices Discord can show: four select menus, the fifth row holds the controls. */
 export const MAX_CHOICES = (MESSAGE_ROW_LIMIT - 1) * SELECT_OPTION_LIMIT
 
 export function clip(value: string, limit: number): string {
@@ -39,7 +37,6 @@ export function clip(value: string, limit: number): string {
   return chars.length <= limit ? value : `${chars.slice(0, limit - 1).join("")}…`
 }
 
-/** What a closure or a refused submission adds to the card's first line. */
 export type CardState =
   | { readonly kind: "open"; readonly refusal?: string }
   | { readonly kind: "sending" }
@@ -63,7 +60,6 @@ const button = (
   disabled,
 })
 
-/** Texts posted once before the card: a plan, and question details too long for it. */
 export function leadingMessages(
   interaction: BotInteraction,
   locale: DiscordLocale,
@@ -294,7 +290,6 @@ function planCard(interaction: BotPlanReviewInteraction, locale: DiscordLocale, 
   }
 }
 
-/** One line per answered question, or the decision. */
 export function answerSummary(
   interaction: BotInteraction,
   answer: BotInteractionAnswer,
@@ -366,7 +361,6 @@ function stateLine(
   }
 }
 
-/** The card of an interaction for one person: its embed, its components (disabled unless open) and its state line. */
 export function renderCard(
   interaction: BotInteraction,
   draft: QuestionDraft | undefined,
@@ -395,7 +389,6 @@ export function renderCard(
   }
 }
 
-/** What a message of an interaction the bridge no longer holds becomes when pressed. */
 export function staleCard(locale: DiscordLocale): DiscordMessageEdit {
   return { content: text("notOpen", locale), components: [] }
 }

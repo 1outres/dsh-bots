@@ -15,13 +15,9 @@ import { messageHeader } from "./header"
 import type { ComposedPrompt, PromptPart } from "./inbound"
 
 export interface ConversationDeps {
-  /** The bot's Main session, if it has one. */
   mainSessionOf(botId: string): string | undefined
-  /** Whether the session's live Agent runs a turn (idle without a live Agent). */
   activityOf(sessionId: string): BotActivity
-  /** DSH's composer preference for a plain Enter while a turn runs. */
   busyMode(): BotDeliveryMode
-  /** The prompt content a message makes (host/channels/inbound.ts). */
   compose(
     request: {
       readonly botId: string
@@ -32,7 +28,6 @@ export interface ConversationDeps {
     },
     signal: AbortSignal,
   ): Promise<ComposedPrompt>
-  /** DSH's `session.prompt`, as the Web composer calls it, in the bot's time zone. */
   prompt(
     request: {
       botId: string
@@ -44,20 +39,10 @@ export interface ConversationDeps {
   ): Promise<void>
   run(botId: string, command: BotCommandId): Promise<BotCommandOutcome>
   interactions: Pick<InteractionBoard, "answer" | "hold">
-  /**
-   * Hand an input to the bot's Main (host/mains/controller.ts `admit`): runs
-   * `work` with the Main it goes to once no maintenance holds the bot.
-   */
   admit<T>(botId: string, work: (sessionId: string | undefined) => Promise<T>): Promise<T>
-  /**
-   * A person's message with the bot's secrets withheld before the bot reads it
-   * (recorded as an incident; docs/specs/bot-vaults.md §7.2).
-   * @throws when the vault guard cannot check it: it is not delivered.
-   */
   shield(botId: string, sessionId: string, message: BotInboundMessage): Promise<BotInboundMessage>
 }
 
-/** A bot's Main session as one channel connection's inputs reach it. */
 export interface MainConversation {
   deliver(message: BotInboundMessage): Promise<BotDeliveryResult>
   run(command: BotCommandId, person: string): Promise<BotCommandOutcome>
@@ -75,7 +60,6 @@ export function openMainConversation(
     readonly botId: string
     readonly channel: { readonly id: string; readonly name: string }
     readonly capabilities: BotChannelCapabilities
-    /** The channel's ids of the bot's owners there. */
     readonly owners: ReadonlySet<string>
   },
   signal: AbortSignal,

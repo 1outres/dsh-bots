@@ -1,7 +1,3 @@
-// Design rule 54: the skills' history, usage, settings, marks and curation times are written in one place.
-// `skillHistory` / `skillUsage` / `skillSettings` / `skillMarks` / `skillCuration` `.put(...)` / `.delete(...)`
-// may appear only in host/skills/store.ts, which serializes writes, keeps each
-// skill's latest versions only and tells the Web UI.
 JsCallExpression(callee = $callee) as $call where {
   $callee <: or { `$receiver.put`, `$receiver.delete`, `$receiver?.put`, `$receiver?.delete` },
   $receiver <: or {

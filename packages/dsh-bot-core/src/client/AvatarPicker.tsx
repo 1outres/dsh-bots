@@ -21,7 +21,6 @@ import type { Translate } from "./types"
 
 const mebibytes = (bytes: number) => `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 
-/** What the picker says about a file it could not use. */
 export function avatarImageMessage(t: Translate, failure: AvatarImageFailure): string {
   switch (failure.kind) {
     case "unsupported-type":
@@ -44,7 +43,6 @@ export function avatarImageMessage(t: Translate, failure: AvatarImageFailure): s
   }
 }
 
-/** What the picker says about an image it made into an avatar. */
 export function avatarImageNote(t: Translate, image: AvatarImage): string {
   const resized = t("avatar.note.resized", { size: image.size })
   return image.animationDropped ? `${resized} ${t("avatar.note.animation")}` : resized
@@ -58,17 +56,12 @@ type ImageState =
 
 export interface AvatarPickerProps {
   readonly t: Translate
-  /** The bot's name as typed, for the initial glyph. */
   readonly name: string
   readonly value: AvatarChoice
   onChange(next: AvatarChoice): void
   readonly disabled?: boolean
 }
 
-/**
- * The avatar controls shared by the New bot dialog and the settings: symbols
- * and the image picker on one line, colors under them, every choice a 28px cell.
- */
 export function AvatarPicker({ t, name, value, onChange, disabled }: AvatarPickerProps) {
   const [imageState, setImageState] = useState<ImageState>({ status: "idle" })
   const fileRef = useRef<HTMLInputElement>(null)
@@ -190,15 +183,12 @@ export function AvatarPicker({ t, name, value, onChange, disabled }: AvatarPicke
 interface RadioRowProps {
   label: string
   count: number
-  /** Index of the chosen item, or -1 when none of them is. */
   selected: number
-  /** False while another option (the uploaded image) is in use: nothing shows as checked. */
   active: boolean
   onSelect(index: number): void
   render(index: number): { label: string; content: ReactNode }
 }
 
-/** A roving-tabindex radio group: one tab stop, arrow keys, Home and End move the choice. */
 function RadioRow({ label, count, selected, active, onSelect, render }: RadioRowProps) {
   const stop = selected < 0 ? 0 : selected
   const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
@@ -215,7 +205,7 @@ function RadioRow({ label, count, selected, active, onSelect, render }: RadioRow
         const item = render(index)
         const checked = active && index === selected
         return (
-          // biome-ignore lint/a11y/useSemanticElements: avatar discs styled as a radio group
+          // biome-ignore lint/a11y/useSemanticElements: -
           <button
             key={index}
             type="button"

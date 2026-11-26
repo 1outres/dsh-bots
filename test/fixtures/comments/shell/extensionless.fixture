@@ -1,0 +1,3 @@
+#!/bin/sh
+# Starts the program.
+exec "$@" # forward

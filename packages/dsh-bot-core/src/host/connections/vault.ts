@@ -1,11 +1,3 @@
-/**
- * Secrets of connections, one DSH credential record each, read by bot-core
- * alone and never sent to the browser or a bot's environment: an account's
- * refresh token (`bot-core/connection-<id>`) and a provider's OAuth client
- * secret (`bot-core/oauth-client-<provider>`).
- */
-
-/** The slice of DSH's `credentials` service the vault uses (dsh-credentials `CredentialProvider`). */
 export interface ConnectionCredentialRecords {
   readRecord(
     key: string,
@@ -17,7 +9,6 @@ export interface ConnectionCredentialRecords {
   deleteRecord(key: string): Promise<unknown>
 }
 
-/** What an account's record keeps. */
 export interface ConnectionGrantSecret {
   readonly version: 1
   readonly refreshToken: string
@@ -32,7 +23,6 @@ interface ClientSecretPayload {
 }
 
 export interface ConnectionVault {
-  /** @throws when the record is missing or not bot-core's. */
   grant(connectionId: string): Promise<ConnectionGrantSecret>
   writeGrant(connectionId: string, grant: ConnectionGrantSecret): Promise<void>
   removeGrant(connectionId: string): Promise<void>

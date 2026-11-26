@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# shellcheck source=lib.sh
+. "$(dirname "$0")/lib.sh"
+# shellcheck disable=SC2034,SC2154
+count=$#
+length=${#count}
+echo "#not" '#not' a#b "${count}#" $((length + 1))
+cat <<EOF
+# heredoc text, not a comment
+$count
+EOF
+cat <<'RAW'
+# quoted heredoc
+RAW
+value=$(
+  echo "$length"
+)
+case "$value" in
+  \#*) echo hash ;;
+  *) echo other ;;
+esac
+# shellcheck disable=SC2024
+sudo tee /dev/null </dev/tty
+# shellcheck shell=bash
+# shellcheck disable=SC2034
+# shellcheck source=lib.sh
+# shellcheck shell=dash
+# shellcheck shell=bash

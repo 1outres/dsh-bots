@@ -9,7 +9,6 @@ import { createStore, type Observable } from "./observable"
 import type { BotConnectorsRemote, RemoteMount } from "./remote"
 import type { RemoteResult } from "./types"
 
-/** Why a bot's connectors cannot be read or changed. */
 export type ConnectorsFailure =
   | { readonly kind: "mount"; readonly message: string }
   | { readonly kind: "connection"; readonly message: string }
@@ -28,7 +27,6 @@ export type ConnectorsState =
   | { readonly status: "ready"; readonly snapshot: BotConnectorsSnapshot }
   | { readonly status: "failed"; readonly failure: ConnectorsFailure }
 
-/** One bot's connectors, followed while its settings are open. Every change rejects with a {@link ConnectorsError}. */
 export interface ConnectorsModel extends Observable<ConnectorsState> {
   configure(connectorId: string, change: BotConnectorChange): Promise<BotConnectorView>
   setPermission(change: ConnectorPermissionChange): Promise<BotConnectorView>
@@ -53,11 +51,9 @@ const failureOf = (error: unknown): ConnectorsFailure =>
 
 export interface ConnectorsModelDeps {
   readonly mount: Promise<RemoteMount>
-  /** The connection's generation: a lost stream reopens at once on a new one. */
   readonly generation: Observable<object | undefined>
 }
 
-/** A lost stream reopens with backoff; the last snapshot stays meanwhile. */
 export function createConnectorsModel(deps: ConnectorsModelDeps, botId: string): ConnectorsModel {
   const { mount } = deps
   const state = createStore<ConnectorsState>({ status: "loading" })

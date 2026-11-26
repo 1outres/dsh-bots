@@ -29,7 +29,6 @@ const preview = (state: PreviewState) =>
     createElement(FilePreview, { t, model: previewModel(state), request: REQUEST }),
   )
 
-/** The Factory as DSH registers it: here, the input it was handed. */
 function factory(): RenderFactory & { inputs: FileTreeInput[] } {
   const inputs: FileTreeInput[] = []
   const render = (name: string, props: object): ReactNode => {
@@ -40,7 +39,6 @@ function factory(): RenderFactory & { inputs: FileTreeInput[] } {
   return Object.assign(render, { inputs })
 }
 
-/** The renderer without the Factory registered: it draws the fallback. */
 const missingFactory: RenderFactory = (_name, _props, options) => options.fallback
 
 const files = {} as BotFilesClient

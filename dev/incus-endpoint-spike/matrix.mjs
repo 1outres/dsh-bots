@@ -1,4 +1,3 @@
-// Spike: what a restricted client certificate (projects=[dsh-spike]) may do. Prints one line per probe.
 import { readFileSync } from "node:fs"
 import { call, endpointFrom, waitOp } from "./incus.mjs"
 

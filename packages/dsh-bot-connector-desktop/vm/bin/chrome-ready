@@ -1,5 +1,4 @@
 #!/bin/sh
-# Ready once Chrome answers on DevTools, so that later launches open in it rather than start their own.
 i=0
 until curl -sf -o /dev/null http://127.0.0.1:9222/json/version; do
   i=$((i + 1))

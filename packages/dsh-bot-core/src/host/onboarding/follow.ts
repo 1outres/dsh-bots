@@ -12,10 +12,6 @@ export interface WelcomeFollowerDeps {
   warn(message: string): void
 }
 
-/**
- * Settle a creating guide from the bots list (`welcomeAfter`) now and after
- * every change of it, whether or not a page is open. Returns the disposer.
- */
 export function followWelcomeBot(deps: WelcomeFollowerDeps): () => void {
   const settle = () => {
     deps.store

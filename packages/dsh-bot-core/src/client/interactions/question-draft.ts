@@ -1,13 +1,11 @@
 import type { BotQuestion, BotQuestionAnswer } from "../../shared/interactions"
 
-/** One question's draft: the chosen labels, the text answer, or a skip. */
 export interface QuestionDraftItem {
   readonly selected: readonly string[]
   readonly custom: string
   readonly skipped: boolean
 }
 
-/** A question batch's draft in the browser: the shown page and every question's draft. */
 export interface QuestionDraft {
   readonly page: number
   readonly items: readonly QuestionDraftItem[]
@@ -43,11 +41,6 @@ function written(question: BotQuestion, item: QuestionDraftItem, text: string): 
   return { selected: clears ? [] : item.selected, custom: text, skipped: false }
 }
 
-/**
- * The draft after one edit. Choosing on a single-select question replaces its
- * answer and moves to the next unanswered page, as DSH's card advances; a text
- * answer there replaces the choice; on a multi-select question both add up.
- */
 export function reduceDraft(
   questions: readonly BotQuestion[],
   draft: QuestionDraft,
@@ -77,7 +70,6 @@ export function reduceDraft(
   }
 }
 
-/** The page after `from` that still needs an answer, else `from` itself. */
 function nextPage(items: readonly QuestionDraftItem[], from: number): number {
   for (let index = from + 1; index < items.length; index += 1) {
     if (!answered(items[index] ?? EMPTY)) return index
@@ -89,7 +81,6 @@ export type DraftSubmission =
   | { readonly kind: "ready"; readonly answers: readonly BotQuestionAnswer[] }
   | { readonly kind: "incomplete"; readonly page: number }
 
-/** The answers a draft makes, or the first page still unanswered. */
 export function submissionOf(
   questions: readonly BotQuestion[],
   draft: QuestionDraft,

@@ -26,11 +26,6 @@ export interface ActionsPanelProps {
   close(): void
 }
 
-/**
- * The bot's connector actions in a side panel: what its connectors ask of a
- * person, the open actions as cards (Reject / Approve while pending), then the
- * history the ledger keeps, each row disclosing its details in place.
- */
 export function ActionsPanel(props: ActionsPanelProps) {
   const { t, feed } = props
   const state = useObservable(feed)

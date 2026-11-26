@@ -15,16 +15,6 @@ import type {
   DshQuestionItem,
 } from "./dsh"
 
-/**
- * How bot-core presents one `user-questions/request`, as DSH's Web client
- * elects its card: a plan review (one question with the `plan-review` intent,
- * its plan as detail, the approve option and at most one other, no
- * multi-select, no timed wait), an approval (the `approval` intent, which
- * DSH's `ask()` has already checked), or the generic question flow. A plan
- * review is approved with the approve option, or sent back as DSH's card does
- * it: with the person's feedback as text, or without it as `ASK_CANCELLED`
- * (the person takes the turn back to write).
- */
 export type QuestionPresentation =
   | {
       readonly kind: "plan-review"
@@ -44,7 +34,6 @@ export type QuestionPresentation =
     }
   | { readonly kind: "question"; readonly questions: readonly BotQuestion[] }
 
-/** DSH's localized text as bot-core's English-and-Japanese text. */
 export function textOf(text: DshLocalized): BotChannelText {
   const ja = text.ja
   return ja === undefined ? { en: text.en } : { en: text.en, ja }
@@ -145,7 +134,6 @@ export function interactionOfQuestions(
   }
 }
 
-/** What an answer bot-core accepted makes for DSH: the answer batch, or the Web card's `ASK_CANCELLED`. */
 export type QuestionReply =
   | { readonly kind: "answer"; readonly answer: DshQuestionAnswer }
   | { readonly kind: "cancel" }
@@ -194,7 +182,6 @@ export function replyOf(
   }
 }
 
-/** DSH's own wording of a tool approval without a reason (dsh-client-ui-approval `escalation`). */
 const escalation = (toolName: string): BotChannelText => ({
   en: `Tool ${toolName} requests privileged execution`,
   ja: `ツール ${toolName} が特権実行を要求しています`,

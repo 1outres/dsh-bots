@@ -1,4 +1,3 @@
-/** What the model reads when a login helper stopped (it never says more than its code). */
 import type { HelperFailure } from "./protocol"
 
 const TEXTS: Readonly<Record<HelperFailure, string>> = {

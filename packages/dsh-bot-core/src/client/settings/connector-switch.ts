@@ -18,7 +18,6 @@ const SPEC_TEXT: { readonly [Key in BotEnvironmentSpecKey]: MessageKey } = {
   diskGiB: "connectors.switch.spec.diskGiB",
 }
 
-/** Why the switch of the connector named `connector` cannot be flipped, for people. */
 export function switchBlockText(t: Translate, connector: string, block: ConnectorSwitchBlock) {
   switch (block.kind) {
     case "spec":

@@ -1,4 +1,3 @@
-/** ssh ProxyCommand of a bot VM: `guest-proxy.js <relay socket> <instance>` (src/host/guest-transport.ts). */
 import { runGuestProxy } from "../node/guest-proxy-client"
 
 const [socket, instance] = process.argv.slice(2)

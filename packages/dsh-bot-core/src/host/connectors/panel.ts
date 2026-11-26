@@ -20,35 +20,20 @@ export interface ConnectorPanelDeps {
   readiness: Pick<ConnectorReadinessKeeper, "state" | "retry" | "subscribe">
   permissions: Pick<ConnectorPermissions, "list" | "set" | "subscribe">
   accounts: Pick<ConnectorAccounts, "of">
-  /** How many of the bot's events of the connector nobody took yet. */
   waiting(botId: string, connectorId: string): number
-  /** Called after the bots' accounts or events may have changed. */
   subscribeAccounts(listener: () => void): () => void
   statuses: Pick<ConnectorStatuses, "read" | "subscribe">
-  /** Whether the bot is stored. */
   exists(botId: string): boolean
-  /** The bot's environment spec, which a connector's `minimumSpec` is checked against. */
   spec(botId: string): BotEnvironmentSpec | undefined
-  /** Called with the bot id after its spec changed. */
   subscribeSpecs(listener: (botId: string) => void): () => void
 }
 
-/** Each bot's connectors as people see and change them (the `botConnectors` Remote and the `bot` service). */
 export interface ConnectorPanel {
-  /** @throws for an unknown bot. */
   views(botId: string): readonly BotConnectorView[]
-  /** The bot's connectors with the spec they are checked against. @throws for an unknown bot. */
   snapshot(botId: string): BotConnectorsSnapshot
-  /** Store a change from outside (parsed against the connector's fields). @throws for an unknown bot or connector, or an invalid change. */
   configure(botId: string, connectorId: string, change: unknown): Promise<BotConnectorView>
-  /** @throws for an unknown bot or tool, or a malformed change. */
   setPermission(botId: string, change: unknown): Promise<BotConnectorView>
-  /** @throws for an unknown bot or connector. */
   retry(botId: string, connectorId: string): BotConnectorView
-  /**
-   * Called after anything a view shows may have changed for some bot: a
-   * connector registered or unregistered, a bot's settings, readiness, permissions, status or spec.
-   */
   subscribe(listener: () => void): () => void
 }
 
@@ -60,7 +45,6 @@ const issueOf = (error: {
   return `${issue?.message ?? "malformed"}${at}`
 }
 
-/** Only what the browser needs: no plugin methods. */
 export function descriptorOf(connector: CatalogConnector): ConnectorDescriptor {
   return {
     id: connector.id,

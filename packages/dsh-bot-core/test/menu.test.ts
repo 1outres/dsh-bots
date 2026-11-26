@@ -101,7 +101,6 @@ describe("bot menu", () => {
     expect(hasArchivedSessions(owned, snapshot(["other"]))).toBe(false)
   })
 })
-/** DSH's context menus as far as the opener reads them: the active target, set by open and close. */
 function menus() {
   const active = value<MenuTarget | null>(null)
   return {

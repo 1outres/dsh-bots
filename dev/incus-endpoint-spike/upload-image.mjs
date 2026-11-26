@@ -1,5 +1,3 @@
-// Spike: upload a unified image tarball through the API (as the plugin would) and alias it.
-
 import { createHash } from "node:crypto"
 import { createReadStream, readFileSync, statSync } from "node:fs"
 import { call, endpointFrom, waitOp } from "./incus.mjs"

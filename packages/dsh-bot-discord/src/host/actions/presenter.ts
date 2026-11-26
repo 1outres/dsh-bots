@@ -25,39 +25,23 @@ export interface ActionPresenterDeps {
     readonly bot: { readonly name: string }
   }
   actions: Pick<DiscordActions, "send" | "edit" | "pin">
-  /** Where this bot's cards and list sit at its home, kept across connections. */
   records: ApprovalRecords
   home: HomeTarget
-  /** Whether a press happened at the home. */
   atHome(place: DiscordPlace): boolean
-  /** The language of the cards and the list (the notice language). */
   locale: DiscordLocale
-  /** This channel's id, to tell its own decisions from other channels'. */
   self: string
-  /** Posting and editing, in order with the bridge's other messages. */
   outbound: SerialQueue
   closed(): boolean
   warn(message: string): void
 }
 
-/**
- * bot-core's connector actions at the home: one card per action with the
- * preview and, while it is pending, Approve and Reject, and one pinned list
- * of the pending ones. Where they sit is kept across connections: a new
- * connection edits them instead of posting them again and brings up to date
- * the cards of actions that ended meanwhile. bot-core decides whether the
- * person who pressed may decide.
- */
 export interface ActionPresenter {
-  /** Bring what earlier connections posted at the home up to date; call once, first. */
   start(): Promise<void>
   received(action: ConnectorActionView): Promise<void>
   press(press: DiscordComponentPress): Promise<void>
-  /** The answer to `/pending`: the list, for an owner only, in their language. */
   pending(userId: string, discordLocale: string): Promise<DiscordCommandResponse>
 }
 
-/** States an action may still leave: its card follows it until it reaches another one. */
 const OPEN_STATES: ReadonlySet<ConnectorActionState> = new Set(["pending", "approved", "executing"])
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
@@ -77,7 +61,6 @@ export function createActionPresenter(deps: ActionPresenterDeps): ActionPresente
     if (!deps.closed()) deps.warn(`bot-discord: ${what}: ${messageOf(error)}`)
   }
 
-  /** Edit a card; one that is gone, or whose action ended, is forgotten. */
   const follow = async (card: ApprovalCard, message: DiscordMessageEdit, ended: boolean) => {
     const outcome = await deps.actions.edit(card.channelId, card.messageId, message)
     if (outcome === "missing" || ended) await records.forgetCard(card.actionId)
@@ -104,7 +87,6 @@ export function createActionPresenter(deps: ActionPresenterDeps): ActionPresente
     if (view.status.state === "pending" && stillPending(view.id)) await post(home, view)
   }
 
-  /** Cards of actions that ended, or are no longer kept, while no connection followed them. */
   const settle = async () => {
     for (const card of records.cards()) {
       if (deps.closed()) return

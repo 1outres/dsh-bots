@@ -1,7 +1,6 @@
 import type { BotInteraction, BotInteractionAnswer } from "../../shared/interactions"
 import type { Translate } from "../types"
 
-/** One line per answered question, or the decision, as the closed card says it. */
 export function answerSummary(
   t: Translate,
   interaction: BotInteraction,

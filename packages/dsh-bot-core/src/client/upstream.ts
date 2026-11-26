@@ -1,23 +1,10 @@
-/**
- * DSH sources the bot session shell and its right-sidebar lockdown copy (markup, behavior or CSS), or
- * whose behavior or DOM it relies on, because `client/` may not import
- * `@deepseek-ai/dsh-client-ui-*` (design rule 30). Written against DSH
- * 0.2.2-rc.5, the only DSH version the packages accept (`engines.dsh`).
- * `test/shell-upstream.test.ts` compares each file of the repository's root
- * devDependencies (pinned at this version) with its SHA-256 here; raising the
- * version fails until the shell is re-checked (the copy re-synced) and the
- * hashes updated.
- */
 export const UPSTREAM_DSH_VERSION = "0.2.2-rc.5"
 
 export interface UpstreamFile {
   readonly package: string
-  /** Relative to the package directory. */
   readonly path: string
   readonly sha256: string
-  /** What bot-core copies from it or relies on. */
   readonly reason: string
-  /** bot-core files (under src/client/) that copy or rely on it. */
   readonly reliedOnBy: string
 }
 

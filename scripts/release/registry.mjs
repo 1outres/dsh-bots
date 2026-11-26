@@ -1,4 +1,3 @@
-/** Whether npm serves each workspace package at its version, from the registry's packuments. */
 export async function registryStates(manifests, fetchPackument) {
   return Promise.all(
     manifests.map(async ({ manifest }) => {
@@ -9,7 +8,6 @@ export async function registryStates(manifests, fetchPackument) {
   )
 }
 
-/** What a failed publish left on npm, and what to do about each package npm does not serve. */
 export function publishReport(states) {
   const missing = states.filter((state) => !state.served)
   const lines = states.map(

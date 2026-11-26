@@ -1,11 +1,3 @@
-/**
- * `@1outres/dsh-bot-core/channel`: bot-core's own row inside every bot's
- * isolated `bot-environment` group (compose.ts puts it after the files row;
- * templates and overlays cannot name it). It registers the bot's channel
- * tool for its Agents: `stay_silent` (the rest of the Main session's turn
- * stays off the bot's channels). Each call goes to the `bot` service
- * (src/internal.ts) with the revision's token.
- */
 import type { Context } from "@deepseek-ai/cordis"
 import { defineTool, ToolContextUnavailableError } from "@deepseek-ai/dsh-tools"
 import z from "@deepseek-ai/schemastery"
@@ -14,7 +6,6 @@ import { STAY_CHANNEL_SILENT, type StayChannelSilent } from "../internal"
 
 export interface Config {
   botId: string
-  /** The preset revision's token (compose.ts); bot-core refuses rows of other revisions. */
   token: string
 }
 

@@ -2,7 +2,6 @@ import { useCallback, useReducer, useRef } from "react"
 import type { CommitResult } from "./commit"
 import { usePendingEdit } from "./pending-edits"
 
-/** A secret's row: closed, or its inline editor open with what is typed. */
 export interface SecretEditorState {
   readonly open: boolean
   readonly text: string
@@ -41,7 +40,6 @@ export function secretEditorReducer(
 }
 
 export interface SecretEditorOptions {
-  /** What is wrong with the typed secret, in the user's language; `null` when it can be saved. */
   validate?(secret: string): string | null
   commit(secret: string): Promise<CommitResult>
   remove?(): Promise<CommitResult>
@@ -50,7 +48,6 @@ export interface SecretEditorOptions {
 export interface SecretEditor extends SecretEditorState {
   start(): void
   change(text: string): void
-  /** Save the typed secret; the editor closes once it is saved. */
   submit(): void
   cancel(): void
   remove(): void

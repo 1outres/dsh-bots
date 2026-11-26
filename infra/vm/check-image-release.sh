@@ -1,9 +1,4 @@
 #!/usr/bin/env bash
-# Checks that the GitHub release infra/release.env names (IMAGE_TAG) is published and
-# that its manifest.txt is the one IMAGE_MANIFEST_SHA256 names, for DSH_VERSION, with
-# every part the manifest lists. The release workflow runs it before publishing to npm.
-#
-# Usage: ./check-image-release.sh      (gh signed in or GH_TOKEN set; GH_REPO selects the repository)
 set -eEuo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 # shellcheck source=lib.sh

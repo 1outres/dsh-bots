@@ -8,11 +8,6 @@ export interface ChannelEvents {
   control(holder: ScreenHolder, request: ScreenRequest | null): void
 }
 
-/**
- * The WebSocket-shaped raw channel noVNC attaches to (send, close,
- * binaryType, on…, protocol, readyState as own properties), over the panel's
- * `screen` stream. noVNC reuses the buffer it sends, so it is encoded at once.
- */
 export class ScreenChannel {
   binaryType = "arraybuffer"
   protocol = ""
@@ -35,7 +30,6 @@ export class ScreenChannel {
     this.stream.send({ type: "rfb", data: bytesToBase64(bytes) })
   }
 
-  /** A control item (take, release, decline) while the stream is open. */
   control(type: "take" | "release" | "decline"): void {
     if (this.readyState === "open") this.stream.send({ type })
   }

@@ -1,8 +1,3 @@
-/**
- * bot-core's notes (docs/specs/bot-notes.md): the file format, the catalog of
- * links, the note tools against a file system in memory, link suggestions,
- * pinned notes and the notes a message names.
- */
 import { describe, expect, it } from "vitest"
 import { createBotNotes, PINNED_UNREADABLE } from "../src/host/notes/bot-notes"
 import { buildCatalog } from "../src/host/notes/catalog"

@@ -26,7 +26,6 @@ export interface ConnectionsSettingsDeps {
   readonly connections: ConnectionsFeed
 }
 
-/** The dsh-bots settings of accounts: each provider's OAuth client, and every connected account. */
 export function ConnectionsSettings({
   t,
   confirm,
@@ -67,7 +66,6 @@ export function ConnectionsSettings({
   )
 }
 
-/** A provider's OAuth client: the redirect URI to register, its id and secret, the setup guide. */
 export function OAuthClientGroup(props: {
   readonly t: Translate
   readonly provider: ConnectionProviderView

@@ -1,8 +1,3 @@
-/**
- * Playwright MCP in the bot's environment: started over bot-core's
- * environment access with the arguments its tools were generated with,
- * attached to the desktop's Chrome over DevTools, and initialized.
- */
 import type { BotConnectorEnvironment } from "@1outres/dsh-bot-core"
 import { CDP_ENDPOINT, MCP_CLI, OUTPUT_MAX_BYTES, outputDir, type VmUser } from "../vm/layout"
 import { createMcpClient, type McpClientDeps } from "./client"
@@ -15,7 +10,6 @@ import {
   parseToolList,
 } from "./protocol"
 
-/** The longest line the server may send (a full-page screenshot in base64). */
 export const MAX_SERVER_LINE_BYTES = 48 << 20
 const START_TIMEOUT_MS = 60_000
 const LIST_TIMEOUT_MS = 30_000
@@ -28,16 +22,10 @@ export interface McpServer {
     args: object,
     options: { readonly signal: AbortSignal; readonly timeoutMs: number },
   ): Promise<McpCallResult>
-  /** Settles when the server's process or its stream ended. */
   readonly ended: Promise<unknown>
   close(): void
 }
 
-/**
- * The server's command line: `toolArguments` (what its tools were listed
- * with), the desktop's Chrome, results without generated code, and file
- * links (screenshots, snapshots) as absolute paths the bot can read.
- */
 export function serverArgv(user: VmUser, toolArguments: readonly string[]): readonly string[] {
   return [
     "node",

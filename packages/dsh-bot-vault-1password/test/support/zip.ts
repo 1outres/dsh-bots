@@ -5,11 +5,9 @@ export interface ZipFile {
   readonly data: Uint8Array
   readonly method?: 0 | 8 | 12
   readonly flags?: number
-  /** Overrides the size the central directory states. */
   readonly statedSize?: number
 }
 
-/** A small zip writer for tests (no CRC check is made by the reader; sizes are). */
 export function makeZip(files: readonly ZipFile[]): Uint8Array {
   const locals: Buffer[] = []
   const centrals: Buffer[] = []

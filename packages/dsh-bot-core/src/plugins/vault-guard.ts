@@ -1,13 +1,3 @@
-/**
- * `@1outres/dsh-bot-core/vault-guard`: bot-core's own row inside every bot's
- * isolated `bot-environment` group (docs/specs/bot-vaults.md §7.2). Its
- * `tools/pre-execute` and `tools/post-execute` listeners carry the scope of
- * the preset revision it is mounted in, so dsh-tools hands them the calls of
- * that bot's Agents only (subagents included), of every tool: the guard
- * refuses a call whose arguments hold one of the bot's secrets and replaces
- * a secret in an outcome before the model reads it. Only this row listens
- * to those waterfalls (design rule 60).
- */
 import type { Context } from "@deepseek-ai/cordis"
 import type { PostToolDecision } from "@deepseek-ai/dsh-tools"
 import z from "@deepseek-ai/schemastery"
@@ -22,7 +12,6 @@ import {
 
 export interface Config {
   botId: string
-  /** The preset revision's token (compose.ts); bot-core refuses calls of other revisions. */
   token: string
 }
 

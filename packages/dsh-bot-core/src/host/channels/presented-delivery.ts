@@ -4,7 +4,6 @@ import type { ChannelOutlets, FileDelivery } from "./outlets"
 import type { PresentedFile } from "./presented"
 import { type PresentedNotice, presentedNoticeOf } from "./presented-notice"
 
-/** What became of one presented file. */
 export type PresentedFileResult =
   | { readonly kind: "unreadable"; readonly file: PresentedFile; readonly reason: string }
   | {
@@ -13,34 +12,22 @@ export type PresentedFileResult =
       readonly deliveries: readonly FileDelivery[]
     }
 
-/** What became of one turn's presented files, once every connection settled. */
 export type PresentedReport =
   | { readonly kind: "environment-unavailable"; readonly files: readonly PresentedFile[] }
   | { readonly kind: "read"; readonly results: readonly PresentedFileResult[] }
 
 export interface PresentedDeliveryDeps {
-  /** The bot's environment file system and workspace, while it is ready. */
   environmentOf(
     botId: string,
   ): { readonly fs: EnvironmentFileSystem; readonly workspace: string } | undefined
   outlets: Pick<ChannelOutlets, "fileTargets" | "sendFile">
-  /** bot-core's own cap (`channels.files.maxBytes`). */
   readonly maxBytes: number
-  /** Bounds the reads of one delivery. */
   signal(): AbortSignal
-  /** Tell the bot's Main session (the notice outbox's `file` topic). */
   notify(botId: string, notice: PresentedNotice): Promise<void>
   warn(message: string): void
 }
 
-/** Sends the files a bot's Main session presented in a turn to its connected channels. */
 export interface PresentedDelivery {
-  /**
-   * Read the files from the bot's workspace and queue each on every
-   * connection that takes files; resolves once all are queued. Nothing is
-   * read while no such connection is attached. What did not reach a channel
-   * is told to the Main session once every connection settled.
-   */
   deliver(botId: string, files: readonly PresentedFile[]): Promise<void>
 }
 

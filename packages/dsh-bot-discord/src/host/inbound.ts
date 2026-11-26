@@ -5,7 +5,6 @@ import { atHome, type DiscordHome } from "./home"
 
 const CONVERSATION_KINDS: ReadonlySet<DiscordMessageKind> = new Set(["default", "reply"])
 
-/** Whether a message is one a person wrote at the bot's home (not the bot itself, not another bot). */
 export function isHomeMessage(
   message: DiscordMessage,
   home: DiscordHome,
@@ -23,10 +22,6 @@ export function isHomeMessage(
   )
 }
 
-/**
- * What a message at the home brings the bot: where and who wrote it, its
- * text and attachments, each read from Discord's CDN once bot-core accepts it.
- */
 export function inboundMessageOf(message: DiscordMessage, fetch: FetchUrl): BotInboundMessage {
   return {
     place:
@@ -50,7 +45,6 @@ export function inboundMessageOf(message: DiscordMessage, fetch: FetchUrl): BotI
   }
 }
 
-/** Whether a message brings anything (stickers and embeds alone do not count). */
 export function hasContent(message: DiscordMessage): boolean {
   return message.content.trim().length > 0 || message.attachments.length > 0
 }

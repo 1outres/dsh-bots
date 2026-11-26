@@ -6,13 +6,11 @@ import type {
 } from "../shared/channels"
 import type { PillTone } from "./ui/StatusPill"
 
-/** One change made in a channel's settings, saved at once. */
 export type ChannelEdit =
   | { readonly kind: "enabled"; readonly enabled: boolean }
   | { readonly kind: "value"; readonly key: string; readonly value: string | readonly string[] }
   | { readonly kind: "secret"; readonly key: string; readonly secret: string | null }
 
-/** The whole change a channel's `configure` takes: what is stored, with `edit` applied; other secrets kept. */
 export function changeWith(view: BotChannelView, edit: ChannelEdit): BotChannelChange {
   const values: Record<string, string | readonly string[]> = {}
   for (const field of view.channel.fields) {
@@ -44,7 +42,6 @@ export function changeWith(view: BotChannelView, edit: ChannelEdit): BotChannelC
   }
 }
 
-/** A list field's items as typed: split by line or comma, blanks dropped. */
 export function listItemsOf(text: string): readonly string[] {
   return text
     .split(/[\n,]/)
@@ -52,19 +49,16 @@ export function listItemsOf(text: string): readonly string[] {
     .filter((item) => item.length > 0)
 }
 
-/** A list field's stored items, one per line. */
 export function listTextOf(view: BotChannelView, key: string): string {
   const stored = view.values[key]
   return Array.isArray(stored) ? stored.join("\n") : ""
 }
 
-/** A text field's stored value. */
 export function textOf(view: BotChannelView, key: string): string {
   const stored = view.values[key]
   return typeof stored === "string" ? stored : ""
 }
 
-/** Why a typed value cannot be saved, as the Host would refuse it. */
 export type ChannelFieldIssue =
   | { readonly kind: "length"; readonly max: number }
   | { readonly kind: "format" }
@@ -93,7 +87,6 @@ export function listIssue(field: BotChannelListField, text: string): ChannelFiel
   return invalid === undefined ? null : { kind: "item", item: invalid }
 }
 
-/** Whether the channel names nobody in its owners field (never, when it names no such field). */
 export function ownersEmpty(view: BotChannelView): boolean {
   const key = view.channel.owners
   if (key === undefined) return false
@@ -101,12 +94,10 @@ export function ownersEmpty(view: BotChannelView): boolean {
   return !Array.isArray(stored) || stored.length === 0
 }
 
-/** The required fields without a value, while the channel is on. */
 export function missingFields(view: BotChannelView): ReadonlySet<string> {
   return new Set(view.status.state === "incomplete" ? view.status.missing : [])
 }
 
-/** What the channel's title row says: its state, worst first, and the line under its name. */
 export interface ChannelHeadline {
   readonly tone: PillTone
   readonly state:
@@ -117,7 +108,6 @@ export interface ChannelHeadline {
     | "waiting"
     | "connecting"
     | "connected"
-  /** The connected account, or the failure. */
   readonly meta?: string
 }
 

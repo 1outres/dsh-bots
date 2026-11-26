@@ -1,12 +1,4 @@
-/**
- * bot-core's `working-directory/access` listener against DSH's real
- * `@deepseek-ai/dsh-working-directory` service (real Cordis events): the Host
- * service returns the environment's workspace for a bot Agent without
- * touching the Host's file system, while an ordinary Agent still goes through
- * the Host's own check.
- */
 import { Context, Service } from "@deepseek-ai/cordis"
-// A root devDependency for this test alone: bot-core never imports it (the Host provides it).
 import { WorkingDirectoryService } from "@deepseek-ai/dsh-working-directory"
 import { describe, expect, it } from "vitest"
 import { createSessionIdentity } from "../src/host/preset/identity"
@@ -24,11 +16,9 @@ interface FakeAgent {
   session: FakeSession
   injected: unknown[]
   inject(message: unknown): void
-  /** The environment's fs when composed on a bot preset. */
   fs?: EnvironmentFs
 }
 
-/** A file system holding exactly `dirs`; every call is logged. */
 function fileSystem(dirs: string[], calls: string[]) {
   const known = new Set(dirs)
   return {
@@ -58,7 +48,6 @@ async function setup() {
   const hostCalls: string[] = []
   const vmCalls: string[] = []
   const vmFs = fileSystem(["/home/bot/workspace", "/home/bot/workspace/sub"], vmCalls)
-  // The Host has the user's project, and nothing under /home/bot.
   await ctx.plugin(fake("fs", fileSystem(["/home/me/project"], hostCalls)))
   await ctx.plugin(
     fake("sessionProjections", {
@@ -145,7 +134,6 @@ describe("bot working directories under the real dsh-working-directory service",
     const normal = agent("w1", { cwd: "/home/me/project", agentPreset: "standard" })
     await expect(service.ensure(normal as never)).resolves.toBe("/home/me/project")
     expect(hostCalls).toContain("stat /home/me/project")
-    // Without bot-core's answer, /home/bot/workspace fails on the Host.
     const stray = agent("w2", { cwd: "/home/bot/workspace", agentPreset: "standard" })
     await expect(service.ensure(stray as never)).rejects.toThrow("does not exist")
     expect(vmCalls).toEqual([])

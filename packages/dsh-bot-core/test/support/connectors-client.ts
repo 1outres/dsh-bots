@@ -41,7 +41,6 @@ export const probeDescriptor: ConnectorDescriptor = {
   ],
 }
 
-/** The probe as a bot sees it, with `overrides` by tool. */
 export function probeView(
   options: {
     enabled?: boolean
@@ -70,7 +69,6 @@ export function probeView(
     status: {},
   }
 }
-/** A connections feed that never loads: sections that show accounts render without them. */
 export function idleConnections(): import("../../src/client/connections-model").ConnectionsFeed {
   const unused = async (): Promise<never> => {
     throw new Error("unused")

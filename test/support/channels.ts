@@ -2,10 +2,8 @@ import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { join, relative } from "node:path"
 import { PLUGIN_PREFIX, readManifest, SCOPE } from "./packages"
 
-/** The package channel plugins build on. */
 export const CORE_PACKAGE = `${SCOPE}/${PLUGIN_PREFIX}core`
 
-/** Source files under `src/`, relative to the package directory. */
 function sourceFiles(directory: string): string[] {
   const src = join(directory, "src")
   if (!existsSync(src)) return []
@@ -17,13 +15,6 @@ function sourceFiles(directory: string): string[] {
 
 const CORE_IMPORT = new RegExp(`from\\s+["']${CORE_PACKAGE.replace("/", "\\/")}(?:/[^"']*)?["']`)
 
-/**
- * Design rule 18: a package that imports bot-core lists it in `dependencies`
- * or `peerDependencies` (peer keeps one bot-core at run time; a type-only
- * import is enough for packages that read the service by name),
- * and its Host entry (`src/index.ts`) puts "bot" (or BOT_SERVICE) in
- * `export const inject`, so the plugin stays inactive without bot-core.
- */
 export function coreDependencyProblems(directory: string): string[] {
   const importers = sourceFiles(directory).filter((file) =>
     CORE_IMPORT.test(readFileSync(join(directory, file), "utf8")),
@@ -50,12 +41,6 @@ export function coreDependencyProblems(directory: string): string[] {
   return problems
 }
 
-/**
- * Design rule 19: every channel id a package registers literally
- * (`registerChannel({ id: "..." })` or an object typed `BotChannel`) is the
- * package's name after `dsh-bot-`. Ids computed at run time cannot be checked
- * statically and are skipped.
- */
 export function channelIdProblems(directory: string, directoryName: string): string[] {
   const expected = directoryName.slice(PLUGIN_PREFIX.length)
   const literal = [

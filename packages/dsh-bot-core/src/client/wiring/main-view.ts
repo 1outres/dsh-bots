@@ -16,11 +16,6 @@ export interface MainViewSources {
   readonly binding: Observable<MainBinding>
 }
 
-/**
- * The Main view of the bot sessions: each bot's timeline over its Mains, the
- * Session log panel's seat, and the main view following a bot to its new Main
- * when it showed the one that was replaced.
- */
 export function wireMainView(ctx: ClientContext, sources: MainViewSources): MainViewFace {
   const client = createMainViewClient(sources.remote, ctx.connection.generation)
   const images = createTimelineImages(client)

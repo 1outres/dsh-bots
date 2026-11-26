@@ -1,8 +1,3 @@
-/**
- * A fake Incus API over HTTPS (or a Unix socket) for transport and pairing
- * tests: a self-signed server certificate, client certificates requested and
- * trusted by fingerprint, a trust token, and one echoing websocket.
- */
 import { createHash, X509Certificate } from "node:crypto"
 import {
   createServer as createHttpServer,
@@ -19,10 +14,8 @@ import { encodeFrame, FrameDecoder, websocketAccept } from "../../src/node/webso
 export interface FakeIncus {
   readonly url: string
   readonly fingerprint: string
-  /** Every request seen, `METHOD path`. */
   readonly requests: string[]
   readonly trusted: Set<string>
-  /** Bytes received on uploads. */
   readonly uploads: number[]
   token(options?: { expiresAt?: string; addresses?: string[] }): string
   close(): Promise<void>

@@ -1,9 +1,3 @@
-// Design rule 60: dsh-tools' policy waterfalls are joined only by the vault guard row.
-// Listening to "tools/pre-execute" or "tools/post-execute" is allowed only in
-// packages/dsh-bot-core/src/plugins/vault-guard.ts, the row inside every
-// bot's preset group: DSH admits its listener for that bot's Agents only, and
-// one more listener elsewhere could change a result after the guard withheld
-// a secret, or see the secret first.
 JsCallExpression(callee = $callee, arguments = $arguments) as $call where {
   $callee <: or { `$_.on`, `$_?.on`, `on` },
   $arguments <: contains JsStringLiteralExpression() as $event where {

@@ -1,5 +1,3 @@
-/** The page bot-core's OAuth callback route answers the browser: static text, nothing from outside unescaped. */
-
 const htmlText = (text: string) => text.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`)
 
 export function callbackPage(title: string, message: string): string {
@@ -16,7 +14,6 @@ export function callbackPage(title: string, message: string): string {
   ].join("")
 }
 
-/** Headers of every callback answer: never cached, never framed, no referrer, no scripts. */
 export const CALLBACK_HEADERS: Readonly<Record<string, string>> = {
   "content-type": "text/html; charset=utf-8",
   "cache-control": "no-store",

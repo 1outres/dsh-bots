@@ -1,8 +1,7 @@
 import { type Context, Service } from "@deepseek-ai/cordis"
 
 export class Counter extends Service {
-  // The rule reports the first #private member of each class.
-  #count = 0 // rule: 20
+  #count = 0
 
   constructor(context: unknown) {
     super(context as never, "counter")

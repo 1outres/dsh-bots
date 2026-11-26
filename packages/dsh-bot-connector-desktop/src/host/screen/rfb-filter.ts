@@ -1,17 +1,7 @@
-/**
- * The viewer-to-server half of RFB 3.8 as the screen relay passes it on: it
- * finds each message's boundary so that input passes only from the viewer
- * that holds control. Anything it does not know fails the stream (fail
- * closed). Server-to-viewer bytes are not parsed.
- */
-
-/** Messages that change the desktop: they pass only from the viewer in control. */
 export type InputKind = "key" | "pointer" | "cutText" | "desktopSize" | "qemuKey" | "xvp"
 
 export interface FilterResult {
-  /** Bytes to send to the server, in order. */
   readonly forward: Uint8Array
-  /** Input messages dropped from this chunk. */
   readonly dropped: number
 }
 
@@ -19,12 +9,10 @@ export class RfbProtocolError extends Error {
   override readonly name = "RfbProtocolError"
 }
 
-/** Largest clipboard text a viewer may send (the Gateway's uplink inbox is 256 KiB of base64). */
 export const MAX_CUT_TEXT_BYTES = 128 * 1024
 
 const VERSION = "RFB 003.008\n"
 const SECURITY_NONE = 1
-/** ExtendedMouseButtons: with it noVNC sends 7-byte pointer events, so it is taken out of SetEncodings. */
 const EXTENDED_MOUSE_BUTTONS = -316
 
 const MESSAGE = {
@@ -60,7 +48,6 @@ function concat(parts: readonly Uint8Array[]): Uint8Array {
   return out
 }
 
-/** The complete message at the head of `buffer`, or undefined while more bytes are needed. */
 function frame(buffer: Uint8Array): Framed | undefined {
   const fixed = (length: number, input?: InputKind): Framed | undefined =>
     buffer.byteLength >= length ? { length, ...(input === undefined ? {} : { input }) } : undefined
@@ -137,14 +124,12 @@ function pointerEvent(mask: number, x: number, y: number): Uint8Array {
   return out
 }
 
-/** One viewer's messages to the server, framed. */
 export class RfbClientFilter {
   private phase: Phase = "version"
   private pending: Uint8Array = new Uint8Array(0)
   private readonly keys = new Set<number>()
   private pointer = { mask: 0, x: 0, y: 0 }
 
-  /** Frame `chunk`; input passes only when `allowInput`. @throws {RfbProtocolError} */
   push(chunk: Uint8Array, allowInput: boolean): FilterResult {
     this.pending = this.pending.byteLength === 0 ? chunk : concat([this.pending, chunk])
     const forward: Uint8Array[] = []
@@ -162,7 +147,6 @@ export class RfbClientFilter {
     return { forward: concat(forward), dropped }
   }
 
-  /** Messages that release every key and button this viewer's input left pressed. */
   releaseHeld(): Uint8Array {
     const out = [...this.keys].map((keysym) => keyEvent(false, keysym))
     this.keys.clear()
@@ -202,7 +186,6 @@ export class RfbClientFilter {
         if (this.pending.byteLength < 1) return undefined
         this.take(1)
         this.phase = "messages"
-        // Shared: a viewer never disconnects the other viewers.
         return { bytes: Uint8Array.of(1) }
       }
       case "messages": {

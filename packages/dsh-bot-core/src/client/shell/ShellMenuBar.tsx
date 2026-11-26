@@ -6,13 +6,11 @@ import type { ShellMenuContext, ShellMenuEntry } from "../shell-menu"
 import type { Translate } from "../types"
 import { useLayer } from "../ui"
 
-/** The roving tab stop a toolbar or menu hands each of its buttons. */
 export interface EntryFocus {
   readonly tabIndex: number
   onFocus(): void
 }
 
-/** The response of a vertical list of buttons to a key: the index to focus, or undefined. */
 export function barKey(key: string, index: number, count: number): number | undefined {
   switch (key) {
     case "ArrowDown":
@@ -28,7 +26,6 @@ export function barKey(key: string, index: number, count: number): number | unde
   }
 }
 
-/** One tab stop over a vertical list of buttons: ↑/↓/Home/End move between them. */
 function useRovingList(count: number) {
   const [focused, setFocused] = useState(0)
   const listRef = useRef<HTMLDivElement>(null)
@@ -48,13 +45,8 @@ function useRovingList(count: number) {
   return { listRef, onKeyDown, focusOf }
 }
 
-/** How an entry renders in the menu bar or in the compact header's menu. */
 export type EntryRender = (entry: ShellMenuEntry, focus: EntryFocus, done: () => void) => ReactNode
 
-/**
- * The vertical menu bar beside the chat: one WAI-ARIA toolbar (a single tab
- * stop; ↑/↓/Home/End move between its buttons) of the shell menu's entries.
- */
 export function ShellMenuBar(props: {
   readonly t: Translate
   readonly menu: Observable<readonly ShellMenuEntry[]>
@@ -81,15 +73,10 @@ export function ShellMenuBar(props: {
   )
 }
 
-/**
- * The menu bar folded into the header on a compact window: a button that
- * opens the same entries as a menu, marked while any of them waits.
- */
 export function ShellMenuButton(props: {
   readonly t: Translate
   readonly menu: Observable<readonly ShellMenuEntry[]>
   readonly renderEntry: EntryRender
-  /** The mark of each entry on the folded button (a dot while it waits). */
   readonly renderSignal?: (entry: ShellMenuEntry) => ReactNode
 }) {
   const { t } = props
@@ -144,7 +131,6 @@ export function ShellMenuButton(props: {
   )
 }
 
-/** What an entry shows for one bot session. */
 function useEntryState(entry: ShellMenuEntry, context: ShellMenuContext) {
   const pressed = useOptionalObservable(useMemo(() => entry.pressed?.(context), [entry, context]))
   const disabled =
@@ -173,7 +159,6 @@ function runEntry(entry: ShellMenuEntry, context: ShellMenuContext, anchor: HTML
   }
 }
 
-/** The count badge, else the dot, of an entry that waits for the person. */
 function EntryMark({ count, attention }: { readonly count: number; readonly attention: boolean }) {
   if (count > 0) {
     return (
@@ -192,7 +177,6 @@ export interface EntryProps {
   readonly focus: EntryFocus
 }
 
-/** An entry acting on a known bot's session, in the menu bar. */
 export function EntryButton({ t, entry, context, focus }: EntryProps) {
   const state = useEntryState(entry, context)
   const label = entryLabel(t, entry, context, state.attention || state.count > 0)
@@ -205,7 +189,6 @@ export function EntryButton({ t, entry, context, focus }: EntryProps) {
       tabIndex={focus.tabIndex}
       aria-label={label}
       title={label}
-      // aria-disabled keeps the button focusable in the toolbar while it cannot act.
       aria-disabled={state.disabled || undefined}
       aria-pressed={state.pressed}
       onFocus={focus.onFocus}
@@ -219,7 +202,6 @@ export function EntryButton({ t, entry, context, focus }: EntryProps) {
   )
 }
 
-/** An entry acting on a known bot's session, in the compact header's menu. */
 export function EntryMenuItem(props: EntryProps & { readonly done: () => void }) {
   const { t, entry, context, focus } = props
   const state = useEntryState(entry, context)
@@ -249,7 +231,6 @@ export function EntryMenuItem(props: EntryProps & { readonly done: () => void })
   )
 }
 
-/** The folded menu button's mark for one entry: a dot while it waits. */
 export function EntrySignal({
   entry,
   context,
@@ -263,7 +244,6 @@ export function EntrySignal({
   ) : null
 }
 
-/** An entry of a bot session whose bot is not known yet: it cannot act. */
 export function PendingEntryButton(props: {
   readonly t: Translate
   readonly entry: ShellMenuEntry

@@ -15,7 +15,6 @@ declare module "@deepseek-ai/dsh-typert-protocol" {
   interface RemoteErrorDetailsMap extends BotOnboardingErrorDetails {}
 }
 
-/** What the `botOnboarding` Remote serves. */
 export interface OnboardingPanel {
   view(): BotOnboardingView
   createBot(input: BotCreateInput, channels: unknown): Promise<{ readonly id: string }>
@@ -29,9 +28,7 @@ export interface OnboardingPanelDeps {
   readonly version: string
   readonly notes: Pick<ReleaseNotesKeeper, "notes" | "subscribe">
   readonly channels: Pick<WelcomeChannels, "descriptors" | "parse" | "apply" | "subscribe">
-  /** `bots.create`'s creation: resolves with the new bot's id once it is stored. */
   create(input: BotCreateInput): Promise<string>
-  /** `bots.discardCreate`: give up a creation, the bot removed like a deleted one. */
   discard(botId: string): Promise<void>
   now(): number
 }
@@ -51,7 +48,6 @@ export function createOnboardingPanel(deps: OnboardingPanelDeps): OnboardingPane
       throw bad(messageOf(error))
     }
   }
-  /** The bot with its channels, or none of it: a setup that cannot be stored discards the bot. */
   const createWith = async (input: BotCreateInput, setups: readonly WelcomeChannelSetup[]) => {
     const id = await deps.create(input)
     try {

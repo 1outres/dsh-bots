@@ -16,7 +16,6 @@ import { type ModelCatalog, routeLabel } from "./catalog"
 import { isDelegate } from "./delegates"
 import type { BotModelStore } from "./store"
 
-/** A refused model setting or use; the `bots` Remote reports its code. */
 export class BotModelsError extends Error {
   constructor(
     readonly code: BotModelsErrorCode,
@@ -28,7 +27,6 @@ export class BotModelsError extends Error {
   }
 }
 
-/** A session asked for a model the bot's delegates do not hold; nothing was created. */
 export class BotSessionModelRefusal extends Error {
   constructor(message: string) {
     super(message)
@@ -36,7 +34,6 @@ export class BotSessionModelRefusal extends Error {
   }
 }
 
-/** A malformed change (untrusted input). */
 export class BotModelsInputError extends Error {
   constructor(message: string) {
     super(message)
@@ -44,37 +41,22 @@ export class BotModelsInputError extends Error {
   }
 }
 
-/**
- * The model a new session starts on. `profile-default` leaves the route to
- * DSH's default, read live as DSH's own sessions do until their first
- * request; `fixed` is recorded on the session when it is created.
- */
 export type SessionModel =
   | { readonly kind: "profile-default" }
   | { readonly kind: "fixed"; readonly selection: BotModelSelection }
 
 export interface BotModels {
   view(botId: string): BotModelsView
-  /** A new bot's settings from its creation's (untrusted) change, checked; nothing is stored. */
   initial(change: unknown): Promise<BotModelSettings>
-  /** Check and store an (untrusted) change; nothing is stored when any choice is refused. */
   configure(botId: string, change: unknown): Promise<BotModelsView>
-  /** The route a choice names now, checked against DSH's registry. */
   resolve(choice: BotModelChoice): Promise<BotModelSelection>
-  /**
-   * The model a session of the bot starts on: its `main` role or one of its
-   * `delegates`, checked.
-   * @throws when the request names a choice the delegates do not hold, or DSH cannot run it.
-   */
   sessionModel(botId: string, request: BotSessionModelRequest): Promise<SessionModel>
 }
 
 export interface BotModelsDeps {
   readonly store: BotModelStore
   readonly catalog: ModelCatalog
-  /** DSH's default model now. */
   profileDefault(): BotModelSelection
-  /** Whether the bot is stored. */
   exists(botId: string): boolean
 }
 

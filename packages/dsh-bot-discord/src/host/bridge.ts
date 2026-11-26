@@ -43,27 +43,18 @@ import {
 } from "./texts"
 import { createTypingKeeper } from "./typing"
 
-/** The reaction a message gets once the bot's Main session accepted it. */
 export const ACCEPTED_REACTION = "👀"
-/** The reaction a message gets when it could not be delivered (a reply says why). */
 export const FAILED_REACTION = "⚠️"
 
 export interface DiscordBridgeDeps {
   link: BotChannelLink<DiscordSettings>
-  /** Where the bot lives, from its settings. */
   home: DiscordHome
-  /** Called once the home's Discord channel is known, before anything is posted there. */
   adopt(homeChannelId: string): Promise<void>
-  /** The channel's id, as bot-core names the channel that answered an interaction. */
   channelId: string
-  /** Connect the bot to Discord, passing its sessions, messages and commands to the bridge. */
   connect(events: DiscordSessionEvents): DiscordConnection
   scheduler: Scheduler
-  /** Reads attachments from Discord's CDN. */
   fetch: FetchUrl
-  /** Where this bot's connector action cards and pending lists sit, across connections. */
   records: ApprovalRecords
-  /** Which of this bot's credential incidents each owner was shown, across connections. */
   incidents: IncidentNotices
   warn(message: string): void
 }
@@ -71,18 +62,6 @@ export interface DiscordBridgeDeps {
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
 const CLOSING = "the Discord connection is closing"
 
-/**
- * One bot's Discord home: the DMs with its owner, or one server text channel.
- * Messages written there, with their attachments, go to the bot's Main
- * session (in arrival order, each once) and get {@link ACCEPTED_REACTION}, or
- * {@link FAILED_REACTION} and a reply saying why. Everything bot-core sends
- * comes back to the home: replies (formatted for Discord, split to its
- * limit), files, notices of failed or stopped turns, "typing" while a turn
- * runs, interaction and connector action cards, the pending list and
- * credential incidents. The bot's commands are offered as slash commands
- * there. After a new Gateway session starts (the previous one could not be
- * resumed) the home is read for messages missed meanwhile.
- */
 export function createDiscordBridge(deps: DiscordBridgeDeps): BotChannelConnection {
   const { link, home } = deps
   const owners: ReadonlySet<string> = new Set(link.settings.approvers)
@@ -163,7 +142,6 @@ export function createDiscordBridge(deps: DiscordBridgeDeps): BotChannelConnecti
     warn: deps.warn,
   })
 
-  /** Post text at the home, in Discord-sized messages. */
   const post = (text: string) =>
     outbound.push(async () => {
       const { channelId } = await target.channel()

@@ -14,7 +14,6 @@ const ABORTED: Settled<never> = { status: "aborted" }
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
-/** A rejection of a `BotFilesClient` call as a failure; anything but a {@link BotFileError} breaks the client's contract. */
 export function failureOf(error: unknown): BotFileFailure {
   if (error instanceof BotFileError) return error.failure
   const failure = protocolFailure({ kind: "foreign-rejection" }, messageOf(error), error)
@@ -22,7 +21,6 @@ export function failureOf(error: unknown): BotFileFailure {
   return failure
 }
 
-/** Run one call under `signal`; once the signal is aborted its outcome is `aborted`, whatever the call did. */
 export async function settle<T>(
   signal: AbortSignal,
   run: (signal: AbortSignal) => Promise<T>,

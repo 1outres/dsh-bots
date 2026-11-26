@@ -3,6 +3,6 @@ interface Table {
   delete(key: string): Promise<void>
 }
 export async function write(deps: { table: Table }, table: Table) {
-  await deps.table.put("a", {}) // rule: 6
-  await table.delete("a") // rule: 6
+  await deps.table.put("a", {})
+  await table.delete("a")
 }

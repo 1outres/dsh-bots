@@ -1,7 +1,3 @@
-/**
- * A Playwright MCP result as the connector returns it: its text blocks as
- * the text, its images checked and admitted for the calling model.
- */
 import type {
   BotConnectorImage,
   BotConnectorImageInput,
@@ -18,7 +14,6 @@ const BASE64 = /^[A-Za-z0-9+/]*={0,2}$/
 const isImageType = (value: string): value is ImageType =>
   (IMAGE_TYPES as readonly string[]).includes(value)
 
-/** An image block's bytes. @throws for another type, bad base64 or one too large. */
 export function imageOf(block: {
   readonly data: string
   readonly mimeType: string
@@ -35,11 +30,6 @@ export function imageOf(block: {
   return { mediaType: block.mimeType, data: new Uint8Array(Buffer.from(block.data, "base64")) }
 }
 
-/**
- * @throws with the server's text when it reports an error, and when an image
- *   cannot be shown to the calling model (a run of an approved action has no
- *   caller: its images are left out and said to be).
- */
 export async function resultOf(
   result: McpCallResult,
   run: Pick<BotConnectorRun<unknown>, "caller">,

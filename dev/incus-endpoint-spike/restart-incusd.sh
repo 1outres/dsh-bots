@@ -1,5 +1,4 @@
 #!/bin/bash
-# Spike: incusd restart with live SSH on each path, left alone until incusd finishes on its own.
 cd /tmp/dsh-spike || exit
 ts() { date +%s.%N; }
 for a in spk-a spk-a-local spk-a-vsock; do

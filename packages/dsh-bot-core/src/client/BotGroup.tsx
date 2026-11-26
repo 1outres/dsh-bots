@@ -11,19 +11,13 @@ import { type BotNode, sessionKey } from "./tree"
 
 interface GroupProps extends ActionProps {
   node: BotNode
-  /** Key of the tree's single tab stop. */
   tabKey: string | undefined
-  /** Position among the bots, for aria-posinset. */
   index: number
   count: number
 }
 
 const rowRect = (element: Element) => element.getBoundingClientRect()
 
-/**
- * One bot: a level-1 treeitem, then, while expanded, Main, its other sessions
- * newest first within the bot's window, and the Show more / Show less row.
- */
 export function BotGroup({ node, tabKey, index, count, ...props }: GroupProps) {
   const { t, status, openSession, newSession, clearError, setExpanded, windows } = props
   const { bot, key, expanded, sessions, overflow, mainSelected, childSelected, running } = node
@@ -75,7 +69,6 @@ export function BotGroup({ node, tabKey, index, count, ...props }: GroupProps) {
           props.openBotMenu(bot, { x: event.clientX, y: event.clientY }, undefined)
         }}
       >
-        {/* Pointer-only expand control; keyboard users press → / ← on the row. */}
         <span
           className="dshb-slot dshb-toggle"
           data-open={expanded ? "" : undefined}
@@ -117,11 +110,8 @@ export function BotGroup({ node, tabKey, index, count, ...props }: GroupProps) {
           </span>
         )}
         {running && <span className="dshb-dot" />}
-        {/* Hover actions as in Workspaces rows: the … menu, then New Session.
-            Both stay out of the tab order; the menu key and Shift+F10 open the
-            same menu from the row. */}
-        {/* biome-ignore lint/a11y/noStaticElementInteractions: only stops clicks from opening the row */}
-        {/* biome-ignore lint/a11y/useKeyWithClickEvents: only stops clicks from opening the row */}
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: - */}
+        {/* biome-ignore lint/a11y/useKeyWithClickEvents: - */}
         <span className="dshb-row-actions" onClick={stop}>
           <button
             type="button"
@@ -157,9 +147,9 @@ export function BotGroup({ node, tabKey, index, count, ...props }: GroupProps) {
         <RowError t={t} message={botStatus.error} onDismiss={() => clearError(bot.id)} />
       )}
       {expanded && (
-        // biome-ignore lint/a11y/useSemanticElements: an ARIA tree's group of treeitems
+        // biome-ignore lint/a11y/useSemanticElements: -
         <div className="dshb-children" role="group" aria-label={bot.name}>
-          {/* biome-ignore lint/a11y/useKeyWithClickEvents: the tree handles keys for its treeitems */}
+          {/* biome-ignore lint/a11y/useKeyWithClickEvents: - */}
           <div
             className="dshb-row dshb-session-row"
             role="treeitem"

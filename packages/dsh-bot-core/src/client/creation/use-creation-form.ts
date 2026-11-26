@@ -23,15 +23,11 @@ import type { Translate } from "../types"
 import type { Choice } from "../ui/choices"
 import type { BotCreationRequest } from "./request"
 
-/** Where a New bot form reads what it offers. */
 export interface CreationSources {
-  /** The creation options offered; rejects when they cannot be read. */
   creationOptions(): Promise<BotCreationOffer>
-  /** DSH's model catalog; rejects with a `ModelsError`. */
   modelCatalog(): Promise<BotModelCatalog>
 }
 
-/** A New bot form's inputs, what it was offered, and its submission. */
 export interface BotCreationForm {
   readonly name: string
   setName(name: string): void
@@ -39,7 +35,6 @@ export interface BotCreationForm {
   setAvatarChoice(choice: AvatarChoice): void
   readonly avatar: BotAvatar
   readonly offer: CreationOfferState
-  /** Read the creation options again. */
   reloadOffer(): void
   readonly choices: BotCreationChoices
   setOption(option: BotCreationOption, on: boolean): void
@@ -49,20 +44,13 @@ export interface BotCreationForm {
   readonly timezone: string
   setTimezone(zone: string): void
   readonly zones: readonly Choice<string>[]
-  /** The VM the bot gets with the choices; undefined until the options are read. */
   readonly environment: CreationEnvironment | undefined
   readonly busy: boolean
   readonly error: string | undefined
-  /** Whether Create cannot be pressed now. */
   readonly blocked: boolean
-  /**
-   * Send the form unless blocked. Resolves true once `send` resolved; its
-   * rejection is shown as the form's error and resolves false.
-   */
   submit(send: (request: BotCreationRequest) => Promise<void>): Promise<boolean>
 }
 
-/** The creation options, read when the form mounts and again on {@link BotCreationForm.reloadOffer}. */
 function useCreationOffer(read: CreationSources["creationOptions"]) {
   const [state, setState] = useState<CreationOfferState>({ status: "loading" })
   const [reads, setReads] = useState(0)

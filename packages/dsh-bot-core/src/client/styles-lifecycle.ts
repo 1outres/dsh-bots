@@ -1,6 +1,5 @@
 import { NOTICE_FADE_MS, NOTICE_MS } from "./notices"
 
-/** Bots being created or removed: their sidebar rows, the creation progress view and the notices. */
 export const LIFECYCLE_CSS = `
 .dshb-pending-row { color: var(--dsw-alias-label-secondary); }
 .dshb-pending-row[data-inert] { cursor: default; }

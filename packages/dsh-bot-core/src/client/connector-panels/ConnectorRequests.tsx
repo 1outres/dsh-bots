@@ -18,7 +18,6 @@ export interface OpenRequest {
   readonly request: ConnectorRequest
 }
 
-/** What the bot asks a person to do through its connectors' panels, until each connector clears it. */
 export function requestsOf(
   state: ConnectorsState,
   text: (value: ConnectorText) => string,
@@ -41,10 +40,6 @@ export function requestsOf(
   })
 }
 
-/**
- * The requests at the top of the Actions panel: the bot's reason (its words,
- * shown as text only) and a button that opens the connector's panel.
- */
 export function ConnectorRequests(props: {
   readonly t: Translate
   readonly sessionId: string

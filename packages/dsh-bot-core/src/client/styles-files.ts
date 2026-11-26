@@ -1,4 +1,3 @@
-/** The bot file viewer's content, in the shell's side panel frame (styles-shell.ts); the frame's resize handle. */
 export const FILES_CSS = `
 .dshb-files-resize {
   position: absolute;

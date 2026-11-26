@@ -8,7 +8,6 @@ export const name = "bot-web"
 export const inject = ["bot"]
 
 export interface Config {
-  /** Verification profiles only: send Exa's requests to a fake Exa API. */
   baseURL: string
 }
 
@@ -22,7 +21,6 @@ export const Config: z<Config> = z.object({
     ),
 }) as z<Config>
 
-/** The Exa backend's id, and the key of its one secret. */
 export const EXA_BACKEND_ID = "exa"
 export const EXA_API_KEY = "apiKey"
 
@@ -51,9 +49,7 @@ export function exaBackend(exa: Exa): BotWebBackend {
   }
 }
 
-/** Registers Exa as a web backend of the bots (bot-core's `registerWebBackend`). */
 export function apply(ctx: Context, config: Config): void {
-  // bot-core is a peer dependency: its types only, the service by name.
   const bot = ctx.get("bot") as Bot
   const exa = createExa({
     options: { ...EXA_OPTIONS, baseURL: config.baseURL },

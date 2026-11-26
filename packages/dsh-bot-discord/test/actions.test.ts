@@ -117,7 +117,6 @@ function setup(
     closed: () => false,
     warn: (message) => warnings.push(message),
   })
-  /** bot-core's ledger changed and sent the channel the action's view. */
   const emit = (view: ConnectorActionView) => {
     link.keep(view)
     return presenter.received(view)
@@ -125,7 +124,6 @@ function setup(
   return { link, calls, presenter, tables, warnings, emit }
 }
 
-/** Sends and edits of cards: the lists carry no content. */
 const cardCalls = (calls: readonly string[]) =>
   calls.filter((call) => /^(send \S+|edit \S+ \S+) \S/.test(call))
 

@@ -1,7 +1,3 @@
-/**
- * Yield `read()` now and again after every change, coalescing bursts, until
- * the signal aborts.
- */
 export async function* watchStream<T>(
   read: () => T,
   subscribe: (listener: () => void) => () => void,

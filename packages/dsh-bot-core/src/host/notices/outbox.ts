@@ -2,12 +2,7 @@ import type { BotTable } from "../registry"
 import type { NoticeRecord, NoticeTopic } from "./domain"
 
 export interface NoticeOutboxDeps {
-  /** The notices table of NOTICES_DOMAIN; only the outbox writes it (design rule 41). */
   notices: BotTable<NoticeRecord>
-  /**
-   * The notice with the bot's secrets withheld (docs/specs/bot-vaults.md §7.2).
-   * @throws when the vault guard cannot check it: nothing is stored.
-   */
   shield(
     botId: string,
     notice: { readonly text: string; readonly summary: string },
@@ -16,34 +11,21 @@ export interface NoticeOutboxDeps {
   now(): number
 }
 
-/** A stored notice and its id. */
 export interface NoticeEntry extends NoticeRecord {
   readonly id: string
 }
 
-/**
- * bot-core's durable outbox of notices to bots' Main sessions. A notice is
- * stored before anything tries to deliver it, and stays until its message is
- * recorded in the Main session, so a restart or a dropped inbox sends it again.
- */
 export interface NoticeOutbox {
-  /** Store a notice; listeners learn of it once stored. */
   enqueue(
     botId: string,
     topic: NoticeTopic,
     notice: { readonly text: string; readonly summary: string },
   ): Promise<NoticeEntry>
-  /** The bot's notices, oldest first. */
   pending(botId: string): readonly NoticeEntry[]
-  /** Bots with notices. */
   bots(): readonly string[]
-  /** The notice its message carries, if still stored. */
   byMessage(messageId: string): NoticeEntry | undefined
-  /** Its message is recorded in the Main session: the notice leaves the outbox. */
   delivered(noticeId: string): Promise<void>
-  /** Drop the notices of bots `keep` refuses. */
   purge(keep: (botId: string) => boolean): Promise<void>
-  /** Called with the bot after a notice of it was stored. */
   subscribe(listener: (botId: string) => void): () => void
 }
 

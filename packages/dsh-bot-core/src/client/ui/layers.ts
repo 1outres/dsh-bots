@@ -1,21 +1,15 @@
 import { type RefObject, useEffect, useRef } from "react"
 
-/** One surface that takes Escape (and, when it traps, Tab and focus) while it is the top layer. */
 export interface Layer {
   element(): HTMLElement | null
   readonly trap: boolean
-  /** While true, Escape and Tab go to what has focus in it (a person typing into a remote screen). */
   yields(): boolean
   escape(): void
 }
 
-/** The open layers of a document, bottom first. */
 export interface LayerStack {
-  /** @returns the disposer that removes `layer`. */
   push(layer: Layer): () => void
-  /** The layer Escape goes to. */
   top(): Layer | undefined
-  /** The layer Tab and focus stay inside. */
   topTrap(): Layer | undefined
   size(): number
 }
@@ -44,7 +38,6 @@ const focusables = (container: HTMLElement) =>
     (element) => element.closest("[inert], [hidden]") === null,
   )
 
-/** Where focus lands in a layer: its `data-dshb-autofocus` element, else the first control. */
 export function focusHome(container: HTMLElement): void {
   const home =
     container.querySelector<HTMLElement>("[data-dshb-autofocus]") ??
@@ -73,7 +66,6 @@ function trapTab(event: KeyboardEvent, container: HTMLElement): void {
   }
 }
 
-/** Whether `target` is in a modal dialog of someone else's (DSH's own), opened over or beside `container`: it keeps its keys and focus. */
 export function inForeignDialog(
   target: EventTarget | null,
   container: HTMLElement | null | undefined,
@@ -148,22 +140,13 @@ function stackOf(doc: Document): LayerStack {
 }
 
 export interface LayerOptions {
-  /** Whether the layer is open; it joins the top of the stack when this turns true. */
   readonly active: boolean
   onEscape(): void
-  /** Whether Tab cycles inside the element and focus is held in it (dialogs), or not (popovers, a field's draft). */
   readonly trap: boolean
-  /** While true, Escape and Tab go to what has focus in the layer instead; false when omitted. */
   readonly yieldKeys?: boolean
-  /** Where focus goes once a trapping layer closes; the element focused when it opened when omitted. */
   restore?(): HTMLElement | null
 }
 
-/**
- * Put the element on the document's layer stack while active: the top layer
- * gets Escape before anything else on the page; a trapping layer keeps Tab and
- * focus inside it, takes focus when it opens and gives it back when it closes.
- */
 export function useLayer(ref: RefObject<HTMLElement | null>, options: LayerOptions): void {
   const latest = useRef(options)
   latest.current = options

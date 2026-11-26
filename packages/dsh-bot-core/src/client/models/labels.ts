@@ -12,7 +12,6 @@ import {
   type ModelOption,
 } from "./menu"
 
-/** How an entry reads in a picker and in a list: DSH's default names the model it is now. */
 export function optionLabel(t: Translate, menu: ModelMenu, option: ModelOption): string {
   if (option.kind === "fixed") return option.model.name
   return menu.profileDefault === undefined
@@ -20,12 +19,10 @@ export function optionLabel(t: Translate, menu: ModelMenu, option: ModelOption):
     : t("models.profileDefaultNamed", { model: menu.profileDefault.model.name })
 }
 
-/** The provider an entry runs on, as its row's meta. */
 export function optionProvider(menu: ModelMenu, option: ModelOption): string | undefined {
   return option.kind === "fixed" ? option.provider.name : menu.profileDefault?.provider.name
 }
 
-/** Every entry of the menu as a picker's choice, fixed ones under their provider. */
 export function modelChoices(
   t: Translate,
   menu: ModelMenu,
@@ -47,7 +44,6 @@ function effortLabel(t: Translate, option: ModelOption, effort: EffortOption): s
     : t("models.effort.defaultNamed", { effort: named })
 }
 
-/** The efforts of `option` as a picker's choices; none when the model offers none. */
 export function effortChoices(
   t: Translate,
   option: ModelOption,
@@ -70,7 +66,6 @@ const REFUSED: { readonly [Code in BotModelsErrorCode]: MessageKey } = {
   "bot-models/rejected": "models.refused.rejected",
 }
 
-/** A failed read or save of models in the user's language. */
 export function modelsFailureText(t: Translate, failure: ModelsFailure): string {
   return failure.kind === "refused"
     ? t(REFUSED[failure.code])

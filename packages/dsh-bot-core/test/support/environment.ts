@@ -1,6 +1,5 @@
 import type { BotEnvironmentCapacity } from "../../src/shared/environment"
 
-/** A Host with 8 CPUs, 48 GiB for VMs and an 80 GiB pool. */
 export const TEST_CAPACITY: BotEnvironmentCapacity = {
   cpus: { min: 1, max: 8, step: 1 },
   memoryMiB: { min: 1024, max: 49152, step: 512 },

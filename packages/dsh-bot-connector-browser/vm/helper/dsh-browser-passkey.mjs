@@ -1,10 +1,4 @@
 #!/usr/bin/env node
-// Offers one passkey to the tab the Host marked (browser connector, browser_use_passkey): a
-// virtual authenticator on that tab's DevTools session, alive while this process is, until the
-// site used it once, the time is up, the tab left the origin or closed, or the Host ended it.
-// stdin: {"devtools","mark"}, then, after this answers {"located"}, {"passkey":{"origin","rpId",
-// "credentialId","userHandle"?,"signCount","seconds","length"}} followed by the PKCS#8 key's bytes.
-// stdout: JSON lines with closed codes only. The key is never a JS string here and is wiped.
 import { base64Bytes } from "./bytes.mjs"
 import { connectBrowser, parseEndpoint } from "./cdp.mjs"
 import { openChannel } from "./channel.mjs"
@@ -149,7 +143,6 @@ async function main() {
 const removeAuthenticator = (cdp, authenticatorId, session) =>
   cdp.call("WebAuthn.removeVirtualAuthenticator", { authenticatorId }, session).catch(() => {})
 
-/** Why the authenticator goes away: used once, time up, the tab left the origin or closed, or the Host ended it. */
 function outcome(cdp, channel, { session, authenticatorId, origin, frameId, seconds }) {
   return new Promise((resolve) => {
     const timer = setTimeout(() => resolve("expired"), seconds * 1000)

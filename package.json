@@ -10,7 +10,8 @@
     "build": "node scripts/build.mjs",
     "dev": "node scripts/build.mjs --watch",
     "typecheck": "tsc --noEmit",
-    "lint": "biome check .",
+    "lint": "biome check . && node scripts/comments/check.mjs",
+    "lint:comments": "node scripts/comments/check.mjs",
     "format": "biome check --write .",
     "test": "vitest run",
     "new-plugin": "node scripts/new-plugin.mjs"
@@ -52,9 +53,12 @@
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "esbuild": "^0.28.2",
+    "oxc-parser": "^0.160.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "sh-syntax": "^0.8.7",
     "typescript": "^7.0.2",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.0",
+    "yaml": "^2.9.1"
   }
 }

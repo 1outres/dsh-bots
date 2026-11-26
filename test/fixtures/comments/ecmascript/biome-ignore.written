@@ -1,0 +1,27 @@
+// biome-ignore lint/suspicious/noExplicitAny: -
+export type Allowed = any
+// biome-ignore lint/suspicious/noExplicitAny: -
+export type Explained = any
+// biome-ignore lint/suspicious/noExplicitAny: -
+export type EmptyReason = any
+// biome-ignore lint/suspicious/noExplicitAny: -
+export type NoColon = any
+// biome-ignore lint/suspicious/noExplicitAny: -
+export type Tight = any
+// biome-ignore lint: -
+// biome-ignore lint/suspicious: -
+// biome-ignore lint/plugin: -
+// biome-ignore lint/plugin/noSessionCreate: -
+// biome-ignore lint/style/noRestrictedImports: -
+// biome-ignore lint/style/noRestrictedGlobals: -
+// biome-ignore lint/suspicious/noSuchRule: -
+// biome-ignore lint/suspicious/noExplicitAny/extra: -
+// biome-ignore format: -
+// biome-ignore assist/source/organizeImports: -
+// biome-ignore: -
+// biome-ignore-all lint/suspicious/noExplicitAny: -
+// biome-ignore-start lint/suspicious/noExplicitAny: -
+// biome-ignore-end lint/suspicious/noExplicitAny: -
+/* biome-ignore lint/suspicious/noExplicitAny: - */
+export type Block = any
+export const done = true

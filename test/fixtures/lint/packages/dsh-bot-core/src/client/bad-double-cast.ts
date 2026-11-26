@@ -1,1 +1,1 @@
-export const width = (value: string) => value as unknown as number // rule: 24
+export const width = (value: string) => value as unknown as number

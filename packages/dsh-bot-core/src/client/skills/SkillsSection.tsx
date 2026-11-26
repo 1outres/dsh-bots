@@ -64,7 +64,6 @@ const FILE_CHANGE: Readonly<Record<FileChange["kind"], MessageKey>> = {
 
 const messageOf = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause))
 
-/** The bot's skills: the review switch and the list, then a page per skill and per version. */
 export function SkillsSection(props: SettingsSectionProps & SkillsSectionDeps) {
   const { t, bot, page, skills } = props
   const state = useObservable(skills.bot(bot.id))
@@ -94,7 +93,6 @@ function usageOf(t: Translate, skill: BotSkillSummary): string {
   return `${format.count("skills.uses", skill.uses)} · ${t("skills.lastUsed", { at: format.instant(skill.lastUsedAt, "dateTime") })}`
 }
 
-/** When the daily tidy-up archives the skill, or what keeps it; undefined when nothing is to say. */
 export function retentionOf(
   t: Translate,
   retention: SkillRetention | undefined,

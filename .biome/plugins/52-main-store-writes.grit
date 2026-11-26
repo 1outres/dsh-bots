@@ -1,7 +1,3 @@
-// Design rule 52: the Main sessions' settings and activity are written in one place.
-// `mainSettings` / `mainOverrides` / `mainActivity` `.put(...)` / `.delete(...)`
-// may appear only in host/mains/store.ts, which serializes writes and tells
-// the Main controller and the Remote.
 JsCallExpression(callee = $callee) as $call where {
   $callee <: or { `$receiver.put`, `$receiver.delete`, `$receiver?.put`, `$receiver?.delete` },
   $receiver <: or {

@@ -18,7 +18,6 @@ const FEATURES: readonly {
   },
 ]
 
-/** The welcome: what dsh-bots is, and its main features as cards. */
 export function IntroPage(props: StepProps) {
   const { t } = props
   return (

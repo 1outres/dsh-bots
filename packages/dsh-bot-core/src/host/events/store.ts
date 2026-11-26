@@ -8,52 +8,33 @@ export interface EventStoreDeps {
   cursors: BotTable<CursorRecord>
   newId(): string
   now(): number
-  /** Most events kept per bot, connector and account. */
   readonly maxPerStream: number
-  /** How long an event is kept once told or acknowledged. */
   readonly retentionMs: number
-  /** How long an event nobody took is kept. */
   readonly unreadRetentionMs: number
 }
 
-/** Events arriving for some bots from one poll of one account. */
 export interface EventArrival {
   readonly botIds: readonly string[]
   readonly connectorId: string
   readonly connectionId: string
   readonly events: readonly ConnectorEvent[]
-  /** Why events may have been missed before these. */
   readonly gap?: string
 }
 
-/**
- * Connectors' events per bot and account, and where each account's polling
- * resumes: the only writer of EVENTS_DOMAIN (design rule 49). An event is
- * stored once per bot (its key deduplicates); an account's stream keeps at
- * most `maxPerStream` events, and dropping one nobody took records a gap.
- */
 export interface EventStore {
-  /** Store the events, then the account's new cursor (in that order). @returns the bots that got a new one. */
   receive(arrival: EventArrival, cursor: ConnectorJson): Promise<readonly string[]>
   cursor(connectionId: string, connectorId: string): ConnectorJson | undefined
-  /** Store the first cursor of an account (no events). */
   start(connectionId: string, connectorId: string, cursor: ConnectorJson): Promise<void>
   dropCursor(connectionId: string, connectorId: string): Promise<void>
-  /** The bot's events of the connector nobody took yet, oldest first. */
   unread(botId: string, connectorId: string): readonly EventRecord[]
-  /** Bots and connectors with events nobody took yet. */
   unreadStreams(): readonly { readonly botId: string; readonly connectorId: string }[]
-  /** The bot's Main session was told of them. */
   notified(ids: readonly string[]): Promise<void>
-  /** The bot acknowledged them. @returns the ids it had that were not acknowledged yet. */
   acknowledge(
     botId: string,
     connectorId: string,
     ids: readonly string[],
   ): Promise<readonly string[]>
-  /** Forget events of streams `keep` refuses, and expired ones. */
   prune(keep: (botId: string, connectorId: string, connectionId: string) => boolean): Promise<void>
-  /** Forget the cursors of accounts `keep` refuses. */
   pruneCursors(keep: (connectionId: string) => boolean): Promise<void>
   subscribe(listener: (botId: string, connectorId: string) => void): () => void
 }
@@ -107,7 +88,6 @@ export function createEventStore(deps: EventStoreDeps): EventStore {
     }
   }
 
-  /** Keep the stream within its cap; a dropped event nobody took leaves a gap. */
   const trim = async (botId: string, connectorId: string, connectionId: string) => {
     const stream = all()
       .filter(

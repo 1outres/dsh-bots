@@ -3,11 +3,6 @@ import type { ConnectorJson } from "../../shared/connectors"
 import type { RemoteMount } from "../remote"
 import type { DuplexStreamHandle } from "../types"
 
-/**
- * A panel stream over `remote.botConnectorStreams.open`, usable at once: items
- * sent before bot-core's Remote is mounted wait for it, and disposing first
- * never opens it.
- */
 export function openConnectorStream(
   mount: Promise<RemoteMount>,
   botId: string,

@@ -7,13 +7,11 @@ import type { Observable, Translate } from "./types"
 import { Button } from "./ui/Button"
 import { useLayer } from "./ui/layers"
 
-/** What bot-core injects into its `shell.overlay` delete confirmation. */
 export interface DeleteBotFace {
   readonly bots: Observable<BotsState>
   readonly deletion: BotDeletion
 }
 
-/** Asks before a bot is deleted: its name typed in full enables Delete. */
 export function DeleteBotDialog({ t, bots, deletion }: DeleteBotFace & { readonly t: Translate }) {
   const botId = useObservable(deletion.asking)
   const bot = snapshotOf(useObservable(bots))?.bots.find((item) => item.id === botId)

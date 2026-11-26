@@ -24,7 +24,6 @@ import type { SettingsSectionProps } from "./sections"
 
 export interface ModelsSectionDeps {
   readonly models: ModelsHub
-  /** DSH's catalog now; rejects with a `ModelsError`. */
   readCatalog(): Promise<BotModelCatalog>
 }
 
@@ -35,7 +34,6 @@ const ROLE_LABEL: { readonly [Role in BotModelSingleRole]: MessageKey } = {
 
 const SINGLE_ROLES: readonly BotModelSingleRole[] = ["main", "utility"]
 
-/** The bot's model of every role, each saved as it is picked. */
 export function ModelsSection({
   t,
   bot,

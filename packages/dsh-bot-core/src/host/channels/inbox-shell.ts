@@ -1,11 +1,5 @@
 import type { InboxWriter } from "./inbox"
 
-/**
- * dsh-subprocess `SubprocessRuntime` with stdin piped and output collected,
- * structurally: DSH's `FileSystem` writes only UTF-8 text, so binary files go
- * through a process of the bot's own environment (the same VM and user its
- * tools run as), never the Host's file system.
- */
 export interface EnvironmentWriteProcess {
   readonly stdin:
     | {
@@ -40,7 +34,6 @@ export interface EnvironmentWriteSubprocess {
 
 const OUTPUT_BYTES = 16 * 1024
 const GRACE_MS = 2000
-/** Most folders tried for one message (`base`, `base-2` … `base-99`). */
 export const MAX_FOLDER_ATTEMPTS = 99
 
 const CREATE_FOLDER = [
@@ -68,7 +61,6 @@ const WRITE_FILE = [
   'printf %s "$dir/$name"',
 ].join("\n")
 
-/** Write the inbox with `sh` in the bot's environment. */
 export function createShellInboxWriter(
   subprocess: EnvironmentWriteSubprocess,
   cwd: string,

@@ -9,7 +9,6 @@ import { brokerSetup, call, settle } from "./connectors-support"
 const READY: EnvironmentState = { ready: true, generation: "g1" }
 const signal = () => new AbortController().signal
 
-/** A screen that prepares when `gate` lets it, with a status a test sets. */
 function screen(log: string[], status: { current: ConnectorStatus }) {
   let gate: Promise<void> = Promise.resolve()
   let release = () => {}
@@ -48,7 +47,6 @@ function screen(log: string[], status: { current: ConnectorStatus }) {
   }
 }
 
-/** A page connector on the screen, with a resident resource. */
 function page(log: string[]): BotConnector<{ n: number }> {
   let opened = 0
   const { schemaTool } = connectorTools<{ n: number }>()

@@ -6,7 +6,6 @@ import {
 } from "../../shared/release-notes"
 import type { GitHubRepository } from "./source"
 
-/** What the Host's `fetch` gives back, as far as the releases are read. */
 export interface HttpResponse {
   readonly ok: boolean
   readonly status: number
@@ -24,7 +23,6 @@ export interface ReleasesDeps {
 }
 
 export const RELEASES_PER_PAGE = 100
-/** More pages than this is more releases than dsh-bots will have: refused, not cut short. */
 export const MAX_RELEASE_PAGES = 10
 
 const HEADERS = {
@@ -55,7 +53,6 @@ function releaseOf(item: unknown, index: number): GitHubRelease {
   return { tag: tag_name, draft, body: body ?? "", url: html_url }
 }
 
-/** A published dsh-bots release (tag `v<version>`) with a body; other tags (`image-*`) and drafts are none. */
 export function noteOf(release: GitHubRelease): ReleaseNote | undefined {
   const version = TAG.exec(release.tag)?.[1]
   if (release.draft || !isVersion(version) || release.body.trim() === "") return undefined
@@ -77,11 +74,6 @@ async function page(
   return items.map(releaseOf)
 }
 
-/**
- * The notes of every release after `seen` up to `current`, newest first,
- * read from the repository's GitHub releases page by page.
- * @throws when GitHub cannot be reached, refuses (a rate limit too) or answers something else.
- */
 export async function fetchDueNotes(
   deps: ReleasesDeps,
   seen: string,

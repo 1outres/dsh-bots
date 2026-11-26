@@ -9,12 +9,10 @@ export const EVENT_CREATED = "gcal.event.created"
 export const EVENT_UPDATED = "gcal.event.updated"
 export const EVENT_CANCELLED = "gcal.event.cancelled"
 
-/** A change within this long of the event's creation counts as its creation. */
 const CREATED_WITHIN_MS = 5_000
 const MAX_SYNC_PAGES = 100
 
 interface Cursor {
-  /** The sync token of each calendar the account can write to. */
   readonly calendars: Readonly<Record<string, string>>
 }
 
@@ -29,7 +27,6 @@ const cursorOf = (value: ConnectorJson | undefined): Cursor | undefined => {
   }
 }
 
-/** Every page of a listing; resolves to its items and the sync token of the last page. */
 async function listAll(
   calendar: calendar_v3.Calendar,
   calendarId: string,
@@ -68,12 +65,6 @@ function kindOf(event: calendar_v3.Schema$Event): string {
     : EVENT_UPDATED
 }
 
-/**
- * Changed events of the calendars the account can write to, from Calendar's
- * incremental sync (events.list with a sync token per calendar). A calendar
- * seen for the first time only gets its token; an expired token (410) is
- * synced again from now and reported as a gap.
- */
 export function calendarEvents(google: Google, own: OwnChanges): BotConnectorEvents {
   return {
     kinds: [

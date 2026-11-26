@@ -6,7 +6,6 @@ import {
 } from "../../shared/managed-sessions"
 import type { ManagedSessions } from "./sessions"
 
-/** What the `botManagedSessions` Remote serves: the owner's side (its input is untrusted). */
 export interface ManagedPanel {
   snapshot(): BotManagedSessionsSnapshot
   entrust(botId: unknown, sessionId: unknown): Promise<BotManagedSession>
@@ -16,7 +15,6 @@ export interface ManagedPanel {
 
 export function createManagedPanel(deps: {
   readonly sessions: ManagedSessions
-  /** Whether the bot is listed. */
   listed(botId: string): boolean
 }): ManagedPanel {
   const ids = (botId: unknown, sessionId: unknown) => {

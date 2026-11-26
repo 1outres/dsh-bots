@@ -1,24 +1,13 @@
-/**
- * Who operates each bot's desktop: the agent, or a person through one viewer
- * of the screen relay (one stream of the panel). While a person does, the
- * tools that change the screen fail at once; once the agent has it back, its
- * next result says the screen may have changed. Also the bot's open request
- * that a person take over (desktop_request_handoff). State only: the tools,
- * the relay and the handoff consult and change it.
- */
 import type { ConnectorRequest, ConnectorStatus } from "@1outres/dsh-bot-core"
 
 export type DesktopController = "agent" | "human"
 
 export type DesktopNotice = "control-returned" | "reconnected"
 
-/** One viewer of a bot's screen, known only in this Host process. */
 export type ViewerId = symbol
 
-/** Who holds the input, as one viewer sees it. */
 export type ViewerControl = "agent" | "self" | "other"
 
-/** How a person's control ended. */
 export type ControlReturn = "handed-back" | "viewer-left"
 
 export interface DesktopControlView {
@@ -27,7 +16,6 @@ export interface DesktopControlView {
   readonly request?: ConnectorRequest
 }
 
-/** What changed, for those waiting on it (the handoff, the relays). */
 export type ControlChange =
   | { readonly kind: "taken" }
   | { readonly kind: "returned"; readonly how: ControlReturn }
@@ -95,7 +83,6 @@ export class DesktopControl {
     return this.entry(botId).holder === viewer
   }
 
-  /** A person takes the input through `viewer` (from the agent or another viewer). */
   take(botId: string, viewer: ViewerId): void {
     const entry = this.entry(botId)
     if (entry.holder === viewer) return
@@ -105,7 +92,6 @@ export class DesktopControl {
     this.publish(botId, { kind: "taken" })
   }
 
-  /** The viewer gives the input back to the agent (`viewer-left`: its stream ended). */
   release(botId: string, viewer: ViewerId, how: ControlReturn): void {
     const entry = this.entry(botId)
     if (entry.holder !== viewer) return
@@ -115,7 +101,6 @@ export class DesktopControl {
     this.publish(botId, { kind: "returned", how })
   }
 
-  /** The bot asks a person to take over. @throws while it already asks. */
   request(botId: string, reason: string): ConnectorRequest {
     const entry = this.entry(botId)
     if (entry.request !== undefined) {
@@ -128,14 +113,12 @@ export class DesktopControl {
     return request
   }
 
-  /** A person turns the request down without taking over. */
   decline(botId: string): void {
     const request = this.entry(botId).request
     if (request === undefined) return
     this.publish(botId, { kind: "declined", requestId: request.id })
   }
 
-  /** The request is over (answered, timed out, or the turn stopped). */
   endRequest(botId: string, requestId: string): void {
     const entry = this.entry(botId)
     if (entry.request?.id !== requestId) return
@@ -143,14 +126,12 @@ export class DesktopControl {
     this.publish(botId, { kind: "request-ended", requestId })
   }
 
-  /** A new connection to the bot's desktop agent opened; every one after the first is a reconnection. */
   connected(botId: string): void {
     const entry = this.entry(botId)
     entry.connections += 1
     if (entry.connections > 1) entry.notices.add("reconnected")
   }
 
-  /** The notices for the next result, which then has them. */
   takeNotices(botId: string): readonly DesktopNotice[] {
     const entry = this.entry(botId)
     const notices = [...entry.notices]
@@ -158,7 +139,6 @@ export class DesktopControl {
     return notices
   }
 
-  /** The bot's status for bot-core (`BotConnector.status`). */
   status(botId: string): ConnectorStatus {
     const view = this.view(botId)
     return {

@@ -1,15 +1,11 @@
 import { createStore, type Observable } from "./observable"
 
 export interface PersistentValueOptions<T> {
-  /** The localStorage key. */
   readonly key: string
-  /** The stored JSON's value; throws when the stored value is not a `T`. */
   readonly parse: (stored: unknown) => T
-  /** The value while nothing usable is stored. */
   readonly initial: T
 }
 
-/** A value kept in localStorage as JSON, read once and written on every change. */
 export interface PersistentValue<T> extends Observable<T> {
   set(next: T): void
 }
@@ -30,12 +26,6 @@ function storage(): Storage {
   return localStorage
 }
 
-/**
- * A localStorage-backed value. A missing entry reads as `initial`; storage
- * that is absent, throws or holds an unparsable value also reads as
- * `initial` and warns once, and a failed write warns once while the value
- * still changes for this page.
- */
 export function createPersistentValue<T>(options: PersistentValueOptions<T>): PersistentValue<T> {
   const { key, parse, initial } = options
   const readFailed = once(`reading "${key}" from localStorage failed; using the default`)

@@ -36,24 +36,15 @@ import type { BotFilesApi } from "../src/shared/files-api"
 import { TEST_CAPACITY } from "./support/environment"
 import { memoryNotesFs } from "./support/notes-fs"
 
-// The browser bridge (TC39 decorators) is not under test here; it only hands out its backend.
 const remotes = vi.hoisted(() => [] as BotsBackend[])
-/** The botFiles Remote's backends (BotFilesRemoteService). */
 const fileRemotes = vi.hoisted(() => [] as BotFilesApi[])
-/** The botMains Remote's panels (BotMainsRemoteService). */
 const mainPanels = vi.hoisted(() => [] as MainPanel[])
-/** The botEnvironment Remote's panels (BotEnvironmentRemoteService). */
 const environmentPanels = vi.hoisted(() => [] as EnvironmentPanel[])
 const onboardingPanels = vi.hoisted(() => [] as OnboardingPanel[])
-/** The botEnvironmentHost Remote's panels (BotEnvironmentHostRemoteService). */
 const environmentHostPanels = vi.hoisted(() => [] as EnvironmentHostPanel[])
-/** The botSkills Remote's panels (BotSkillsRemoteService). */
 const skillPanels = vi.hoisted(() => [] as SkillPanel[])
-/** The botNotes Remote's panels (BotNotesRemoteService). */
 const notesPanels = vi.hoisted(() => [] as NotesPanel[])
-/** The browser's "New session" handlers (BotsRemoteService.createSession). */
 const starters = vi.hoisted(() => [] as ((botId: string) => Promise<{ sessionId: string }>)[])
-/** Opening messages queued with followup: session id and text. */
 const followups = vi.hoisted(() => [] as { sessionId: string; text: string; summary: string }[])
 vi.mock("../src/host/remote", () => ({
   BotsRemoteService: class {
@@ -109,7 +100,6 @@ vi.mock("../src/host/remote", () => ({
   },
 }))
 
-/** One fake Host service, registered under `name`. */
 function fake(name: string, body: object) {
   return class extends Service {
     constructor(ctx: Context) {
@@ -128,7 +118,6 @@ interface FakeAgent {
       restrict(filter: { deny: readonly string[] }): () => void
       guard(guard: (execution: { name: string }) => string | undefined): () => void
     }
-    /** The Agent scope's fiber; `inactive` makes it refuse like a disposing scope. */
     fiber: { inactive?: boolean; assertActive(): void }
   }
   session: {
@@ -139,28 +128,19 @@ interface FakeAgent {
   }
   injected: unknown[]
   inject(message: unknown): void
-  /** Messages queued as turns of their own (`followup`). */
   followed: { content: { text: string }[]; source: { kind: string } }[]
   followup(message: { content: { text: string }[]; source: { kind: string } }): void
-  /** Like dsh-agent's AgentModel: a recorded selection wins over the options. */
   model: {
     current(): { provider: string; model: string; reasoningEffort?: string } | undefined
     select(selection: { provider: string; model: string; reasoningEffort?: string }): void
   }
-  /** Composed preset. */
   preset: string | undefined
-  /** Tools of its preset (restrictable). */
   presetTools: string[]
-  /** Tools on its own scope (visible, not restrictable). */
   own: string[]
   masks: Set<readonly string[]>
   guards: Set<(execution: { name: string }) => string | undefined>
 }
 
-/**
- * One ToolDefinition object per scope and name, shaped like dsh-tools': the
- * definition itself, with `name`, `description` and `execute` (no wrapper).
- */
 const definitions = new Map<string, { name: string; description: string; execute(): unknown }>()
 const definition = (scope: string, name: string) => {
   const key = `${scope}:${name}`
@@ -172,22 +152,15 @@ const definition = (scope: string, name: string) => {
   return value
 }
 
-/** Data of the session's last event of `type` (a projection's fold of a whole-value event). */
 const lastEvent = (session: FakeAgent["session"], type: string) =>
   session.events.filter((event) => event.type === type).at(-1)?.data
 
 const directoryChanges = (agent: FakeAgent) =>
   agent.session.events.filter((event) => event.type === "working-directory/change")
 
-/**
- * A fake Host. Like the real one: `restrict` refuses names outside the
- * Agent's restrictable set and emits `tools/change` synchronously, Agents are
- * listed live, `register` refuses a duplicate id, and `select` recomposes.
- */
 function host(rows: Map<string, BotRecord>, root: Context) {
   const log: string[] = []
   const memberships = new Map<string, BotSessionRecord>()
-  /** Tables of the other domains (connectors, notices), by domain and table name. */
   const otherTables = new Map<string, Map<string, unknown>>()
   const otherTable = (domain: string, name: string) => {
     const key = `${domain}:${name}`
@@ -198,7 +171,6 @@ function host(rows: Map<string, BotRecord>, root: Context) {
     }
     return map
   }
-  /** The environment fs a composed bot Agent sees (dsh-fs-ssh in the VM). */
   const vmDirs = new Set(["/home/bot/workspace", "/home/bot/workspace/sub"])
   const vmFs = {
     resolve: async (path: string, options?: { cwd?: string }) =>
@@ -207,14 +179,11 @@ function host(rows: Map<string, BotRecord>, root: Context) {
     processPath: (target: string) => target,
   }
   const presets = new Map<string, { id: string; plugins: { id: string }[] }>()
-  /** Contributions registered with typert and not yet withdrawn. */
   const typertContributions = new Set<HostRemoteContribution>()
   const globals = ["working_directory", "team_task"]
-  /** DSH's default model (agentDefaultModel); tests may change it. */
   const profileDefault = { provider: "p", model: "m" }
   const live = new Map<string, FakeAgent>()
   const workspaces = new Map<string, string[]>()
-  /** DSH's Workspaces (workspaceRegistry.list). */
   const dshWorkspaces: { id: string; title: string; path: string; sessionIds: string[] }[] = []
   let releaseDelay = 0
   const visibleEntries = (agent: FakeAgent) => {
@@ -227,10 +196,6 @@ function host(rows: Map<string, BotRecord>, root: Context) {
     ]
   }
   const visible = (agent: FakeAgent) => visibleEntries(agent).map((entry) => entry.name)
-  /**
-   * An Agent composed from `preset`, whose session header names
-   * `headerPreset` (the identity a session keeps), in `cwd`.
-   */
   const agent = (
     id: string,
     preset: string | undefined,
@@ -356,7 +321,6 @@ function host(rows: Map<string, BotRecord>, root: Context) {
       list: () => dshWorkspaces,
     },
     sessionController: {
-      /** Like session.create in a Workspace: an Agent in its directory, announced, then attached. */
       create: async (request: { workspaceId: string; agentPreset: string }) => {
         const workspace = dshWorkspaces.find((item) => item.id === request.workspaceId)
         if (workspace === undefined) throw new Error("workspace/not-found")
@@ -390,7 +354,6 @@ function host(rows: Map<string, BotRecord>, root: Context) {
     agentDefaultModel: {
       currentSelection: () => ({ ...profileDefault }),
     },
-    /** dsh-llm's registry: provider "p" offers "m" (efforts low, high) and "light". */
     llm: {
       listProviders: () => [{ id: "p", name: "P" }],
       listModels: async (provider: string) =>
@@ -436,7 +399,6 @@ function host(rows: Map<string, BotRecord>, root: Context) {
         presets.set(preset.id, preset)
         log.push(`register ${preset.id}`)
         return async () => {
-          // The real registry deletes synchronously; collection may take time.
           if (releaseDelay === 0) presets.delete(preset.id)
           else setTimeout(() => presets.delete(preset.id), releaseDelay)
         }
@@ -470,7 +432,6 @@ function host(rows: Map<string, BotRecord>, root: Context) {
       withoutInitiator: <T>(operation: () => T) => operation(),
       list: () => [...live.values()],
       get: (id: string) => live.get(id),
-      /** Like dsh-agent: setup composes, then the Agent is listed and announced. */
       create: async (options: {
         sessionId: string
         agentOptions: { provider?: string; model?: string }
@@ -484,7 +445,6 @@ function host(rows: Map<string, BotRecord>, root: Context) {
           cwd: options.meta.cwd,
         })
         const scope = created.ctx as unknown as { preset?: string; on?: unknown }
-        // installModelSelection registers an agent/pre-step listener on the Agent's scope.
         scope.on = () => () => {}
         await options.setup(created.ctx, created)
         created.preset = scope.preset
@@ -508,7 +468,6 @@ function host(rows: Map<string, BotRecord>, root: Context) {
     otherTables,
     vmDirs,
     visible,
-    /** Create and publish an Agent the way DSH does: list it, then announce it serially. */
     async announce(created: FakeAgent) {
       live.set(created.id, created)
       try {
@@ -520,7 +479,6 @@ function host(rows: Map<string, BotRecord>, root: Context) {
       return created
     },
     agent,
-    /** Why the Agent's own guards refuse a call, as dsh-tools' checkGuards would report. */
     denial: (name: string, target: FakeAgent) => {
       for (const guard of target.guards) {
         const denial = guard({ name })
@@ -534,10 +492,6 @@ function host(rows: Map<string, BotRecord>, root: Context) {
   }
 }
 
-/**
- * A fake bot environment. `ensure` resolves at once unless `hold` is set,
- * then it waits for `release(botId, error?)`.
- */
 function environmentFake() {
   const ensured: string[] = []
   const targets: Parameters<BotEnvironment["ensure"]>[0][] = []
@@ -592,7 +546,6 @@ function environmentFake() {
     signals,
     removed,
     state,
-    /** Tell bot-core the bot's environment changed (it re-runs ensure). */
     changed(botId: string) {
       for (const listener of listeners) listener(botId)
     },
@@ -600,7 +553,6 @@ function environmentFake() {
       held.get(botId)?.(error)
       held.delete(botId)
     },
-    /** Report a step of the bot's latest ensure. */
     report(botId: string, phase: Parameters<NonNullable<EnsureOptions["progress"]>>[0]) {
       progress.get(botId)?.(phase)
     },
@@ -632,7 +584,6 @@ async function start(
   const snapshot = () => backend().lifecycle.snapshot()
   const pending = (id: string) => snapshot().pending.find((item) => item.id === id)
   const listed = (id: string) => snapshot().bots.find((item) => item.id === id)
-  /** Create a bot and wait until it is listed with its Main session. */
   const created = async (name = "New") => {
     const id = await backend().lifecycle.create({
       name,
@@ -699,7 +650,6 @@ const RUNNING = releaseSourceOf(
   JSON.parse(readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8")),
 ).version
 
-/** GitHub's releases of dsh-bots, as the Host reads its release notes: never the network in tests. */
 const githubReleases = { urls: [] as string[] }
 
 describe("bot-core apply", () => {
@@ -806,9 +756,7 @@ describe("bot-core apply", () => {
         () => "ok",
         (error: { code?: string }) => error.code,
       )
-    // Not a bot's session: refused.
     expect(await codeOf(files.stat("w1", "notes.md"))).toBe("bot-file/not-bot-session")
-    // The bot's Main, but no files row attached yet: no fallback to any other fs.
     expect(await codeOf(files.stat("m", "notes.md"))).toBe("bot-file/unavailable")
     const vmFs = {
       resolve: async (path: string, options?: { cwd?: string }) => ({
@@ -818,7 +766,6 @@ describe("bot-core apply", () => {
       lstat: async () => ({ version: "v1", type: "file" }),
       stat: async () => ({ version: "v1", type: "file", size: 3 }),
     }
-    // The token bot-core sealed into the registered revision's files row.
     const group = presets.get("bot-a")?.plugins[0] as unknown as { config: PluginRowLike[] }
     const row = group.config.find((entry) => entry.id === "env-bot-core-files")
     const token = row?.config?.token
@@ -829,7 +776,6 @@ describe("bot-core apply", () => {
         fs: () => vmFs,
         subprocess: () => undefined,
       }) ?? (() => {})
-    // Anything but the registered revision's token is kept but never served.
     const forged = attach("0".repeat(64))
     expect(await codeOf(files.stat("m", "notes.md"))).toBe("bot-file/unavailable")
     forged()
@@ -883,7 +829,6 @@ describe("bot-core apply", () => {
   it("creates sessions through the bot service, under the bot's preset", async () => {
     const rows = new Map([["a", bot()]])
     const { ctx, log } = await start(rows)
-    // A bot stored before specs reads its environment's first.
     await flush()
     await expect(botOf(ctx).createSession("a")).resolves.toMatchObject({
       sessionId: expect.any(String),
@@ -953,7 +898,6 @@ describe("bot-core apply", () => {
       const main = await h.announce(h.agent("m", "bot-a", "bot-a"))
       await vi.waitFor(() => expect(botOf(h.ctx).models("a").mainPending).toBe(false))
       expect(selections(main)).toEqual([{ provider: "p", model: "light" }])
-      // A model picked for the Main later (DSH's picker) is not undone by a resume.
       main.model.select({ provider: "p", model: "m" })
       await h.announce(Object.assign(h.agent("m", "bot-a", "bot-a"), { session: main.session }))
       await flush()
@@ -1010,7 +954,6 @@ describe("bot-core apply", () => {
     it("refuses to start a session on a stored main model that DSH no longer offers", async () => {
       const h = await start(new Map([["a", bot()]]))
       await botOf(h.ctx).configureModels("a", { main: light })
-      // The registered service is a copy of the fake's methods.
       const llm = h.ctx.get("llm") as { listModels: typeof h.services.llm.listModels }
       llm.listModels = async () => [{ provider: "p", id: "m", name: "M" }]
       await expect(botOf(h.ctx).createSession("a")).rejects.toMatchObject({
@@ -1334,7 +1277,6 @@ describe("bot-core apply", () => {
       id: "slim",
       plugins: [{ id: "persona", name: "@deepseek-ai/dsh-persona" }],
     })
-    // Each change alone composes; together the overlay targets a row "slim" lacks.
     const results = await Promise.allSettled([
       api.configurePreset("a", { template: "slim" }),
       api.configurePreset("a", { overlay: [{ op: "remove", id: "tool-web" }] }),
@@ -1389,7 +1331,6 @@ describe("bot-core apply", () => {
         origin: "subagent",
       }),
     )
-    // Host tools are masked; its own preset's tools are refused by the guard.
     expect(visible(child)).toEqual(["read", "web_fetch"])
     expect(denial("web_fetch", child)).toMatch(/locked down/)
     expect(denial("working_directory", child)).toMatch(/locked down/)
@@ -1401,7 +1342,6 @@ describe("bot-core apply", () => {
     await flush()
     const stray = await announce(agent("w1", "standard", "standard"))
     expect(visible(stray)).toEqual(["working_directory", "team_task", "read", "bash"])
-    // The composer picker switches the blank Workspace session to the bot's preset.
     await services.agentPresets.select(stray, "bot-a")
     expect(visible(stray)).toEqual(["read", "bash"])
     expect(denial("read", stray)).toMatch(/outside that bot's sessions/)
@@ -1411,7 +1351,6 @@ describe("bot-core apply", () => {
     const rows = new Map([["a", bot()]])
     const h = await start(rows)
     await flush()
-    // A blank bot session whose composer picked the default preset.
     const draft = await h.announce(h.agent("d1", "standard", "bot-a"))
     expect(h.denial("read", draft)).toMatch(/locked down/)
     await flush()
@@ -1419,7 +1358,6 @@ describe("bot-core apply", () => {
     expect(draft.preset).toBe("bot-a")
     expect(h.visible(draft)).toEqual(["read", "bash"])
     expect(h.denial("read", draft)).toBeUndefined()
-    // The picker selects standard again: switched back again.
     await h.services.agentPresets.select(draft, "standard")
     await flush()
     expect(draft.preset).toBe("bot-a")
@@ -1443,11 +1381,9 @@ describe("bot-core apply", () => {
     expect(h.visible(live)).toEqual(["read", "bash"])
     await h.fiber.dispose()
     expect(h.visible(live)).toEqual(["read", "bash"])
-    // A Host tool registered while bot-core is off is shown, but still refused.
     h.globals.push("late_tool")
     expect(h.denial("late_tool", live)).toMatch(/Host tool/)
     await h.load()
-    // The reload hides it at once and adds no second guard.
     expect(h.visible(live)).toEqual(["read", "bash"])
     expect(live.guards.size).toBe(1)
     expect(live.masks.size).toBe(1)
@@ -1499,7 +1435,6 @@ describe("bot-core apply", () => {
       expect(() => api.previewPreset("a", add(name))).toThrow("invalid overlay")
     }
     expect(rows.get("a")?.overlay).toBeUndefined()
-    // A plugin the default template uses, and one the config allows, are accepted.
     await expect(
       api.configurePreset("a", add("@deepseek-ai/dsh-tool-todo")),
     ).resolves.toMatchObject({
@@ -1563,7 +1498,6 @@ describe("bot-core apply", () => {
     await resolving
     expect(resumed).toBe(true)
     expect(h.presets.has("bot-a")).toBe(true)
-    // Other sessions do not wait.
     await expect(
       h.ctx.waterfall(
         "schedule/resolve-agent" as never,
@@ -1625,7 +1559,6 @@ describe("bot-core apply", () => {
         value: "host-checked",
         passed: true,
       })
-      // A Workspace session that picked a bot preset is not a bot's session: the Host checks it.
       await h.services.agentPresets.select(workspace, "bot-a")
       await expect(access(h, workspace, null)).resolves.toMatchObject({ passed: true })
     })
@@ -1682,7 +1615,6 @@ describe("bot-core apply", () => {
       )
       await flush()
       await h.announce(h.agent("s1", "bot-a", "bot-a"))
-      // A subagent of bot a that named bot b's preset: bot a's, locked down.
       const child = await h.announce(
         h.agent("c1", "bot-b", "bot-b", undefined, {
           parentSession: "s1",
@@ -1690,7 +1622,6 @@ describe("bot-core apply", () => {
           cwd: "/nowhere",
         }),
       )
-      // The VM would say /nowhere is missing and move it; bot b's VM is never asked.
       await expect(access(h, child, null)).resolves.toEqual({ value: "/nowhere", passed: false })
       expect(directoryChanges(child)).toEqual([])
       await expect(access(h, child, "sub")).rejects.toThrow('does not run bot "a"\'s preset')
@@ -1743,13 +1674,11 @@ describe("bot-core apply", () => {
       const h = await start(new Map([["a", bot()]]))
       await flush()
       await h.announce(h.agent("w1", "standard", "standard"))
-      // DSH writes the subagent's selected preset into its header.
       const child = await h.announce(
         h.agent("c1", "bot-a", "bot-a", undefined, { parentSession: "w1", origin: "subagent" }),
       )
       expect(h.denial("read", child)).toMatch(/outside that bot's sessions/)
       expect(h.visible(child)).toEqual(["read", "bash"])
-      // Its working directory goes to the Host's check, never the bot's environment.
       let passed = false
       await h.ctx.waterfall(
         "working-directory/access" as never,
@@ -1770,7 +1699,6 @@ describe("bot-core apply", () => {
         h.agent("c1", "bot-a", "bot-a", undefined, { parentSession: "gone", origin: "subagent" }),
       )
       expect(h.denial("read", orphan)).toMatch(/cannot be verified/)
-      // Its directory is neither checked on the Host nor in the environment, nor changed.
       let passed = false
       const ensure = (path: string | null) =>
         h.ctx.waterfall(
@@ -1784,7 +1712,6 @@ describe("bot-core apply", () => {
       await expect(ensure(null)).resolves.toBe("/home/bot/workspace")
       await expect(ensure("sub")).rejects.toThrow("cannot change")
       expect(passed).toBe(false)
-      // A fork bot-core recorded as the bot's is the bot's.
       const fork = await h.announce(h.agent("f1", "bot-a", "bot-a"))
       await flush()
       expect(h.memberships.has("f1")).toBe(true)
@@ -1825,7 +1752,6 @@ describe("bot-core apply", () => {
         }),
       ).rejects.toThrow("no bot environment")
       expect(rows.size).toBe(1)
-      // Registering one prepares every bot and registers its preset inside the group.
       botOf(h.ctx).registerEnvironment(h.env.environment)
       await flush()
       expect(h.env.ensured).toEqual(["a"])
@@ -2134,7 +2060,6 @@ describe("bot-core apply", () => {
         failure: { message: expect.stringContaining("image missing"), at: expect.any(Number) },
       })
       expect(rows.get(id)?.creationFailure).toMatchObject({ phase: "booting" })
-      // Held: the environment's own changes do not prepare it again.
       h.env.changed(id)
       await flush()
       expect(h.env.ensured).toEqual([id])
@@ -2421,7 +2346,6 @@ describe("bot-core apply", () => {
     it("holds the greeting until the bot's environment answers", async () => {
       followups.length = 0
       const h = await start(new Map())
-      // The first check fails like the E2E's first SSH connect, the next one answers.
       h.vmDirs.delete("/home/bot/workspace")
       const created = await h.created()
       await flush()
@@ -2479,11 +2403,6 @@ describe("bot-core apply", () => {
 
 type Bundle = { sandbox: string; approval: string }
 
-/**
- * dsh-permission-presets as far as bot-core relies on it: it pins the
- * profile's default on agent/created with `prepend`, and `set` records the
- * preset, then writes only the knobs that differ.
- */
 function presetsFake(table: Record<string, Bundle>, defaultPreset: string) {
   const knobs = (session: FakeAgent["session"]) => ({
     preset: (lastEvent(session, "permission/preset") as { preset: string } | undefined)?.preset,

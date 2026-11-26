@@ -1,26 +1,16 @@
-/** When a bot's Main session is compacted while it is idle, and when a new Main takes its place. */
-
-/** Why a Main session was replaced by a new one. */
 export const MAIN_ROTATION_REASONS = ["daily", "long-idle", "compactions", "owner"] as const
 
 export type MainRotationReason = (typeof MAIN_ROTATION_REASONS)[number]
 
 export interface MainRotationSettings {
-  /** Minutes without a turn after which the conversation counts as paused. */
   readonly quietMinutes: number
-  /** Compact a paused Main whose context is at least this full. */
   readonly idleCompaction: { readonly enabled: boolean; readonly minUsagePercent: number }
-  /** Start a new Main once a day at this local time ("HH:MM", the bot's time zone), when paused. */
   readonly daily: { readonly enabled: boolean; readonly time: string }
-  /** Start a new Main before the first input after this many minutes without a turn. */
   readonly longIdle: { readonly enabled: boolean; readonly minutes: number }
-  /** Start a new Main once this many compactions happened in it, when paused. */
   readonly compactions: { readonly enabled: boolean; readonly count: number }
-  /** Before every compaction and new Main, the Main writes what it still needs into its notes. */
   readonly memoryFlush: { readonly enabled: boolean }
 }
 
-/** A bot's own values; an absent field follows the dsh-bots defaults. */
 export interface MainRotationOverride {
   readonly quietMinutes?: number
   readonly idleCompaction?: Partial<MainRotationSettings["idleCompaction"]>
@@ -39,7 +29,6 @@ export const DEFAULT_MAIN_ROTATION: MainRotationSettings = {
   memoryFlush: { enabled: true },
 }
 
-/** Inclusive bounds of each number. */
 export const MAIN_ROTATION_BOUNDS = {
   quietMinutes: { min: 1, max: 1440 },
   minUsagePercent: { min: 1, max: 100 },
@@ -49,7 +38,6 @@ export const MAIN_ROTATION_BOUNDS = {
 
 const TIME = /^([01]\d|2[0-3]):([0-5]\d)$/
 
-/** The hour and minute of a daily time ("04:00"). @throws when it is not HH:MM. */
 export function parseDailyTime(time: string): { readonly hour: number; readonly minute: number } {
   const match = TIME.exec(time)
   if (match === null)
@@ -138,7 +126,6 @@ function section<K extends keyof typeof SECTIONS>(
   return out as Partial<MainRotationSettings[K]>
 }
 
-/** Complete settings (untrusted input), checked. @throws naming the first problem. */
 export function validateMainRotationSettings(input: unknown): MainRotationSettings {
   const value = record(input, "the settings")
   onlyKeys(value, ["quietMinutes", ...SECTION_KEYS], "the settings")
@@ -152,7 +139,6 @@ export function validateMainRotationSettings(input: unknown): MainRotationSettin
   } as MainRotationSettings
 }
 
-/** A bot's override (untrusted input), checked; empty sections are dropped. @throws naming the first problem. */
 export function validateMainRotationOverride(input: unknown): MainRotationOverride {
   const value = record(input, "the override")
   onlyKeys(value, ["quietMinutes", ...SECTION_KEYS], "the override")
@@ -172,7 +158,6 @@ export function validateMainRotationOverride(input: unknown): MainRotationOverri
   return out as MainRotationOverride
 }
 
-/** The settings a bot runs with: the defaults with its override laid over them field by field. */
 export function effectiveMainRotation(
   defaults: MainRotationSettings,
   override: MainRotationOverride,
@@ -187,22 +172,16 @@ export function effectiveMainRotation(
   }
 }
 
-/** What is being done to the bot's Main right now. */
 export type MainMaintenanceState = "idle" | "compacting" | "rotating"
 
-/** The bot's current Main as the settings show it. */
 export interface BotMainStatus {
   readonly sessionId: string
-  /** When it became the Main. */
   readonly startedAt: number
-  /** When its last turn ended; absent while it has had none. */
   readonly lastTurnAt?: number
-  /** Successful compactions in its log (automatic and idle). */
   readonly compactions: number
   readonly maintenance: MainMaintenanceState
 }
 
-/** One bot's Main settings and state, as `botMains.watch` streams them. */
 export interface BotMainsView {
   readonly botId: string
   readonly defaults: MainRotationSettings
@@ -211,15 +190,12 @@ export interface BotMainsView {
   readonly status: BotMainStatus
 }
 
-/** What starting a new Main came to. */
 export type MainRotationOutcome =
   | { readonly outcome: "started"; readonly sessionId: string }
-  /** The Main has had no turn yet: it already is a new one. */
   | { readonly outcome: "unchanged" }
   | {
       readonly outcome: "refused"
       readonly reason: MainRotationRefusal
-      /** English, for the person who asked. */
       readonly message: string
     }
 
@@ -227,16 +203,10 @@ export const MAIN_ROTATION_REFUSALS = ["busy", "preparation-failed", "not-ready"
 
 export type MainRotationRefusal = (typeof MAIN_ROTATION_REFUSALS)[number]
 
-/** The `botMains` Remote. */
 export interface BotMainsApi {
-  /** The dsh-bots defaults now, then after every change. */
   watchDefaults(signal?: AbortSignal): AsyncIterable<MainRotationSettings>
-  /** @throws when the settings are invalid. */
   setDefaults(settings: MainRotationSettings): Promise<MainRotationSettings>
-  /** The bot's view now, then after every change. */
   watch(botId: string, signal?: AbortSignal): AsyncIterable<BotMainsView>
-  /** Replace the bot's override (`{}` follows the defaults everywhere). @throws for an unknown bot or an invalid override. */
   configure(botId: string, override: MainRotationOverride): Promise<BotMainsView>
-  /** The owner starts a new Main now; refused unless the Main is idle. */
   startNew(botId: string): Promise<MainRotationOutcome>
 }

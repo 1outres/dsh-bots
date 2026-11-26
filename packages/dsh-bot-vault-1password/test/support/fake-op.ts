@@ -2,7 +2,6 @@ import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
-/** What the fake op answers to one argv (joined by spaces). */
 export interface FakeAnswer {
   readonly stdout?: string
   readonly stderr?: string
@@ -15,11 +14,6 @@ export interface FakeCall {
   readonly env: Readonly<Record<string, string>>
 }
 
-/**
- * An executable standing in for op: a Node script (its interpreter by
- * absolute path, since op runs without PATH) that logs its argv and
- * environment and answers from a scenario file the test rewrites.
- */
 export interface FakeOp {
   readonly binary: string
   readonly directory: string

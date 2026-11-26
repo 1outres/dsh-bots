@@ -1,10 +1,3 @@
-/**
- * manifest.txt of a base image release (infra/vm/export-image.sh):
- *   format 1
- *   dsh <DSH version>
- *   image <file name> <bytes> <sha256 = Incus fingerprint>
- *   part <file name> <bytes> <sha256>        (in order, at least one)
- */
 import type { BotEnvironmentImageFile } from "@1outres/dsh-bot-core"
 
 export interface ImagePart {

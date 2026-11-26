@@ -5,7 +5,6 @@ import type { SettingsBadge, SettingsBadgeTone } from "./sections"
 
 type BadgeKind = "failed" | "incomplete" | "connecting" | "connected"
 
-/** Worst first: one failed channel outweighs any connected one. */
 const RANK: readonly BadgeKind[] = ["failed", "incomplete", "connecting", "connected"]
 
 const TONE: Readonly<Record<BadgeKind, SettingsBadgeTone>> = {
@@ -48,7 +47,6 @@ const BADGES: Readonly<Record<BadgeKind, SettingsBadge>> = {
   connected: badge("connected"),
 }
 
-/** The Channels nav badge: the worst state among the bot's enabled channels, none while all are off. */
 export function channelsBadge(state: ChannelsState): SettingsBadge | null {
   if (state.status !== "ready") return null
   const kinds = new Set(state.snapshot.channels.map((view) => kindOf(view.status)))

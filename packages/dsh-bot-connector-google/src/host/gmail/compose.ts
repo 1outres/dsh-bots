@@ -1,7 +1,3 @@
-/**
- * What a sent message is, as one model: the preview a person approves and
- * the MIME the connector sends are both made from it, so they cannot differ.
- */
 import type { ConnectorPreview, ConnectorPreviewField } from "@1outres/dsh-bot-core"
 import {
   type Mailbox,
@@ -12,9 +8,7 @@ import {
   showMailbox,
 } from "./addresses"
 
-/** A file attached to a message, as the snapshot read it. */
 export interface AttachmentFact {
-  /** Where it came from: a path in the bot's environment, or its place among a forwarded message's attachments. */
   readonly source:
     | { readonly kind: "file"; readonly path: string }
     | { readonly kind: "forwarded"; readonly index: number }
@@ -24,7 +18,6 @@ export interface AttachmentFact {
   readonly sha256: string
 }
 
-/** The message a reply or forward is about, as the snapshot read it. */
 export interface OriginalFacts {
   readonly id: string
   readonly threadId: string
@@ -36,7 +29,6 @@ export interface OriginalFacts {
   readonly to: string
   readonly cc: string
   readonly date: string
-  /** Its text, when the reply quotes it or the message is forwarded. */
   readonly text?: string
 }
 
@@ -83,7 +75,6 @@ export interface MessageArguments {
   readonly body: string
 }
 
-/** A message as written, recipients not required yet (a draft). */
 export function composeMessage(
   args: MessageArguments,
   from: string,
@@ -219,7 +210,6 @@ export function sizeLabel(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MiB`
 }
 
-/** Everything the message carries, in the order a mail client shows it; the body follows. */
 export function previewOf(
   title: string,
   message: Outgoing,

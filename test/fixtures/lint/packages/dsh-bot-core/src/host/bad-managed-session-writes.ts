@@ -7,7 +7,7 @@ declare const deps: {
 }
 
 export async function write(id: string, record: unknown) {
-  await deps.managedSessions.put(id, record) // rule: 53
-  await deps.managedSessions.delete(id) // rule: 53
+  await deps.managedSessions.put(id, record)
+  await deps.managedSessions.delete(id)
   await deps.managed.start(id, record)
 }

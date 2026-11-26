@@ -13,7 +13,6 @@ export interface NotesSources {
   readonly classify: SessionClassifier["classify"]
 }
 
-/** The notes panel of the bot sessions: its state per session, reading through `remote.botNotes`. */
 export function wireNotes(ctx: ClientContext, sources: NotesSources): NotesFace {
   const models = createNotesModels(createNotesClient(sources.remote), BROWSER_TIMERS)
   ctx.effect(() => () => models.dispose(), "bot-core: notes models")

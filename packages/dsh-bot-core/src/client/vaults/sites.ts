@@ -2,7 +2,6 @@ import type { VaultSite } from "../../shared/vaults"
 
 const WILDCARD = /^(https:\/\/)\*\.(.+)$/
 
-/** Sites as the owner types them: one origin per line, `https://*.host` for its subdomains too. */
 export function sitesText(sites: readonly VaultSite[]): string {
   return sites
     .map((site) => (site.subdomains ? site.origin.replace("https://", "https://*.") : site.origin))

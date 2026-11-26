@@ -1,17 +1,14 @@
 import type { BotQuestion, BotQuestionAnswer } from "@1outres/dsh-bot-core"
 
-/** One question's draft in one person's DM: chosen labels, a text answer, or a skip. */
 export interface DraftItem {
   readonly selected: readonly string[]
   readonly custom?: string
   readonly skipped: boolean
 }
 
-/** One person's draft of a question batch: the shown page and each question's draft. */
 export interface QuestionDraft {
   readonly page: number
   readonly items: readonly DraftItem[]
-  /** Why the last submission did not go (shown on the message). */
   readonly notice?: DraftNotice
 }
 
@@ -31,7 +28,6 @@ function replace(draft: QuestionDraft, question: number, item: DraftItem): Quest
   return { page: draft.page, items }
 }
 
-/** The page after `from` still unanswered, else `from`. */
 function nextPage(items: readonly DraftItem[], from: number): number {
   for (let at = from + 1; at < items.length; at += 1) if (!isAnswered(items[at])) return at
   return from
@@ -45,7 +41,6 @@ export function goTo(
   return { items: draft.items, page: Math.max(0, Math.min(questions.length - 1, page)) }
 }
 
-/** Choose one option of a single-select question (it replaces the answer and moves on) or toggle it on a multi-select one. */
 export function choose(
   questions: readonly BotQuestion[],
   draft: QuestionDraft,
@@ -69,7 +64,6 @@ export function choose(
   })
 }
 
-/** Replace the choices a multi-select menu covers (`labels` of one menu, `chosen` among them). */
 export function selectIn(
   questions: readonly BotQuestion[],
   draft: QuestionDraft,
@@ -92,7 +86,6 @@ export function selectIn(
   })
 }
 
-/** A text answer: on a single-select question it replaces the choice and moves on; empty text removes it. */
 export function write(
   questions: readonly BotQuestion[],
   draft: QuestionDraft,
@@ -130,7 +123,6 @@ export function withNotice(draft: QuestionDraft, notice: DraftNotice | undefined
   return notice === undefined ? rest : { ...rest, notice }
 }
 
-/** The answers, or the first question still unanswered. */
 export function answersOf(
   questions: readonly BotQuestion[],
   draft: QuestionDraft,

@@ -18,26 +18,19 @@ import { type CommitResult, commitWith } from "../ui/commit"
 import { failureText } from "./failure-text"
 import type { SettingsSectionProps } from "./sections"
 
-/** One language DSH offers (dsh-client-locale's selectable locales). */
 export interface LanguageOption {
   readonly id: string
-  /** Its name in its own language. */
   readonly label: string
 }
 
 export interface GeneralSectionDeps {
-  /** Rejects with the Host's message when the change is refused. */
   saveBot(id: string, change: BotUpdateInput): Promise<void>
-  /** Ask the user to confirm deleting the bot. */
   deleteBot(id: string): void
-  /** The languages a bot may greet in. */
   languages(): readonly LanguageOption[]
 }
 
-/** The value of the language select while the bot has none. */
 const UNSET = ""
 
-/** The bot's name and avatar, its time zone and language, and Delete; each saved as it changes. */
 export function GeneralSection({
   t,
   bot,
@@ -137,7 +130,6 @@ export function GeneralSection({
   )
 }
 
-/** The last refusal of one setting's saves, cleared by its next accepted save. */
 function useSaveOutcome(save: (change: BotUpdateInput) => Promise<CommitResult>) {
   const [error, setError] = useState<string | null>(null)
   const run = (change: BotUpdateInput) =>
@@ -145,10 +137,6 @@ function useSaveOutcome(save: (change: BotUpdateInput) => Promise<CommitResult>)
   return { error, run }
 }
 
-/**
- * DSH's languages, the bot's own when DSH no longer offers it, and a "Not set"
- * choice only while the bot has none (it cannot be picked back).
- */
 export function languageChoices(
   offered: readonly LanguageOption[],
   current: string | undefined,

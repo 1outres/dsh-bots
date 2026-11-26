@@ -1,9 +1,3 @@
-/**
- * The browser's login tools on the Host: the value reaches only the
- * helper's standard input (after the line that announces it), is wiped
- * there, goes to the origin the helper located, and never into a result,
- * an argv or Playwright MCP.
- */
 import type {
   BotConnectorRun,
   BotCredential,
@@ -35,7 +29,6 @@ const LOGIN: BotCredential = {
   desktop: false,
 }
 
-/** A helper whose answers the test scripts; every write is kept as given (to check the wipe). */
 function fakeHelper(
   script: (input: Uint8Array[], reply: (line: object) => void, ended: boolean) => void,
 ) {
@@ -97,7 +90,6 @@ function fakeHelper(
     writes,
     copies,
     isClosed: () => closed,
-    /** Whether the helper had answered "cancelled" by the time it was terminated. */
     cancelledBeforeClose: () => cancelledAtClose,
   }
 }
@@ -194,7 +186,6 @@ function setup(
   return { run, spawned, calls: server.calls, tool }
 }
 
-/** Answers as the fill helper: located at `origin`, then filled once the value arrived. */
 const fillScript =
   (origin: string) => (input: Uint8Array[], reply: (line: object) => void, ended: boolean) => {
     if (input.length === 1 && !ended) reply({ located: { origin, element: "input:password" } })

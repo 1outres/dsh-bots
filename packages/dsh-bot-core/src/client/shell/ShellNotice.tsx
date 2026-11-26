@@ -9,22 +9,15 @@ import type { Viewer } from "../viewer"
 import type { NoticeDismissal } from "./notice-dismissal"
 import { connectionNotice, shellNotice } from "./shell-view"
 
-/** `neutral` says how things are, `warning` and `danger` that something failed. */
 export type BannerTone = "neutral" | "warning" | "danger"
 
-/**
- * One line floating under the header, over the transcript (it never moves
- * it); a dismissible one ends in ×, which hands focus to `afterDismiss`.
- */
 export function Banner(props: {
   readonly t: Translate
   readonly tone: BannerTone
   readonly role: "alert" | "status"
-  /** The banner's data attribute, which names what it says. */
   readonly marker: `data-dshb-shell-${string}`
   readonly text: string
   readonly dismiss?: { onDismiss(): void; afterDismiss(): void }
-  /** A row button after the text (Review). */
   readonly action?: { readonly label: string; onAction(): void }
 }) {
   const { t, dismiss, action } = props
@@ -73,7 +66,6 @@ export interface ShellNoticeProps {
   readonly afterDismiss: () => void
 }
 
-/** The session's notice: a refused lockdown, or what the session's viewer could not open. */
 export function ShellNotice(props: ShellNoticeProps) {
   const { t, sessionId, viewer, afterDismiss } = props
   const view = shellNotice(
@@ -96,7 +88,6 @@ export function ShellNotice(props: ShellNoticeProps) {
       )
     case "viewer":
       return (
-        // Keyed by serial: a repeated notice is a new live region, announced again.
         <Banner
           key={view.notice.serial}
           t={t}
@@ -110,7 +101,6 @@ export function ShellNotice(props: ShellNoticeProps) {
   }
 }
 
-/** A failure of the bot's own, as on its row. */
 export function BotErrorStatus(props: {
   readonly t: Translate
   readonly error: string
@@ -130,7 +120,6 @@ export function BotErrorStatus(props: {
   )
 }
 
-/** The word on the bots list: reconnecting, or unavailable. */
 export function ConnectionStatus(props: {
   readonly t: Translate
   readonly bots: Observable<BotsState>
@@ -162,7 +151,6 @@ export function ConnectionStatus(props: {
   }
 }
 
-/** Credential incidents of the bot its owner has not acknowledged: they stay until acknowledged. */
 export function IncidentStatus(props: {
   readonly t: Translate
   readonly count: number | undefined

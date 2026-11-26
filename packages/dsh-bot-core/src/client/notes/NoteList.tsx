@@ -41,7 +41,6 @@ function NoteRow({ t, note, open }: { t: Translate; note: NoteHit; open(noteId: 
   )
 }
 
-/** The notes as a list: search, a type, the pinned notes apart while neither is set. */
 export function NoteList({ t, model, status }: NoteListProps) {
   const navigation = useObservable(model.navigation)
   const load = useObservable(model.listing)

@@ -1,9 +1,5 @@
 import type { Range } from "./matching"
 
-/**
- * What `after` adds to `before`: its lines that are not in their longest
- * common subsequence, each narrowed to what differs from the line it replaced.
- */
 export function addedRanges(before: string, after: string): readonly Range[] {
   if (before === "") return after === "" ? [] : [{ start: 0, end: after.length }]
   const old = before.split("\n")

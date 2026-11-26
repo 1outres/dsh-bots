@@ -1,8 +1,3 @@
-/**
- * `@1outres/dsh-bot-discord` (row `bot-discord`): registers the `discord`
- * channel with bot-core. This file is the composition root: it wires the
- * Host modules to timers, to discord.js and to DSH's storage domains.
- */
 import type { Bot } from "@1outres/dsh-bot-core"
 import type { Context } from "@deepseek-ai/cordis"
 import type { CardRecord, DigestRecord } from "./host/actions/domain"
@@ -16,10 +11,6 @@ import { purgeIncidentNotices } from "./host/incidents/records"
 import type { Scheduler } from "./host/ports"
 
 export const name = "bot-discord"
-/**
- * The `bot` service of @1outres/dsh-bot-core. Only types come from that
- * package: a value import would bundle bot-core's runtime into this one.
- */
 const BOT = "bot"
 const STORAGE = "storageDomain"
 export const inject = ["bot", "storageDomain"]

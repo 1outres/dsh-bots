@@ -1,10 +1,3 @@
-/**
- * One note file (docs/specs/bot-notes.md §2): `notes/<UUID>.md`, a YAML
- * frontmatter of the fields below, then the body as the current state of the
- * thing. Only the subset of YAML a note needs is read and written: plain or
- * quoted scalars, `true` / `false`, and a list as `[a, b]` or as `- a` lines.
- */
-
 import { NOTE_TYPES, type NoteType } from "../../shared/notes"
 
 export { NOTE_TYPES, type NoteType }
@@ -13,12 +6,10 @@ export interface NoteFields {
   readonly title: string
   readonly type: NoteType
   readonly aliases: readonly string[]
-  /** One line; absent only on daily notes. */
   readonly summary?: string
   readonly pinned: boolean
 }
 
-/** A note as stored: its body's links name notes by id. */
 export interface Note extends NoteFields {
   readonly body: string
 }
@@ -27,7 +18,6 @@ export const NOTES_DIRECTORY = "notes"
 
 const NOTE_FILE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.md$/
 
-/** The note id a file name of the notes directory carries, or undefined for any other file. */
 export function noteIdOf(fileName: string): string | undefined {
   return NOTE_FILE.exec(fileName)?.[1]
 }
@@ -43,7 +33,6 @@ type Key = (typeof KEYS)[number]
 
 const isKey = (key: string): key is Key => (KEYS as readonly string[]).includes(key)
 
-/** Why a title or alias cannot be one: it must fit a link. */
 export function nameProblem(name: string): string | undefined {
   if (name.trim() === "") return "is empty"
   if (name !== name.trim()) return "starts or ends with a space"
@@ -135,7 +124,6 @@ function listOf(first: string, rest: readonly string[]): Parsed<readonly string[
   return { ok: true, value: values }
 }
 
-/** Split a file into its frontmatter lines and its body. */
 function sections(
   text: string,
 ): Parsed<{ readonly head: readonly string[]; readonly body: string }> {
@@ -156,7 +144,6 @@ function sections(
   }
 }
 
-/** Read a note file. */
 export function parseNote(text: string): Parsed<Note> {
   const split = sections(text)
   if (!split.ok) return split
@@ -223,7 +210,6 @@ export function parseNote(text: string): Parsed<Note> {
 
 const DATE_TITLE = /^(\d{4})-(\d{2})-(\d{2})$/u
 
-/** Whether `title` is a calendar date written YYYY-MM-DD, the title of a daily note. */
 export function isDateTitle(title: string): boolean {
   const match = DATE_TITLE.exec(title)
   if (match === null) return false
@@ -240,7 +226,6 @@ export function validDate(year: number, month: number, day: number): boolean {
 export const dateTitle = (year: number, month: number, day: number) =>
   `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
 
-/** What makes a note's fields inconsistent, or undefined. */
 export function fieldsProblem(fields: NoteFields): string | undefined {
   for (const alias of fields.aliases) {
     const problem = nameProblem(alias)
@@ -272,7 +257,6 @@ function quoted(value: string, inList: boolean): string {
   return plain ? value : JSON.stringify(value)
 }
 
-/** Write a note file; `parseNote` reads it back as the same note. */
 export function serializeNote(note: Note): string {
   const lines = [
     "---",

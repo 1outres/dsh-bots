@@ -5,17 +5,14 @@ import type { VaultStore } from "./store"
 import { credentialsListAnswer } from "./texts"
 
 export interface VaultRowsDeps<A> {
-  /** Whether `token` is the token of a revision of the bot's preset registered during this load. */
   sealed(botId: string, token: string): boolean
   agent(agentId: string): A | undefined
-  /** The bot the Agent's session verifiably belongs to (host/preset/identity.ts). */
   botOf(agent: A): string | undefined
   checks: VaultChecks
   access: Pick<VaultAccess, "credentials">
   store: Pick<VaultStore, "grants">
 }
 
-/** What bot-core's vault rows (src/plugins/vaults.ts, src/plugins/vault-guard.ts) reach through the `bot` service. */
 export type VaultRows = Omit<BotVaultsBackend, "register" | "list">
 
 export function createVaultRows<A>(deps: VaultRowsDeps<A>): VaultRows {

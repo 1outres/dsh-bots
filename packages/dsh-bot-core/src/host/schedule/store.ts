@@ -2,37 +2,24 @@ import type { BotTable } from "../registry"
 import type { JobRecord, RunRecord, ScheduleJob, ScheduleRun } from "./domain"
 
 export interface ScheduleStoreDeps {
-  /** The tables of SCHEDULES_DOMAIN; only the store writes them (design rule 42). */
   jobs: BotTable<JobRecord>
   runs: BotTable<RunRecord>
-  /** Ended runs kept per job, newest first. */
   readonly keepRuns: number
 }
 
-/**
- * Bots' schedule jobs and their latest runs. Writes are serialized; a run
- * belongs to its job: deleting the job deletes its ended runs, and a run that
- * ends after its job was deleted is not kept.
- */
 export interface ScheduleStore {
-  /** Jobs, oldest first; only `botId`'s when given. */
   jobs(botId?: string): ScheduleJob[]
   job(id: string): ScheduleJob | undefined
   putJob(id: string, record: JobRecord): Promise<ScheduleJob>
   deleteJob(id: string): Promise<void>
-  /** The job's runs, newest first. */
   runs(jobId: string): ScheduleRun[]
   run(id: string): ScheduleRun | undefined
-  /** The kept run of a `separate` job that ran in `sessionId`. */
   runOfSession(sessionId: string): ScheduleRun | undefined
-  /** Every run still running. */
   running(): ScheduleRun[]
   putRun(id: string, record: RunRecord): Promise<ScheduleRun>
-  /** Drop the jobs (and runs) of bots `keep` refuses. */
   purge(keep: (botId: string) => boolean): Promise<void>
 }
 
-/** The stored part of a value that may carry its id. */
 function stored<V extends object>(value: V & { readonly id?: string }): V {
   const { id: _id, ...record } = value
   return record as V

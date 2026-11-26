@@ -1,11 +1,3 @@
-/**
- * A fake Google for tests and verification DSHs (never shipped): OAuth 2.0
- * (an account picker instead of a password), userinfo, and the parts of the
- * Gmail and Calendar APIs the Google connector calls, under Google's own
- * paths. State lives in memory. `/_admin/*` lets a test or a person play the
- * outside world: deliver an email, change a password, let the history expire,
- * have someone else edit a calendar.
- */
 import { createHash, randomBytes } from "node:crypto"
 import { createServer } from "node:http"
 import { parseMime } from "./mime.js"
@@ -13,9 +5,6 @@ import { parseMime } from "./mime.js"
 const b64url = (data) => Buffer.from(data).toString("base64url")
 const html = (text) => String(text).replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`)
 
-/**
- * @param {{ clientId?: string, clientSecret?: string, accounts?: { sub: string, email: string, name: string }[], accessTokenSeconds?: number }} [options]
- */
 export function createFakeGoogle(options = {}) {
   const client = {
     id: options.clientId ?? "fake-client.apps.googleusercontent.com",
@@ -78,7 +67,6 @@ export function createFakeGoogle(options = {}) {
       account.history.push({ id: String(account.historyId), messagesAdded })
   }
 
-  /** @returns the stored message */
   const store = (account, raw, labelIds, threadId) => {
     const parsed = parseMime(raw)
     const messageId = parsed.headers["message-id"] ?? `<${id("m")}@fake.google>`
@@ -746,7 +734,6 @@ export function createFakeGoogle(options = {}) {
     requests,
     accounts,
     deliver,
-    /** @param {number} port @param {string} host */
     listen(port = 0, host = "127.0.0.1") {
       return new Promise((resolve) => {
         server.listen(port, host, () => {

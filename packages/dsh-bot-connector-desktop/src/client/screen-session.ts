@@ -3,19 +3,12 @@ import RFB from "@novnc/novnc"
 import type { ScreenHolder, ScreenRequest } from "../shared/screen"
 import { ScreenChannel } from "./channel"
 
-/**
- * - `connecting`: the stream is opening;
- * - `connected`: the screen shows;
- * - `paused`: the page is hidden and this viewer does not hold the input, so no picture is fetched;
- * - `disconnected`: the stream ended; it is opened again at `retryAt` (or now, on request).
- */
 export type ScreenStatus = "connecting" | "connected" | "paused" | "disconnected"
 
 export interface ScreenState {
   readonly status: ScreenStatus
   readonly holder: ScreenHolder
   readonly request: ScreenRequest | null
-  /** While disconnected: when the stream opens again. */
   readonly retryAt?: number
 }
 
@@ -27,7 +20,6 @@ export interface ScreenTimers {
 export interface ScreenSessionDeps {
   open(): ConnectorPanelStream
   readonly target: HTMLElement
-  /** The page's visibility. */
   readonly page: {
     hidden(): boolean
     onChange(listener: () => void): () => void
@@ -39,7 +31,6 @@ const FIRST_RETRY_MS = 2_000
 const MAX_RETRY_MS = 30_000
 const INITIAL: ScreenState = { status: "connecting", holder: "agent", request: null }
 
-/** One viewer of a bot's desktop: noVNC on the panel's `screen` stream, and the state the panel draws. */
 export class ScreenSession {
   private state: ScreenState = INITIAL
   private readonly listeners = new Set<() => void>()
@@ -65,7 +56,6 @@ export class ScreenSession {
 
   readonly getSnapshot = (): ScreenState => this.state
 
-  /** Open the stream now (again). */
   connect(): void {
     if (this.disposed) return
     this.teardown()
@@ -114,7 +104,6 @@ export class ScreenSession {
     this.channel?.control("decline")
   }
 
-  /** Send Ctrl+Alt+Del (only from the viewer in control; the Host drops it otherwise). */
   ctrlAltDel(): void {
     this.rfb?.sendCtrlAltDel()
   }

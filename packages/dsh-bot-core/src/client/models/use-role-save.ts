@@ -2,17 +2,14 @@ import { useCallback, useState } from "react"
 import type { BotModelChoice, BotModelsChange } from "../../shared/models"
 import { ModelsError, type ModelsFailure } from "./feed"
 
-/** A refused save, with the choice of a list it names when it names one. */
 export interface RoleFailure {
   readonly failure: ModelsFailure
   readonly subject?: BotModelChoice
 }
 
-/** The saves of one role: one at a time, the last refusal kept until the next accepted save. */
 export interface RoleSave {
   readonly busy: boolean
   readonly failure: RoleFailure | null
-  /** Resolves whether the change was stored. */
   run(change: BotModelsChange): Promise<boolean>
 }
 

@@ -1,11 +1,8 @@
-/** Discord's limit on one message's content. */
 export const MESSAGE_LIMIT = 2000
 
 const FENCE = /^\s*(`{3,}|~{3,})/
-/** A longer opening line is reopened as its bare fence, so the next message keeps its room. */
 const MAX_REOPEN = 32
 
-/** The fence a chunk leaves open, if any: the line that opened it. */
 function openFence(text: string, opened: string | undefined): string | undefined {
   let current = opened
   for (const line of text.split("\n")) {
@@ -19,7 +16,6 @@ function openFence(text: string, opened: string | undefined): string | undefined
   return current
 }
 
-/** Where to cut `text` at most `limit` units in: a paragraph, a line, a space, else anywhere but inside a surrogate pair. */
 function cutPoint(text: string, limit: number): number {
   const window = text.slice(0, limit + 1)
   const floor = Math.floor(limit / 2)
@@ -31,13 +27,6 @@ function cutPoint(text: string, limit: number): number {
   return code >= 0xd800 && code <= 0xdbff ? limit - 1 : limit
 }
 
-/**
- * Split a reply into Discord messages of at most `limit` UTF-16 units
- * (Discord counts no more than that), cutting at paragraph, line or word
- * boundaries when one lies in the second half of the window. A code block
- * cut in two is closed at the end of one message and opened again (same
- * fence and language) at the start of the next.
- */
 export function splitMessage(text: string, limit = MESSAGE_LIMIT): string[] {
   const chunks: string[] = []
   let rest = text.trim()

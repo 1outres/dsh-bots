@@ -1,12 +1,3 @@
-/**
- * The only way to a login's values (docs/specs/bot-vaults.md §5, design rule
- * 59): every reveal is checked against the bot's login (its handle, kinds,
- * connectors, the provider's kinds, the target's origin or the desktop
- * switch, a passkey's relying party), recorded, and fingerprinted for the
- * leak guard before it is handed over. A refusal is recorded too. What the
- * bot reads of a failure is bot-core's own wording; the provider's message
- * goes to the owner's history only.
- */
 import {
   GUARDED_KINDS,
   isCredentialHandle,
@@ -43,11 +34,9 @@ export interface VaultAccessDeps {
   availability: Pick<VaultAvailability, "set">
   newId(): string
   now(): number
-  /** For the Host's log: never a value or an id of the provider. */
   warn(message: string): void
 }
 
-/** Which tool of which connector reaches the logins, for whom. */
 export interface VaultAccessContext {
   readonly botId: string
   readonly connector: string
@@ -56,13 +45,11 @@ export interface VaultAccessContext {
   readonly signal: AbortSignal
 }
 
-/** A connector run's access, and the end of it: every value it handed out is wiped then. */
 export interface VaultRun {
   readonly access: BotVaultAccess
   release(): void
 }
 
-/** A login as `credentials_list` shows it, with whether its item could be read now. */
 export interface ListedCredential {
   readonly credential: BotCredential
   readonly connectors: readonly string[]
@@ -71,15 +58,11 @@ export interface ListedCredential {
 
 export interface VaultAccess {
   forRun(context: VaultAccessContext): VaultRun
-  /** The bot's logins as it sees them (their items read now). */
   credentials(botId: string, signal: AbortSignal): Promise<readonly ListedCredential[]>
-  /** The login's item now, read again (its availability follows). */
   item(grant: VaultGrantRecord, signal: AbortSignal): Promise<VaultItemSummary | undefined>
-  /** Fingerprint the secrets a new or changed login may reveal (each read once). */
   fingerprintGrant(botId: string, grantId: string, signal: AbortSignal): Promise<void>
 }
 
-/** A refusal: its message is what the connector and the record say. */
 export class VaultRefusal extends Error {
   override readonly name = "VaultRefusal"
 }
@@ -101,7 +84,6 @@ const targetOf = (target: CredentialTarget): VaultUseTarget =>
 const isGuarded = (kind: VaultFieldKind): kind is VaultSecretKind =>
   (GUARDED_KINDS as readonly string[]).includes(kind)
 
-/** A failure of the provider, with what the owner may read of it. */
 class ProviderFailure extends Error {
   override readonly name = "ProviderFailure"
   constructor(

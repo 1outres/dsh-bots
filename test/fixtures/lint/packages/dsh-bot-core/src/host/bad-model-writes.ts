@@ -4,7 +4,7 @@ declare const deps: {
 }
 
 export async function write(id: string, record: unknown) {
-  await deps.models.put(id, record) // rule: 51
-  await deps.models.delete(id) // rule: 51
+  await deps.models.put(id, record)
+  await deps.models.delete(id)
   await deps.modelStore.create(id, record)
 }

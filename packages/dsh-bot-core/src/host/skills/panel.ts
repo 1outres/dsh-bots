@@ -1,12 +1,3 @@
-/**
- * What the `botSkills` Remote serves (docs/specs/bot-skills.md §5): each
- * bot's skills as last read from its environment while the Web UI watches
- * them, their history, the owner's restores (through skill_manage's checks,
- * as versions of origin `owner`), the owner's `keep` marks, and the
- * `skillReview` and `skillCurator` settings. What the store and the
- * schedule add to a skill (its use, its mark, when it is archived) is read
- * when the view is, so the view is current without reading the files again.
- */
 import type {
   BotSkillHistory,
   BotSkillSummary,
@@ -25,17 +16,13 @@ export interface SkillPanelDeps {
   skills: Pick<BotSkills, "read" | "manageAsOwner" | "subscribe">
   store: SkillStore
   retentions: Pick<SkillRetentions, "of">
-  /** The registered revision's skills place of the bot, or undefined. */
   placeOf(botId: string): SkillsPlace | undefined
   exists(botId: string): boolean
-  /** Aborts after the time one reading may take, and when the plugin unloads. */
   deadline(): AbortSignal
 }
 
 export interface SkillPanel {
-  /** @throws for an unknown bot. */
   view(botId: string): BotSkillsView
-  /** Follow the bot's skills while `watching` is held: read them now and after each change. */
   follow(botId: string): () => void
   history(botId: string, name: string): BotSkillHistory
   version(botId: string, name: string, versionId: string): SkillVersion
@@ -44,9 +31,7 @@ export interface SkillPanel {
   setReview(botId: string, enabled: unknown): Promise<BotSkillsView>
   setCurator(botId: string, enabled: unknown): Promise<BotSkillsView>
   setKeep(botId: string, name: string, keep: unknown): Promise<BotSkillsView>
-  /** The bot's schedule jobs changed: what keeps its skills may have. */
   jobsChanged(): void
-  /** Called with the bot id after anything the view shows changed. */
   subscribe(listener: (botId: string) => void): () => void
   dispose(): void
 }

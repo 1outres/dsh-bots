@@ -26,7 +26,6 @@ import type { SettingsScreenId } from "../src/client/wiring/screens"
 import { bot, idleApprovals, idleConnectorPanels, t, value } from "./support/client"
 import { notesFace } from "./support/notes"
 
-/** A viewer face whose Remote is never reached while the panel stays closed. */
 function filesFace(viewer: Viewer = createViewer()): FilesFace {
   const models = createSessionModels({} as BotFilesClient, { set: () => 0, clear: () => {} })
   return {

@@ -1,7 +1,6 @@
 import type { BotApprovalAction } from "@1outres/dsh-bot-core"
 import { CUSTOM_ID_LIMIT } from "../discord"
 
-/** What one component (or the modal it opens) of an interaction message does. */
 export type InteractionAction =
   | { readonly kind: "choose"; readonly question: number; readonly option: number }
   | { readonly kind: "select"; readonly question: number; readonly chunk: number }
@@ -47,12 +46,6 @@ function codeOf(action: InteractionAction): string {
   }
 }
 
-/**
- * A component's custom id: `dshb:<interaction id>:<action>`. It names
- * bot-core's interaction and the question and option by their positions, so
- * it stays within Discord's 100 characters whatever the labels are, and a
- * message posted before a reconnection still answers.
- */
 export function encodeCustomId(interactionId: string, action: InteractionAction): string {
   if (!INTERACTION_ID.test(interactionId))
     throw new Error(`interaction id "${interactionId}" cannot be encoded`)
@@ -103,7 +96,6 @@ function actionOf(code: string): InteractionAction | undefined {
   }
 }
 
-/** The interaction and action a custom id names; undefined for any other id. */
 export function decodeCustomId(
   customId: string,
 ): { readonly interactionId: string; readonly action: InteractionAction } | undefined {

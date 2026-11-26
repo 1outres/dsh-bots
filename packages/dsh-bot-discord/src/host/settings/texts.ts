@@ -1,6 +1,5 @@
 import type { BotChannelText } from "@1outres/dsh-bot-core"
 
-/** What the settings form shows from Discord: option labels, reasons, warnings. */
 export const SETTINGS_TEXTS = {
   directMessages: { en: "Direct messages", ja: "ダイレクトメッセージ" },
   directMessagesDetail: {

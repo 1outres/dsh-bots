@@ -1,8 +1,3 @@
-// Design rule 50: DSH's step waterfall is joined only by bot-core's notes and skills rows.
-// Listening to "agent/pre-step" is allowed only in
-// packages/dsh-bot-core/src/plugins/notes.ts and src/plugins/skills.ts, the
-// rows inside every bot's preset group: DSH dispatches the waterfall to that preset's Agents only. A
-// listener anywhere else is global and changes what every session's steps take in.
 JsCallExpression(callee = $callee, arguments = $arguments) as $call where {
   $callee <: or { `$_.on`, `$_?.on`, `on` },
   $arguments <: contains JsStringLiteralExpression() as $event where {

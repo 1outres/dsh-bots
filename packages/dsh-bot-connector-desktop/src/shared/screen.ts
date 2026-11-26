@@ -1,23 +1,13 @@
-/**
- * The desktop panel's `screen` stream (bot-core's `botConnectorStreams`),
- * shared by the Host relay and the browser: RFB bytes in base64 both ways
- * (the Gateway's stream items are JSON), who holds the input, and the
- * bot's request that a person take over.
- */
-
 export const SCREEN_STREAM = "screen"
 
-/** Who holds the input, as one viewer sees it. */
 export type ScreenHolder = "agent" | "self" | "other"
 
-/** The bot's request that a person take over (its reason is the bot's, untrusted). */
 export type ScreenRequest = {
   readonly id: string
   readonly reason: string
   readonly since: number
 }
 
-/** Host to browser. */
 export type ScreenDown =
   | { readonly type: "rfb"; readonly data: string }
   | {
@@ -26,17 +16,12 @@ export type ScreenDown =
       readonly request: ScreenRequest | null
     }
 
-/** Browser to Host. */
 export type ScreenUp =
   | { readonly type: "rfb"; readonly data: string }
-  /** Take the input from the agent or another viewer. */
   | { readonly type: "take" }
-  /** Hand it back to the agent. */
   | { readonly type: "release" }
-  /** Turn the bot's request down without taking over. */
   | { readonly type: "decline" }
 
-/** Longest base64 of one `rfb` item from the browser (under the Gateway's 256 KiB uplink inbox). */
 export const MAX_UP_RFB_CHARS = 192 * 1024
 
 const BASE64 = /^[A-Za-z0-9+/]*={0,2}$/
@@ -57,7 +42,6 @@ function requestOf(value: unknown): ScreenRequest | null {
   return { id: request.id, reason: request.reason, since: request.since }
 }
 
-/** Check one item from the Host (the browser's side). @throws for anything else. */
 export function parseScreenDown(value: unknown): ScreenDown {
   const item = (typeof value === "object" && value !== null ? value : {}) as Readonly<
     Record<string, unknown>
@@ -73,7 +57,6 @@ export function parseScreenDown(value: unknown): ScreenDown {
   throw new Error("unknown screen item from the Host")
 }
 
-/** Check one item from the browser. @throws for anything else. */
 export function parseScreenUp(value: unknown): ScreenUp {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error("a screen item must be an object")

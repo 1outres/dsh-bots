@@ -5,13 +5,11 @@ import { dueBetween, type ReleaseNote } from "../../shared/release-notes"
 import type { OnboardingRecord, WelcomeRecord } from "./domain"
 import { seenAfterAcknowledging } from "./initial"
 
-/** The guide's first bot is being created. Only from `open`. */
 export function tracking(record: OnboardingRecord, botId: string, now: number): OnboardingRecord {
   if (record.welcome.status !== "open") return record
   return { ...record, welcome: { status: "creating", botId, startedAt: now }, updatedAt: now }
 }
 
-/** "Later": an open guide is done without a bot, a creating one with the bot it is creating. */
 export function finishing(record: OnboardingRecord, now: number): OnboardingRecord {
   const { welcome } = record
   switch (welcome.status) {
@@ -28,11 +26,6 @@ export function finishing(record: OnboardingRecord, now: number): OnboardingReco
   }
 }
 
-/**
- * Where a creating guide goes with the bots as they are: done once its bot
- * is listed, open again once the bot is neither listed nor pending (it was
- * discarded). A failed creation stays, to be retried or discarded.
- */
 export function welcomeAfter(
   welcome: WelcomeRecord,
   snapshot: Pick<BotsSnapshot, "bots" | "pending">,
@@ -72,7 +65,6 @@ function welcomeView(welcome: WelcomeRecord): BotWelcomeView {
 
 export function onboardingView(
   record: OnboardingRecord,
-  /** The notes read so far, newest first; those not seen yet are shown. */
   notes: readonly ReleaseNote[],
   version: string,
   channels: readonly BotChannelDescriptor[],

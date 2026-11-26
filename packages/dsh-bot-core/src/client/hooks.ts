@@ -14,7 +14,6 @@ export function useObservable<T>(observable: Observable<T>): T {
 
 const unsubscribed = () => {}
 
-/** {@link useObservable} for a value that may not exist; undefined while it does not. */
 export function useOptionalObservable<T>(observable: Observable<T> | undefined): T | undefined {
   const subscribe = useCallback(
     (listener: () => void) =>
@@ -25,7 +24,6 @@ export function useOptionalObservable<T>(observable: Observable<T> | undefined):
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 }
 
-/** The current time, every second while `running`. */
 export function useNow(running: boolean): number {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {

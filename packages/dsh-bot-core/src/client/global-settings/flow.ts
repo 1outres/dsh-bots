@@ -7,28 +7,15 @@ import {
 } from "../settings-frame/flow"
 import type { GlobalSettingsSection } from "./sections"
 
-/** The open dsh-bots settings screen: its section (`null` while none is registered) and page. */
 export type GlobalSettingsTarget = FrameTarget
 
-/** Opening, moving through and closing the dsh-bots settings, asking before typed text is lost. */
 export interface GlobalSettingsFlow extends FrameControls {
   readonly target: Observable<GlobalSettingsTarget | null>
   readonly guard: Observable<FrameGuard>
-  /**
-   * Open the screen at `section` (on a compact window, at the list of
-   * sections when omitted) and its `detail` page. On the open screen, this
-   * moves there.
-   * @throws when `section` is not registered.
-   */
   open(section?: string, detail?: string): void
   dispose(): void
 }
 
-/**
- * The flow of the dsh-bots settings screen. While it is open, it follows the
- * registered sections: the first one to arrive is shown, and a section that
- * goes away gives its place to the first remaining one.
- */
 export function createGlobalSettingsFlow(
   store: Store<GlobalSettingsTarget | null>,
   sections: Observable<readonly GlobalSettingsSection[]>,

@@ -36,18 +36,14 @@ export interface VaultPanelDeps {
   access: Pick<VaultAccess, "item" | "fingerprintGrant">
   availability: VaultAvailability
   guard: Pick<VaultGuard, "keyId">
-  /** Registered connectors with a tool that fills logins, and their changes. */
   fillers(): readonly VaultFillerView[]
   onFillersChange(listener: () => void): () => void
-  /** Whether the bot is stored. */
   exists(botId: string): boolean
-  /** `<prefix>-<random hex>`. */
   newId(prefix: "vacct" | "cred"): string
   now(): number
   deadline(ms: number): AbortSignal
 }
 
-/** The owner's password managers and the bots' logins (the `botVaults` Remote). Owner only. */
 export interface VaultPanel {
   snapshot(caller: RemoteCaller | undefined): BotVaultsSnapshot
   addAccount(caller: RemoteCaller | undefined, request: unknown): Promise<VaultAccountView>
@@ -66,7 +62,6 @@ export interface VaultPanel {
     query: unknown,
   ): Promise<readonly VaultItemView[]>
   bot(caller: RemoteCaller | undefined, botId: string): BotVaultView
-  /** Read the bot's items again (whether each is still there). */
   refresh(botId: string): Promise<void>
   grant(caller: RemoteCaller | undefined, botId: string, request: unknown): Promise<VaultGrantView>
   updateGrant(
@@ -151,7 +146,6 @@ function booleanOf(value: unknown, what: string): boolean {
   return value
 }
 
-/** The kinds an item offers through its provider. */
 function itemKinds(provider: BotVaultProvider, item: VaultItemSummary): VaultFieldKind[] {
   const present = new Set<VaultFieldKind>(item.fields.map((field) => field.kind))
   if (item.username !== undefined) present.add("username")

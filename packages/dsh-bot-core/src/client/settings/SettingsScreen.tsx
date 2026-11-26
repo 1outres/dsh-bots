@@ -11,7 +11,6 @@ import type { SettingsScreenId } from "../wiring/screens"
 import type { SettingsFlow, SettingsTarget } from "./flow"
 import type { SettingsSection, SettingsSections } from "./sections"
 
-/** What bot-core injects into its `shell.overlay` settings entry. */
 export interface SettingsScreenFace {
   readonly bots: Observable<BotsState>
   readonly flow: SettingsFlow
@@ -19,7 +18,6 @@ export interface SettingsScreenFace {
   readonly stack: Observable<readonly SettingsScreenId[]>
 }
 
-/** The open bot's settings, a popover in the frame-wide `shell.overlay` layer. */
 export function SettingsScreen(props: SettingsScreenFace & { readonly t: Translate }) {
   const target = useObservable(props.flow.target)
   const listed = snapshotOf(useObservable(props.bots))?.bots

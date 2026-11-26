@@ -9,15 +9,10 @@ export interface OAuthClientsDeps {
   warn(message: string): void
 }
 
-/** The providers' OAuth clients: the id in bot-core's storage, the secret in DSH's credential store. */
 export interface OAuthClients {
-  /** Both halves, when both are set. */
   credentials(provider: string): Promise<ClientCredentials | undefined>
-  /** What the browser sees (whether the secret is set, from what bot-core last read). */
   view(provider: string): OAuthClientView
-  /** Read whether the provider's secret is set (a provider that just registered). */
   load(provider: string): Promise<void>
-  /** @throws for a malformed change. */
   configure(provider: string, change: unknown): Promise<void>
   subscribe(listener: () => void): () => void
 }

@@ -1,0 +1,7 @@
+language js
+
+`$callee($args)` where {
+  $callee <: `fetch // not a comment`,
+  $args <: r"https?://[^\"]+",
+  register_diagnostic(span = $callee, message = "Design rule 99: do not // call /* fetch */.")
+}

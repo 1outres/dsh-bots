@@ -1,9 +1,3 @@
-/**
- * How every desktop tool is made: permission allow, serialized on the
- * display (unless it only waits), refused while a person operates the desktop (for tools that
- * change it), agent errors turned into instructions for the model, and the
- * desktop's notices put in front of the next result.
- */
 import type {
   BotConnectorResult,
   BotConnectorRun,
@@ -25,7 +19,6 @@ type Parameters_<F> = F extends (...args: infer P) => unknown ? P : never
 
 export type DesktopRun = BotConnectorRun<DesktopSession>
 
-/** Whether a call only reads the desktop or changes it (refused while a person operates it). */
 export type ToolKind = "observe" | "operate"
 
 export interface DesktopToolSpec<S extends Parameters> {
@@ -33,9 +26,7 @@ export interface DesktopToolSpec<S extends Parameters> {
   readonly description: string
   readonly parameters: S
   readonly kind: ToolKind | ((args: ArgsOf<S>) => ToolKind)
-  /** Not serialized on the display: it only waits (the handoff), so other calls go on meanwhile. */
   readonly concurrent?: true
-  /** It types the bot's logins: its runs get `run.vault`. */
   readonly vault?: true
   readonly maxResultChars?: number
   preview(args: ArgsOf<S>): ConnectorPreview
@@ -56,7 +47,6 @@ const NOTICES: Record<DesktopNotice, string> = {
     "Note: the connection to the desktop was opened again: the earlier screenshot no longer maps coordinates and element ids may be stale. Take a new desktop_tree or desktop_screenshot; the previous call was not repeated.",
 }
 
-/** What the model should do about an error of the agent or the connection. */
 export function explain(error: unknown, session: DesktopSession): Error {
   if (error instanceof ScreenshotRequiredError) return error
   if (error instanceof AgentCallError) {
@@ -91,7 +81,6 @@ function withNotices(
   }
 }
 
-/** One line per argument, for a person deciding on a call (any tool may be set to ask). */
 export function argumentFields(args: object): ConnectorPreview["fields"] {
   return Object.entries(args)
     .filter(([, value]) => value !== undefined)

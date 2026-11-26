@@ -1,11 +1,5 @@
 import { SecretBytes, type VaultKit } from "./vault-contract"
 
-/**
- * Byte-level building blocks for handing a secret on without making it a JS
- * string (docs/specs/bot-vaults.md §6): base64, a JSON string body and
- * concatenation, each producing a new array the caller wipes after use.
- */
-
 const BASE64 = new TextEncoder().encode(
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/",
 )
@@ -41,12 +35,10 @@ function encode(bytes: Uint8Array, alphabet: Uint8Array, pad: boolean): Uint8Arr
   return out
 }
 
-/** Standard base64 with padding. */
 export function base64Bytes(bytes: Uint8Array): Uint8Array {
   return encode(bytes, BASE64, true)
 }
 
-/** base64url without padding. */
 export function base64UrlBytes(bytes: Uint8Array): Uint8Array {
   return encode(bytes, BASE64URL, false)
 }
@@ -62,7 +54,6 @@ const SHORT_ESCAPES: Readonly<Record<number, number>> = {
   92: 0x5c,
 }
 
-/** The body of a JSON string (without quotes) holding the UTF-8 bytes, as JSON.stringify writes it. */
 export function jsonStringBytes(bytes: Uint8Array): Uint8Array {
   let length = 0
   for (const byte of bytes) {
@@ -85,7 +76,6 @@ export function jsonStringBytes(bytes: Uint8Array): Uint8Array {
   return out
 }
 
-/** The parts in one new array. */
 export function concatBytes(parts: readonly Uint8Array[]): Uint8Array {
   const out = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0))
   let at = 0
@@ -96,12 +86,10 @@ export function concatBytes(parts: readonly Uint8Array[]): Uint8Array {
   return out
 }
 
-/** Fill every array with zeros. */
 export function wipeBytes(...parts: readonly Uint8Array[]): void {
   for (const part of parts) part.fill(0)
 }
 
-/** The kit `Bot.vaultKit()` hands out. */
 export const VAULT_KIT: VaultKit = Object.freeze({
   secret: (bytes: Uint8Array) => SecretBytes.from(bytes),
   base64: base64Bytes,

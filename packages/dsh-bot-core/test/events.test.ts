@@ -29,7 +29,6 @@ const event = (n: number, extra: Partial<ConnectorEvent> = {}): ConnectorEvent =
   ...extra,
 })
 
-/** A connector whose polls answer from a script; the cursor is the poll count. */
 function feedConnector(script: (cursor: ConnectorJson | undefined) => BotConnectorPoll | Error) {
   const polls: (ConnectorJson | undefined)[] = []
   const connector: BotConnector = {

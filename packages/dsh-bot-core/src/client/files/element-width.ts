@@ -2,7 +2,6 @@ import { useCallback, useSyncExternalStore } from "react"
 
 const UNMEASURED = () => undefined
 
-/** The element's client width, followed with a ResizeObserver; undefined until it is mounted. */
 export function useElementWidth(ref: { readonly current: HTMLElement | null }): number | undefined {
   const subscribe = useCallback(
     (listener: () => void) => {

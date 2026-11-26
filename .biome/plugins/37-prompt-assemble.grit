@@ -1,8 +1,3 @@
-// Design rule 37: DSH's prompt waterfall is joined only by bot-core's prompt row.
-// Listening to "system-prompt/assemble" is allowed only in
-// packages/dsh-bot-core/src/plugins/prompt.ts, the row inside every bot's
-// preset group: DSH admits its listener for that preset's Agents only. A
-// listener anywhere else is global and rewrites every session's prompt.
 JsCallExpression(callee = $callee, arguments = $arguments) as $call where {
   $callee <: or { `$_.on`, `$_?.on`, `on` },
   $arguments <: contains JsStringLiteralExpression() as $event where {

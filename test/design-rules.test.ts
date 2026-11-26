@@ -5,24 +5,13 @@ import { join, relative } from "node:path"
 import { fileURLToPath } from "node:url"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 
-/**
- * Design rules enforced by Biome (noRestrictedImports, noRestrictedGlobals and
- * the GritQL plugins under .biome/plugins). A GritQL pattern that is written
- * wrong matches nothing and passes silently, so every rule is run here against
- * fixtures that must and must not trip it.
- *
- * Fixtures live in test/fixtures/lint, laid out like the repository (the
- * plugin `includes` and override globs are repository paths). Every line that
- * must be reported ends with a `rule: <numbers>` comment; every other line must
- * stay silent. The tree is copied to a
- * temporary directory together with biome.json and .biome, and linted there.
- */
-
 const root = fileURLToPath(new URL("..", import.meta.url))
 const fixtures = join(root, "test", "fixtures", "lint")
+const expectations = JSON.parse(
+  readFileSync(join(root, "test", "fixtures", "lint.expected.json"), "utf8"),
+) as Record<string, readonly string[]>
 const biome = join(root, "node_modules", ".bin", "biome")
 
-/** Rules Biome enforces; the others are structure tests (test/design-rules-structure.test.ts). */
 const LINT_RULES = [
   1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 20, 21, 22, 23, 24, 25, 26, 29, 30, 31,
   32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 43, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58,
@@ -35,10 +24,6 @@ interface Diagnostic {
   location?: { path?: string; start?: { line: number } }
 }
 
-/**
- * noRestrictedGlobals prints a fixed message and the configured one only as a
- * note the JSON report leaves out; in this repository it carries rule 26 only.
- */
 const RULE_OF_CATEGORY: Record<string, number> = { "lint/style/noRestrictedGlobals": 26 }
 
 function filesUnder(directory: string): string[] {
@@ -48,20 +33,12 @@ function filesUnder(directory: string): string[] {
     .sort()
 }
 
-/** "line:rule" for every `rule: N...` marker of a fixture. */
-function expectedFindings(source: string): string[] {
-  return source.split("\n").flatMap((text, index) => {
-    const marker = /(?:\/\/|\/\*) rule: ([\d ]+)/.exec(text)?.[1]
-    return marker === undefined
-      ? []
-      : marker
-          .trim()
-          .split(/\s+/)
-          .map((rule) => `${index + 1}:${rule}`)
-  })
+function expectedFindings(file: string): readonly string[] {
+  const findings = expectations[file]
+  if (findings === undefined) throw new Error(`${file} has no entry in lint.expected.json`)
+  return findings
 }
 
-/** The design rule a diagnostic reports. */
 function ruleOf(diagnostic: Diagnostic): number | undefined {
   const number = /^Design rule (\d+):/.exec(diagnostic.message)?.[1]
   return number === undefined ? RULE_OF_CATEGORY[diagnostic.category] : Number(number)
@@ -106,8 +83,12 @@ describe("design rule lint fixtures", () => {
     expect([...new Set(broken)]).toEqual([])
   })
 
-  it.each(files)("%s reports exactly its marked lines", (file) => {
-    const expected = expectedFindings(readFileSync(join(fixtures, file), "utf8"))
+  it("list every fixture in lint.expected.json, and nothing else", () => {
+    expect(Object.keys(expectations).sort()).toEqual(files)
+  })
+
+  it.each(files)("%s reports exactly its expected lines", (file) => {
+    const expected = expectedFindings(file)
     const found = diagnostics
       .filter((diagnostic) => diagnostic.location?.path === file)
       .flatMap((diagnostic) => {
@@ -120,9 +101,7 @@ describe("design rule lint fixtures", () => {
   it("cover every lint rule with a violating fixture", () => {
     const covered = new Set(
       files.flatMap((file) =>
-        expectedFindings(readFileSync(join(fixtures, file), "utf8")).map((finding) =>
-          Number(finding.split(":")[1]),
-        ),
+        expectedFindings(file).map((finding) => Number(finding.split(":")[1])),
       ),
     )
     expect(LINT_RULES.filter((rule) => !covered.has(rule))).toEqual([])
@@ -144,10 +123,15 @@ describe("design rule configuration", () => {
     expect([...enabled].sort()).toEqual([...plugins].sort())
   })
 
-  it.each(plugins)("%s states its rule number in its header and its message", (name) => {
-    const number = Number(name.slice(0, 2))
+  it.each(plugins)("%s states its rule number in its name and in every message", (name) => {
+    const prefix = /^(\d{2})-[a-z0-9-]+\.grit$/.exec(name)?.[1]
+    expect(prefix).toBeDefined()
     const source = readFileSync(join(root, ".biome", "plugins", name), "utf8")
-    expect(source.startsWith(`// Design rule ${number}`)).toBe(true)
-    expect(source).toContain(`message = "Design rule ${number}: `)
+    const messages = [...source.matchAll(/message = "Design rule (\d+): /g)].map(
+      (match) => match[1],
+    )
+    expect(messages.length).toBeGreaterThan(0)
+    expect(messages.map(Number)).toEqual(messages.map(() => Number(prefix)))
+    expect(source.match(/message = /g)?.length).toBe(messages.length)
   })
 })

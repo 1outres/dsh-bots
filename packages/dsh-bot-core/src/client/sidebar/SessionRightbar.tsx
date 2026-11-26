@@ -7,7 +7,6 @@ import type { LockdownReporter } from "./lockdown-status"
 import { initialSweepMemory, planSweep, type SweepMemory } from "./sweep-plan"
 import { runSweep } from "./sweep-run"
 
-/** What bot-core's `rightbar.session` registration injects. */
 export interface SessionRightbarFace {
   readonly sidebar: SidebarRightFace
   readonly viewer: Viewer
@@ -16,7 +15,6 @@ export interface SessionRightbarFace {
   openExternal(url: string): void
 }
 
-/** Whether the registration declared DSH's store handle; DSH hands the store props only then. */
 export type RightbarStore =
   | ({ readonly handle: "present" } & SidebarStoreProps)
   | { readonly handle: "missing" }
@@ -31,11 +29,6 @@ type SweeperProps = Extract<SessionRightbarProps, { readonly handle: "present" }
   readonly sessionId: string
 }
 
-/**
- * bot-core's `rightbar.session` entry while the main view shows a bot session:
- * it draws nothing, so DSH's sidebar seat never shows there, and sweeps the
- * session's DSH layout into the bot viewer.
- */
 export function SessionRightbar(props: SessionRightbarProps) {
   if (props.sessionId === undefined || props.handle === "missing") return null
   if (props.classify(props.sessionId).kind !== "bot") return null
@@ -50,12 +43,10 @@ function Sweeper(props: SweeperProps) {
   const latest = useRef(props)
   latest.current = props
 
-  // Materialized as DSH's own seat does, so the sidebar's commands land here to be swept.
   useEffect(() => {
     if (surface === undefined) actions.open(sessionId)
   }, [actions, sessionId, surface])
 
-  // In the commit the open caused, as close to the user's click as possible, for window.open.
   useLayoutEffect(() => {
     if (surface === undefined) return
     const swept = planSweep(surface, memory.current)

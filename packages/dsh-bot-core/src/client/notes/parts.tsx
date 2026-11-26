@@ -33,7 +33,6 @@ export function failureText(t: Translate, failure: NoteFailure): string {
   }
 }
 
-/** Note links as words only (inside a row that is itself a button), a missing one marked. */
 export function linkText(
   t: Translate,
   targets: Readonly<Record<string, NoteEntry>>,
@@ -52,7 +51,6 @@ export function linkText(
   }
 }
 
-/** Note links that open their note, a missing one marked and inert. */
 export function linkButtons(
   t: Translate,
   targets: Readonly<Record<string, NoteEntry>>,

@@ -225,7 +225,6 @@ describe("a curation run", () => {
   })
 })
 
-/** A curation controller over a virtual clock: timers fire as the clock advances. */
 function curation(
   options: { store?: SkillStore; skills?: { bytes: number }[]; start?: number } = {},
 ) {
@@ -280,7 +279,6 @@ function curation(
   const settle = async () => {
     for (let round = 0; round < 10; round += 1) await Promise.resolve()
   }
-  /** Move the clock on, firing every timer that falls due, in order. */
   const advance = async (ms: number) => {
     const until = clock.now + ms
     for (;;) {

@@ -1,7 +1,3 @@
-// Verification only. Test pages a bot signs in to with the fake vault's
-// items: a login form, a one-time code form, a passkey (WebAuthn) sign-in,
-// and a page that shows the signed-in user's password (to try the leak guard).
-// Serve it on localhost inside the bot's VM: localhost is a secure context.
 import { createHash, createPublicKey, randomBytes, verify } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { createServer } from "node:http"
@@ -24,7 +20,6 @@ function usersOf(items) {
   return items.vaults.flatMap((vault) => vault.items.filter((item) => item.username !== undefined))
 }
 
-/** Check a WebAuthn assertion against the passkeys' public halves. */
 function checkAssertion(assertion, passkeys, challenge, origin) {
   const key = passkeys.find((each) => each.credentialId === assertion.id)
   if (key === undefined) return "unknown credential"
@@ -71,10 +66,6 @@ document.getElementById("go").onclick = async () => {
 }
 </script>`
 
-/**
- * Serve the test pages. `items` is the fake vault's items (the example
- * ones by default), `passkeys` the file the fake vault wrote its passkeys to.
- */
 export function createTestSite({ items, passkeys = () => [] }) {
   const sessions = new Map()
   const challenges = new Set()

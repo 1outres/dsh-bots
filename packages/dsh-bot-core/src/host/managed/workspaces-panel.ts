@@ -8,7 +8,6 @@ import {
 } from "../../shared/workspaces"
 import type { WorkspaceGrants } from "./grants"
 
-/** What the `botWorkspaces` Remote serves: the owner's grants (its input is untrusted). */
 export interface WorkspacesPanel {
   snapshot(): BotWorkspacesSnapshot
   options(): Promise<BotWorkspaceOptions>
@@ -20,7 +19,6 @@ export interface WorkspacesPanel {
 export function createWorkspacesPanel(deps: {
   readonly grants: WorkspaceGrants
   options(): Promise<BotWorkspaceOptions>
-  /** Whether the bot is listed. */
   listed(botId: string): boolean
 }): WorkspacesPanel {
   const ids = (botId: unknown, workspaceId: unknown) => {

@@ -18,9 +18,7 @@ export interface FilesPanelProps {
   readonly sessionId: string
   readonly face: FilesFace
   readonly renderFactory: RenderFactory
-  /** The element the panel shares its width with. */
   readonly containerRef: { readonly current: HTMLElement | null }
-  /** Called once the panel closes, to put focus back where it opened from. */
   readonly returnFocus: () => void
 }
 
@@ -38,11 +36,6 @@ function titleOf(t: Translate, content: ViewerContent): string {
   }
 }
 
-/**
- * The bot file viewer: browses the bot's workspace and previews one file.
- * Escape closes it; opening a file moves focus to its heading, and going back
- * to the file's row.
- */
 export function FilesPanel(props: FilesPanelProps) {
   const { t, sessionId, face, containerRef } = props
   const session = useObservable(face.viewer).sessions[sessionId]
@@ -157,7 +150,7 @@ function FileContentView(props: FilesPanelProps & { content: FileContent }) {
 function DocumentView({ content }: { content: DocumentContent }) {
   if (content.markdown.length > MARKDOWN_RENDER_LIMIT) {
     return (
-      // biome-ignore lint/a11y/noNoninteractiveTabindex: the source scrolls and must be reachable by keyboard
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: -
       <pre className="dshb-files-code dshb-files-source" tabIndex={0}>
         {content.markdown}
       </pre>

@@ -54,7 +54,6 @@ describe("shellPhase (copied from DSH's ConversationMainPanel)", () => {
     expect(shellPhase(input({ blank: false }))).toEqual(active)
     expect(shellPhase(input({ running: true }))).toEqual(active)
     expect(shellPhase(input({}, ["chat"]))).toEqual(active)
-    // A prompt attempted on a blank session leaves the hero (engaging).
     expect(shellPhase(input({ promptAttempted: true }))).toEqual(active)
   })
 })

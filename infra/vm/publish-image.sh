@@ -1,9 +1,4 @@
 #!/usr/bin/env bash
-# For the author: publish the base image that export-image.sh exported as the GitHub
-# release IMAGE_TAG (infra/release.env), then check it with check-image-release.sh.
-# Safe to run again: it finishes a draft that an interrupted upload left.
-#
-# Usage: ./publish-image.sh [<dir>]     (default ./dist/<IMAGE_TAG>, export-image.sh's output; gh signed in)
 set -eEuo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 # shellcheck source=lib.sh

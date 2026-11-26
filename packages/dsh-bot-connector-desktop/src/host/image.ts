@@ -1,7 +1,3 @@
-/**
- * Screenshots from the agent are untrusted: the bytes must be the format it
- * claims, of the size it claims, within limits, before they are admitted.
- */
 export type ScreenshotFormat = "png" | "jpeg"
 
 export interface ImageLimits {
@@ -58,7 +54,6 @@ function jpegSize(bytes: Uint8Array): { width: number; height: number } {
   throw new Error("the JPEG has no frame header")
 }
 
-/** @throws naming what is wrong with the image. */
 export function checkScreenshot(
   shot: {
     readonly format: ScreenshotFormat

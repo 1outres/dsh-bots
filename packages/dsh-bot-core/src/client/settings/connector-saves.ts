@@ -8,15 +8,11 @@ import { type CommitResult, commitWith } from "../ui/commit"
 import { failureText } from "./failure-text"
 
 export interface ConnectorSaves {
-  /** Save one change. */
   save(edit: ConnectorEdit): Promise<CommitResult>
-  /** The last failed switch or pick, until the next save. */
   readonly error: string | null
-  /** Save without waiting, the failure kept in `error` (a switch, a select). */
   pick(edit: ConnectorEdit): void
 }
 
-/** One connector's saves, one at a time over what the save before stored. */
 export function useConnectorSaves(options: {
   readonly t: Translate
   readonly view: BotConnectorView

@@ -1,30 +1,11 @@
-/**
- * Where the Bots section mounts in the expanded sidebar.
- *
- * DSH has no slot between the panel list (Plugins, Automation tasks, More) and
- * the Workspaces section: `sidebar.workspaces` is a single slot whose owner
- * renders child slots only for its own registration, so it cannot be wrapped.
- * The section is therefore portaled into a container placed first in the
- * region that holds the Workspaces section — the last child of the sidebar's
- * `[data-sidebar-scrollport]` viewport, a marker the sidebar documents as
- * stable for integrations. When that layout is not found the caller renders
- * the section in its slot position instead (under New Session).
- */
-
 export const SCROLLPORT_SELECTOR = "[data-sidebar-scrollport]"
 
-/** The region element that holds the Workspaces section, if the layout matches. */
 export function findRegion(root: ParentNode = document): HTMLElement | undefined {
   const port = root.querySelector(SCROLLPORT_SELECTOR)
   const region = port?.lastElementChild
   return region instanceof HTMLElement ? region : undefined
 }
 
-/**
- * Keep `host` as the first child of the Workspaces region, re-inserting it when
- * the sidebar re-renders that region.
- * @returns a disposer that removes the container and stops observing.
- */
 export function keepFirstInRegion(host: HTMLElement, onLost: () => void): () => void {
   let port: Element | null = null
   const place = (): boolean => {

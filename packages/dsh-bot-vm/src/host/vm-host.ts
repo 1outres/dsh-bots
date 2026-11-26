@@ -1,10 +1,3 @@
-/**
- * The VM host section of the dsh-bots settings for the incus-vm environment
- * (docs/specs/incus-endpoint.md §3, §4, §6.4): which VM host is used, the
- * check of it, pairing and leaving, what the bots' VMs reach that they must
- * not, and the base image. The state is in memory; the choice itself is the
- * endpoint scope's (src/host/endpoint-scope.ts).
- */
 import type {
   BotEnvironmentHost,
   BotEnvironmentImageHost,
@@ -24,21 +17,16 @@ import { parseTrustToken, tokenUrls } from "./trust-token"
 
 export interface VmHostDeps {
   readonly scope: EndpointScope
-  /** The base image's import; absent when the plugin does not import it. */
   readonly image?: BotEnvironmentImageHost
-  /** The bots are ensured again on the VM host chosen now. */
   readonly rehome: () => void
   readonly pairing: PairingDeps
-  /** The client certificate's common name, e.g. "dsh-bots@<host>". */
   readonly clientName: string
-  /** Lowercase hex SHA-256 of a PEM certificate. */
   readonly fingerprintOf: (certificate: string) => string
   readonly now: () => number
   readonly log: (message: string) => void
 }
 
 export interface VmHost extends BotEnvironmentHost {
-  /** What the egress probe found in a bot's VM (src/host/environment.ts). */
   egress(botId: string, report: EgressReport): void
   dispose(): void
 }
@@ -147,7 +135,6 @@ export function createVmHost(deps: VmHostDeps): VmHost {
     return view()
   }
 
-  /** Remember a paired VM host being left, so its administrator can be told what to run. */
   async function leaving(): Promise<void> {
     let stored: StoredScope | undefined
     try {

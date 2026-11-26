@@ -4,24 +4,17 @@ import { gmail_v1 } from "@googleapis/gmail"
 import { OAuth2Client } from "google-auth-library"
 import type { GoogleEndpoints } from "./endpoints"
 
-/** The slice of `fetch` the provider uses. */
 export type HttpFetch = (
   url: string,
   init: { readonly headers: Readonly<Record<string, string>>; readonly signal: AbortSignal },
 ) => Promise<{ readonly status: number; json(): Promise<unknown> }>
 
-/** Google's APIs as one account reaches them. */
 export interface GoogleApis {
   readonly gmail: gmail_v1.Gmail
   readonly calendar: calendar_v3.Calendar
-  /**
-   * Per-call options of a Gmail upload: googleapis applies a client's root
-   * URL to plain requests only, never to an upload's URL.
-   */
   readonly gmailUpload: { readonly rootUrl: string }
 }
 
-/** An error of a Google API call, with its HTTP status. */
 export class GoogleApiError extends Error {
   override readonly name = "GoogleApiError"
   constructor(
@@ -32,7 +25,6 @@ export class GoogleApiError extends Error {
   }
 }
 
-/** The HTTP status a Google API call failed with, if it got that far. */
 export function googleStatus(error: unknown): number | undefined {
   if (error instanceof GoogleApiError) return error.status
   const status =
@@ -50,12 +42,7 @@ function reasonOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-/** Reaches Google's APIs as accounts, with bot-core's access tokens. */
 export interface Google {
-  /**
-   * Run `work` as the account; a 401 asks bot-core for a fresh token once.
-   * @throws a {@link GoogleApiError} naming what Google answered.
-   */
   as<T>(connection: BotConnectorConnection, work: (apis: GoogleApis) => Promise<T>): Promise<T>
 }
 

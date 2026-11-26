@@ -9,10 +9,8 @@ import type {
 import type { BotEnvironmentImageHost } from "../../shared/environment-image"
 import type { EnvironmentKeeper } from "../environment"
 
-/** What the `botEnvironmentHost` Remote serves: the VM host section of the dsh-bots settings. */
 export interface EnvironmentHostPanel {
   state(): BotEnvironmentHostState
-  /** Called after the registered environment or its VM host changed. */
   subscribe(listener: () => void): () => void
   check(): Promise<BotEnvironmentHostState>
   previewToken(token: unknown): TrustTokenPreview
@@ -27,13 +25,10 @@ export interface EnvironmentHostPanel {
 
 export interface EnvironmentHostPanelDeps {
   readonly environment: Pick<EnvironmentKeeper, "current" | "onRegistration">
-  /** A stored bot's name; undefined before it is stored and once it is gone. */
   botName(botId: string): string | undefined
-  /** Called after a bot was stored, renamed or removed. */
   onBots(listener: () => void): () => void
 }
 
-/** The longest trust token taken (Incus' are a few hundred characters). */
 export const MAX_TRUST_TOKEN_LENGTH = 8192
 const MAX_FIELD_LENGTH = 2048
 

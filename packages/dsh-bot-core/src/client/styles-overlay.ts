@@ -1,4 +1,3 @@
-/** The overlay frame (ui/OverlayFrame.tsx): a large popover over the app with a mask and a one-line header; a sheet on a compact window. */
 export const OVERLAY_CSS = `
 .dshb-overlay-root {
   pointer-events: auto;

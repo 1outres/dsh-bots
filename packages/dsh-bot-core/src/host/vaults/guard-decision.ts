@@ -1,11 +1,3 @@
-/**
- * What the vault guard row hands back to dsh-tools after the guard looked at
- * a call's outcome (docs/specs/bot-vaults.md §7.2): unchanged when clean; a
- * successful result whose value held the secret is replaced through its
- * value (re-rendered and checked against the tool's output, so neither its
- * content nor its value keeps a secret); anything else (a secret only in the
- * content, a failure, a context) is blocked with the withheld content.
- */
 import type { PostToolDecision, PreToolDecision, ToolExecutionResult } from "@deepseek-ai/dsh-tools"
 import type { GuardArgumentsVerdict, GuardResultVerdict } from "../../internal"
 

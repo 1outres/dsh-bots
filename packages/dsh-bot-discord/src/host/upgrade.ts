@@ -4,11 +4,6 @@ import { DM_HOME } from "./home"
 const listOf = (value: string | readonly string[] | undefined): readonly string[] =>
   Array.isArray(value) ? value : []
 
-/**
- * Settings of version 1 (allowed users and owners, all in DMs) as version 2:
- * the home is direct messages, and its one owner is the first owner who was
- * also an allowed user, else the first owner, else the first allowed user.
- */
 export function upgradeDiscordSettings(
   stored: BotChannelStoredSettings,
 ): BotChannelSettingsUpgrade {

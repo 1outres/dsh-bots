@@ -8,11 +8,6 @@ import { afterAll, describe, expect, it } from "vitest"
 import { unpack, unpackedPaths } from "./support/pack"
 import { readManifest } from "./support/packages"
 
-/**
- * What a package publishes is what `pnpm pack` puts into its tarball, which
- * leaves out some names wherever they are (package-lock.json among them).
- */
-
 const root = fileURLToPath(new URL("..", import.meta.url))
 const packageDirectories = readdirSync(join(root, "packages")).sort()
 const packages = (name: string) => join(root, "packages", name)

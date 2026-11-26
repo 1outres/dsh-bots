@@ -4,10 +4,8 @@ import type { CatalogTool } from "./catalog"
 import type { ImageRef } from "./images"
 import type { PreparedRun } from "./runs"
 
-/** A tool's result as bot-core keeps it: bounded text and data, stored image references. */
 export interface ToolOutput {
   readonly text?: string
-  /** `null` when the tool returned none. */
   readonly data: ConnectorJson
   readonly images: readonly ImageRef[]
 }
@@ -67,12 +65,6 @@ function outputOf(entry: CatalogTool, result: unknown, prepared: PreparedRun): T
   }
 }
 
-/**
- * Run one connector tool: the arguments are checked against its schema
- * again, an approved action passes the tool's recheck first, and the result
- * must be a result object. With {@link takeSnapshot}, the only place a
- * connector tool's hooks run (design rule 39).
- */
 export async function runConnectorTool(
   entry: CatalogTool,
   args: ConnectorJson,
@@ -102,7 +94,6 @@ export async function runConnectorTool(
   }
 }
 
-/** Read what the tool's preview needs beyond the arguments, when it has a `snapshot` hook. */
 export async function takeSnapshot(
   entry: CatalogTool,
   args: ConnectorJson,

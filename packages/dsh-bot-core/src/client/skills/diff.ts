@@ -5,7 +5,6 @@ export interface DiffLine {
   readonly text: string
 }
 
-/** A file's change from one version to the next. */
 export interface FileChange {
   readonly path: string
   readonly kind: "added" | "removed" | "changed" | "same"
@@ -14,7 +13,6 @@ export interface FileChange {
 
 const linesOf = (text: string) => (text === "" ? [] : text.replace(/\n$/, "").split("\n"))
 
-/** The lines of `after` against `before` (a longest common subsequence of lines). */
 export function diffLines(before: string, after: string): DiffLine[] {
   const a = linesOf(before)
   const b = linesOf(after)
@@ -49,7 +47,6 @@ export function diffLines(before: string, after: string): DiffLine[] {
   return out
 }
 
-/** Every file of either version, SKILL.md first, with its lines against the earlier version. */
 export function fileChanges(
   before: readonly SkillFile[],
   after: readonly SkillFile[],

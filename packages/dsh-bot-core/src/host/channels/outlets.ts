@@ -6,32 +6,22 @@ import type {
 } from "../../channel-contract"
 import { carries } from "./capabilities"
 
-/** One connection of a bot to a channel, as its outputs reach it. */
 export interface ChannelOutlet {
   readonly channelId: string
   readonly capabilities: BotChannelCapabilities
   readonly connection: BotChannelConnection
 }
 
-/** How one channel took a file. */
 export type FileDelivery =
   | { readonly channelId: string; readonly outcome: "sent" }
   | { readonly channelId: string; readonly outcome: "too-large"; readonly limit: number }
   | { readonly channelId: string; readonly outcome: "failed"; readonly message: string }
 
-/**
- * Every bot's attached connections. Each connection gets its outputs one at a
- * time, in publication order, and only those its capabilities carry.
- */
 export interface ChannelOutlets {
-  /** Attach a connection until `signal` aborts. */
   attach(botId: string, outlet: ChannelOutlet, signal: AbortSignal): void
   publish(botId: string, output: BotChannelOutput): void
-  /** Publish to one connection only (e.g. what was open before it attached). */
   publishTo(botId: string, channelId: string, output: BotChannelOutput): void
-  /** The attached connections that take files at all, with their limits. */
   fileTargets(botId: string): readonly { readonly channelId: string; readonly maxBytes: number }[]
-  /** Queue a file on every connection that takes files before returning; settles once each one settled. */
   sendFile(botId: string, file: BotOutboundFile): Promise<readonly FileDelivery[]>
 }
 

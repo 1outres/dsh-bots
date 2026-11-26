@@ -6,7 +6,6 @@ import type {
 } from "../../channel-contract"
 import { distinctNames, type InboxWriter, inboxFolderName, sanitizeFileName } from "./inbox"
 
-/** dsh-attachment `ImageAttachmentLimits`, as far as read here. */
 export interface ImageLimits {
   readonly maxImageBytes: number
   readonly maxImagesPerMessage: number
@@ -14,14 +13,12 @@ export interface ImageLimits {
   readonly mediaTypes: readonly string[]
 }
 
-/** bot-core's own caps on what a channel message may bring (`channels.attachments` config). */
 export interface AttachmentLimits {
   readonly maxCount: number
   readonly maxFileBytes: number
   readonly maxMessageBytes: number
 }
 
-/** dsh-api-session-controller `PromptContentPart` (without upload receipts). */
 export type PromptPart =
   | { readonly type: "text"; readonly text: string }
   | {
@@ -32,10 +29,8 @@ export type PromptPart =
     }
 
 export interface InboundDeps {
-  /** DSH's image intake (`ctx.attachments.imageLimits`); undefined: DSH takes no images. */
   imageLimits(): ImageLimits | undefined
   readonly limits: AttachmentLimits
-  /** The bot's inbox, in its environment; undefined while the environment cannot take files. */
   inboxOf(botId: string): { readonly root: string; readonly writer: InboxWriter } | undefined
   encodeBase64(data: Uint8Array): string
 }
@@ -65,7 +60,6 @@ const refuse = (code: BotDeliveryFailure["code"], message: string) =>
 const quote = (value: string) => JSON.stringify(value)
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
-/** The media type without parameters, lowercased. */
 function essenceOf(mediaType: string | undefined): string | undefined {
   const essence = mediaType?.split(";")[0]?.trim().toLowerCase()
   return essence === undefined || essence === "" ? undefined : essence
@@ -148,15 +142,6 @@ function savedText(saved: readonly { readonly path: string; readonly bytes: numb
   ].join("\n")
 }
 
-/**
- * The prompt content a channel message makes, the way DSH's Web composer
- * builds one: each image as an image part (within DSH's image limits), then
- * the text, which starts with the message's header line (host/channels/header.ts);
- * every other attachment is saved in the bot's inbox and named in the text.
- * Every limit is checked on the declared sizes before anything is
- * read and again on the sizes read, and nothing is passed unless every
- * attachment made it.
- */
 export async function composePrompt(
   deps: InboundDeps,
   request: {
@@ -164,7 +149,6 @@ export async function composePrompt(
     readonly channelId: string
     readonly capability: BotAttachmentCapability | undefined
     readonly message: BotInboundMessage
-    /** The line the text starts with. */
     readonly header: string
   },
   signal: AbortSignal,

@@ -14,7 +14,6 @@ import { probeView } from "./support/connectors-client"
 
 type Overrides = Readonly<Record<string, Readonly<Record<string, ConnectorPermission>>>>
 
-/** The probe connector acting as alice (a) and bob (b), with each account's overrides by tool. */
 function withAccounts(overrides: Overrides = {}): BotConnectorView {
   const view = probeView({ enabled: true })
   const ids = ["a", "b"]

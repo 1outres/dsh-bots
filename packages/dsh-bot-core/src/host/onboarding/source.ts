@@ -1,12 +1,10 @@
 import { isVersion } from "../../shared/release-notes"
 
-/** A GitHub repository, as its releases are read. */
 export interface GitHubRepository {
   readonly owner: string
   readonly name: string
 }
 
-/** Where dsh-bots' release notes come from: the running version and the repository that releases it. */
 export interface ReleaseSource {
   readonly version: string
   readonly repository: GitHubRepository
@@ -15,11 +13,6 @@ export interface ReleaseSource {
 const GITHUB_URL =
   /^(?:git\+)?https:\/\/github\.com\/([A-Za-z0-9-]+)\/([A-Za-z0-9._-]+?)(?:\.git)?\/?$/
 
-/**
- * bot-core's package manifest as the release source: its `version` (every
- * dsh-bots package has the same) and its GitHub `repository`.
- * @throws when either is missing or not one this can read.
- */
 export function releaseSourceOf(manifest: unknown): ReleaseSource {
   if (typeof manifest !== "object" || manifest === null) throw new Error("the manifest is missing")
   const { version, repository } = manifest as { version?: unknown; repository?: unknown }

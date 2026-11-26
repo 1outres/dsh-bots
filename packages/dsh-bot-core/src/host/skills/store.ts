@@ -11,7 +11,6 @@ import {
 } from "./domain"
 
 export interface SkillStoreDeps {
-  /** The tables of SKILLS_DOMAIN; only the store writes them (design rule 54). */
   skillHistory: BotTable<SkillHistoryRecord>
   skillUsage: BotTable<SkillUsageRecord>
   skillSettings: BotTable<SkillSettingsRecord>
@@ -24,37 +23,27 @@ export interface SkillUsage {
   readonly lastUsedAt?: number
 }
 
-/** When the curation of a bot's skills last ran. */
 export interface SkillCurationTimes {
   readonly sweptAt?: number
   readonly curatedAt?: number
 }
 
-/** Every bot's skill history, usage, settings, marks and curation times, as stored. Writes are serialized. */
 export interface SkillStore {
-  /** Newest first. */
   versions(botId: string, name: string): readonly StoredSkillVersion[]
-  /** Keep `version` as the skill's newest, dropping what goes over SKILL_VERSION_LIMIT. */
   addVersion(botId: string, name: string, version: StoredSkillVersion): Promise<void>
-  /** The names of the bot's skills with a history. */
   names(botId: string): readonly string[]
   usage(botId: string, name: string): SkillUsage
   recordUse(botId: string, name: string, at: number): Promise<void>
-  /** The background skill review runs unless the bot's settings turn it off. */
   reviewEnabled(botId: string): boolean
   setReview(botId: string, enabled: boolean): Promise<void>
-  /** The weekly skill curation runs unless the bot's settings turn it off. */
   curatorEnabled(botId: string): boolean
   setCurator(botId: string, enabled: boolean): Promise<void>
-  /** The owner keeps the skill from being archived by the curation. */
   kept(botId: string, name: string): boolean
   setKeep(botId: string, name: string, keep: boolean): Promise<void>
   curation(botId: string): SkillCurationTimes
   markSwept(botId: string, at: number): Promise<void>
   markCurated(botId: string, at: number): Promise<void>
-  /** Drop what is kept of bots `keep` refuses. */
   purge(keep: (botId: string) => boolean): Promise<void>
-  /** Called with the bot id after anything of the bot changed. */
   subscribe(listener: (botId: string) => void): () => void
 }
 

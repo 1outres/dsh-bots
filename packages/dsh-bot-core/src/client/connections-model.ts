@@ -12,7 +12,6 @@ import { createStore, type Observable } from "./observable"
 import type { BotConnectionsRemote, RemoteMount } from "./remote"
 import type { RemoteResult, StreamHandle } from "./types"
 
-/** Why the connections cannot be read or changed. */
 export type ConnectionsFailure =
   | { readonly kind: "mount"; readonly message: string }
   | { readonly kind: "connection"; readonly message: string }
@@ -31,7 +30,6 @@ export type ConnectionsState =
   | { readonly status: "ready"; readonly snapshot: BotConnectionsSnapshot }
   | { readonly status: "failed"; readonly failure: ConnectionsFailure }
 
-/** The owner's outside accounts and providers. Every change rejects with a {@link ConnectionsError}. */
 export interface ConnectionsOperations {
   configureClient(provider: string, change: OAuthClientChange): Promise<ConnectionProviderView>
   authorize(request: ConnectionAuthorizeRequest): Promise<ConnectionAuthorization>
@@ -113,7 +111,6 @@ export function createConnectionsModel(mount: Promise<RemoteMount>): Connections
   }
 }
 
-/** The connections, streamed while anything shows them; one stream for every screen. */
 export type ConnectionsFeed = Observable<ConnectionsState> & ConnectionsOperations
 
 export function createConnectionsFeed(open: () => ConnectionsModel): ConnectionsFeed {

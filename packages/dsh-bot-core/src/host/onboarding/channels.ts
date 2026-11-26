@@ -6,13 +6,11 @@ import {
 } from "../../shared/channels"
 import { descriptorOf } from "../channels/panel"
 
-/** A guide's channel setup, checked against its channel's fields. */
 export interface WelcomeChannelSetup {
   readonly channelId: string
   readonly change: BotChannelChange
 }
 
-/** Stores one bot's settings for one channel as the `botChannels` Remote does. */
 export type ChannelConfigure = (
   botId: string,
   channelId: string,
@@ -27,16 +25,11 @@ export interface WelcomeChannelsDeps {
   }
 }
 
-/** The channels the welcome guide can set up for its bot: registered ones, while their settings can be stored. */
 export interface WelcomeChannels {
   descriptors(): readonly BotChannelDescriptor[]
-  /** @throws naming the first setup that is malformed, names a channel not offered, repeats one, or does not fit its fields. */
   parse(input: unknown): readonly WelcomeChannelSetup[]
-  /** Store every setup for the bot, in order. */
   apply(botId: string, setups: readonly WelcomeChannelSetup[]): Promise<void>
-  /** Store settings through `configure` (the channels' panel) until the returned function is called. */
   attach(configure: ChannelConfigure): () => void
-  /** Called after {@link descriptors} may have changed. */
   subscribe(listener: () => void): () => void
   dispose(): void
 }

@@ -1,7 +1,3 @@
-/**
- * Run tasks one after another per key; tasks for different keys run
- * concurrently. A failed task does not block the next one.
- */
 export interface Serializer {
   run<T>(key: string, task: () => Promise<T>): Promise<T>
 }

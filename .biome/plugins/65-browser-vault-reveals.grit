@@ -1,7 +1,3 @@
-// Design rule 65: the browser connector fetches a login's value in one place.
-// `reveal(…)` and `passkey(…)` of a run's vault access are called only by
-// src/host/vault/tools.ts, which reveals for the origin the helper located in
-// the browser and hands the value to the helper's stdin.
 JsCallExpression(callee = or { `$_.reveal`, `$_?.reveal`, `$_.passkey`, `$_?.passkey` }) as $call where {
   register_diagnostic(
     span = $call,

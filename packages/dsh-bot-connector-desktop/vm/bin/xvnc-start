@@ -1,6 +1,4 @@
 #!/bin/sh
-# Starts Xvnc on :1 for the bot user: a fresh X cookie each start, RFB on a 0600 Unix socket only,
-# and tells systemd it is ready once the display accepts clients.
 set -eu
 dir=$XDG_RUNTIME_DIR/dsh-desktop
 auth=$dir/Xauthority

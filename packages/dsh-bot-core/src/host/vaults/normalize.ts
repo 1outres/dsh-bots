@@ -1,11 +1,3 @@
-/**
- * Other readings of a text the leak guard also looks in (docs/specs/bot-vaults.md
- * §7.1): the same text with one kind of escaping undone (JSON \\uXXXX and
- * short escapes, %xx in either case and +, HTML character references) or
- * with its whitespace removed (wrapped base64 or hex). A secret found only in
- * a reading withholds the whole text, as its place in the text is not known.
- */
-
 const JSON_ESCAPE = /\\(?:u([0-9a-fA-F]{4})|(["\\/bfnrt]))/g
 const SHORT: Readonly<Record<string, string>> = {
   '"': '"',
@@ -70,7 +62,6 @@ function htmlDecoded(text: string): string {
 
 const stripped = (text: string) => text.replace(/\s+/g, "")
 
-/** The readings of a text that differ from it. */
 export function readingsOf(text: string): readonly string[] {
   const readings = new Set<string>()
   if (text.includes("\\")) readings.add(jsonUnescaped(text))

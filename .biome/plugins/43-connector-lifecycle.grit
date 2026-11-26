@@ -1,10 +1,3 @@
-// Design rule 43: a connector's lifecycle hooks run in one place each.
-// `preparation.prepare(...)` / `preparation.unprepare(...)` (a receiver named
-// `preparation` or ending in `.preparation`) may appear only in
-// host/connectors/readiness.ts, which runs one bot's preparations one at a
-// time and keeps its readiness; `attachment.open(...)` only in
-// host/connectors/attachments.ts, which keeps one resident resource per bot
-// and connector and disposes it.
 JsCallExpression(callee = $callee) as $call where {
   or {
     and {

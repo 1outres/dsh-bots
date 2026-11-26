@@ -1,9 +1,3 @@
-/**
- * The browser connector's resident resource per bot: Playwright MCP started
- * in the bot's environment, attached to the desktop's Chrome, and the
- * passkey offered there, if any. Chrome itself is the desktop's user
- * service, so its tabs and cookies outlive the server.
- */
 import type { BotConnectorAttachmentSource, VaultKit } from "@1outres/dsh-bot-core"
 import type { GeneratedServer } from "./catalog"
 import type { BrowserConnections } from "./connections"

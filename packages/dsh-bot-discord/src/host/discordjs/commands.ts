@@ -9,7 +9,6 @@ import {
 import type { DiscordCommandInvocation, DiscordCommandSpec, DiscordGatewayMode } from "../discord"
 import { toEmbeds } from "./components"
 
-/** Global chat commands, offered only where the mode puts the home: the bot's DMs, or servers (installed to a server, not to a user). */
 export function toCommandsBody(
   commands: readonly DiscordCommandSpec[],
   mode: DiscordGatewayMode,

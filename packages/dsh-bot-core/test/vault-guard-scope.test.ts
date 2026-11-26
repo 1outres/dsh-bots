@@ -1,10 +1,3 @@
-/**
- * Spike (docs/specs/bot-vaults.md §13) and the vault guard row on DSH's real
- * tool registry: a row inside a bot's preset group listening to dsh-tools'
- * `tools/pre-execute` and `tools/post-execute` waterfalls sees the calls of
- * that bot's Agents only (subagents and nested calls included), whatever
- * the tool, and replaces their outcomes.
- */
 import { Context, Service } from "@deepseek-ai/cordis"
 import { EntryTree, Group, Loader } from "@deepseek-ai/cordis-plugin-loader"
 import { bindScopeParent, createScope } from "@deepseek-ai/dsh-scope"
@@ -68,7 +61,6 @@ const rows = createVaultRows<{ id: string }>({
   store: harness.store,
 })
 
-/** The `bot` service as the vault guard row reads it. */
 class FakeBot extends Service {
   constructor(ctx: Context) {
     super(ctx, "bot")

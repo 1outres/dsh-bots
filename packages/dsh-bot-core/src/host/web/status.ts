@@ -8,16 +8,12 @@ import {
 } from "../../shared/web"
 import type { BotWebBackend } from "../../web-contract"
 
-/** Everything the status is computed from; the state itself lives in host/web/state.ts. */
 export interface WebStatusInput {
   readonly settings: BotWebSettings
-  /** The settings' backend, if registered. */
   readonly backend: BotWebBackend | undefined
-  /** Its secret keys with a stored value; `undefined` without DSH's `credentials` service. */
   readonly setKeys: ReadonlySet<string> | undefined
 }
 
-/** Which capabilities the backend can serve, whatever the settings say. */
 export interface WebServable {
   readonly backend: string
   readonly search: boolean
@@ -33,7 +29,6 @@ export function servable(input: Pick<WebStatusInput, "settings" | "backend">): W
   }
 }
 
-/** disabled → unavailable → missing-secrets → ready. */
 export function capabilityStatus(
   input: WebStatusInput,
   capability: BotWebCapability,

@@ -1,3 +1,3 @@
-import { readFileSync } from "node:fs" // rule: 14
+import { readFileSync } from "node:fs"
 
 export const read = () => readFileSync("x")

@@ -13,9 +13,7 @@ export interface TranscriptEntry {
 
 export interface Transcript {
   readonly entries: readonly TranscriptEntry[]
-  /** Entries after the cursor left out by the limit (the oldest of them). */
   readonly omitted: number
-  /** The last message's id: what to read after next time. */
   readonly cursor: string | undefined
 }
 
@@ -47,11 +45,6 @@ function entryOf(message: TranscriptMessage): TranscriptEntry | undefined {
   return undefined
 }
 
-/**
- * The messages after `after` (all when absent) that a person or the model
- * wrote, the newest `limit` of them, oldest first.
- * @throws when `after` is not a message of the session.
- */
 export function transcriptOf(
   messages: readonly TranscriptMessage[],
   options: { readonly after?: string; readonly limit: number },
@@ -71,7 +64,6 @@ export function transcriptOf(
   }
 }
 
-/** One open interaction as session_read shows it to the Main session. */
 export function describeInteraction(interaction: BotInteraction): string {
   switch (interaction.kind) {
     case "question":

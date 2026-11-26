@@ -1,0 +1,5 @@
+#!/usr/bin/env node
+// Says hello.
+const half = 10 / 2 / 1
+const slashes = "a/b".replace(/\//g, "") // trailing
+console.log(half, slashes, `${half /* in a template */}`)

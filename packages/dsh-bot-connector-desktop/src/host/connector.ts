@@ -1,8 +1,3 @@
-/**
- * The desktop connector (docs/specs/bot-connectors.md, 9): an XFCE desktop on
- * Xvnc in the bot's environment, driven through the dsh-desktop-agent there
- * (accessibility tree first, input and screenshots), for every session of the bot.
- */
 import type { BotConnector } from "@1outres/dsh-bot-core"
 import { DESKTOP_CONNECTOR_ID } from "../shared/connector"
 import type { RpcClientDeps } from "./agent/rpc"
@@ -15,11 +10,9 @@ import type { VmSourceFile } from "./vm/files"
 import { createDesktopPreparation } from "./vm/preparation"
 
 export { DESKTOP_CONNECTOR_ID }
-/** The least memory the desktop runs in: Chrome and LibreOffice side by side need 1–1.2 GiB beyond the desktop itself. */
 export const DESKTOP_MIN_MEMORY_MIB = 4096
 
 export interface DesktopConnectorDeps extends RpcClientDeps {
-  /** The package's vm/ directory. */
   readonly sources: readonly VmSourceFile[]
   readonly control: DesktopControl
   now(): number

@@ -1,6 +1,3 @@
-// Design rule 51: the bots' model roles are written in one place.
-// `models.put/delete` (a receiver with that name or ending in it) may appear
-// only in host/models/store.ts, which keeps the Main's pending mark with them.
 JsCallExpression(callee = $callee) as $call where {
   $callee <: or { `$receiver.put`, `$receiver.delete`, `$receiver?.put`, `$receiver?.delete` },
   $receiver <: or { `models`, `$_.models`, `$_?.models` },

@@ -1,6 +1,5 @@
 import { vi } from "vitest"
 
-/** Every text the process decodes from bytes while `work` runs. */
 export async function decodedDuring(work: () => unknown): Promise<string[]> {
   const decoded: string[] = []
   const decode = TextDecoder.prototype.decode

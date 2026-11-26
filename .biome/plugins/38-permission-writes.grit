@@ -1,10 +1,3 @@
-// Design rule 38: a session's permission is written in one place.
-// DSH's write paths for a session's sandbox mode, approval policy and
-// permission preset (setSandboxMode, setApprovalPolicy, permissionPresets.set,
-// or appending their events) are called only from
-// packages/dsh-bot-core/src/index.ts, which wires them into
-// host/permission.ts: bot sessions run under BOT_PERMISSION, and another
-// writer could leave a bot session confined, asking, or recorded as custom.
 or {
   JsCallExpression(callee = $callee) as $call where {
     or {

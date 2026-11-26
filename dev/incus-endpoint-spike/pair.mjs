@@ -1,4 +1,3 @@
-// Spike: pair a client certificate with an Incus trust token (what "incus remote add <token>" does).
 import { writeFileSync } from "node:fs"
 import { call, endpointFrom } from "./incus.mjs"
 

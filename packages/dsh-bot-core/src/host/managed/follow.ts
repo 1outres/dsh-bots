@@ -4,24 +4,13 @@ import { endedTurnOf, type SessionEventLike, type TurnEndReason } from "../chann
 import type { SessionNoticeEvent } from "./notice"
 
 export interface ManagedFollowDeps {
-  /** The managed session, if `sessionId` is one. */
   managed(sessionId: string): BotManagedSession | undefined
-  /** Store a notice of the session for its bot's Main session. */
   tell(session: BotManagedSession, event: SessionNoticeEvent): void
 }
 
-/**
- * Turns what happens in managed sessions into notices for their bots' Main
- * sessions (docs/specs/bot-managed-sessions.md §7): every live turn end
- * except one the Main session stopped itself, and every question or plan
- * review that opens.
- */
 export interface ManagedFollow {
-  /** A session's log event (`session/event`). */
   sessionEvent(sessionId: string, event: SessionEventLike): void
-  /** An interaction opened on the board in a session. */
   opened(sessionId: string, interaction: BotInteraction): void
-  /** The Main session stops the session's running turn: its end is not told. */
   stopping(sessionId: string): void
 }
 

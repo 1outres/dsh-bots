@@ -7,9 +7,9 @@ declare const deps: {
 }
 
 export async function bypass(value: unknown) {
-  await deps.skillHistory.put("b:x", value) // rule: 54
-  await deps.skillUsage.delete("b:x") // rule: 54
-  await deps.skillSettings.put("b", value) // rule: 54
-  await deps.skillMarks.delete("b:x") // rule: 54
-  await deps.skillCuration.put("b", value) // rule: 54
+  await deps.skillHistory.put("b:x", value)
+  await deps.skillUsage.delete("b:x")
+  await deps.skillSettings.put("b", value)
+  await deps.skillMarks.delete("b:x")
+  await deps.skillCuration.put("b", value)
 }

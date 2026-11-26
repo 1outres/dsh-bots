@@ -19,7 +19,6 @@ import { NAMESPACE } from "./plugin"
 export interface OnboardingSources {
   readonly remote: Promise<RemoteMount>
   readonly bots: Observable<BotsState>
-  /** The bot whose creation the main view shows. */
   readonly progress: Store<string | null>
   readonly pending: PendingActions
   readonly creation: CreationSources
@@ -28,7 +27,6 @@ export interface OnboardingSources {
   readonly channelQueries: ChannelQueries
 }
 
-/** Where a page goes once the guide it showed is done: the bot's Main, or its creation until it is listed. */
 export type WelcomeLanding =
   | { readonly kind: "main"; readonly sessionId: string }
   | { readonly kind: "progress"; readonly botId: string }
@@ -45,11 +43,6 @@ export function welcomeLanding(
     : { kind: "main", sessionId: bot.mainSessionId }
 }
 
-/**
- * The welcome guide and the release notes in `shell.overlay`, followed from
- * the Host on every page; a page that showed the guide goes to its bot once
- * it is done there or elsewhere.
- */
 export function wireOnboarding(
   ctx: ClientContext,
   sources: OnboardingSources,

@@ -20,18 +20,14 @@ import { upgradeDiscordSettings } from "./upgrade"
 
 export interface DiscordChannelDeps {
   open: OpenDiscordClient
-  /** REST reads with a token, for the settings form and the owners' names. */
   lookup: OpenDiscordLookup
   scheduler: Scheduler
   fetch: FetchUrl
-  /** The tables of DISCORD_DOMAIN: where every bot's approval messages sit. */
   approvals: ApprovalTables
-  /** The `incidents` table of DISCORD_DOMAIN: which credential incidents every bot's home was shown. */
   incidents: RecordTable<IncidentNoticeRecord>
   warn(message: string): void
 }
 
-/** Discord's limits: 10 attachments per message; uploads of a bot without a boosted server, 10 MiB. */
 export const DISCORD_CAPABILITIES = {
   attachments: { maxCount: 10, maxBytes: 500 * 1024 * 1024 },
   files: { maxBytes: 10 * 1024 * 1024 },
@@ -44,7 +40,6 @@ export const DISCORD_CAPABILITIES = {
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
-/** The `discord` channel: one Discord bot (its own token) per DSH bot, at one home (DMs or a server channel). */
 export function createDiscordChannel(deps: DiscordChannelDeps): BotChannel<typeof DISCORD_FIELDS> {
   const queries = createDiscordSettingsQueries(deps.lookup)
   return {

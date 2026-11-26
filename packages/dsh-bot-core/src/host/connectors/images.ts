@@ -1,9 +1,3 @@
-/**
- * Images of a connector call's result, for the calling model: stored in
- * DSH's attachment store (never in the action ledger), the way dsh-cua and
- * dsh-mcp-client store tool images. Only a model that declares image input
- * gets them; the size reported back is the one that model is sent.
- */
 import type {
   BotConnectorImage,
   BotConnectorImageAdmission,
@@ -11,7 +5,6 @@ import type {
   BotConnectorImages,
 } from "../../connector-contract"
 
-/** dsh-attachment's `ImageAttachmentRef`, as it travels in a tool result. */
 export interface ImageRef {
   readonly attachmentId: string
   readonly mediaType: string
@@ -22,7 +15,6 @@ export interface ImageRef {
   readonly originalDimensions?: { readonly width: number; readonly height: number }
 }
 
-/** DSH's `attachments` and `llm` services, as images are admitted with them. */
 export interface ImageServices {
   readonly attachments: {
     saveImages(inputs: readonly BotConnectorImageInput[]): Promise<readonly ImageRef[]>
@@ -43,17 +35,13 @@ export interface ImageServices {
 }
 
 export interface ImageAdmissionDeps {
-  /** DSH's services, while both are there. */
   services(): ImageServices | undefined
-  /** The model the session's Agent runs now. */
   route(sessionId: string): { readonly provider: string; readonly model: string } | undefined
   newId(): string
 }
 
-/** The images of one call: what the connector admits, and their stored references. */
 export interface RunImages {
   readonly images: BotConnectorImages
-  /** @throws for an image not admitted in this run. */
   refs(images: readonly BotConnectorImage[]): readonly ImageRef[]
 }
 

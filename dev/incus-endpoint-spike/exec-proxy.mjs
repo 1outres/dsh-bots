@@ -1,6 +1,3 @@
-// Spike ProxyCommand: run a command in an Incus instance through the exec API and relay
-// this process's stdin/stdout to it (stderr to stderr). Usage:
-//   node exec-proxy.mjs <endpoint.json> <project> <instance> <command> [args...]
 import { readFileSync } from "node:fs"
 import { call, endpointFrom, websocket } from "./incus.mjs"
 

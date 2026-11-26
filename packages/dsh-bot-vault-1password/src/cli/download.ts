@@ -1,4 +1,3 @@
-/** Fetch a file over https into memory, at most `maxBytes`. */
 export async function download(
   url: string,
   maxBytes: number,

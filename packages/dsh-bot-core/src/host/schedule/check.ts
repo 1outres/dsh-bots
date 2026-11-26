@@ -1,17 +1,11 @@
-/**
- * A job's check: `bash -c <command>` in the bot's environment (its VM, as
- * the user its tools run as), in the environment's workspace.
- */
 import type { EnvironmentWriteSubprocess } from "../channels/inbox-shell"
 import type { RunFailure, ScheduleCheck } from "./domain"
 import type { CheckOutput } from "./notice"
 
-/** Standard output the run keeps (its tail). */
 export const CHECK_STDOUT_BYTES = 16 * 1024
 const CHECK_STDERR_BYTES = 2 * 1024
 const GRACE_MS = 2000
 
-/** How the command ended. */
 export type CheckResult =
   | {
       readonly kind: "exited"
@@ -22,7 +16,6 @@ export type CheckResult =
     }
   | { readonly kind: "timed-out"; readonly stderr: string }
 
-/** What the run does after its check: exit 0 runs with the output, exit 1 stops quietly, the rest fails. */
 export type CheckVerdict =
   | { readonly kind: "fire"; readonly output: CheckOutput }
   | { readonly kind: "quiet" }
@@ -56,15 +49,12 @@ export function checkVerdict(result: CheckResult, check: ScheduleCheck): CheckVe
 }
 
 export interface CheckRunnerDeps {
-  /** The bot's environment subprocess and workspace, while it is ready. */
   environmentOf(
     botId: string,
   ): { readonly subprocess: EnvironmentWriteSubprocess; readonly workspace: string } | undefined
-  /** A signal that aborts after `ms`. */
   deadline(ms: number): AbortSignal
 }
 
-/** @throws when the bot's environment is not ready. */
 export type CheckRunner = (botId: string, check: ScheduleCheck) => Promise<CheckResult>
 
 export function createCheckRunner(deps: CheckRunnerDeps): CheckRunner {

@@ -16,7 +16,6 @@ export interface SweepDeps {
 }
 
 export interface SweepOutcome {
-  /** A tab's navigation could not be read: DSH's tab domain no longer answers as the sweep expects. */
   readonly broken: boolean
 }
 
@@ -76,7 +75,6 @@ function route(action: SweepAction, deps: SweepDeps): void {
   }
 }
 
-/** Carry a plan out: route, then close, then collapse; each step fails alone and is logged. */
 export function runSweep(plan: SweepPlan, deps: SweepDeps): SweepOutcome {
   let broken = false
   for (const action of plan.actions) {

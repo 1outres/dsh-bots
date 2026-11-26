@@ -1,12 +1,6 @@
 import { createStore, type Observable } from "../observable"
 
-/**
- * Where each Main session's own Chat view is drawn while its Session log
- * panel is open: the panel's body, by session id. The conversation's views
- * position renders DSH's Chat into it, inside the conversation's own tree.
- */
 export interface SessionLogSeats extends Observable<Readonly<Record<string, HTMLElement>>> {
-  /** @returns the release of the seat. */
   offer(sessionId: string, element: HTMLElement): () => void
 }
 

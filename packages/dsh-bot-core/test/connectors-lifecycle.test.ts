@@ -82,7 +82,6 @@ describe("connector settings fields", () => {
   })
 })
 
-/** A connector that prepares the environment and keeps a resident resource. */
 function desktopLike(
   log: string[],
   options: { fail?: () => boolean } = {},

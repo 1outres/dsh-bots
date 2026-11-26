@@ -53,7 +53,6 @@ describe("DesktopControl", () => {
   })
 })
 
-/** Deadlines the test fires by hand. */
 function manualDeadlines() {
   const pending: AbortController[] = []
   return {

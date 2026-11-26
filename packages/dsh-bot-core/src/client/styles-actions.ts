@@ -1,4 +1,3 @@
-/** Confirmation additions (discarding changes, deleting a bot); the modal itself reuses styles-dialog.ts. */
 export const ACTIONS_CSS = `
 .dshb-confirm-text {
   margin: 0;

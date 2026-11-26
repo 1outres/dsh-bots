@@ -14,7 +14,6 @@ export interface BrowseViewProps {
   readonly sessionId: string
   readonly face: FilesFace
   readonly renderFactory: RenderFactory
-  /** The file shown last, marked in the tree. */
   readonly current: string | undefined
   readonly focus: PanelFocus
 }
@@ -38,7 +37,6 @@ function searchSummary(t: Translate, result: SearchResult): string {
   }
 }
 
-/** The workspace tree, or the matches of a search typed above it. */
 export function BrowseView({ t, sessionId, face, renderFactory, current, focus }: BrowseViewProps) {
   const tree = face.treeOf(sessionId)
   const search = face.searchOf(sessionId)

@@ -33,7 +33,6 @@ import type { ConnectorAction } from "../src/shared/connectors"
 import { type BotEnvironmentSpec, DEFAULT_BOT_ENVIRONMENT_SPEC } from "../src/shared/environment"
 import { memoryTable } from "./channels-support"
 
-/** A bot without logins: every use of the vault is refused. */
 const refusingVault = (): VaultRun => ({
   access: {
     describe: async () => {
@@ -49,7 +48,6 @@ const refusingVault = (): VaultRun => ({
   release() {},
 })
 
-/** A manual clock: timers run only when the test advances it. */
 export function manualClock(start = 1_000_000) {
   let now = start
   let next = 0
@@ -83,13 +81,11 @@ export function manualClock(start = 1_000_000) {
   }
 }
 
-/** Let queued promise work run. */
 export async function settle(rounds = 20) {
   for (let i = 0; i < rounds; i += 1) await Promise.resolve()
   await new Promise((resolve) => setImmediate(resolve))
 }
 
-/** A test connector: `echo` runs at once, `send` asks first, `hidden` is never shown. */
 export function mailConnector(
   log: string[] = [],
   options: { recheck?: string } = {},
@@ -149,7 +145,6 @@ export function mailConnector(
   }
 }
 
-/** An environment whose every call fails: the test connectors never reach one. */
 export const NO_ENVIRONMENT: BotConnectorEnvironment = {
   workspace: "/home/bot/workspace",
   exec: () => Promise.reject(new Error("no environment")),
@@ -266,7 +261,6 @@ export function brokerSetup(
       streams.release(botId, connectorId)
     }
   })
-  /** Turn a registered connector on for bots (default b1 and b2). */
   const enable = async (
     connector: BotConnector<unknown>,
     botIds = ["b1", "b2", "gone"],

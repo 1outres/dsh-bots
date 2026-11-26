@@ -1,10 +1,8 @@
 import type { MessageKey } from "./i18n"
 import type { Translate } from "./types"
 
-/** The dictionary entry naming the language its messages are written in, as a BCP 47 tag. */
 export const FORMAT_LOCALE_KEY = "format.locale" satisfies MessageKey
 
-/** A message worded per plural category: `<key>.one`, `<key>.other`, and any other category its languages use. */
 export type PluralKey = {
   [Key in MessageKey]: Key extends `${infer Base}.other`
     ? `${Base}.one` extends MessageKey
@@ -13,15 +11,12 @@ export type PluralKey = {
     : never
 }[MessageKey]
 
-/** The reader's (the browser's) IANA time zone. */
 export function browserTimeZone(): string {
   return new Intl.DateTimeFormat().resolvedOptions().timeZone
 }
 
-/** `dateTime`: the day and the minute; `time`: the second, for instants within the day; `clock`: the minute. */
 export type InstantStyle = "dateTime" | "time" | "clock"
 
-/** `largestUnit`: the largest whole unit from minutes to days; `seconds`: always seconds, for countdowns. */
 export type RelativeStyle = "largestUnit" | "seconds"
 
 export interface RelativeParts {
@@ -29,27 +24,18 @@ export interface RelativeParts {
   readonly unit: "second" | "minute" | "hour" | "day"
 }
 
-/**
- * Dates, times, relative times and counts in the language of the messages
- * around them, in the reader's (the browser's) time zone.
- */
 export interface LocaleFormat {
   readonly locale: string
   instant(at: number, style: InstantStyle): string
   relative(at: number, now: number, style: RelativeStyle): string
   count(key: PluralKey, count: number, params?: CountParams): string
   number(value: number): string
-  /** A calendar month, `YYYY-MM`, as its name and year ("November 2026", "2026年11月"). */
   month(month: string): string
-  /** A calendar day, `YYYY-MM-DD`, in full ("Tuesday, November 24, 2026"). */
   day(date: string): string
-  /** The short name of a weekday, 0 for Sunday. */
   weekday(index: number): string
-  /** The calendar day (`YYYY-MM-DD`) an instant falls on. */
   dayOf(at: number): string
 }
 
-/** Parameters of a plural message besides its `{count}`, which `count` fills in. */
 export type CountParams = Readonly<Record<string, unknown>> & { readonly count?: never }
 
 const INSTANT_OPTIONS: { readonly [Style in InstantStyle]: Intl.DateTimeFormatOptions } = {
@@ -58,7 +44,6 @@ const INSTANT_OPTIONS: { readonly [Style in InstantStyle]: Intl.DateTimeFormatOp
   clock: { timeStyle: "short" },
 }
 
-/** Calendar labels name a date, not an instant: they are formatted in UTC from the date's own fields. */
 const CALENDAR_OPTIONS = {
   month: { year: "numeric", month: "long", timeZone: "UTC" },
   day: { dateStyle: "full", timeZone: "UTC" },
@@ -107,7 +92,6 @@ const MINUTE_MS = 60_000
 
 const CALENDAR_DATE = /^(\d{4})-(\d{2})(?:-(\d{2}))?$/u
 
-/** The UTC instant of a calendar date's midnight. */
 function calendarInstant(value: string): number {
   const match = CALENDAR_DATE.exec(value)
   if (match === null) throw new Error(`not a calendar date: ${value}`)
@@ -118,11 +102,9 @@ function calendarInstant(value: string): number {
   )
 }
 
-/** 1970-01-04 was a Sunday. */
 const SUNDAY_MS = Date.UTC(1970, 0, 4)
 const DAY_MS = 86_400_000
 
-/** How far `at` is from `now`, rounded away from now so that a moment left is never shown as none. */
 export function relativeParts(at: number, now: number, style: RelativeStyle): RelativeParts {
   const ms = at - now
   const sign = ms < 0 ? -1 : 1
@@ -135,7 +117,6 @@ export function relativeParts(at: number, now: number, style: RelativeStyle): Re
   return { value: sign * Math.floor(hours / 24), unit: "day" }
 }
 
-/** The formats of the language `t` currently translates into. */
 export function localeFormat(t: Translate): LocaleFormat {
   const locale = t(FORMAT_LOCALE_KEY)
   const intl = formattersOf(locale)

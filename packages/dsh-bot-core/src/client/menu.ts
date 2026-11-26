@@ -12,7 +12,6 @@ import type {
   WorkspaceSnapshot,
 } from "./types"
 
-/** Context-menu target family of bot rows, registered with the host's `ctx.contextMenus`. */
 export const BOT_MENU_TARGET = "bot"
 
 export interface BotMenuValue {
@@ -30,21 +29,17 @@ export const botMenuTarget = (bot: BotView): MenuTarget => ({
   value: { botId: bot.id, displayTitle: bot.name } satisfies BotMenuValue,
 })
 
-/** The opener id of a bot row's … button. */
 export const rowMenuOpener = (botId: string): string => `bot-core:row:${botId}`
 
-/** The bot id of an open menu target, if it is a bot row's. */
 export function menuTargetBotId(target: MenuTarget | null): string | undefined {
   if (target?.kind !== BOT_MENU_TARGET) return undefined
   const value = target.value as Partial<BotMenuValue> | null
   return typeof value?.botId === "string" ? value.botId : undefined
 }
 
-/** Which bot's menu is open and which of bot-core's buttons opened it. */
 export interface BotMenuOpener {
   readonly menuBot: Observable<string | undefined>
   readonly menuOpener: Observable<string | undefined>
-  /** Opens at `point`; a button passes its opener id, and activating the open menu's opener again closes it. */
   openBotMenu(bot: BotView, point: MenuPoint, opener: string | undefined): void
   dispose(): void
 }
@@ -54,11 +49,6 @@ interface Opened {
   readonly botId: string
 }
 
-/**
- * DSH's context menus keep the opener of the open popup to themselves (only
- * its own `contextMenu.button` reads it), so bot-core records the one it
- * passes and drops it once that bot's menu is no longer the open one.
- */
 export function createBotMenuOpener(
   menus: Pick<ContextMenus, "active" | "open" | "close">,
 ): BotMenuOpener {
@@ -95,22 +85,15 @@ type MenuFace = Pick<
   "newSession" | "openSettings" | "confirmDelete" | "setArchivedShown" | "startNewMain"
 >
 
-/** A bot's archived sessions as its menu offers them: whether they are listed, and whether it has any. */
 export interface ArchivedSessions {
   readonly shown: boolean
   readonly any: boolean
 }
 
-/** Whether any of the bot's sessions is archived. */
 export function hasArchivedSessions(bot: BotView, workspaces: WorkspaceSnapshot): boolean {
   return bot.sessionIds.some((id) => workspaces.archivedSessionIds.includes(id))
 }
 
-/**
- * Menu entries of one bot row: a new session and a new Main; while it has
- * archived sessions or lists them, whether they are listed; the bot's
- * settings, and Delete (the confirmation that asks for its name), separated.
- */
 export function botMenuActions(
   bot: BotView,
   archived: ArchivedSessions,
@@ -158,7 +141,6 @@ export function botMenuActions(
   ]
 }
 
-/** Register the bot row menu with the host's shared context menu. */
 export function registerBotMenu(
   ctx: ClientContext,
   face: Pick<BotsFace, "bots" | "archivedView" | "workspaces"> & MenuFace,

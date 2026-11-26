@@ -1,16 +1,10 @@
-/**
- * The base image release the plugin imports: the one infra/release.env names,
- * or a mirror given in the config with its manifest's sha256 (both or neither).
- */
 import type { BotEnvironmentImageRelease, ImageProblem } from "@1outres/dsh-bot-core"
 import { IMAGE_TAG, MANIFEST_SHA256 } from "./release-env"
 
 export const RELEASE_REPOSITORY = "1outres/dsh-bots"
 
 export interface ReleaseOverride {
-  /** Empty: the GitHub release of {@link IMAGE_TAG}. */
   readonly baseUrl: string
-  /** Empty: {@link MANIFEST_SHA256}. */
   readonly manifestSha256: string
 }
 

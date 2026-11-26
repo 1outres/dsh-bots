@@ -1,6 +1,4 @@
 #!/bin/sh
-# Installs the browser's login helpers (the *.mjs files in $1) into $2 and swaps them in. Run as
-# root by the browser connector's preparation and by infra/vm/build-base-image.sh.
 set -eu
 source=$1
 target=$2

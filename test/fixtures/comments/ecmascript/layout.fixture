@@ -1,0 +1,25 @@
+// File header that explains the module.
+
+import { join } from "node:path"
+
+/**
+ * Joins two parts.
+ */
+export function joined(left: string, right: string): string {
+  // Leading comment in a block.
+
+  return join(left, /* inline */ right)
+}
+
+const total = 1 + /* plus */ 2
+const tight = total/* glued */+1
+const words = typeof/* keeps words apart */total
+
+export function last(): number {
+  return total + tight // trailing
+}
+
+// Between two blank lines.
+
+export const end = words
+/* closing remark */

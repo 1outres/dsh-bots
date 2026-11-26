@@ -13,7 +13,6 @@ import {
 } from "./icons"
 import type { ClientContext } from "./types"
 
-/** The glyph keys bot-core's menu actions name (`MenuAction.icon.key`). */
 export const MENU_ICON = {
   newSession: "bot-core.new-session",
   newMain: "bot-core.new-main",
@@ -46,7 +45,6 @@ const GLYPHS: {
   "bot-core.answer-main": IconManaged,
 }
 
-/** Register the glyphs of bot-core's menu actions with the host's shared context menu. */
 export function registerMenuIcons(ctx: ClientContext): void {
   ctx.effect(
     () =>

@@ -1,9 +1,3 @@
-/**
- * Whether an endpoint and project can run bot VMs (docs/specs/incus-endpoint.md
- * §3.4, §5.1). It lists everything missing with how to fix it; the caller
- * stops while anything is (fail closed). The project's `user.dsh-bots.*` keys
- * name the pool and network its administrator allowed.
- */
 import type { IncusClient, IncusDevice } from "./incus"
 
 export type EndpointProblemCode =
@@ -26,11 +20,9 @@ export interface EndpointProblem {
   readonly fix: string
 }
 
-/** What the project's administrator declared for dsh-bots. */
 export interface ProjectDeclaration {
   readonly pool: string
   readonly network: string
-  /** The egress ACL the administrator says the network applies; undefined when not declared. */
   readonly egressAcl: string | undefined
 }
 
@@ -41,7 +33,6 @@ export type EndpointCheck =
 export const POOL_KEY = "user.dsh-bots.pool"
 export const NETWORK_KEY = "user.dsh-bots.network"
 export const EGRESS_ACL_KEY = "user.dsh-bots.egress-acl"
-/** The oldest Incus whose restrictions docs/specs/incus-endpoint.md §6.1 was confirmed on. */
 export const MIN_INCUS_VERSION = [6, 0, 4] as const
 
 export interface CheckTarget {
@@ -143,7 +134,6 @@ async function networkProblems(
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
-/** Devices of a profile that name a pool or network other than the declared ones. */
 function foreignDevices(
   devices: Readonly<Record<string, IncusDevice>>,
   declaration: { readonly pool: string; readonly network: string },

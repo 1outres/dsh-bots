@@ -1,13 +1,9 @@
-// Tokens only, never HTML: a bot's file cannot inject markup (files/MarkdownView.tsx draws them).
-
 export type Inline =
   | { readonly kind: "text"; readonly text: string }
   | { readonly kind: "code"; readonly text: string }
   | { readonly kind: "strong"; readonly children: readonly Inline[] }
   | { readonly kind: "em"; readonly children: readonly Inline[] }
-  /** `href` only for http(s) and mailto URLs; anything else renders as its text. */
   | { readonly kind: "link"; readonly href?: string; readonly children: readonly Inline[] }
-  /** A note link `[[<target>]]` / `[[<target>|text]]`, read only with {@link MarkdownOptions.noteLinks}. */
   | { readonly kind: "note"; readonly target: string; readonly text?: string }
 
 export type Block =
@@ -21,7 +17,6 @@ export type Block =
   | {
       readonly kind: "list"
       readonly ordered: boolean
-      /** An ordered list's first number, when it is not 1. */
       readonly start?: number
       readonly items: readonly (readonly Inline[])[]
     }
@@ -29,28 +24,22 @@ export type Block =
   | { readonly kind: "rule" }
 
 export interface MarkdownOptions {
-  /** Read `[[…]]` as note links (a bot's notes, docs/specs/bot-notes.md §2). */
   readonly noteLinks?: boolean
 }
 
-/** A note link as host/notes/links.ts reads one. */
 const NOTE_LINK = /\[\[([^[\]|\n]+)(?:\|([^[\]\n]+))?\]\]/y
 
 const SAFE_URL = /^(https?:|mailto:)/i
 
-/** A bare web address, as GitHub links one: trailing punctuation stays text. */
 const AUTOLINK = /https?:\/\/[^\s<>]*[^\s<>.,:;"'!?)\]]/y
 
-/** Whether a link target may become an `href`. */
 export function safeHref(url: string): string | undefined {
   const trimmed = url.trim()
   return SAFE_URL.test(trimmed) ? trimmed : undefined
 }
 
-/** Nesting depth past which emphasis is read as plain text. */
 const MAX_DEPTH = 4
 
-/** Forward-only per token, so a line of unmatched delimiters costs one pass. */
 function forwardSearch(text: string) {
   const last = new Map<string, number>()
   return (token: string, from: number): number => {
@@ -62,7 +51,6 @@ function forwardSearch(text: string) {
   }
 }
 
-/** Inline tokens of one block's text, linear in its length: an unclosed delimiter is never rescanned. */
 export function parseInline(
   text: string,
   options: MarkdownOptions = {},
@@ -104,7 +92,6 @@ export function parseInline(
       const strong = text[i + 1] === char
       const marker = strong ? char + char : char
       const open = i + marker.length
-      // Intraword underscores stay text, as in CommonMark.
       const leftOk = char === "*" || !/\w/.test(text[i - 1] ?? "")
       const close = leftOk && /\S/.test(text[open] ?? "") ? find(marker, open + 1) : -1
       if (close !== -1 && /\S/.test(text[close - 1] ?? "")) {
@@ -180,7 +167,6 @@ export function parseInline(
   return out
 }
 
-/** Longest text the preview renders as Markdown; longer files and documents show as source. */
 export const MARKDOWN_RENDER_LIMIT = 256 * 1024
 
 const FENCE = /^ {0,3}(`{3,}|~{3,})\s*([^\s`]*)/
@@ -190,7 +176,6 @@ const BULLET = /^ {0,3}[-*+]\s+(.*)$/
 const ORDERED = /^ {0,3}(\d{1,9})[.)]\s+(.*)$/
 const QUOTE = /^ {0,3}>\s?(.*)$/
 
-/** A heading's text without its closing `#` sequence (one preceded by a space), trimmed. */
 function headingText(rest: string): string {
   let end = rest.length
   while (end > 0 && /\s/.test(rest[end - 1] ?? "")) end -= 1
@@ -200,10 +185,8 @@ function headingText(rest: string): string {
   return rest.slice(0, end).trim()
 }
 
-/** Block quote nesting past which a quote marker is read as text. */
 const MAX_QUOTE_DEPTH = 8
 
-/** Block tokens of a Markdown document. */
 export function parseMarkdown(source: string, options: MarkdownOptions = {}, depth = 0): Block[] {
   const inline = (text: string) => parseInline(text, options)
   const lines = source.replace(/\r\n?/g, "\n").split("\n")

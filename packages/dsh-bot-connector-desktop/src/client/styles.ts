@@ -1,4 +1,3 @@
-/** The desktop panel's look, in bot-core's row and button measures on DSH's theme tokens; rendered with the panel. */
 export const PANEL_CSS = `
 .dsdk-panel { flex: 1 1 auto; display: flex; flex-direction: column; gap: 12px; min-height: 0; padding: 12px 16px 16px; }
 .dsdk-bar { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 28px; }

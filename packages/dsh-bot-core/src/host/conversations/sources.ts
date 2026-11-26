@@ -1,11 +1,3 @@
-/**
- * Which sessions of a bot are its conversations with its owner
- * (docs/specs/bot-session-search.md §1), read from bot-core's records only:
- * the Main, the former Mains and the sessions the owner opened in the Web UI.
- * Schedule runs and sessions the Main started are not; subagents and skill
- * reviews are never recorded as the bot's. The caller's own conversation is
- * one of them, read only for what a compaction took out of its context.
- */
 import type { SessionKindDeps } from "../prompt/session-kind"
 
 export type ConversationKind = "current" | "main" | "former-main" | "web"
@@ -16,17 +8,13 @@ export interface ConversationSource {
 }
 
 export interface OwnerConversations {
-  /** The conversation the caller runs. */
   readonly current: ConversationSource
-  /** The others, in the order of the bot's records. */
   readonly others: readonly ConversationSource[]
 }
 
 export interface ConversationSourcesDeps {
   readonly kind: Pick<SessionKindDeps, "isMain" | "isScheduleRun" | "isStartedByMain">
-  /** Every session recorded as the bot's, its Main included. */
   sessionsOf(botId: string): readonly string[]
-  /** The session was the bot's Main and a new Main took its place. */
   pastMain(sessionId: string): boolean
 }
 
@@ -44,10 +32,6 @@ function kindOf(
   return "web"
 }
 
-/**
- * The bot's conversations with its owner, the one `callerId` runs apart.
- * @throws when `callerId` runs none of them.
- */
 export function ownerConversations(
   deps: ConversationSourcesDeps,
   botId: string,

@@ -1,11 +1,3 @@
-/**
- * What the conversations row asks the `bot` service
- * (src/plugins/conversations.ts). Only an Agent of the bot, asking with a token
- * of a revision registered during this load, is answered, and only in the
- * bot's conversations with its owner (Main and Web sessions;
- * docs/specs/bot-session-search.md §5). What it may read is decided from
- * bot-core's records, never from the call's arguments.
- */
 import {
   type BotSessionKind,
   CONVERSATION_TOOL_NAMES,
@@ -18,18 +10,14 @@ import { ConversationToolError } from "./errors"
 import type { ConversationTools } from "./tools"
 
 export interface BotConversationsDeps<A extends KindAgent> {
-  /** Whether `token` is the token of a revision of the bot's preset registered during this load. */
   sealed(botId: string, token: string): boolean
   agent(agentId: string): A | undefined
-  /** The bot the Agent's session verifiably belongs to (host/preset/identity.ts). */
   botOf(agent: A): string | undefined
   kind: SessionKindDeps
-  /** The skill reviews running now: they see the tools of the session they review, and run none of them. */
   reviews: Pick<ReviewSessions, "get">
   tools: ConversationTools
 }
 
-/** Sessions that search the bot's past conversations (a review reads as the session it reviews). */
 export const SEARCHING_SESSIONS: readonly BotSessionKind[] = ["main", "web"]
 
 export interface BotConversations {

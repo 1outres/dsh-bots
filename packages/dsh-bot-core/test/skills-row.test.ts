@@ -1,10 +1,3 @@
-/**
- * bot-core's skills row (src/plugins/skills.ts) under Cordis: the group's
- * skill registry gets the bot's skills/ as its provider (invalidated when the
- * `bot` service says they changed), skill_manage is registered with the
- * service's visibility, and each step reads skills/ again before the rest of
- * the step waterfall (dsh-tool-skill's catalog) runs.
- */
 import { Context, Service } from "@deepseek-ai/cordis"
 import { agentEvents } from "@deepseek-ai/dsh-agent"
 import type { SkillCandidate, SkillProvider, SkillProviderControl } from "@deepseek-ai/dsh-skill"

@@ -1,4 +1,3 @@
-/** The copy of the VM host section of the dsh-bots settings (docs/specs/incus-endpoint.md §3, §4, §6.4). */
 export const VM_HOST_EN = {
   "vmHost.title": "VM host",
   "vmHost.loading": "Loading the VM host…",

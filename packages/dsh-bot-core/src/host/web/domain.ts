@@ -1,6 +1,5 @@
 import { z } from "zod"
 
-/** The one row of the settings table. */
 export const WEB_SETTINGS_KEY = "global"
 
 export const webSettingsSchema = z.object({
@@ -9,7 +8,6 @@ export const webSettingsSchema = z.object({
   fetch: z.boolean(),
 })
 
-/** bot-core's web lookup settings, shared by every bot (design rule 27). */
 export const WEB_DOMAIN = {
   name: "dsh_bot_web",
   version: 1,

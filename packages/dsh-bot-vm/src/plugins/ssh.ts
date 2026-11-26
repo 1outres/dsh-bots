@@ -1,21 +1,3 @@
-/**
- * `@1outres/dsh-bot-vm/ssh`: the `ssh` service of a bot's execution group.
- *
- * It serves the API of `@deepseek-ai/dsh-ssh`'s service (`request`,
- * `connectStream`, `ready`, `ptcLaunch`, `dispose`), which
- * `dsh-fs-ssh` and `dsh-subprocess-ssh` call, over this package's copy of
- * its connection (src/node/ssh/connection.ts), run with the bot's own OpenSSH
- * config (`ssh -F`). Connections are opened on first use, replaced after a
- * failure and closed when idle (src/host/reconnect.ts):
- *
- * - Mounting never connects, so a bot preset mounts while its VM is down;
- *   only the calls fail ("cannot reach the bot VM over SSH ...").
- * - Calls in flight at a failure still fail; nothing is replayed. Handles of
- *   a lost connection never reach its successor.
- * - `dispose()` (which the SSH providers call when remote cleanup cannot be
- *   confirmed) closes the current connection only when the latest failed call
- *   ran on it.
- */
 import { type Context, Service } from "@deepseek-ai/cordis"
 import z from "@deepseek-ai/schemastery"
 import { Reconnector } from "../host/reconnect"
@@ -26,11 +8,8 @@ import {
 } from "../node/ssh/connection"
 
 export interface Config extends SshConnectionConfig {
-  /** After a failed connect, calls fail fast with that error for this long. */
   retryDelayMs?: number
-  /** Connections opened for one call before it fails. */
   connectAttempts?: number
-  /** A connection nothing used for this long is closed; 0 keeps it. */
   idleMs?: number
 }
 
@@ -106,14 +85,12 @@ export default class BotVmSsh extends Service {
     ctx.effect(() => () => front.close(), "bot-vm: ssh connection")
   }
 
-  /** The verified helper identity; connects when not connected. */
   get ready(): SshConnection["ready"] {
     const ready = this[FRONT].connection().then((connection) => connection.ready)
     void ready.catch(() => {})
     return ready
   }
 
-  /** PTC launch coordinates of the connected helper. */
   get ptcLaunch(): SshConnection["ptcLaunch"] {
     const connection = this[FRONT].connected()
     if (connection === undefined) throw new Error("SSH helper is not ready")
@@ -129,7 +106,6 @@ export default class BotVmSsh extends Service {
     return this[FRONT].connectStream(...args)
   }
 
-  /** Close the current connection; the next call opens a new one. */
   dispose(): Promise<void> {
     return this[FRONT].reset()
   }

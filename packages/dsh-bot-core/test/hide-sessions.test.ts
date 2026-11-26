@@ -46,7 +46,6 @@ const views = (
   },
 })
 
-/** The stock lists' hiding for a delivered bots list. */
 const listedCss = (
   bots: BotView[],
   creatingIds: string[] = [],
@@ -91,7 +90,6 @@ describe("botSessionsCss over a delivered list", () => {
         ),
       )
       expect(css).toContain(`${HEADING}, ${OVERFLOW} { display: none !important; }`)
-      // Stable data attributes only, never a hashed class name.
       expect(css).not.toMatch(/\[class|\.[a-z_]+[A-Za-z0-9_-]*\s*\{/)
     })
 
@@ -102,14 +100,12 @@ describe("botSessionsCss over a delivered list", () => {
     })
 
     it("is hidden when the other ungrouped sessions are all archived (DSH's default view hides them)", () => {
-      // E2E: legacy bots' archived sessions belong to no Workspace and left an empty heading.
       const css = listedCss(
         [bot("a", "m1")],
         [],
         views([summary("m1"), summary("old1"), summary("old2")], [], ["old1", "old2"]),
       )
       expect(css).toContain(`${HEADING}, ${OVERFLOW} { display: none !important; }`)
-      // One that is not archived still keeps the heading.
       expect(
         hasOtherUngrouped(views([summary("old1"), summary("x1")], [], ["old1"]), new Set(["m1"])),
       ).toBe(true)
@@ -125,7 +121,6 @@ describe("botSessionsCss over a delivered list", () => {
           hidden,
         ),
       ).toBe(true)
-      // A session a Workspace accounts for is not ungrouped.
       expect(
         hasOtherUngrouped(
           views([summary("w1")], [{ workspaceId: "ws", sessionIds: ["w1"] }]),

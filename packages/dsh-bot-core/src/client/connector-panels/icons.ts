@@ -2,7 +2,6 @@ import type { ComponentType } from "react"
 import type { ConnectorPanelIcon } from "../../shared/connectors"
 import { IconCalendar, IconFolder, IconGlobe, IconMail, IconScreen } from "../icons"
 
-/** The glyph of each icon a connector's panel may name. */
 export const CONNECTOR_PANEL_GLYPHS: {
   readonly [Icon in ConnectorPanelIcon]: ComponentType<{ size?: number }>
 } = {

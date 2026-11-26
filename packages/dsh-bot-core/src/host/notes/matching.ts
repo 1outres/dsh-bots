@@ -1,15 +1,9 @@
-/**
- * Finding notes' names in text: the link suggestions of a write (only in what
- * it added) and the notes a message names (docs/specs/bot-notes.md §4, §5).
- */
-
 import { type FoldedText, foldName, foldText, originalRange } from "../text-fold"
 import type { NoteCatalog } from "./catalog"
 import { linksIn } from "./links"
 import { characters, standsAlone } from "./names"
 import { dateTitle, validDate } from "./note"
 
-/** Names shorter than this (in characters) are never looked for. */
 export const MIN_NAME_CHARACTERS = 2
 
 export interface Range {
@@ -17,10 +11,8 @@ export interface Range {
   readonly end: number
 }
 
-/** Folded names and the notes each names, titles first. */
 export type NameTable = ReadonlyMap<string, readonly string[]>
 
-/** Every title and alias of at least two characters, without daily notes and without `except`. */
 export function nameTable(catalog: NoteCatalog, except?: string): NameTable {
   const table = new Map<string, readonly string[]>()
   for (const id of catalog.ids()) {
@@ -47,7 +39,6 @@ interface Found {
   readonly key: string
 }
 
-/** Longest non-overlapping matches of the table's names in the folded text. */
 function namesIn(folded: FoldedText, table: NameTable): readonly Found[] {
   const byFirst = new Map<string, string[]>()
   for (const key of table.keys()) {
@@ -78,7 +69,6 @@ const DATES = [
   /(?<![0-9])([0-9]{4})年([0-9]{1,2})月([0-9]{1,2})日/gu,
 ]
 
-/** Dates written with their year, YYYY-MM-DD or YYYY年M月D日, as daily note titles. */
 function datesIn(folded: FoldedText): readonly Found[] {
   const found: Found[] = []
   for (const pattern of DATES) {
@@ -106,7 +96,6 @@ export interface Suggestion {
   readonly label: string
   readonly start: number
   readonly end: number
-  /** The words as written. */
   readonly text: string
   readonly target: SuggestionTarget
 }
@@ -116,11 +105,6 @@ const inside = (found: Range, ranges: readonly Range[]) =>
 
 const overlaps = (a: Range, b: Range) => a.start < b.end && b.start < a.end
 
-/**
- * The words of `body` (a stored body) that name a note or a date, inside
- * `added` and outside any link: one suggestion per name or date, at its first
- * place, numbered L1, L2… in the order they appear.
- */
 export function suggestLinks(
   body: string,
   added: readonly Range[],
@@ -162,10 +146,8 @@ export interface Mention {
   readonly ids: readonly string[]
 }
 
-/** Most notes a message's notice names. */
 export const MAX_MENTIONS = 10
 
-/** The distinct names of notes a message contains, in order, at most {@link MAX_MENTIONS}. */
 export function mentionsIn(message: string, table: NameTable): readonly Mention[] {
   const seen = new Set<string>()
   const mentions: Mention[] = []

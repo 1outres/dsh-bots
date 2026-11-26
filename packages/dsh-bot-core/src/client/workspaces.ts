@@ -9,18 +9,14 @@ import { createStore, type Observable } from "./observable"
 import type { BotWorkspacesRemote, RemoteMount } from "./remote"
 import type { RemoteResult } from "./types"
 
-/** The Workspaces owners grant bots (docs/specs/bot-managed-sessions.md §10), and changing them. */
 export interface WorkspacesClient extends Observable<BotWorkspacesSnapshot | undefined> {
-  /** What a grant can choose from now; rejects with the refusal. */
   options(): Promise<BotWorkspaceOptions>
-  /** Each rejects with the Host's refusal. */
   grant(botId: string, workspaceId: string, settings: BotWorkspaceSettings): Promise<void>
   configure(botId: string, workspaceId: string, change: BotWorkspaceSettingsChange): Promise<void>
   revoke(botId: string, workspaceId: string): Promise<void>
   dispose(): void
 }
 
-/** Follow `botWorkspaces.watch`; undefined until the first snapshot, the last one stays while it reconnects. */
 export function watchWorkspaces(
   mount: Promise<RemoteMount>,
   generation: Observable<object | undefined>,

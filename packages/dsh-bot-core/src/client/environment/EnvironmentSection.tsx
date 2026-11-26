@@ -22,7 +22,6 @@ export interface EnvironmentSectionDeps {
 
 const messageOf = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause))
 
-/** A bot's VM: its CPUs, memory and disk, saved together after a restart is confirmed. */
 export function EnvironmentSection(props: SettingsSectionProps & EnvironmentSectionDeps) {
   const { t, bot, environment } = props
   const state = useObservable(environment.bot(bot.id))

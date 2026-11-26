@@ -9,46 +9,30 @@ import {
   interactionAnswerProblem,
 } from "../../shared/interactions"
 
-/** Where an interaction waits: a bot's session, its Main or another. */
 export interface InteractionPlace {
   readonly botId: string
   readonly sessionId: string
-  /** The bot's Main session: its interactions also go to the bot's channels. */
   readonly main: boolean
 }
 
-/** Who may answer: a channel of the bot (its Main session's) or the browser showing a session. */
 export type InteractionScope =
   | { readonly kind: "main"; readonly botId: string }
   | { readonly kind: "session"; readonly sessionId: string }
 
-/** What the asker does with an answer the board checked against the interaction. */
 export interface InteractionResponder {
-  /** Deliver the answer to DSH; the board closes the interaction once it is accepted. */
   answer(answer: BotInteractionAnswer): Promise<BotAnswerResult>
-  /** A person started answering; absent when nothing counts down. */
   hold?(): void
 }
 
-/** An interaction on the board, as its asker keeps it. */
 export interface OpenInteraction {
   readonly id: string
   readonly place: InteractionPlace
-  /** Replace the interaction (same id and kind), e.g. when its wait changes. */
   update(interaction: BotInteraction): void
-  /** Answer it from now on through another responder. */
   respondWith(responder: InteractionResponder): void
-  /** It ended without an answer through the board. */
   withdraw(): void
   isOpen(): boolean
 }
 
-/**
- * What waits for a person's decision in the bots' sessions: the one record the
- * browser and the channels present. The first answer accepted from anywhere
- * settles an interaction; everyone then learns who answered and what.
- * Interactions of a bot's Main session are also published to its channels.
- */
 export interface InteractionBoard {
   open(
     place: InteractionPlace,
@@ -62,29 +46,21 @@ export interface InteractionBoard {
     origin: BotAnswerOrigin,
   ): Promise<BotAnswerResult>
   hold(scope: InteractionScope, interactionId: string): BotAnswerResult
-  /** A session's open interactions, in opening order. */
   openIn(sessionId: string): readonly BotInteraction[]
-  /** The open interactions of a bot's Main session, in opening order. */
   mainOf(botId: string): readonly BotInteraction[]
-  /** A session's latest closures, oldest first. */
   closedIn(sessionId: string): readonly BotClosedInteraction[]
-  /** Called after every change. */
   subscribe(listener: () => void): () => void
-  /** Withdraw every open interaction. */
   withdrawAll(): void
 }
 
 export interface InteractionBoardDeps {
   newId(): string
   publish(botId: string, output: BotChannelOutput): void
-  /** An interaction opened in a session. */
   opened(place: InteractionPlace, interaction: BotInteraction): void
 }
 
-/** Closures a session keeps for the browser to show who answered. */
 export const KEPT_CLOSURES = 8
 
-/** Sessions whose closures are kept, the most recently closed in. */
 export const KEPT_CLOSURE_SESSIONS = 64
 
 interface Entry {

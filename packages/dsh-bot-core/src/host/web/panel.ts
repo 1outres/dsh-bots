@@ -19,7 +19,6 @@ declare module "@deepseek-ai/dsh-typert-protocol" {
   interface RemoteErrorDetailsMap extends BotWebErrorDetails {}
 }
 
-/** What the `botWeb` Remote serves. */
 export interface WebPanel {
   view(): BotWebView
   setEnabled(capability: unknown, enabled: unknown): Promise<BotWebView>

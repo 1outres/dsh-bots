@@ -1,7 +1,4 @@
 #!/bin/sh
-# Installs Playwright MCP from the package.json and npm-shrinkwrap.json in $1 into $2 (npm ci, no
-# install scripts, no browser download) and swaps it in. Run as root by the browser connector's
-# preparation and by infra/vm/build-base-image.sh, so both install the same tree.
 set -eu
 source=$1
 target=$2

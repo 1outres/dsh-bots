@@ -1,4 +1,3 @@
-/** Runs saves one at a time, in order; a failed save does not stop the next. */
 export type SaveQueue = <T>(work: () => Promise<T>) => Promise<T>
 
 export function createSaveQueue(): SaveQueue {

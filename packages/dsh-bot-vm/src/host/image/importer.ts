@@ -1,14 +1,3 @@
-/**
- * Importing a base image release into the Incus project
- * (docs/specs/incus-endpoint.md §5.5):
- * the manifest's sha256 is the release's, every part has its size and sha256,
- * the joined image has the manifest's sha256 and Incus computes that same
- * fingerprint; only then does the alias move.
- *
- * Under `dir`: `manifests/<manifest sha256>.txt` (verified, kept while it is
- * the release's) and `downloads/<manifest sha256>/` (parts, `<part>.partial`
- * while one is downloaded; removed once the alias points at the image).
- */
 import type {
   BotEnvironmentImageRelease,
   ImageImportStep,
@@ -24,11 +13,8 @@ export interface ImporterDeps {
   readonly files: ImageFiles
   readonly http: ImageHttp
   readonly sha256: () => Hasher
-  /** Absolute directory of the manifests and downloads. */
   readonly dir: string
-  /** The DSH version the plugin runs on, which the image must be built for. */
   readonly dshVersion: string
-  /** Deadline of sending the image to Incus. */
   readonly uploadTimeoutMs: number
   readonly log: (message: string) => void
 }
@@ -46,11 +32,8 @@ export class ImageStepError extends Error {
 export type ProgressSink = (step: ImageImportStep, doneBytes: number, totalBytes: number) => void
 
 export interface Importer {
-  /** The release's manifest: the kept one, or downloaded and verified. */
   manifest(release: BotEnvironmentImageRelease, signal?: AbortSignal): Promise<ImageManifest>
-  /** The fingerprint the alias points at, or undefined. */
   target(alias: string, signal?: AbortSignal): Promise<string | undefined>
-  /** Make the alias point at the release's image, downloading and uploading what is missing. */
   run(
     release: BotEnvironmentImageRelease,
     manifest: ImageManifest,
@@ -58,7 +41,6 @@ export interface Importer {
     progress: ProgressSink,
     signal?: AbortSignal,
   ): Promise<void>
-  /** Remove every download (the alias points at the release's image). */
   clearDownloads(): Promise<void>
 }
 
@@ -81,7 +63,6 @@ export function createImporter(deps: ImporterDeps): Importer {
     fix: string,
   ) => new ImageStepError(step, { code, message, fix })
 
-  /** Incus failures keep their message; aborts stay aborts. */
   async function incusStep<T>(
     step: ImageImportStep | "check",
     what: string,
@@ -200,7 +181,6 @@ export function createImporter(deps: ImporterDeps): Importer {
     return needed
   }
 
-  /** Feed a file to the hashers; resolves with its byte count. */
   async function hashFile(
     path: string,
     hashers: readonly Hasher[],
@@ -216,10 +196,6 @@ export function createImporter(deps: ImporterDeps): Importer {
     return length
   }
 
-  /**
-   * Make `paths.done` the part, continuing `paths.partial`; every byte of
-   * the part goes, in order, to `whole` (replaced when the part restarts).
-   */
   async function downloadPart(
     url: string,
     part: ImagePart,
@@ -314,7 +290,6 @@ export function createImporter(deps: ImporterDeps): Importer {
     return finishPart(part, paths, hasher)
   }
 
-  /** Keep a downloaded part only when it has the manifest's sha256. */
   async function finishPart(part: ImagePart, paths: PartPaths, hasher: Hasher): Promise<void> {
     const actual = hasher.digest()
     if (actual !== part.sha256) {
@@ -329,7 +304,6 @@ export function createImporter(deps: ImporterDeps): Importer {
     await files.rename(paths.partial, paths.done)
   }
 
-  /** Every part present and verified, in order; resolves with the joined image's sha256. */
   async function download(
     release: BotEnvironmentImageRelease,
     manifestValue: ImageManifest,
@@ -396,7 +370,6 @@ export function createImporter(deps: ImporterDeps): Importer {
     )
   }
 
-  /** Delete an image nothing names (one this import made with an unexpected fingerprint). */
   async function dropUnnamed(fingerprint: string, signal?: AbortSignal): Promise<void> {
     const image = await incus.image(fingerprint, signal)
     if (image !== undefined && image.aliases.length === 0)

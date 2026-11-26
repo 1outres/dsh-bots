@@ -10,7 +10,6 @@ import { Row, StatusPill } from "./ui"
 
 type Preparing = Extract<ConnectorReadiness, { readonly state: "preparing" }>
 
-/** What a preparation is doing now, in the reader's language (a connector's step as it reported it). */
 export function preparationStageText(t: Translate, stage: ConnectorPreparationStage): string {
   switch (stage.kind) {
     case "requirements":
@@ -26,11 +25,9 @@ export interface ConnectorPreparingProps {
   readonly t: Translate
   readonly text: (value: ConnectorText) => string
   readonly readiness: Preparing
-  /** The connector's word on its preparation: the row's tooltip, never shown as text. */
   readonly hint?: ConnectorText
 }
 
-/** A preparation as one compact row: its stage, the time it has taken (and its current stage's, once that differs), busy. */
 export function ConnectorPreparing({ t, text, readiness, hint }: ConnectorPreparingProps) {
   const now = useNow(true)
   const { stage } = readiness

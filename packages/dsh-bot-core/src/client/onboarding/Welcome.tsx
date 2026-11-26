@@ -37,7 +37,6 @@ interface GuideProps extends WelcomeSources {
   readonly channels: readonly BotChannelDescriptor[]
 }
 
-/** The welcome guide over the whole app; only finishing it takes it away. */
 export function WelcomeGuide(props: GuideProps) {
   const { t, welcome } = props
   const ref = useRef<HTMLDivElement>(null)
@@ -129,7 +128,6 @@ function Wizard(
   )
 }
 
-/** The picture on one side, the page on the other; a new page slides in from where it comes. */
 function Frame(props: {
   readonly t: Translate
   readonly step: WizardStep
@@ -181,7 +179,6 @@ function Dots(props: { readonly t: Translate; readonly count: number; readonly i
   )
 }
 
-/** The guide's bot being made: the same steps as the main view's, then the bot's Main once it is listed. */
 function CreatingPage(props: GuideProps & { readonly botId: string; readonly titleId: string }) {
   const { t, botId } = props
   const snapshot = snapshotOf(useObservable(props.bots))

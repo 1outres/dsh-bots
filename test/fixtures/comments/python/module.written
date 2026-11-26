@@ -1,0 +1,19 @@
+#!/usr/bin/env python3
+"""Docstring with # inside is a string, not a comment."""
+import sys  # noqa: E402
+import os  # noqa: E402, F401
+import re  # noqa: E402
+import json
+import io  # noqa: E402
+
+text = "# not a comment"
+raw = r'#raw' + '''
+# inside a triple-quoted string
+'''
+name = "wörld😀"
+greeting = f"{name!r} # still a string {'#' * 2}"
+nested = f"{f'{name} # inner'}"
+
+
+def main():
+    return sys, os, re, json, io, text, raw, greeting, nested

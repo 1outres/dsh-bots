@@ -1,9 +1,3 @@
-/**
- * bot-core's files row (src/plugins/files.ts): under the real Cordis Loader,
- * mounted from composeBotPreset's own output, it hands over exactly the services
- * of the bot's isolated group, with its revision's token, and nothing of the
- * Host's wherever else it is placed.
- */
 import { Context, Service } from "@deepseek-ai/cordis"
 import { Group, Loader } from "@deepseek-ai/cordis-plugin-loader"
 import { describe, expect, it } from "vitest"
@@ -12,7 +6,6 @@ import { ATTACH_ENVIRONMENT_SERVICES, type BotEnvironmentServices } from "../src
 import BotEnvironmentFiles from "../src/plugins/files"
 import type { BotOverlay, BotTemplate, PluginRow } from "../src/shared/preset"
 
-/** A service tagged with where it comes from. */
 function tagged(name: string) {
   return class extends Service {
     kind: string
@@ -30,7 +23,6 @@ interface Attach {
   detached: boolean
 }
 
-/** The `bot` service, recording what files rows hand it. */
 function botService(attached: Attach[]) {
   return class extends Service {
     constructor(ctx: Context) {
@@ -49,7 +41,6 @@ function botService(attached: Attach[]) {
 const kindOf = (service: object | undefined) =>
   service === undefined ? undefined : (service as { kind?: string }).kind
 
-/** A Loader whose rows import from a fixed module table, with `cordis:group` built in. */
 async function mount(rows: readonly PluginRow[]) {
   const attached: Attach[] = []
   const modules: Record<string, unknown> = {

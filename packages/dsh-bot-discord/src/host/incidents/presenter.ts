@@ -9,24 +9,14 @@ import { renderIncidentCard } from "./render"
 export interface IncidentPresenterDeps {
   bot: { readonly id: string; readonly name: string }
   actions: Pick<DiscordActions, "send">
-  /** Which incidents the home was shown, kept across connections. */
   notices: IncidentNotices
   home: HomeTarget
-  /** The language of the cards (the notice language). */
   locale: DiscordLocale
-  /** Posting, in order with the bridge's other messages. */
   outbound: SerialQueue
   closed(): boolean
 }
 
-/**
- * bot-core's credential incidents at the home: one card per incident, shown
- * once. bot-core sends an unacknowledged incident again to every new
- * connection; one the home was shown is skipped, one that could not be
- * posted is posted next time.
- */
 export interface IncidentPresenter {
-  /** Rejects when the card could not be posted. */
   received(incident: VaultIncidentView): Promise<void>
 }
 

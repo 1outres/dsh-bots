@@ -5,7 +5,6 @@ import { dirname, join } from "node:path"
 import { describe, expect, it } from "vitest"
 import { UPSTREAM_DSH_VERSION, UPSTREAM_FILES } from "../src/client/upstream"
 
-/** The repository's own copy of a DSH package: a root devDependency pinned at UPSTREAM_DSH_VERSION. */
 function packageDir(name: string): string {
   return dirname(createRequire(import.meta.url).resolve(`${name}/package.json`))
 }
@@ -15,10 +14,6 @@ const rootManifest = JSON.parse(
   readFileSync(new URL("../../../package.json", import.meta.url), "utf8"),
 ) as { devDependencies: Record<string, string> }
 
-// Re-sync procedure: raise UPSTREAM_DSH_VERSION and these devDependencies
-// together, diff each changed upstream file against the bot-core files named
-// in `reliedOnBy` (src/client/upstream.ts), port or re-check them, then update
-// its sha256.
 describe("bot session shell: DSH sources it copies or relies on", () => {
   for (const name of packages) {
     it(`${name} is a root devDependency at UPSTREAM_DSH_VERSION`, () => {

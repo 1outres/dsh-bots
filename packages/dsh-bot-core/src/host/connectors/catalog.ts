@@ -27,44 +27,31 @@ import { type ArgumentsCheck, compileArguments } from "./arguments"
 import { closesRequirementCycle } from "./requirements"
 
 const ID = /^[a-z][a-z0-9_]*$/
-/** bot-core's own tools are named connector_*. */
 const RESERVED_ID = "connector"
-/** Model APIs take tool names of at most 64 characters. */
 const MAX_TOOL_NAME = 64
 const EXCLUSIVE = /^[a-z][a-z0-9_-]*$/
 
-/** A registered connector, its resident resource type erased. */
 export type CatalogConnector = BotConnector<unknown>
 
-/** A tool of a registered connector, with what bot-core derived from it. */
 export interface CatalogTool {
   readonly connector: CatalogConnector
   readonly tool: BotConnectorToolDefinition<unknown>
-  /** Its name among the bot's tools. */
   readonly name: string
   readonly waitMs: number
   readonly ttlMs: number
   readonly maxResultChars: number
-  /** Its arguments' JSON Schema, as the model sees it (with `account` for a connector with connections). */
   readonly schema: JsonSchemaNode
-  /** Checks a call's arguments against {@link schema}. */
   readonly check: ArgumentsCheck
-  /** A checked call's arguments split into the account it names and the tool's own arguments. */
   split(args: ConnectorJson): CallArguments
 }
 
-/** A call's arguments as bot-core hands them on. */
 export interface CallArguments {
-  /** The account a call of a connector with connections names. */
   readonly account?: string
-  /** What the tool's hooks get. */
   readonly own: ConnectorJson
 }
 
-/** The argument bot-core adds to every tool of a connector with connections. */
 export const ACCOUNT_ARGUMENT = "account"
 
-/** bot-core's own tools of a connector with connections, and of one with events. */
 export const ACCOUNTS_TOOL = "accounts"
 export const EVENTS_LIST_TOOL = "events_list"
 export const EVENTS_ACK_TOOL = "events_ack"
@@ -268,7 +255,6 @@ function surfaceProblem(connector: CatalogConnector): string | undefined {
   return undefined
 }
 
-/** Tool names bot-core gives the connector itself. */
 function reservedTools(connector: CatalogConnector): readonly string[] {
   return [
     ...(connector.connections === undefined ? [] : [ACCOUNTS_TOOL]),
@@ -276,7 +262,6 @@ function reservedTools(connector: CatalogConnector): readonly string[] {
   ]
 }
 
-/** The arguments the model sees: a connector with connections takes the account first. */
 function withAccount(connector: CatalogConnector, schema: JsonSchemaNode): JsonSchemaNode {
   if (connector.connections === undefined) return schema
   const node = schema as {
@@ -296,7 +281,6 @@ function withAccount(connector: CatalogConnector, schema: JsonSchemaNode): JsonS
   } as JsonSchemaNode
 }
 
-/** Why a connector cannot be registered, or undefined. */
 export function connectorProblem(connector: CatalogConnector): string | undefined {
   if (typeof connector !== "object" || connector === null) return "the connector is not an object"
   if (typeof connector.id !== "string" || !ID.test(connector.id)) {
@@ -347,17 +331,11 @@ export function connectorProblem(connector: CatalogConnector): string | undefine
 }
 
 export interface ConnectorCatalog {
-  /**
-   * @throws when the connector is invalid, its id is taken, or one of its
-   *   tools would take the name of another registered tool.
-   */
   register(connector: CatalogConnector): () => void
   list(): readonly CatalogConnector[]
   get(connectorId: string): CatalogConnector | undefined
-  /** Every tool of every registered connector, in registration order. */
   tools(): readonly CatalogTool[]
   tool(connectorId: string, tool: string): CatalogTool | undefined
-  /** Called after every registration and unregistration. */
   subscribe(listener: () => void): () => void
 }
 
@@ -388,7 +366,6 @@ function catalogTools(connector: CatalogConnector): CatalogTool[] {
   })
 }
 
-/** The names a connector's tools take among a bot's tools, bot-core's own for it included. */
 export function connectorToolNames(connector: CatalogConnector): readonly string[] {
   return [...connector.tools.map((tool) => tool.name), ...reservedTools(connector)].map((name) =>
     connectorToolName(connector.id, name),

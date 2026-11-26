@@ -1,5 +1,4 @@
 #!/bin/bash
-# Spike: VM restart with live sessions on each path; seconds until a new connection works.
 cd /tmp/dsh-spike || exit
 ts() { date +%s.%N; }
 for a in spk-a spk-a-local spk-a-vsock; do

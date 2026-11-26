@@ -13,11 +13,9 @@ export interface BotAccountsPageProps {
   readonly snapshot: BotConnectionsSnapshot
   readonly connections: ConnectionsFeed
   readonly confirm: SettingsSectionProps["confirm"]
-  /** Open the dsh-bots settings, where the provider's OAuth client is set up. */
   openGlobalSettings(): void
 }
 
-/** A provider's accounts as one bot uses them: which it uses, and adding, renaming and disconnecting them. */
 export function BotAccountsPage(props: BotAccountsPageProps) {
   const { t, provider } = props
   return (

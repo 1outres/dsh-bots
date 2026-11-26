@@ -15,7 +15,6 @@ export const skillMd = (
   body = "1. Do the thing.\n2. Check it.",
 ) => `---\nname: ${name}\ndescription: ${description}\n---\n${body}\n`
 
-/** One bot "a" with sessions of each kind, and bot-core's skills over a file system in memory. */
 export function setup() {
   const fs = memorySkillsFs()
   const place = { fs, workspace: WORKSPACE }

@@ -7,9 +7,9 @@ declare const deps: {
 }
 
 export async function write(id: string, record: unknown) {
-  await deps.vaultAccounts.put(id, record) // rule: 58
-  await deps.vaultGrants.delete(id) // rule: 58
-  await deps.vaultUses.put(id, record) // rule: 58
-  await deps.vaultFingerprints.put(id, record) // rule: 58
-  await deps.vaultIncidents.delete(id) // rule: 58
+  await deps.vaultAccounts.put(id, record)
+  await deps.vaultGrants.delete(id)
+  await deps.vaultUses.put(id, record)
+  await deps.vaultFingerprints.put(id, record)
+  await deps.vaultIncidents.delete(id)
 }

@@ -1,11 +1,3 @@
-/**
- * What the notes row asks the `bot` service (src/plugins/notes.ts): the note
- * tools, the step preparation (the notes brought up to date from the files,
- * and the notice of the notes an owner's message names) and the pinned notes
- * context. Only an Agent of the bot, asking with a token of a revision
- * registered during this load, is answered; its session's kind decides what
- * it gets (docs/specs/bot-notes.md §5, §6).
- */
 import type {
   BotSessionKind,
   NoteMentionNotice,
@@ -31,35 +23,23 @@ import {
 } from "./tools"
 
 export interface BotNotesDeps<A extends KindAgent> {
-  /** Whether `token` is the token of a revision of the bot's preset registered during this load. */
   sealed(botId: string, token: string): boolean
   agent(agentId: string): A | undefined
-  /** The bot the Agent's session verifiably belongs to (host/preset/identity.ts). */
   botOf(agent: A): string | undefined
   kind: SessionKindDeps
-  /** The file system that revision's files row handed over, with the environment's workspace. */
   placeOf(botId: string, token: string): NotesPlace | undefined
   tools: NoteTools
-  /**
-   * Text of the notes handed to the bot's prompt, with its secrets withheld
-   * (docs/specs/bot-vaults.md §7.2). @throws when the vault guard cannot check it.
-   */
   shield(botId: string, text: string): Promise<string>
 }
 
-/** Sessions whose context carries the pinned notes (§6). */
 const PINNED_SESSIONS: readonly BotSessionKind[] = ["main", "web", "delegated", "schedule"]
-/** Sessions told which notes an owner's message names (§5). */
 const MENTION_SESSIONS: readonly BotSessionKind[] = ["main", "web", "delegated"]
 
-/** What the pinned notes context says while the notes cannot be read. */
 export const PINNED_UNREADABLE =
   "Pinned notes could not be loaded for this step (your note tools may fail too)"
 
-/** Bound of a notice's one-line summary (dsh-llm CONTEXT_SUMMARY_MAX_CHARS). */
 const SUMMARY_MAX = 120
 
-/** Why the pinned notes are not shown when the vault guard could not check them. */
 const VAULT_UNCHECKED = "the vault guard could not check them for the bot's secrets"
 
 export interface BotNotes {
@@ -76,21 +56,16 @@ export interface BotNotes {
     signal: AbortSignal,
   ): Promise<NoteMentionNotice | undefined>
   pinned(botId: string, token: string, agentId: string): string
-  /** Runs `work` with the bot's notes, after every operation already asked for. */
   withNotes<T>(botId: string, work: (state: BotNotesState) => Promise<T>): Promise<T>
-  /** Called with the bot id whenever what is known of its notes changed (a write, or files read that changed). */
   subscribe(listener: (botId: string) => void): () => void
-  /** Drop what is kept of bots that no longer exist. */
   forget(exists: (botId: string) => boolean): void
 }
 
 export function createBotNotes<A extends KindAgent>(deps: BotNotesDeps<A>): BotNotes {
   const states = new Map<string, BotNotesState>()
-  /** Why the bot's notes could not be read before its latest step, until they can be again. */
   const failures = new Map<string, string>()
   const queues = new Map<string, Promise<unknown>>()
   const listeners = new Set<(botId: string) => void>()
-  /** The pinned notes as the bot's latest step read them, its secrets withheld. */
   const pinnedTexts = new Map<string, string>()
   const renderPinnedOf = (view: NotesView) => {
     const { catalog } = view

@@ -89,6 +89,5 @@ const APPROVAL_TEXTS: Readonly<Record<BotApprovalAction, Texts>> = {
 export const approvalText = (action: BotApprovalAction, locale: DiscordLocale): string =>
   APPROVAL_TEXTS[action][locale]
 
-/** bot-core's English-and-Japanese text in the notice language. */
 export const pickText = (value: BotChannelText, locale: DiscordLocale): string =>
   locale === "ja" ? (value.ja ?? value.en) : value.en

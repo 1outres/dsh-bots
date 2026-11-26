@@ -1,22 +1,10 @@
 #!/usr/bin/env node
-/**
- * Regenerates src/generated/playwright-mcp.json: the tools of the pinned
- * Playwright MCP (vm/mcp/package.json) as its tools/list answers them with
- * TOOL_ARGUMENTS, and vm/mcp/npm-shrinkwrap.json, the tree the bot's VM
- * installs (a shrinkwrap, because pnpm pack leaves out package-lock.json).
- * The connector's tools are made from that file, and its preparation
- * refuses a VM whose server answers differently.
- *
- * Usage (after changing the version in vm/mcp/package.json and the
- * devDependency): pnpm --filter @1outres/dsh-bot-connector-browser generate
- */
 import { execFileSync, spawn } from "node:child_process"
 import { readFileSync, writeFileSync } from "node:fs"
 import { createRequire } from "node:module"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
-/** The server's options that shape its tools: coordinate mouse and PDF tools, no page-made tools. */
 const TOOL_ARGUMENTS = ["--caps", "vision,pdf", "--no-webmcp"]
 const PACKAGE = "@playwright/mcp"
 

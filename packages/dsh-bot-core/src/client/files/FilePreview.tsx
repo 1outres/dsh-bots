@@ -12,7 +12,6 @@ import { TextLines } from "./TextLines"
 export interface FilePreviewProps {
   readonly t: Translate
   readonly model: PreviewModel
-  /** The request on show; the model's state for any other request reads as loading. */
   readonly request: PreviewRequest
 }
 

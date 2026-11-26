@@ -5,7 +5,6 @@ import type { SettingsBadge, SettingsBadgeTone } from "./sections"
 
 type BadgeKind = Exclude<ConnectorReadiness["state"], "disabled">
 
-/** Worst first: one failed connector outweighs any ready one. */
 const RANK: readonly BadgeKind[] = ["failed", "unavailable", "preparing", "ready"]
 
 const TONE: Readonly<Record<BadgeKind, SettingsBadgeTone>> = {
@@ -26,7 +25,6 @@ const BADGES = Object.fromEntries(
   RANK.map((kind) => [kind, { tone: TONE[kind], label: (t) => t(LABEL[kind]) }]),
 ) as Readonly<Record<BadgeKind, SettingsBadge>>
 
-/** The Connectors nav badge: the worst readiness among the bot's enabled connectors, none while all are off. */
 export function connectorsBadge(state: ConnectorsState): SettingsBadge | null {
   if (state.status !== "ready") return null
   const states = new Set(state.snapshot.connectors.map((view) => view.readiness.state))

@@ -12,10 +12,8 @@ import type { ClientContext, MenuAction, Translate, WorkspaceSnapshot } from "./
 import { NAMESPACE } from "./wiring/plugin"
 import type { WorkspacesClient } from "./workspaces"
 
-/** DSH's context-menu target family of its Workspace session rows. */
 export const DSH_SESSION_MENU_TARGET = "session"
 
-/** DSH's trailing icon list of its Workspace session rows (dsh-client-ui-workspace contract/slots.ts). */
 export const SESSION_ROW_TRAILING = "sidebar.session.row.trailing"
 
 export interface WorkspaceSessionsFace {
@@ -27,7 +25,6 @@ export interface WorkspaceSessionsFace {
 
 type ManagedActions = Pick<ManagedSessionsStore, "entrust" | "release" | "setAnswerer">
 
-/** The Workspace a DSH session row belongs to. */
 export function workspaceOfSession(
   workspaces: WorkspaceSnapshot,
   sessionId: string,
@@ -35,11 +32,6 @@ export function workspaceOfSession(
   return workspaces.items.find((workspace) => workspace.sessionIds.includes(sessionId))?.workspaceId
 }
 
-/**
- * Entries of a DSH Workspace session's management (docs/specs/bot-managed-sessions.md §10.9):
- * hand it to one of the bots its Workspace is granted to; for a managed one,
- * the other answerer and taking it back.
- */
 export function workspaceSessionMenuActions(input: {
   readonly sessionId: string
   readonly workspaceId: string | undefined
@@ -92,7 +84,6 @@ export function workspaceSessionMenuActions(input: {
   ]
 }
 
-/** DSH's session menu gains the management entries of a Workspace session. */
 export function registerWorkspaceSessionMenu(
   ctx: ClientContext,
   face: WorkspaceSessionsFace,
@@ -129,7 +120,6 @@ interface MarkProps extends WorkspaceSessionsFace {
   readonly t: Translate
 }
 
-/** The quiet mark of a Workspace session a bot manages, after the row's time. */
 function WorkspaceManagedMark({ sessionId, managed, bots, t }: MarkProps) {
   const session = managedSessionOf(useObservable(managed), sessionId)
   const bot = snapshotOf(useObservable(bots))?.bots.find((item) => item.id === session?.botId)

@@ -1,9 +1,3 @@
-/**
- * The link index of a bot's notes (docs/specs/bot-notes.md §9): titles,
- * aliases, links and backlinks. It is built from the notes alone, so it can
- * always be made again from the files.
- */
-
 import { foldName } from "../text-fold"
 import { linksIn, showBody } from "./links"
 import type { Note } from "./note"
@@ -15,32 +9,23 @@ export type Resolution =
 
 export interface Backlink {
   readonly from: string
-  /** The linking line, as the model reads it. */
   readonly line: string
-  /** The linking line as the file keeps it. */
   readonly stored: string
 }
 
-/** A file of the notes directory that is not a valid note. */
 export interface InvalidNote {
   readonly file: string
   readonly problem: string
 }
 
 export interface NoteCatalog {
-  /** Every note's id, in creation order (UUIDv7 ids sort by time). */
   ids(): readonly string[]
   note(id: string): Note | undefined
-  /** The note with this title (folded), or undefined. */
   titled(name: string): string | undefined
-  /** A title, else an alias that names exactly one note. */
   resolve(name: string): Resolution
-  /** The notes whose title or alias folds to `name`, titles first. */
   named(name: string): readonly string[]
-  /** Distinct notes the note links to, in order of their first link. */
   links(id: string): readonly string[]
   backlinks(id: string): readonly Backlink[]
-  /** A body with its links shown by title. */
   shown(body: string): string
   readonly invalid: readonly InvalidNote[]
 }

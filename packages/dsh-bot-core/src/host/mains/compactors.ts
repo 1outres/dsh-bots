@@ -1,6 +1,5 @@
 import type { BotCompactor } from "../../internal"
 
-/** The compactors bots' mounted preset revisions handed over, by bot and revision token. */
 export interface CompactorKeeper {
   attach(botId: string, token: string, compactor: BotCompactor): () => void
   get(botId: string, token: string): BotCompactor | undefined

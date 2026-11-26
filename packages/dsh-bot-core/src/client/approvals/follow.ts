@@ -6,11 +6,9 @@ const MAX_DELAY_MS = 30_000
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
 export interface FollowOptions<T> {
-  /** The connection's generation: a new one retries at once. */
   readonly generation: Observable<object | undefined>
   open(): StreamHandle<T>
   item(value: T): void
-  /** The stream ended or failed; the follower retries after a backoff. */
   lost(message: string | undefined): void
 }
 
@@ -29,7 +27,6 @@ function pause(ms: number, generation: Observable<object | undefined>, since: ob
   })
 }
 
-/** Follow a Remote stream until disposed, reopening it with backoff (or at once on a new connection generation). */
 export function followStream<T>(options: FollowOptions<T>): () => void {
   let disposed = false
   let stop: (() => void) | undefined

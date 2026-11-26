@@ -13,12 +13,9 @@ import type { BotNotesRemote, RemoteMount } from "../remote"
 import { type FeedState, followed, messageOf, mountedRemote } from "../remote-feed"
 import type { RemoteResult } from "../types"
 
-/** Why a `botNotes` call failed in the browser. */
 export type NoteFailure =
   | { readonly kind: "host"; readonly code: BotNoteWireCode; readonly message: string }
-  /** The call threw: the connection to the Host failed, or the Remote could not be mounted. */
   | { readonly kind: "connection"; readonly message: string }
-  /** The Host answered with a code outside the contract. */
   | { readonly kind: "protocol"; readonly message: string }
 
 export class NoteRequestError extends Error {
@@ -46,7 +43,6 @@ function unwrapNote<T>(result: RemoteResult<T>): T {
   throw new NoteRequestError({ kind: "host", code, message: message ?? code })
 }
 
-/** The `botNotes` Remote for the browser: a shared status stream per session while anything subscribes, and queries that reject with a {@link NoteRequestError}. */
 export interface NotesClient {
   status(sessionId: string): Observable<FeedState<BotNotesStatus>>
   list(sessionId: string, filter: NoteFilter, signal?: AbortSignal): Promise<NoteListing>

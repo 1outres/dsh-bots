@@ -34,11 +34,9 @@ export type PreviewState =
       readonly failure: BotFileFailure
     }
 
-/** One session's file preview: each `load` or `extend` aborts the call before it. */
 export interface PreviewModel extends Observable<PreviewState> {
   load(request: PreviewRequest): void
   extend(direction: ExtendDirection): void
-  /** Abort the call in flight; a preview still loading goes back to `idle`. */
   cancel(): void
 }
 

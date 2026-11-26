@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto" // rule: 14
-import { createUserMessage } from "@deepseek-ai/dsh-llm" // rule: 12
+import { createHash } from "node:crypto"
+import { createUserMessage } from "@deepseek-ai/dsh-llm"
 
 export const values = [createHash, createUserMessage]

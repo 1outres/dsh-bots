@@ -9,7 +9,6 @@ import type { BotSessionRef, SessionArchive } from "./session-archive"
 import { snapshotOf } from "./session-classification"
 import type { ClientContext, ContextMenus, MenuAction, MenuTarget, Translate } from "./types"
 
-/** Context-menu target family of a bot's session rows (Main has none). */
 export const BOT_SESSION_MENU_TARGET = "bot-session"
 
 export interface BotSessionMenuValue {
@@ -27,14 +26,12 @@ export const botSessionMenuTarget = (session: BotSessionRef): MenuTarget => ({
   } satisfies BotSessionMenuValue,
 })
 
-/** The session id of an open menu target, if it is a bot session row's. */
 export function menuTargetSessionId(target: MenuTarget | null): string | undefined {
   if (target?.kind !== BOT_SESSION_MENU_TARGET) return undefined
   const value = target.value as Partial<BotSessionMenuValue> | null
   return typeof value?.sessionId === "string" ? value.sessionId : undefined
 }
 
-/** Which bot session's menu is open, and opening one. */
 export interface SessionMenuOpener {
   readonly menuSession: Observable<string | undefined>
   openSessionMenu(session: BotSessionRef, point: MenuPoint): void
@@ -51,11 +48,6 @@ export function createSessionMenuOpener(
 
 type ManagedActions = Pick<ManagedSessionsStore, "entrust" | "release" | "setAnswerer">
 
-/**
- * Entries of a session's management (docs/specs/bot-managed-sessions.md §12):
- * hand an unarchived session to Main; for a managed one, the other answerer
- * and taking it back.
- */
 export function managedSessionMenuActions(
   session: BotSessionRef,
   managed: BotManagedSession | undefined,
@@ -93,7 +85,6 @@ export function managedSessionMenuActions(
   ]
 }
 
-/** Menu entries of one of a bot's sessions: Archive, or Unarchive while it is archived. */
 export function botSessionMenuActions(
   session: BotSessionRef,
   archived: boolean,
@@ -119,7 +110,6 @@ export function botSessionMenuActions(
       ]
 }
 
-/** Register the bot session row menu with the host's shared context menu. */
 export function registerBotSessionMenu(
   ctx: ClientContext,
   face: Pick<BotsFace, "bots" | "workspaces" | "managed">,

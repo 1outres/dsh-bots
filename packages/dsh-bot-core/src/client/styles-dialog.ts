@@ -1,4 +1,3 @@
-/** bot-core's modals (New bot, the confirmations) in the host Modal's measures, the avatar picker, and the older form primitives. */
 export const DIALOG_CSS = `
 .dshb-modal-root {
   pointer-events: auto;

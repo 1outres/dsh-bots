@@ -10,12 +10,9 @@ import type { ClientContext } from "../types"
 import type { BotActions } from "./bots-face"
 import { NAMESPACE } from "./plugin"
 
-/** What of bot-core's frame-wide overlay is open; the sidebar and the shell open it, the overlay draws it. */
 export interface DialogStores {
   readonly createDialog: Store<boolean>
-  /** The bot whose settings screen is open, at which section. */
   readonly settings: Store<SettingsTarget | null>
-  /** The dsh-bots settings screen, at which section. */
   readonly globalSettings: Store<GlobalSettingsTarget | null>
 }
 
@@ -27,7 +24,6 @@ export function createDialogStores(): DialogStores {
   }
 }
 
-/** Register a component of bot-core's in the frame-wide `shell.overlay` layer. */
 export function overlay(
   ctx: ClientContext,
   id: string,
@@ -43,7 +39,6 @@ export function overlay(
   )
 }
 
-/** The creation options offered, through the `bots` Remote. */
 export async function creationOptions(mount: Promise<RemoteMount>): Promise<BotCreationOffer> {
   const mounted = await mount
   if (mounted.status === "failed") throw new Error(mounted.error)
@@ -52,7 +47,6 @@ export async function creationOptions(mount: Promise<RemoteMount>): Promise<BotC
   return result.value
 }
 
-/** The New bot dialog. */
 export function wireDialogs(
   ctx: ClientContext,
   sources: {

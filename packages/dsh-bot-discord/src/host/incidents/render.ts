@@ -45,11 +45,6 @@ function whenOf(incident: VaultIncidentView, locale: DiscordLocale): string {
   })}`
 }
 
-/**
- * A credential incident's card at the bot's home: the bot, the login and its
- * kind, where and when, the outcome and, once the model read the value, what
- * to change. It names only these fields of the incident.
- */
 export function renderIncidentCard(
   incident: VaultIncidentView,
   botName: string,

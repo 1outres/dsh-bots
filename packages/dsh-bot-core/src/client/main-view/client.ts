@@ -9,7 +9,6 @@ import type { BotMainViewRemote, RemoteMount } from "../remote"
 import { mountedRemote, unwrap } from "../remote-feed"
 import type { StreamHandle } from "../types"
 
-/** The `botMainView` Remote for the browser: calls reject with the Host's message. */
 export interface MainViewClient {
   readonly generation: Observable<object | undefined>
   watch(botId: string): Promise<() => StreamHandle<MainTimelineFrame>>

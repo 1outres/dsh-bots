@@ -1,9 +1,3 @@
-/**
- * What DSH can run, read from its LLM registry the way its own model picker
- * and `session.selectModel` read it (dsh-api-session-controller
- * `buildModelCatalog`, `modelAvailable`): a registered provider, a model it
- * advertises (`listModels`), and an effort `resolveCallConfig` accepts.
- */
 import type {
   BotModelCatalog,
   BotModelOffer,
@@ -13,7 +7,6 @@ import type {
   BotModelsErrorCode,
 } from "../../shared/models"
 
-/** The slice of DSH's `llm` service (dsh-llm `LlmRuntime`) this module reads. */
 export interface LlmRegistry {
   listProviders(): readonly { readonly id: string; readonly name: string }[]
   listModels(
@@ -41,7 +34,6 @@ export interface LlmRegistry {
   }): Promise<unknown>
 }
 
-/** Why DSH cannot run a route now. */
 export interface BotModelProblem {
   readonly code: BotModelsErrorCode
   readonly message: string
@@ -49,13 +41,11 @@ export interface BotModelProblem {
 
 export interface ModelCatalog {
   read(): Promise<BotModelCatalog>
-  /** Whether DSH can run `selection` now; undefined when it can. */
   check(selection: BotModelSelection): Promise<BotModelProblem | undefined>
 }
 
 export interface ModelCatalogDeps {
   readonly llm: LlmRegistry
-  /** DSH's default model now (`agentDefaultModel.currentSelection()`). */
   profileDefault(): BotModelSelection
 }
 

@@ -12,18 +12,14 @@ import type { ConnectorCatalog } from "./catalog"
 import { decisionInputSchema } from "./domain"
 import type { ConnectorLedger } from "./ledger"
 
-/** Who calls a Remote method, as DSH's Gateway names the Peer's principal. */
 export interface RemoteCaller {
   readonly kind: string
 }
 
-/** A channel connection of a bot, as its link decides through it. */
 export interface DecidingChannel {
   readonly id: string
   readonly name: string
-  /** The channel's ids of the people the bot's settings of the channel let decide. */
   readonly approvers: ReadonlySet<string>
-  /** Aborted once the connection is closing. */
   readonly signal: AbortSignal
 }
 
@@ -31,29 +27,16 @@ export interface ConnectorApprovalsDeps {
   ledger: Pick<ConnectorLedger, "get" | "list" | "all" | "subscribe">
   broker: Pick<ConnectorBroker, "recordDecision">
   catalog: Pick<ConnectorCatalog, "get">
-  /** Whether the bot is stored. */
   exists(botId: string): boolean
 }
 
-/**
- * The only way a person's decision reaches the ledger (design rule 46). A
- * decision is taken from the bot's owner alone: in the Web UI, a Remote call
- * of the DSH Host's owner; through a channel, one of the approvers the bot's
- * settings of that channel name (none by default: nobody decides there).
- */
 export interface ConnectorApprovals {
   view(action: ConnectorAction): ConnectorActionView
-  /** @throws for an unknown bot. */
   views(botId: string): readonly ConnectorActionView[]
-  /** The bot's actions that are pending, approved or running. */
   open(botId: string): readonly ConnectorActionView[]
-  /** The bot's action; undefined for an action the ledger does not keep, or another bot's. */
   find(botId: string, actionId: string): ConnectorActionView | undefined
-  /** The bot's pending actions, oldest first. */
   pending(botId: string): readonly ConnectorActionView[]
-  /** The bot's pending actions, oldest first, for one of the channel's approvers. */
   pendingFor(botId: string, channel: DecidingChannel, person: string): BotPendingActionsResult
-  /** Pending actions per bot that has any. */
   waiting(): Readonly<Record<string, number>>
   fromWeb(
     caller: RemoteCaller | undefined,
@@ -68,7 +51,6 @@ export interface ConnectorApprovals {
     actionId: string,
     decision: unknown,
   ): Promise<ConnectorDecisionResult>
-  /** Called with every created or changed action. */
   subscribe(listener: (action: ConnectorActionView) => void): () => void
 }
 

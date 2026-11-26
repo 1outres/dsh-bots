@@ -24,17 +24,9 @@ import { NAMESPACE } from "./plugin"
 export interface InteractionSources {
   readonly remote: Promise<RemoteMount>
   readonly classification: Classification
-  /** The managed sessions: a Workspace session a bot manages also shows bot-core's cards. */
   readonly managed: Observable<BotManagedSessionsSnapshot>
 }
 
-/**
- * The questions, approvals and plan reviews of the bot session the main view
- * shows (README, "Interactions"), or of the DSH Workspace session a bot
- * manages (whose questions its Main answers): bot-core follows them, publishes a carrier
- * above DSH's own cards in the pending-interaction registry, and draws its
- * card in the composer seat, as DSH's cards take it over.
- */
 export function wireInteractions(ctx: ClientContext, sources: InteractionSources): void {
   const shown = derive(
     [mainSession(ctx.uiSession), sources.classification.main, sources.managed],
@@ -81,7 +73,6 @@ export function wireInteractions(ctx: ClientContext, sources: InteractionSources
   )
 }
 
-/** One follower for the shown bot session, replaced when the main view moves. */
 function followShown(
   shown: Observable<string | undefined>,
   follow: (sessionId: string) => SessionInteractions,

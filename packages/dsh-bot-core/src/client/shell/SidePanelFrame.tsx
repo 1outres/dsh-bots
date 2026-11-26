@@ -8,33 +8,22 @@ import { type DataMarks, useCompactLayout } from "../ui"
 import { panelLayout } from "./panel-layout"
 
 export interface SidePanelFrameProps {
-  /** The panel's accessible name. */
   readonly label: string
   readonly title: string
-  /** The title's tooltip, when it differs from the title (a file's path). */
   readonly titleHint?: string
   readonly titleRef?: Ref<HTMLHeadingElement>
-  /** Before the title (a back button). */
   readonly leading?: ReactNode
-  /** Between the title and the close button (a state, a refresh button). */
   readonly trailing?: ReactNode
   readonly closeLabel: string
   readonly resizeLabel: string
   onClose(): void
   readonly width: PanelWidth
-  /** The shell, whose width the panel shares. */
   readonly containerRef: { readonly current: HTMLElement | null }
   readonly onKeyDown?: (event: KeyboardEvent<HTMLElement>) => void
   readonly marks: DataMarks
   readonly children: ReactNode
 }
 
-/**
- * The frame every side panel of the bot session shell shares (Files, Actions,
- * connectors' panels): a header on the shell header's line, a resizable left
- * edge, beside the chat while the chat keeps 640px, over it otherwise, and a
- * full-screen sheet on a compact window.
- */
 export function SidePanelFrame(props: SidePanelFrameProps) {
   const width = useObservable(props.width)
   const shellWidth = useElementWidth(props.containerRef)

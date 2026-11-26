@@ -1,0 +1,11 @@
+{
+  "path": "packages/demo/src/strings.ts",
+  "diagnostics": [
+    {
+      "line": 5,
+      "column": 21,
+      "rule": 73,
+      "fixable": true
+    }
+  ]
+}

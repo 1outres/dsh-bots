@@ -1,8 +1,3 @@
-/**
- * The parts of bot-core's prompt: which kind of session an Agent runs, the
- * facts the prompt row is told, the `bot:status` context, and the initial
- * workspace files.
- */
 import { describe, expect, it } from "vitest"
 import { WORKSPACE_FILES_VERSION } from "../src/host/domain"
 import { createPromptFacts } from "../src/host/prompt/facts"
@@ -214,7 +209,6 @@ describe("BOT_PROMPT_SECTIONS", () => {
   })
 })
 
-/** A workspace file system in memory, recording its writes. */
 function memoryFs(files: Map<string, string>, fail?: string): WritableFileSystem {
   const path = (target: object) => (target as { path: string }).path
   return {

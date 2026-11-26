@@ -1,57 +1,35 @@
 import type { EnvironmentPhase } from "./bots"
 
-/** What a bot's machine (its VM) is given, each a whole number of its unit. */
 export const BOT_ENVIRONMENT_SPEC_KEYS = ["cpus", "memoryMiB", "diskGiB"] as const
 
 export type BotEnvironmentSpecKey = (typeof BOT_ENVIRONMENT_SPEC_KEYS)[number]
 
-/**
- * The CPUs, memory (MiB) and workspace disk (GiB) of a bot's environment:
- * `diskGiB` is the size of the disk holding the bot's files (its workspace),
- * not of the system the environment runs.
- */
 export type BotEnvironmentSpec = { readonly [Key in BotEnvironmentSpecKey]: number }
 
-/** The least of some keys a connector needs of the bot's environment while it is on. */
 export type BotEnvironmentMinimum = { readonly [Key in BotEnvironmentSpecKey]?: number }
 
-/** The values the environment accepts for one key: `min` to `max`, multiples of `step`. */
 export interface BotEnvironmentRange {
   readonly min: number
   readonly max: number
   readonly step: number
-  /** The value is never lowered (a disk cannot shrink). */
   readonly growOnly?: true
 }
 
-/** What the registered environment accepts for every key, read from the Host it runs on. */
 export type BotEnvironmentCapacity = {
   readonly [Key in BotEnvironmentSpecKey]: BotEnvironmentRange
 }
 
-/**
- * What a new bot is created with where the Host can give it: enough for the
- * desktop and the browser together. {@link initialEnvironmentSpec} brings it
- * within the capacity of the Host the bot is created on.
- */
 export const DEFAULT_BOT_ENVIRONMENT_SPEC: BotEnvironmentSpec = {
   cpus: 4,
   memoryMiB: 6144,
   diskGiB: 20,
 }
 
-/** What an enabled connector needs of the bot's environment, by its name. */
 export interface BotEnvironmentNeed {
   readonly connector: string
   readonly minimum: BotEnvironmentMinimum
 }
 
-/**
- * Why a change of a bot's spec is refused, per key:
- * - `range`: not a multiple of `step` from `min` to `max`;
- * - `shrink`: lowered, though the key only grows;
- * - `needed`: lowered below `need`, what the enabled `connectors` (names) need.
- */
 export type BotEnvironmentSpecProblem =
   | {
       readonly kind: "range"
@@ -70,7 +48,6 @@ export function sameEnvironmentSpec(a: BotEnvironmentSpec, b: BotEnvironmentSpec
   return BOT_ENVIRONMENT_SPEC_KEYS.every((key) => a[key] === b[key])
 }
 
-/** Whether `value` lies in `range`. */
 export function withinRange(range: BotEnvironmentRange, value: number): boolean {
   return (
     Number.isSafeInteger(value) &&
@@ -80,11 +57,6 @@ export function withinRange(range: BotEnvironmentRange, value: number): boolean 
   )
 }
 
-/**
- * What is wrong with changing a bot's spec from `current` to `next`. Only
- * the keys that change are checked: a stored value outside today's range
- * stays as long as it is kept.
- */
 export function environmentSpecProblems(
   current: BotEnvironmentSpec,
   next: BotEnvironmentSpec,
@@ -111,7 +83,6 @@ export function environmentSpecProblems(
   })
 }
 
-/** The first key of `minimum` that `spec` falls short of, with what is needed. */
 export function environmentShortfall(
   minimum: BotEnvironmentMinimum,
   spec: BotEnvironmentSpec,
@@ -123,16 +94,10 @@ export function environmentShortfall(
   return undefined
 }
 
-/**
- * A key a new bot's environment cannot be given on this Host: `need` (the
- * environment's own least value, or what `connectors` need when they ask
- * more) is above `available`, the most it accepts.
- */
 export interface BotEnvironmentCapacityShortfall {
   readonly key: BotEnvironmentSpecKey
   readonly need: number
   readonly available: number
-  /** The connectors needing more than `available`; empty when the environment's own least value is. */
   readonly connectors: readonly string[]
 }
 
@@ -143,11 +108,6 @@ export type InitialEnvironmentSpec =
 const stepDown = (value: number, step: number) => Math.floor(value / step) * step
 const stepUp = (value: number, step: number) => Math.ceil(value / step) * step
 
-/**
- * The spec a new bot's environment starts with: each key of
- * {@link DEFAULT_BOT_ENVIRONMENT_SPEC} within `capacity` and at least what
- * `needs` (its connectors') ask; the shortfalls when `capacity` cannot give that.
- */
 export function initialEnvironmentSpec(
   capacity: BotEnvironmentCapacity,
   needs: readonly BotEnvironmentNeed[],
@@ -180,7 +140,6 @@ export function initialEnvironmentSpec(
     : { ok: true, spec: spec as BotEnvironmentSpec }
 }
 
-/** A spec as it arrives from outside (untrusted): every key a positive safe integer, nothing else. */
 export function parseEnvironmentSpec(input: unknown): BotEnvironmentSpec {
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
     throw new Error("the spec must be an object")
@@ -201,7 +160,6 @@ export function parseEnvironmentSpec(input: unknown): BotEnvironmentSpec {
   ) as BotEnvironmentSpec
 }
 
-/** The unit of a key, as the English messages write it. */
 const UNIT: { readonly [Key in BotEnvironmentSpecKey]: (value: number) => string } = {
   cpus: (value) => `${value} CPU${value === 1 ? "" : "s"}`,
   memoryMiB: (value) => (value % 1024 === 0 ? `${value / 1024} GiB` : `${value} MiB`),
@@ -214,10 +172,8 @@ const NOUN: { readonly [Key in BotEnvironmentSpecKey]: string } = {
   diskGiB: "workspace disk",
 }
 
-/** A value of a key in English, e.g. "4 GiB". */
 export const environmentValueText = (key: BotEnvironmentSpecKey, value: number) => UNIT[key](value)
 
-/** Why the Host refuses a spec change (English). */
 export function environmentSpecRefusal(problem: BotEnvironmentSpecProblem): string {
   const noun = NOUN[problem.key]
   switch (problem.kind) {
@@ -230,7 +186,6 @@ export function environmentSpecRefusal(problem: BotEnvironmentSpecProblem): stri
   }
 }
 
-/** Why a new bot's environment cannot be made on this Host (English). */
 export function environmentCapacityShortfallText(
   shortfall: BotEnvironmentCapacityShortfall,
 ): string {
@@ -242,7 +197,6 @@ export function environmentCapacityShortfallText(
     : `${shortfall.connectors.join(", ")} ${shortfall.connectors.length === 1 ? "needs" : "need"} ${need} of ${noun}, but this Host can give a bot's VM at most ${available}`
 }
 
-/** Why a connector needing `need` of `key` cannot be turned on (English). */
 export function environmentShortfallText(
   connector: string,
   shortfall: { readonly key: BotEnvironmentSpecKey; readonly need: number },
@@ -250,43 +204,25 @@ export function environmentShortfallText(
   return `${connector} needs ${environmentValueText(shortfall.key, shortfall.need)} of ${NOUN[shortfall.key]} or more: raise it on the bot's VM page first`
 }
 
-/**
- * Whether the bot's environment runs with its stored spec:
- * - `unread`: a bot stored before specs, until its environment's is read;
- * - `applying`: being ensured with it (a running VM restarts), at `phase`;
- * - `applied`: it runs with it;
- * - `failed`: the latest ensure failed (retried with backoff).
- */
 export type BotEnvironmentApplication =
   | { readonly state: "unread"; readonly reason: string }
   | { readonly state: "applying"; readonly phase?: EnvironmentPhase }
   | { readonly state: "applied" }
   | { readonly state: "failed"; readonly reason: string }
 
-/** Whether the environment's capacity could be read. */
 export type BotEnvironmentCapacityState =
   | { readonly status: "ready"; readonly capacity: BotEnvironmentCapacity }
   | { readonly status: "unavailable"; readonly reason: string }
 
-/** A bot's VM page. */
 export interface BotEnvironmentView {
   readonly botId: string
-  /** Absent until a bot stored before specs had its environment's read. */
   readonly spec?: BotEnvironmentSpec
   readonly capacity: BotEnvironmentCapacityState
-  /** What the bot's enabled connectors need. */
   readonly needs: readonly BotEnvironmentNeed[]
   readonly application: BotEnvironmentApplication
 }
 
-/** The `botEnvironment` Remote. */
 export interface BotEnvironmentApi {
-  /** The bot's VM page now, then after every change. */
   watch(botId: string, signal?: AbortSignal): AsyncIterable<BotEnvironmentView>
-  /**
-   * Store the bot's whole spec and apply it now (a running VM is stopped,
-   * changed and started again).
-   * @throws when a changed key is outside the capacity, shrinks a grow-only key, or goes below what an enabled connector needs.
-   */
   configure(botId: string, spec: BotEnvironmentSpec): Promise<BotEnvironmentView>
 }

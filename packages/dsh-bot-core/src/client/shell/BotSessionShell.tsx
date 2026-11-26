@@ -48,14 +48,12 @@ import {
 import { BotErrorStatus, ConnectionStatus, IncidentStatus, ShellNotice } from "./ShellNotice"
 import type { ShellBot } from "./shell-view"
 
-/** The Factory's `views` position: Chat only, as DSH's embedded subagent chat (ui-subagent FixedChatConversationView). */
 function ChatOnlyView(props: ConversationViewsProps) {
   return <>{props.renderSlot(SLOT.conversationSession, { view: "chat" })}</>
 }
 
 const CONTENT_SLOTS = { views: ChatOnlyView, widthControls: ShellWidthControls }
 
-/** The Main's `views` position: what its channels see (docs/specs/bot-main-view.md). */
 const MAIN_CONTENT_SLOTS = { views: MainConversationView, widthControls: ShellWidthControls }
 
 export interface BotSessionShellProps extends Omit<ShellSlotProps, "sessionId" | "classification"> {
@@ -63,7 +61,6 @@ export interface BotSessionShellProps extends Omit<ShellSlotProps, "sessionId" |
   readonly bot: ShellBot
 }
 
-/** The menu's entries for a known bot's session: bot-core's it has, then the panels of the connectors it has on. */
 function useKnownEntries(props: KnownProps, context: ShellMenuContext) {
   const { menu, connectorPanels } = props
   const feed = connectorPanels.connectors.feed(context.bot.id)
@@ -86,7 +83,6 @@ function useKnownEntries(props: KnownProps, context: ShellMenuContext) {
   )
 }
 
-/** The menu bar, or on a compact window its folded form in the header. */
 interface ShellMenus {
   readonly bar: ReactNode
   readonly button: ReactNode
@@ -114,11 +110,6 @@ function menusOf(
     : { bar: <ShellMenuBar t={t} menu={entries} renderEntry={render.bar} />, button: null }
 }
 
-/**
- * A bot's session: its header, Chat only (or, while the session is being
- * prepared, a placeholder), banners over the transcript, the side panels and
- * the menu bar.
- */
 export function BotSessionShell(props: BotSessionShellProps) {
   const { t, sessionId, useSession, useConversation, useSessions, renderFactorySlot } = props
   const session = useSession((value) => value)
@@ -204,7 +195,6 @@ export function BotSessionShell(props: BotSessionShellProps) {
   )
 }
 
-/** DSH's conversation content: on the bot's Main its timeline, on its other sessions DSH's Chat. */
 function ConversationContent(
   props: BotSessionShellProps & {
     readonly phase: ConversationContentInput["phase"]
@@ -239,7 +229,6 @@ function ConversationContent(
   )
 }
 
-/** The shell's props for parts drawn only once the bot is known. */
 type KnownProps = Omit<BotSessionShellProps, "bot">
 
 interface HeaderInput {
@@ -331,7 +320,6 @@ function BotError(
   )
 }
 
-/** The Actions or connector panel the session shows, if any. */
 function OpenSidePanel(
   props: Omit<BotSessionShellProps, "bot"> & {
     readonly bot: BotView
@@ -413,7 +401,6 @@ function OpenSidePanel(
   }
 }
 
-/** The connector panel the session shows as a popover over the app, if any. */
 function OpenPopover(props: KnownProps & { readonly bot: BotView }) {
   const { t, bot, sessionId, connectorPanels, popovers } = props
   const popover = useObservable(popovers)[sessionId]

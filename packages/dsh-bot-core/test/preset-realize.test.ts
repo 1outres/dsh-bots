@@ -16,7 +16,6 @@ function template(id: string, rows: string[] = ["persona"], hostTools: string[] 
   }
 }
 
-/** The composed rows inside the environment's group, without bot-core's own rows. */
 function rowsOf(preset: ComposedPreset): readonly PluginRow[] {
   return groupRowsOf(preset).filter((row) => !BOT_CORE_ROW_IDS.includes(row.id))
 }
@@ -27,7 +26,6 @@ function groupRowsOf(preset: ComposedPreset | undefined): readonly PluginRow[] {
   return group.config as PluginRow[]
 }
 
-/** A fake agentPresets registry that mirrors the real one's duplicate check. */
 function fakeRegistry() {
   const live = new Map<string, ComposedPreset>()
   const log: string[] = []
@@ -57,7 +55,6 @@ function fakeRegistry() {
       return async () => {
         if (disposed) return
         disposed = true
-        // The real registry deletes synchronously, before its first await.
         if (live.get(preset.id) === preset) live.delete(preset.id)
         log.push(`unregister ${preset.id}`)
         await Promise.resolve()
@@ -67,7 +64,6 @@ function fakeRegistry() {
   }
 }
 
-/** A manual clock for `later`: tasks run only when the test ticks. */
 function manualClock() {
   let tasks: { work: () => void; at: number; cancelled: boolean }[] = []
   let now = 0
@@ -79,7 +75,6 @@ function manualClock() {
         task.cancelled = true
       }
     },
-    /** Advance by `ms` and run what fell due, then let promises settle. */
     async tick(ms = 0) {
       now += ms
       const due = tasks.filter((task) => task.at <= now)
@@ -91,10 +86,6 @@ function manualClock() {
   }
 }
 
-/**
- * A fake environment gate: ready for every bot, contributing an empty layer
- * unless a test sets one (the composition is always wrapped in its group).
- */
 function fakeEnvironment() {
   const statuses = new Map<string, EnvironmentStatus>()
   let layer: EnvironmentLayer | undefined = { id: "vm", isolate: [], rows: [] }
@@ -331,7 +322,6 @@ describe("createPresetRealizer", () => {
 
   it("retries a Duplicate refusal later instead of remembering it (a reload)", async () => {
     const { realizer, registry, clock } = setup({ a: { name: "A" } })
-    // The previous load still holds bot-a.
     registry.live.set("bot-a", { id: "bot-a", name: "old", order: 1, plugins: [] })
     expect(await realizer.refresh("a")).toMatchObject({
       ready: false,
@@ -421,7 +411,6 @@ describe("createPresetRealizer", () => {
     await settle()
     await settle()
     expect(done).toBe(true)
-    // A template that never comes: the timeout ends the wait.
     const other = setup({ b: { name: "B", template: "never" } })
     await other.realizer.refreshAll()
     let gaveUp = false
@@ -452,7 +441,6 @@ describe("createPresetRealizer", () => {
     environment.statuses.delete("a")
     await realizer.refresh("a")
     expect(registry.live.has("bot-a")).toBe(true)
-    // A failed environment unregisters it again (fail closed) and is not pending.
     environment.statuses.set("a", { ready: false, problem: "vm broken" })
     await realizer.refresh("a")
     expect(registry.live.size).toBe(0)
@@ -620,11 +608,9 @@ describe("createPresetRealizer", () => {
       },
     ])
     const revision = realizer.registration("a")?.revision
-    // A rename keeps the revision (the layer does not use the name).
     records.set("a", { name: "Renamed" })
     await realizer.refresh("a")
     expect(realizer.registration("a")?.revision).toBe(revision)
-    // Changed environment rows or isolate list: a new revision.
     environment.setLayer({ id: "vm", isolate: ["fs"], rows: [{ id: "env-fs", name: "@x/fs" }] })
     await realizer.refresh("a")
     expect(realizer.registration("a")?.revision).not.toBe(revision)

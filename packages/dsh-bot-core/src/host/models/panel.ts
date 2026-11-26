@@ -7,7 +7,6 @@ declare module "@deepseek-ai/dsh-typert-protocol" {
   interface RemoteErrorDetailsMap extends BotModelsErrorDetails {}
 }
 
-/** What the `bots` Remote's model methods serve. */
 export interface ModelPanel {
   view(botId: unknown): BotModelsView
   configure(botId: unknown, change: unknown): Promise<BotModelsView>
@@ -23,7 +22,6 @@ export interface ModelPanelDeps {
 
 const bad = (message: string) => new RemoteError("gateway/bad-request", message, {})
 
-/** A model refusal as the Remote reports it. */
 export function remoteModelsError(error: unknown): unknown {
   if (error instanceof BotModelsInputError) return bad(error.message)
   if (error instanceof BotModelsError)

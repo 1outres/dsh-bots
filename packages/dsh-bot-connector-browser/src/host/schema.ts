@@ -1,12 +1,3 @@
-/**
- * An upstream tool's JSON Schema (Playwright MCP's, draft 2020-12 from zod)
- * in the subset DSH's tools take (type, oneOf, properties, required, boolean
- * additionalProperties, items, enum, const, and annotations). The
- * conversion only drops what the subset cannot say, never adds a
- * constraint; the server checks every call against its own schema anyway.
- * What is dropped is said in the description. An unknown keyword throws, so
- * that a new upstream version is looked at before it is offered.
- */
 export type SchemaNode = { readonly [keyword: string]: unknown }
 
 const ANNOTATIONS = new Set(["description", "title", "default", "examples"])
@@ -81,7 +72,6 @@ function convert(node: unknown, path: string): SchemaNode {
   return described(out, notes)
 }
 
-/** anyOf as oneOf: only when its branches have different types, so exactly one can match. */
 function exclusiveBranches(value: unknown, path: string): readonly SchemaNode[] {
   if (!Array.isArray(value) || value.length < 2) {
     throw new Error(`${path}.anyOf is not a list of at least two schemas`)

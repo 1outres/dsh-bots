@@ -1,9 +1,3 @@
-/**
- * `@1outres/dsh-bot-core/vaults`: bot-core's own row inside every bot's
- * isolated `bot-environment` group. It registers `credentials_list`, shown
- * to every session of a bot that has a login (docs/specs/bot-vaults.md §4),
- * and passes every call to the `bot` service with the revision's token.
- */
 import type { Context } from "@deepseek-ai/cordis"
 import { defineTool, ToolContextUnavailableError } from "@deepseek-ai/dsh-tools"
 import z from "@deepseek-ai/schemastery"
@@ -18,7 +12,6 @@ import {
 
 export interface Config {
   botId: string
-  /** The preset revision's token (compose.ts); bot-core refuses calls of other revisions. */
   token: string
 }
 

@@ -9,16 +9,12 @@ import type { InteractionBoard } from "./board"
 
 export interface InteractionPanelDeps {
   board: Pick<InteractionBoard, "openIn" | "closedIn" | "answer" | "hold">
-  /** Whether the session is a stored bot's (its Main, a session it started, a fork). */
   isBotSession(sessionId: string): boolean
-  /** A registered channel's display name. */
   channelName(channelId: string): string | undefined
   now(): number
 }
 
-/** What the `botInteractions` Remote serves: a bot session's interactions for the browser. */
 export interface InteractionPanel {
-  /** @throws when the session is not a bot's. */
   snapshot(sessionId: string): BotInteractionsSnapshot
   answer(
     sessionId: string,

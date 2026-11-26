@@ -1,11 +1,3 @@
-/**
- * One viewer's relay of the bot's screen: the VM's Xvnc bytes down as `rfb`
- * items (read only when the Gateway asks for the next item, so SSH flow
- * control holds Xvnc back while the browser is slow), every change of who
- * holds the input as a `control` item, and the viewer's RFB messages up
- * through the filter. When the viewer loses control (it hands back, another
- * takes over, its stream ends) the keys and buttons it held are released.
- */
 import type { BotEnvironmentProcess } from "@1outres/dsh-bot-core"
 import type { ScreenDown, ScreenUp } from "../../shared/screen"
 import type { DesktopControl, ViewerId } from "../control"
@@ -15,13 +7,11 @@ export interface RelayInput {
   readonly botId: string
   readonly viewer: ViewerId
   readonly control: DesktopControl
-  /** A byte pipe to Xvnc's socket (`socat` in the VM). */
   readonly pipe: Pick<BotEnvironmentProcess, "stdin" | "stdout" | "terminate">
   readonly uplink: AsyncIterable<ScreenUp>
   readonly signal: AbortSignal
 }
 
-/** Wakes one waiter per arming. */
 class Wake {
   private resolve: (() => void) | undefined
   private promise: Promise<void> | undefined

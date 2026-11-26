@@ -5,7 +5,6 @@ import { useLayer } from "./layers"
 import type { DataMarks } from "./marks"
 import { type Placement, placeUnder } from "./placement"
 
-/** One option of an {@link OptionPicker}: a name, a line under it, a picture. */
 export interface PickerOption {
   readonly value: string
   readonly label: string
@@ -16,15 +15,12 @@ export interface PickerOption {
 export interface OptionPickerProps {
   readonly t: Translate
   readonly options: readonly PickerOption[]
-  /** The values picked, in order; a value no option has is shown by `unknown`. */
   readonly selected: readonly string[]
-  /** Many values (toggled, up to `max`), or one (picking replaces it). */
   readonly multiple: boolean
   readonly max?: number
   onChange(values: readonly string[]): void
   unknown(value: string): PickerOption
   readonly placeholder: string
-  /** The control's accessible name (the row's label). */
   readonly label: string
   readonly disabled?: boolean
   readonly marks?: DataMarks
@@ -58,10 +54,6 @@ const matches = (option: PickerOption, words: readonly string[]) => {
   return words.every((word) => text.includes(word))
 }
 
-/**
- * A choice among options a channel gives (people, places): each with its
- * picture, name and a line under it, filtered by a search field.
- */
 export function OptionPicker(props: OptionPickerProps) {
   const { t, options, selected, multiple, onChange, label, disabled, marks } = props
   const [open, setOpen] = useState(false)
@@ -183,7 +175,7 @@ export function OptionPicker(props: OptionPickerProps) {
             <IconSearch size={14} />
             <input
               className="dshb-ui-popover-input"
-              // biome-ignore lint/a11y/noAutofocus: the list opens for typing its filter
+              // biome-ignore lint/a11y/noAutofocus: -
               autoFocus
               role="combobox"
               aria-label={t("ui.select.search")}
@@ -210,7 +202,7 @@ export function OptionPicker(props: OptionPickerProps) {
               const on = selected.includes(option.value)
               const off = !on && full
               return (
-                // biome-ignore lint/a11y/useKeyWithClickEvents: the search field drives the options with the arrow keys and Enter (aria-activedescendant)
+                // biome-ignore lint/a11y/useKeyWithClickEvents: -
                 <div
                   key={option.value}
                   id={optionId(index)}

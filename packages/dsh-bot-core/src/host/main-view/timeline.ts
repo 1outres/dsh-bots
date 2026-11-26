@@ -1,10 +1,3 @@
-/**
- * A Main session's log as its channels saw it (docs/specs/bot-main-view.md §2),
- * folded one event at a time, so a stored log and a live one read alike:
- * people's messages, the replies and presented files of the turns the channels
- * see (not a maintenance turn's, nor what a turn produced after a successful
- * `stay_silent`), and the turns that failed or were stopped.
- */
 import type {
   MainPresentedFile,
   MainTimelineFile,
@@ -17,7 +10,6 @@ import { PRESENTED_EVENT } from "../channels/presented"
 import type { LoggedEvent, SessionLog } from "../conversations/history"
 import { personTextOf } from "./origin"
 
-/** The message source of a maintenance turn's prompt (host/mains/turns.ts). */
 const MAINTENANCE_SOURCE = "bot-main"
 const STAY_SILENT = "stay_silent"
 
@@ -27,7 +19,6 @@ interface RunningTurn {
   readonly turn: number
   readonly kind: TurnKind
   readonly silent: boolean
-  /** Call ids of the turn's `stay_silent` calls, until their results. */
   readonly silencers: readonly string[]
 }
 
@@ -43,7 +34,6 @@ export interface Folded {
 
 export const emptyFold = (sessionId: string): TimelineFold => ({ sessionId, running: undefined })
 
-/** Whether a turn the channels see runs. */
 export const replyingOf = (fold: TimelineFold): boolean => fold.running?.kind === "shown"
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -144,7 +134,6 @@ const withRunning = (fold: TimelineFold, running: RunningTurn | undefined): Time
   running,
 })
 
-/** The running turn once its kind is known from its first message. */
 function classified(running: RunningTurn | undefined, kind: Exclude<TurnKind, "pending">) {
   return running === undefined || running.kind !== "pending" ? running : { ...running, kind }
 }
@@ -273,7 +262,6 @@ function onTurnEnd(fold: TimelineFold, event: LoggedEvent): Folded {
   }
 }
 
-/** One event of the session's own log (never an inherited one), in order. */
 export function foldEvent(fold: TimelineFold, event: LoggedEvent): Folded {
   switch (event.type) {
     case "turn/start": {
@@ -313,11 +301,9 @@ export function foldEvent(fold: TimelineFold, event: LoggedEvent): Folded {
 export interface Timeline {
   readonly fold: TimelineFold
   readonly items: readonly MainTimelineItem[]
-  /** The last event folded, -1 for none. */
   readonly cursor: number
 }
 
-/** A session's timeline from its log; `until` leaves out what was logged after it (a former Main's end). */
 export function timelineOf(sessionId: string, log: SessionLog, until?: number): Timeline {
   let fold = emptyFold(sessionId)
   const items: MainTimelineItem[] = []

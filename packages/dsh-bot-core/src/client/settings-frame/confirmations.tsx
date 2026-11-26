@@ -7,7 +7,6 @@ import type { FrameConfirmation, FrameLeave } from "./flow"
 
 interface ConfirmDialogProps {
   readonly title: string
-  /** One line. */
   readonly description: string
   readonly cancel: string
   readonly confirm: string
@@ -17,7 +16,6 @@ interface ConfirmDialogProps {
   readonly acceptMarks: DataMarks
 }
 
-/** A confirmation over a settings screen: title, one line, Cancel and the button that goes on. */
 function ConfirmDialog(props: ConfirmDialogProps): ReactNode {
   const id = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -67,7 +65,6 @@ function ConfirmDialog(props: ConfirmDialogProps): ReactNode {
   )
 }
 
-/** Asks before the text an inline editor holds is dropped. */
 export function DiscardConfirm(props: {
   readonly t: Translate
   readonly leaving: FrameLeave
@@ -92,7 +89,6 @@ export function DiscardConfirm(props: {
   )
 }
 
-/** Asks before a section's step with consequences (loosening a permission, restarting the VM). */
 export function StepConfirm(props: {
   readonly t: Translate
   readonly request: FrameConfirmation

@@ -6,13 +6,11 @@ export interface SegmentedProps<Value extends string> {
   readonly value: Value
   readonly choices: readonly Choice<Value>[]
   onChange(value: Value): void
-  /** The group's accessible name. */
   readonly label: string
   readonly disabled?: boolean
   readonly marks?: DataMarks
 }
 
-/** A short exclusive choice (Allow / Ask / Disallow): the selected segment is filled; arrow keys move and pick. */
 export function Segmented<Value extends string>(props: SegmentedProps<Value>) {
   const { value, choices, onChange, label, disabled, marks } = props
   const name = useId()

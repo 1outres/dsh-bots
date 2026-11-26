@@ -17,7 +17,6 @@ import type { DiscordActions, DiscordAuthor, DiscordMessage } from "../src/host/
 import type { DiscordSettings } from "../src/host/fields"
 import type { Scheduler } from "../src/host/ports"
 
-/** A scheduler on a manual clock. */
 export function manualClock() {
   let now = 0
   const pending = new Set<{ at: number; work: () => void }>()
@@ -34,7 +33,6 @@ export function manualClock() {
     scheduler,
     now: () => now,
     pending: () => pending.size,
-    /** Advance the clock, running due work in time order. */
     advance(ms: number) {
       const until = now + ms
       for (;;) {
@@ -51,7 +49,6 @@ export function manualClock() {
   }
 }
 
-/** Discord actions that record their calls. */
 export function fakeActions(overrides: Partial<DiscordActions> = {}) {
   const calls: string[] = []
   const actions: DiscordActions = {
@@ -102,7 +99,6 @@ export const OTHER = "222222222222222222"
 export const GUILD = "333333333333333333"
 export const HOME_CHANNEL = "444444444444444444"
 
-/** Settings of a DM home with {@link ALLOWED} as its owner. */
 export const DM_SETTINGS: DiscordSettings = {
   token: "tok",
   home: "dm",
@@ -110,7 +106,6 @@ export const DM_SETTINGS: DiscordSettings = {
   language: "",
 }
 
-/** Settings of a home in {@link HOME_CHANNEL}, owned by {@link ALLOWED}. */
 export const CHANNEL_SETTINGS: DiscordSettings = {
   token: "tok",
   home: `${GUILD}:${HOME_CHANNEL}`,
@@ -118,7 +113,6 @@ export const CHANNEL_SETTINGS: DiscordSettings = {
   language: "",
 }
 
-/** A message in the home channel. */
 export function channelMessage(overrides: Partial<DiscordMessage> = {}): DiscordMessage {
   return directMessage({
     channelId: HOME_CHANNEL,
@@ -128,12 +122,10 @@ export function channelMessage(overrides: Partial<DiscordMessage> = {}): Discord
   })
 }
 
-/** A Discord account named after its id's last digits. */
 export function author(id: string, bot = false): DiscordAuthor {
   return { id, username: `user${id.slice(-2)}`, displayName: `User ${id.slice(-2)}`, bot }
 }
 
-/** An allowed user's direct message. */
 export function directMessage(overrides: Partial<DiscordMessage> = {}): DiscordMessage {
   return {
     id: "1001",
@@ -149,7 +141,6 @@ export function directMessage(overrides: Partial<DiscordMessage> = {}): DiscordM
   }
 }
 
-/** A link bot-core would hand the channel, driven by the test. */
 export function fakeLink(settings: DiscordSettings) {
   const controller = new AbortController()
   const delivered: BotInboundMessage[] = []
@@ -240,7 +231,6 @@ export function fakeLink(settings: DiscordSettings) {
     decideWith(next: (actionId: string) => ConnectorDecisionResult) {
       decide = next
     },
-    /** What the ledger keeps: link.pendingActions and link.connectorAction read it. */
     keep(...actions: ConnectorActionView[]) {
       for (const action of actions) ledger.set(action.id, action)
     },
@@ -254,7 +244,6 @@ export async function settle(): Promise<void> {
   for (let index = 0; index < 20; index += 1) await Promise.resolve()
   await new Promise((resolve) => setImmediate(resolve))
 }
-/** A storage-domain table in memory. */
 export function memoryTable<V>(): RecordTable<V> & { readonly map: Map<string, V> } {
   const map = new Map<string, V>()
   return {

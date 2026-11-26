@@ -5,13 +5,9 @@ import type {
   ConnectorJson,
 } from "../../shared/connectors"
 
-/** What the Actions panel shows of a bot's actions. */
 export interface ActionsView {
-  /** Pending, approved and running actions, oldest first: they are decided in order. */
   readonly open: readonly ConnectorActionView[]
-  /** Every ended action the ledger keeps, newest first. */
   readonly history: readonly ConnectorActionView[]
-  /** How many wait for a decision. */
   readonly pending: number
 }
 
@@ -25,7 +21,6 @@ export function isOpenStatus(status: ConnectorActionStatus): boolean {
   return OPEN_STATES.has(status.state)
 }
 
-/** When the action ended; undefined while it is open. */
 export function endedAt(status: ConnectorActionStatus): number | undefined {
   switch (status.state) {
     case "pending":
@@ -57,7 +52,6 @@ export function pendingCount(actions: readonly ConnectorActionView[]): number {
 
 export type ActionTone = "warning" | "busy" | "success" | "danger" | "idle"
 
-/** The status pill's tone of an action's state. */
 export function actionTone(status: ConnectorActionStatus): ActionTone {
   switch (status.state) {
     case "pending":
@@ -77,12 +71,10 @@ export function actionTone(status: ConnectorActionStatus): ActionTone {
   }
 }
 
-/** The decision an action carries, if it was decided. */
 export function decisionOf(status: ConnectorActionStatus): ConnectorDecisionRecord | undefined {
   return "decision" in status ? status.decision : undefined
 }
 
-/** Who decided in a channel, worded; undefined for a decision from the Web UI, which goes without saying. */
 export function deciderOf(
   decision: ConnectorDecisionRecord,
 ): { readonly key: string; readonly params: Readonly<Record<string, string>> } | undefined {
@@ -95,18 +87,14 @@ export function deciderOf(
       }
 }
 
-/** A succeeded action's result as text: its text, else its data as JSON; undefined when it had neither. */
 export function resultText(text: string | undefined, result: ConnectorJson): string | undefined {
   if (text !== undefined) return text
   return result === null ? undefined : JSON.stringify(result, null, 2)
 }
 
-/** Longest body shown before "Show all". */
 export const BODY_PREVIEW_CHARS = 600
-/** Most lines of a body shown before "Show all". */
 export const BODY_PREVIEW_LINES = 12
 
-/** A body's folded form, or undefined when it shows whole. */
 export function foldBody(body: string): string | undefined {
   const lines = body.split("\n")
   if (body.length <= BODY_PREVIEW_CHARS && lines.length <= BODY_PREVIEW_LINES) return undefined

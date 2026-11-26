@@ -13,7 +13,6 @@ afterEach(() => {
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true })
 })
 
-/** sshd -i stand-in: upper-cases its stdin to stdout, writes one line to stderr. */
 function echoSession() {
   const queue: Uint8Array[] = []
   let ended = false

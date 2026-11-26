@@ -1,4 +1,4 @@
 export function lookup(ctx: { get(name: string): unknown }) {
-  return ctx.get("bot") // rule: 8
+  return ctx.get("bot")
 }
-export const secrets = ["credentials"] // rule: 17
+export const secrets = ["credentials"]

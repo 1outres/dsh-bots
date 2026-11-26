@@ -182,7 +182,6 @@ function setup(
   }
 }
 
-/** A client whose login really runs, against a stubbed /gateway/bot and in-process shards that only record. */
 function loggingIn() {
   let answer: (value: unknown) => void = () => {}
   const gateway = new Promise((resolve) => {
@@ -306,7 +305,6 @@ describe("discord.js adapter: events", () => {
         author: { id: ALLOWED, username: "user11", displayName: "User 11", bot: false },
         content: "message 21",
         attachments: [{ name: "b.txt", url: "https://cdn/b", size: 1, contentType: "text/plain" }],
-        // A message's time is its snowflake's: Discord's epoch for this tiny test id.
         createdAt: 1420070400000,
       },
     ])

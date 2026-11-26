@@ -3,7 +3,6 @@ import type { NotesClient } from "../../src/client/notes/client"
 import { createNotesModels, type NotesFace } from "../../src/client/notes/face"
 import { value } from "./client"
 
-/** Timers the test runs by hand. */
 export function manualTimers(): Timers & { run(): void } {
   const pending = new Map<number, () => void>()
   let next = 0
@@ -22,7 +21,6 @@ export function manualTimers(): Timers & { run(): void } {
   }
 }
 
-/** A notes client that never answers: the panel stays loading. */
 export const idleNotesClient: NotesClient = {
   status: () => value({ status: "loading" }),
   list: () => new Promise(() => {}),

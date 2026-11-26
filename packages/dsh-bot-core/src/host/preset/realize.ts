@@ -13,122 +13,57 @@ import type {
   WebComposition,
 } from "./types"
 
-/** What a bot contributes to its preset, read from its stored record. */
 export interface BotPresetSource {
   readonly name: string
-  /** Absent means {@link DEFAULT_TEMPLATE_ID}. */
   readonly template?: string | undefined
-  /** As stored; composing validates it. Absent means none. */
   readonly overlay?: unknown
 }
 
 export interface PresetRealizerDeps {
   catalog: Pick<TemplateCatalog, "get" | "subscribe">
-  /** The bot's current inputs, or undefined once it is gone. Read when its turn runs. */
   source(botId: string): BotPresetSource | undefined
-  /** Every stored bot. */
   botIds(): Iterable<string>
-  /** Host tools templates may grant (bot-core's `allowedHostTools` config). */
   allowedHostTools: ReadonlySet<string>
-  /** What every bot's web lookup offers now; read when a bot's turn runs. */
   web(): WebComposition
-  /** The bot environment (`createEnvironmentKeeper`). */
   environment: {
-    /**
-     * The layer the composition goes into, or undefined while no environment is registered.
-     * @throws when the environment cannot give its rows.
-     */
     layer(target: { id: string; name: string }): EnvironmentLayer | undefined
-    /** Whether the environment is ready for the bot. */
     status(
       botId: string,
     ):
       | { readonly ready: true }
       | { readonly ready: false; readonly problem: string; readonly pending?: true }
   }
-  /** Seals a composition's revision into its files row token. */
   seal: Seal
-  /** `agentPresets.register`; resolves to the registration's disposer. */
   register(preset: ComposedPreset): Promise<() => Promise<void>>
-  /** Why a registered preset cannot compose a session (`agentPresets.resolve(id).broken`), or undefined. */
   diagnose(presetId: string): Promise<string | undefined>
-  /** Run `work` after `ms`; returns a canceller. */
   later(work: () => void, ms: number): () => void
   warn(message: string): void
-  /** How long a template may be missing before it is reported. Default 10 s. */
   graceMs?: number
-  /** How long catalog changes are coalesced. Default 100 ms. */
   settleMs?: number
-  /** Delay before a "Duplicate agent preset" registration is retried. Default 500 ms. */
   duplicateRetryMs?: number
 }
 
-/** A bot's configuration checked against the current catalog and environment; registers nothing. */
 export type PresetCheck =
   | CompositionProblem
   | { readonly ok: true; readonly hostTools: readonly string[] }
 
-/** The live registration of a bot's preset. */
 export interface PresetRegistration {
   readonly revision: string
   readonly hostTools: readonly string[]
   readonly revisionToken: string
 }
 
-/**
- * Keeps one registered Agent preset per bot in step with its stored template
- * choice, overlay, the template catalog and the bot's environment.
- *
- * - One bot's work runs strictly in order, so a session never sees the gap of
- *   an unregister → register swap; different bots proceed independently.
- * - An unchanged composition (equal digest) stays registered; a changed one is
- *   swapped in place. Live Agents keep the revision they started with.
- * - Registered means usable: whenever the configuration cannot be realized the
- *   old registration is removed and the state turns `ready: false`.
- * - A missing template is `pending` and reported only after
- *   {@link PresetRealizerDeps.graceMs}; catalog changes are coalesced for
- *   {@link PresetRealizerDeps.settleMs}.
- * - A "Duplicate agent preset" refusal (a previous load still releasing) is retried later.
- * - A preset is registered only inside the environment's group, while the
- *   environment is ready for the bot.
- */
 export interface PresetRealizer {
-  /**
-   * Bring one bot's registration in step with its record, in the bot's turn.
-   * A composition whose registration failed is not retried while it stays the
-   * same, unless `retry` is set.
-   * @returns the bot's state, or undefined when the bot no longer exists (its
-   *   registration is then removed).
-   */
   refresh(botId: string, options?: { retry?: boolean }): Promise<BotPresetState | undefined>
-  /** {@link refresh} every stored bot, and drop the registrations of removed ones. */
   refreshAll(): Promise<void>
-  /**
-   * Run `work` in the bot's turn, right after a {@link refresh} with retry,
-   * so nothing re-registers the bot's preset while `work` runs.
-   * @throws when the bot does not exist.
-   */
   run<T>(botId: string, work: (state: BotPresetState) => Promise<T>): Promise<T>
-  /**
-   * Validate `source` for `botId` against the current catalog, and against the
-   * environment's layer once one is registered, registering nothing.
-   */
   check(botId: string, source: BotPresetSource): PresetCheck
-  /** {@link check}, reported as a {@link BotPresetPreview}. */
   preview(botId: string, source: BotPresetSource): BotPresetPreview
-  /**
-   * Wait until the bot's queued work is done and its template is no longer
-   * pending, or `timeoutMs` passed, or the realizer is disposed. Never rejects.
-   */
   settled(botId: string, timeoutMs: number): Promise<void>
-  /** Current state; a stored bot not realized yet reads as not ready. */
   state(botId: string): BotPresetState | undefined
   registration(botId: string): PresetRegistration | undefined
-  /** Whether `botId` is stored, or had a preset since start (its Agents may still live). */
   isBot(botId: string): boolean
-  /** Called with the bot id after its state or registration changed. */
   subscribe(listener: (botId: string) => void): () => void
-  /** Stop: unregister every bot preset; later work registers nothing. */
   dispose(): Promise<void>
 }
 
@@ -148,7 +83,6 @@ interface Live extends PresetRegistration {
 
 interface Entry {
   live: Live | undefined
-  /** Digest whose registration failed; not retried without `retry`. */
   failedDigest: string | undefined
   state: BotPresetState
 }
@@ -169,14 +103,12 @@ export function createPresetRealizer(deps: PresetRealizerDeps): PresetRealizer {
   const settleMs = deps.settleMs ?? 100
   const duplicateRetryMs = deps.duplicateRetryMs ?? 500
   const entries = new Map<string, Entry>()
-  /** Bots that had a registration since start, so Agents of a removed bot stay recognized. */
   const known = new Set<string>()
   const queues = new Map<string, Promise<unknown>>()
   const listeners = new Set<(botId: string) => void>()
   const timers = new Set<() => void>()
   const duplicateRetries = new Map<string, number>()
   const pendingTemplates = new Set<string>()
-  /** Wakers of every {@link PresetRealizer.settled} wait, so dispose ends them. */
   const waiters = new Set<() => void>()
   let closed = false
 
@@ -216,7 +148,6 @@ export function createPresetRealizer(deps: PresetRealizerDeps): PresetRealizer {
     }
   }
 
-  /** Store `entry` and tell listeners when the state or the registration changed. */
   const commit = (botId: string, entry: Entry | undefined, registrationChanged: boolean) => {
     const before = entries.get(botId)?.state
     if (entry === undefined) entries.delete(botId)
@@ -235,7 +166,6 @@ export function createPresetRealizer(deps: PresetRealizerDeps): PresetRealizer {
     if (template === undefined) {
       return { ok: false, problem: `template "${templateId}" is not registered` }
     }
-    // Stored overlays passed the outside checks of parseOverlay when they were configured.
     let overlay: BotOverlay = []
     if (source.overlay !== undefined) {
       try {
@@ -288,7 +218,6 @@ export function createPresetRealizer(deps: PresetRealizerDeps): PresetRealizer {
     }
   }
 
-  /** The bot cannot be realized: drop any registration and report `problem`. */
   const fail = async (
     botId: string,
     template: string,
@@ -297,7 +226,6 @@ export function createPresetRealizer(deps: PresetRealizerDeps): PresetRealizer {
       wasRegistered: boolean
       failedDigest?: string
       pending?: boolean
-      /** What is missing: a `pending` template is reported after the grace period; the environment reports its own failures. */
       cause?: "template" | "environment"
     },
   ): Promise<BotPresetState> => {
@@ -311,7 +239,6 @@ export function createPresetRealizer(deps: PresetRealizerDeps): PresetRealizer {
     }
     const repeated = previous?.state.ready === false && previous.state.problem === problem
     if (options.cause === "environment") {
-      // Preparing an environment takes a while, and the environment warns about its own failures.
     } else if (options.pending === true) {
       if (!pendingTemplates.has(botId)) {
         pendingTemplates.add(botId)
@@ -335,7 +262,6 @@ export function createPresetRealizer(deps: PresetRealizerDeps): PresetRealizer {
     return state
   }
 
-  /** Drop the bot's live registration, if any. */
   const unregister = async (entry: Entry | undefined, id: string) => {
     const previous = entry?.live
     if (entry !== undefined) entry.live = undefined
@@ -387,7 +313,6 @@ export function createPresetRealizer(deps: PresetRealizerDeps): PresetRealizer {
     if (!retry && entry?.live === undefined && entry?.failedDigest === composition.digest) {
       return entry.state
     }
-    // The registry drops the old id synchronously, so the new registration can start before the old revision finishes collecting.
     const previous = entry?.live
     if (entry !== undefined) entry.live = undefined
     const releasing = release(previous?.dispose, id)
@@ -519,7 +444,6 @@ export function createPresetRealizer(deps: PresetRealizerDeps): PresetRealizer {
           const state = stateOf(botId)
           const pending = state?.ready === false && state.pending === true
           if (queue === undefined && !pending) return
-          // Wait for the queued work, a change of this bot, or the deadline.
           await new Promise<void>((resolve) => {
             wake = resolve
             void queue?.then(() => resolve())

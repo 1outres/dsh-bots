@@ -1,28 +1,15 @@
-/**
- * An Incus trust token (`incus config trust add --restricted --projects …`):
- * base64 of a JSON object naming the server's addresses and certificate
- * fingerprint, a one-time secret and its expiry. The whole token is what
- * `POST /1.0/certificates` takes as `trust_token` (the secret alone is
- * refused with 403).
- */
 import { normalizeSha256, parseEndpointUrl } from "./endpoint"
 
 export interface TrustToken {
-  /** The token as given (trimmed): what the server takes. */
   readonly text: string
   readonly clientName: string
-  /** The server certificate's SHA-256, normalized. */
   readonly fingerprint: string
-  /** `host:port` addresses the server listens on. */
   readonly addresses: readonly string[]
-  /** Undefined when the token does not expire. */
   readonly expiresAt: number | undefined
 }
 
-/** Incus writes Go's zero time for a token without expiry. */
 const NEVER = "0001-01-01T00:00:00Z"
 
-/** @throws with what is wrong when `text` is not a trust token. */
 export function parseTrustToken(text: string): TrustToken {
   const trimmed = text.trim()
   let raw: unknown
@@ -55,7 +42,6 @@ export function parseTrustToken(text: string): TrustToken {
   }
 }
 
-/** The URLs a token's addresses name, in its order (the caller picks one). */
 export function tokenUrls(token: TrustToken): readonly string[] {
   return token.addresses.map((address) => parseEndpointUrl(`https://${address}`).origin)
 }

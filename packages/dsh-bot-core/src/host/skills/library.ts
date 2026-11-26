@@ -1,11 +1,3 @@
-/**
- * A bot's skills as files in its environment (docs/specs/bot-skills.md §2,
- * §4): read and written only through the bot's environment's file system,
- * never the Host's. The files are the source of truth; the library keeps
- * what it last read of each SKILL.md (by the file system's version), so a
- * step's check for changes reads only what changed.
- */
-
 import type { InvalidSkill, SkillFile } from "../../shared/skills"
 import type { FileTarget } from "../files"
 import {
@@ -27,7 +19,6 @@ export type SkillWriteGuard =
 
 type EntryType = "file" | "directory" | "other"
 
-/** dsh-fs `FileSystem`, as far as skills use it. */
 export interface SkillsFileSystem {
   resolve(path: string, options?: { cwd?: string; signal?: AbortSignal }): Promise<FileTarget>
   stat(
@@ -65,39 +56,30 @@ export interface SkillsFileSystem {
   ): Promise<unknown>
 }
 
-/** Where a bot's skills are: its environment's file system and workspace. */
 export interface SkillsPlace {
   readonly fs: SkillsFileSystem
   readonly workspace: string
 }
 
-/** One active skill as the catalog lists it. */
 export interface CatalogSkill {
   readonly name: string
   readonly description: string
-  /** The version of its SKILL.md when it was read. */
   readonly version: string
-  /** The size of its SKILL.md in UTF-8 bytes. */
   readonly bytes: number
 }
 
-/** The active skills: valid ones by name, and what in skills/ is not a valid skill. */
 export interface SkillCatalog {
   readonly skills: readonly CatalogSkill[]
   readonly invalid: readonly InvalidSkill[]
-  /** Changes whenever a skill is added, removed or its SKILL.md changes. */
   readonly fingerprint: string
 }
 
-/** A file of a skill's directory as it is now. */
 export interface SkillDiskFile extends SkillFile {
   readonly version: string
 }
 
-/** A skill's directory as it is now: its text files, and the files a version cannot keep. */
 export interface SkillDirectory {
   readonly files: readonly SkillDiskFile[]
-  /** Not UTF-8 text, or too large: neither kept in a version nor touched by a restore. */
   readonly unkept: readonly string[]
 }
 
@@ -112,16 +94,12 @@ const decode = (bytes: Uint8Array): string | undefined => {
 }
 
 export interface SkillLibrary {
-  /** The active skills; reads only the SKILL.md files that changed since the last scan. @throws when skills/ cannot be read. */
   scan(place: SkillsPlace, signal: AbortSignal): Promise<SkillCatalog>
-  /** What the last scan found, or undefined before the first. */
   current(): SkillCatalog | undefined
-  /** The archived skills (skills/.archive/<name>/SKILL.md), each with what its SKILL.md says. */
   archived(
     place: SkillsPlace,
     signal: AbortSignal,
   ): Promise<readonly { readonly name: string; readonly skill: Checked<ParsedSkill> }[]>
-  /** A skill's directory, or undefined when it has no SKILL.md. */
   directory(
     place: SkillsPlace,
     name: string,

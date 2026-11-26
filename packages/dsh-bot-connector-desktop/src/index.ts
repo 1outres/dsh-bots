@@ -1,9 +1,3 @@
-/**
- * `@1outres/dsh-bot-connector-desktop` (row `bot-connector-desktop`):
- * registers the `desktop` connector with bot-core. This file is the
- * composition root: it reads the package's vm/ files and gives the Host
- * modules the clock.
- */
 import { readdir, readFile } from "node:fs/promises"
 import { join, relative, sep } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -17,10 +11,6 @@ export { createDesktopConnector, DESKTOP_CONNECTOR_ID } from "./host/connector"
 export { DesktopControl, type DesktopController, type DesktopControlView } from "./host/control"
 
 export const name = "bot-connector-desktop"
-/**
- * The `bot` service of @1outres/dsh-bot-core. Only types come from that
- * package: a value import would bundle bot-core's runtime into this one.
- */
 const BOT = "bot"
 export const inject = ["bot"]
 
@@ -32,7 +22,6 @@ function botOf(ctx: Context): Bot {
 
 const VM_DIRECTORY = fileURLToPath(new URL("../vm/", import.meta.url))
 
-/** Every file under vm/ (Python caches left out). */
 export async function readVmSources(directory: string = VM_DIRECTORY): Promise<VmSourceFile[]> {
   const entries = await readdir(directory, { recursive: true, withFileTypes: true })
   const files = entries

@@ -13,7 +13,6 @@ import { createStore, type Observable } from "../observable"
 import type { BotsRemote, RemoteMount } from "../remote"
 import type { RemoteResult } from "../types"
 
-/** Why a bot's models or DSH's catalog cannot be read, or a change was not stored. */
 export type ModelsFailure =
   | { readonly kind: "mount"; readonly message: string }
   | { readonly kind: "connection"; readonly message: string }
@@ -37,9 +36,7 @@ export type ModelsState =
   | { readonly status: "ready"; readonly view: BotModelsView }
   | { readonly status: "failed"; readonly failure: ModelsFailure }
 
-/** One bot's models, followed while anything shows them. */
 export interface ModelsModel extends Observable<ModelsState> {
-  /** Store a change of the roles it names; rejects with a {@link ModelsError}. */
   configure(change: BotModelsChange): Promise<BotModelsView>
   dispose(): void
 }
@@ -48,14 +45,12 @@ export interface ModelsFeed extends Observable<ModelsState> {
   configure(change: BotModelsChange): Promise<BotModelsView>
 }
 
-/** Bots' models shared by everything that shows them: one stream per bot while subscribed. */
 export interface ModelsHub {
   feed(botId: string): ModelsFeed
 }
 
 export interface ModelsModelDeps {
   readonly mount: Promise<RemoteMount>
-  /** The connection's generation: a lost stream reopens at once on a new one. */
   readonly generation: Observable<object | undefined>
 }
 
@@ -74,7 +69,6 @@ function placeOf(details: unknown): BotModelsErrorPlace {
   }
 }
 
-/** A refusal of the `bots` Remote as a {@link ModelsFailure}. */
 export function refusalOf(
   error: Extract<RemoteResult<unknown>, { ok: false }>["error"],
 ): ModelsFailure {
@@ -108,7 +102,6 @@ async function call<T>(
 const failureOf = (error: unknown): ModelsFailure =>
   error instanceof ModelsError ? error.failure : { kind: "connection", message: messageOf(error) }
 
-/** A lost stream reopens with backoff; the last view stays meanwhile. */
 export function createModelsModel(deps: ModelsModelDeps, botId: string): ModelsModel {
   const state = createStore<ModelsState>({ status: "loading" })
   let disposed = false
@@ -152,7 +145,6 @@ export function createModelsHub(open: (botId: string) => ModelsModel): ModelsHub
   })
 }
 
-/** DSH's catalog now, read each time a model picker opens; rejects with a {@link ModelsError}. */
 export function modelCatalogReader(mount: Promise<RemoteMount>): () => Promise<BotModelCatalog> {
   return () => call(mount, (bots) => bots.modelCatalog())
 }

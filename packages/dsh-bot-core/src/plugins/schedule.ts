@@ -1,11 +1,3 @@
-/**
- * `@1outres/dsh-bot-core/schedule`: bot-core's own row inside every bot's
- * isolated `bot-environment` group (compose.ts puts it after the connectors
- * row; templates and overlays cannot name it). It registers `schedule` and
- * `schedule_result`, each shown only to the Agents the `bot` service lets
- * use it (the bot's Main session; a scheduled separate run's own session),
- * and passes every call to the service with the revision's token.
- */
 import type { Context } from "@deepseek-ai/cordis"
 import { defineTool, ToolContextUnavailableError } from "@deepseek-ai/dsh-tools"
 import z from "@deepseek-ai/schemastery"
@@ -20,11 +12,9 @@ import {
 
 export interface Config {
   botId: string
-  /** The preset revision's token (compose.ts); bot-core refuses calls of other revisions. */
   token: string
 }
 
-/** The rule for choosing a job's mode (docs/specs/bot-schedule.md). */
 export const MODE_RULE =
   "Use main when the work should continue this conversation, with its context and leaving its steps in it. " +
   "Use separate when it should run apart from the conversation and only its outcome should come back to you; its instruction must then stand on its own. " +

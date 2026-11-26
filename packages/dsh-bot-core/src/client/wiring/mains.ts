@@ -5,10 +5,8 @@ import { BotMainsSection, GlobalMainsSection } from "../mains/MainsSections"
 import type { ClientContext } from "../types"
 import type { SettingsScreens } from "./screens"
 
-/** Id of the Main session section, in the dsh-bots settings and in each bot's settings. */
 export const MAINS_SECTION = "bot-core.mains"
 
-/** The Main session sections: the defaults of every bot, and each bot's own values and new Main. */
 export function wireMains(
   ctx: ClientContext,
   sources: {

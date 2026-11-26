@@ -13,7 +13,6 @@ import { ModelsSection, type ModelsSectionDeps } from "./ModelsSection"
 import type { SettingsSection, SettingsSectionProps } from "./sections"
 import { WorkspacesSection, type WorkspacesSectionDeps } from "./WorkspacesSection"
 
-/** Ids of bot-core's own settings sections, for `openSettings`. */
 export const SETTINGS_SECTION = {
   general: "bot-core.general",
   models: "bot-core.models",
@@ -33,7 +32,6 @@ export interface BuiltinSectionDeps
   readonly text: ChannelsSectionDeps["text"] & ConnectorsSectionDeps["text"]
 }
 
-/** bot-core's sections: General (name, avatar, time zone, language and Delete), Models, Workspaces, Channels and Connectors. */
 export function builtinSettingsSections(deps: BuiltinSectionDeps): SettingsSection[] {
   const general = (props: SettingsSectionProps) =>
     createElement(GeneralSection, {

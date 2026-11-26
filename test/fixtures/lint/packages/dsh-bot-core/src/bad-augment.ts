@@ -1,4 +1,4 @@
-declare module "@deepseek-ai/cordis" { // rule: 22
+declare module "@deepseek-ai/cordis" {
   interface Context {
     bot: unknown
   }

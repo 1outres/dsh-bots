@@ -3,14 +3,13 @@ import { existsSync } from "node:fs"
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
+import { isMap, isSeq, parseDocument, Scalar } from "yaml"
 
 const SCOPE = "@1outres"
 const BUNDLE_DIRECTORY = "dsh-bots"
 const REPOSITORY_URL = "git+https://github.com/1outres/dsh-bots.git"
-/** Grey on purpose: the repository test asks for a tile color no other plugin is close to. */
 const PLACEHOLDER_TILE = "#6B7280"
 
-/** "my-thing" becomes "My thing", the sentence-case title the repository uses. */
 export function titleOf(name) {
   const words = name.split("-")
   return [words[0].charAt(0).toUpperCase() + words[0].slice(1), ...words.slice(1)].join(" ")
@@ -64,14 +63,12 @@ function iconOf(title) {
 
 const HOST_ENTRY = `import type { Context } from "@deepseek-ai/cordis"
 
-/** Host half. Remove this function's body or the whole file for a pure UI plugin. */
 export function apply(_ctx: Context): void {}
 `
 
 function clientEntry(name) {
   return `import { en, ja } from "./i18n"
 
-/** Cordis services required by the browser half. */
 export const inject = ["locale"]
 
 export const NAMESPACE = "${name}"
@@ -83,34 +80,51 @@ interface ClientContext {
   }
 }
 
-/** Browser half. Register slots, inject styles, or read \`ctx.configForms\` here. */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NAMESPACE, { en, ja }), "${name}: dictionaries")
 }
 `
 }
 
-const CLIENT_DICTIONARIES = `/** Client copy. Every language translates the same keys. */
-export const en: Record<string, string> = {}
+const CLIENT_DICTIONARIES = `export const en: Record<string, string> = {}
 
 export const ja: Record<string, string> = {}
 `
 
 function patchOf(name, packageName) {
-  return `# Installs this plugin on its own (dsh plugin add ${packageName}).
-# The ${SCOPE}/${BUNDLE_DIRECTORY} bundle inserts the same "bot-${name}" row, so select
-# one bundle or the other, never both.
-- insert:
+  return `- insert:
     - id: bot-${name}
       name: "${packageName}"
 `
 }
 
-/**
- * Create \`packages/dsh-bot-<name>\` under \`root\` with every file the repository
- * test asks for, and add the package to the all-in-one bundle. Placeholder text
- * says TODO so the repository test fails until it is written.
- */
+function bundleRowsOf(document, path) {
+  if (document.errors.length > 0) throw new Error(`${path}: ${document.errors[0].message}`)
+  if (!isSeq(document.contents)) throw new Error(`${path} is not a list of patch operations`)
+  const inserts = document.contents.items.filter(
+    (operation) => isMap(operation) && operation.has("insert"),
+  )
+  if (inserts.length !== 1) {
+    throw new Error(`${path} has ${inserts.length} insert operations; expected exactly one`)
+  }
+  const rows = inserts[0].get("insert")
+  if (!isSeq(rows)) throw new Error(`${path}: insert is not a list of rows`)
+  return rows
+}
+
+function withBundleRow(patch, path, name, packageName) {
+  const document = parseDocument(patch)
+  const rows = bundleRowsOf(document, path)
+  const id = `bot-${name}`
+  if (rows.items.some((row) => isMap(row) && row.get("id") === id)) {
+    throw new Error(`${path} already inserts ${id}`)
+  }
+  const quotedName = new Scalar(packageName)
+  quotedName.type = Scalar.QUOTE_DOUBLE
+  rows.add(document.createNode({ id, name: quotedName }))
+  return document.toString()
+}
+
 export async function createPlugin(root, name) {
   if (!/^[a-z][a-z0-9-]*$/.test(name)) {
     throw new Error(`invalid plugin name "${name}": use lowercase kebab-case`)
@@ -123,8 +137,7 @@ export async function createPlugin(root, name) {
   const patchPath = join(bundleDir, "cordis.patch.yml")
 
   if (existsSync(packageDir)) throw new Error(`packages/${directoryName} already exists`)
-  const patch = await readFile(patchPath, "utf8")
-  if (!patch.includes("\n- insert:")) throw new Error(`${patchPath} has no insert block`)
+  const patch = withBundleRow(await readFile(patchPath, "utf8"), patchPath, name, packageName)
   const bundleManifest = JSON.parse(await readFile(bundleManifestPath, "utf8"))
   const title = titleOf(name)
 
@@ -161,10 +174,7 @@ export async function createPlugin(root, name) {
       .map((key) => [key, dependencies[key]]),
   )
   await writeFile(bundleManifestPath, json(bundleManifest))
-  await writeFile(
-    patchPath,
-    `${patch.trimEnd()}\n    - id: bot-${name}\n      name: "${packageName}"\n`,
-  )
+  await writeFile(patchPath, patch)
 
   return { directoryName, packageName }
 }

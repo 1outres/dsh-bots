@@ -17,25 +17,8 @@ import { SKILLS_DOMAIN } from "../src/host/skills/domain"
 import { VAULTS_DOMAIN } from "../src/host/vaults/domain"
 import { WEB_DOMAIN } from "../src/host/web/domain"
 
-/**
- * Design rule 27: the stored bot records keep their shape unless the storage
- * domain's version goes up. The snapshot keeps, per table, every field with
- * whether it is required and a summary of its type (constraints such as
- * minLength left out). A new required field, an optional field made required
- * or a changed type breaks records already stored, so it needs a version bump;
- * any other change (a new optional field) only needs the snapshot updated.
- * Two type changes are compatible, since every stored value still parses:
- * widening a field to any JSON value (or an array to an array of any JSON
- * value), and adding literals to a union of literals (an enum).
- *
- * The rule guards upward compatibility only: records stored by an older
- * version must parse under the current schema. Whether an older version can
- * read records the current one writes (a downgrade) is not checked.
- */
-
 const UPDATE = "pnpm vitest run packages/dsh-bot-core/test/bots-domain-schema.test.ts --update"
 
-/** Every storage domain bot-core declares, with its snapshot file. */
 const DOMAINS = [
   { label: "BOTS_DOMAIN", source: "src/host/domain.ts", domain: BOTS_DOMAIN, file: "bots-domain" },
   {
@@ -132,7 +115,6 @@ interface DomainSnapshot {
   tables: Record<string, Record<string, FieldSummary>>
 }
 
-/** A compact, constraint-free type string of a JSON Schema node. */
 function typeOf(node: JsonSchema, defs: Record<string, JsonSchema>, seen: string[] = []): string {
   const ref = typeof node.$ref === "string" ? node.$ref.replace("#/$defs/", "") : undefined
   if (ref !== undefined) {
@@ -179,14 +161,8 @@ function snapshotOf(domain: DomainSpec): DomainSnapshot {
   return { name: domain.name, version: domain.version, tables }
 }
 
-/** The summary of `z.json()`: any JSON value. */
 const ANY_JSON = "string | number | boolean | null | json[] | { [key: string]: json }"
 
-/**
- * Whether a type summary is an array as a whole: `X[]` or `(A | B)[]` whose
- * parenthesis closes at the end, not a union whose last member is an array
- * (`string | number[]`).
- */
 export function isArrayType(type: string): boolean {
   if (!type.endsWith("[]")) return false
   const element = type.slice(0, -2)
@@ -194,15 +170,12 @@ export function isArrayType(type: string): boolean {
   for (const [index, char] of [...element].entries()) {
     if (char === "(" || char === "{") depth += 1
     else if (char === ")" || char === "}") depth -= 1
-    // A top-level "|" before the end: a union, not one array.
     else if (char === "|" && depth === 0) return false
-    // A parenthesis that closes before the end: "(A) | B[]" style.
     if (depth === 0 && char === ")" && index !== element.length - 1) return false
   }
   return depth === 0
 }
 
-/** Whether `next` accepts every value `previous` did, by widening to any JSON. */
 export function widensToJson(previous: string, next: string): boolean {
   if (next === ANY_JSON) return true
   return next === `(${ANY_JSON})[]` && isArrayType(previous)
@@ -210,10 +183,6 @@ export function widensToJson(previous: string, next: string): boolean {
 
 const LITERAL_UNION = /"(?:[^"\\]|\\.)*"(?: \| "(?:[^"\\]|\\.)*")*/g
 
-/**
- * Whether `next` is `previous` with literals added to its unions of literals:
- * the rest of the type is the same, and each union keeps all it had.
- */
 export function widensLiterals(previous: string, next: string): boolean {
   const unions = (type: string) => [...type.matchAll(LITERAL_UNION)].map((match) => match[0])
   const skeleton = (type: string) => type.replace(LITERAL_UNION, "<literals>")
@@ -226,7 +195,6 @@ export function widensLiterals(previous: string, next: string): boolean {
   })
 }
 
-/** Changes that break records stored under the snapshot's version. */
 export function breakingChanges(saved: DomainSnapshot, current: DomainSnapshot): string[] {
   const problems: string[] = []
   for (const [table, fields] of Object.entries(current.tables)) {
@@ -257,7 +225,6 @@ describe.each(DOMAINS)("$label schema (design rule 27)", ({ label, source, domai
   const saved = existsSync(snapshot)
     ? (JSON.parse(readFileSync(snapshot, "utf8")) as DomainSnapshot)
     : undefined
-  /** Breaking changes made without a version bump; `--update` must not paper over them. */
   const unversioned =
     saved !== undefined && saved.version === current.version ? breakingChanges(saved, current) : []
 

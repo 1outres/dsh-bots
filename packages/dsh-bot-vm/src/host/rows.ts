@@ -1,6 +1,5 @@
 import type { BotEnvironmentBot, PluginRow } from "@1outres/dsh-bot-core"
 
-/** Service names the environment rows provide; bot-core isolates each in the bot's group. */
 export const ISOLATED_SERVICES = ["ssh", "fs", "subprocess", "shell", "sandboxPolicy"] as const
 
 export const SSH_PLUGIN = "@1outres/dsh-bot-vm/ssh"
@@ -10,21 +9,15 @@ export const SUBPROCESS_PLUGIN = "@deepseek-ai/dsh-subprocess-ssh"
 export const SHELL_PLUGIN = "@deepseek-ai/dsh-bash-local"
 
 export interface RowSettings {
-  /** Prefix of the per-bot SSH host alias; the alias is `<prefix><botId>`. */
   readonly hostAliasPrefix: string
-  /** Absolute guest directory that is the cwd of every bot session. */
   readonly workspace: string
-  /** Absolute guest Node executable that runs the helper. */
   readonly guestNode: string
-  /** Absolute guest path of dsh-ssh's lib/helper.js. */
   readonly helper: string
-  /** SHA-256 of that helper.js. */
   readonly helperHash: string
   readonly requestTimeoutMs: number
 }
 
 export interface RowContext extends RowSettings {
-  /** Directory of the bots' OpenSSH configs, `<id>.conf` each. */
   readonly sshConfigDir: string
 }
 
@@ -32,7 +25,6 @@ export function hostAliasOf(settings: Pick<RowSettings, "hostAliasPrefix">, botI
   return `${settings.hostAliasPrefix}${botId}`
 }
 
-/** The bot's execution rows: SSH connection, policy, then the SSH-backed providers. */
 export function environmentRows(
   settings: RowContext,
   bot: BotEnvironmentBot,

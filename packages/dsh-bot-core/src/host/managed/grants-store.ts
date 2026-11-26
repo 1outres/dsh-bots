@@ -3,19 +3,14 @@ import type { BotTable } from "../registry"
 import { grantKey, type WorkspaceGrantRecord } from "./domain"
 
 export interface GrantStoreDeps {
-  /** The workspaces table of MANAGED_SESSIONS_DOMAIN; only this store writes it (design rule 56). */
   readonly workspaceGrants: BotTable<WorkspaceGrantRecord>
 }
 
-/** The Workspaces owners granted bots. Writes are serialized. */
 export interface GrantStore {
-  /** Every grant, oldest first; only `botId`'s when given. */
   list(botId?: string): BotWorkspaceGrant[]
   get(botId: string, workspaceId: string): BotWorkspaceGrant | undefined
   put(grant: BotWorkspaceGrant): Promise<BotWorkspaceGrant>
-  /** Resolves to whether it was granted. */
   delete(botId: string, workspaceId: string): Promise<boolean>
-  /** Drop the grants `keep` refuses; resolves to the dropped ones. */
   purge(keep: (grant: BotWorkspaceGrant) => boolean): Promise<readonly BotWorkspaceGrant[]>
   subscribe(listener: () => void): () => void
 }

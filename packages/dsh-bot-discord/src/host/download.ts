@@ -1,4 +1,3 @@
-/** A fetch of one URL, as far as read here (the global `fetch`). */
 export type FetchUrl = (
   url: string,
   init: { readonly signal: AbortSignal; readonly redirect: "error" },
@@ -8,13 +7,11 @@ export type FetchUrl = (
   readonly body: AsyncIterable<Uint8Array> | null
 }>
 
-/** The hosts Discord serves message attachments from. */
 export const ATTACHMENT_HOSTS: ReadonlySet<string> = new Set([
   "cdn.discordapp.com",
   "media.discordapp.net",
 ])
 
-/** Whether a URL is an attachment on Discord's CDN (HTTPS, default port, no credentials). */
 export function isAttachmentUrl(url: string): boolean {
   if (!URL.canParse(url)) return false
   const parsed = new URL(url)
@@ -27,11 +24,6 @@ export function isAttachmentUrl(url: string): boolean {
   )
 }
 
-/**
- * Read an attachment from Discord's CDN, stopping as soon as it passes
- * `maxBytes` (a declared size is not trusted). Any other URL, and any
- * redirect, is refused.
- */
 export async function downloadAttachment(
   fetch: FetchUrl,
   url: string,

@@ -1,4 +1,3 @@
-/** The Main view (docs/specs/bot-main-view.md §5): the timeline in the conversation column, and the Session log panel. */
 export const MAIN_VIEW_CSS = `
 .dshb-mv {
   flex: 1 0 auto;

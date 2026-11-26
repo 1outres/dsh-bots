@@ -1,22 +1,12 @@
 # shellcheck shell=bash
-# The Incus objects bot VMs need (docs/specs/incus-endpoint.md §3.4), shared by
-# infra/vm/host-setup.sh (this machine's Incus) and infra/incus/create-project.sh
-# (an Incus server reached as a remote). Needs fail of infra/vm/lib.sh.
-#
-# INCUS_REMOTE: the incus remote to talk to; empty for this machine's Incus.
 
-# at <name>: the name as incus addresses it on INCUS_REMOTE.
 at() { printf '%s%s' "${INCUS_REMOTE:+$INCUS_REMOTE:}" "$1"; }
 
-# server: the argument naming the whole server, for commands that list it.
 server() { printf '%s' "${INCUS_REMOTE:+$INCUS_REMOTE:}"; }
 
-# ensure_egress_acl <acl> <gateway IPv4>: the bots' egress ACL, internet only.
 ensure_egress_acl() {
   local acl=$1 gateway=$2
   incus network acl show "$(at "$acl")" >/dev/null 2>&1 || incus network acl create "$(at "$acl")"
-  # Rule order is decided by Incus by action: drop > reject > allow > default.
-  # Baseline services on the bridge (DHCP, DNS to the gateway) are allowed before the ACL.
   incus network acl edit "$(at "$acl")" <<EOF
 description: "dsh bot VMs: internet only; no host, no private/CGNAT/link-local networks"
 egress:
@@ -37,7 +27,6 @@ config: {}
 EOF
 }
 
-# ensure_bridge <network> <CIDR> <acl>: an IPv4-only NAT bridge whose traffic the ACL decides.
 ensure_bridge() {
   local net=$1 cidr=$2 acl=$3
   if ! incus network show "$(at "$net")" >/dev/null 2>&1; then
@@ -54,7 +43,6 @@ ensure_bridge() {
   incus network set "$(at "$net")" --property description="dsh bot VMs (isolated, internet-only)"
 }
 
-# gateway_of <network>: the network's IPv4 address, without the prefix length; empty without one.
 gateway_of() {
   local address
   address=$(incus network get "$(at "$1")" ipv4.address 2>/dev/null) || address=""
@@ -63,8 +51,6 @@ gateway_of() {
 
 PROJECT_FEATURES=(features.images=true features.profiles=true features.storage.volumes=true features.networks=false)
 
-# ensure_project <project> <pool> <network> <egress acl, or empty>: the project bot VMs run in.
-# Limits from LIMIT_VMS, LIMIT_CPU, LIMIT_MEMORY and LIMIT_DISK, each only when set.
 ensure_project() {
   local project=$1 pool=$2 net=$3 acl=$4 setting key value current
   [[ $project != default ]] || fail "The project for bot VMs cannot be \"default\"." "Give another project name."
@@ -101,8 +87,6 @@ ensure_project() {
   [[ -n $acl ]] || incus project unset "$(at "$project")" user.dsh-bots.egress-acl
 }
 
-# issue_token <client name> <project>: a trust token for one client certificate restricted to
-# the project, on stdout. Unused tokens of the same name are revoked first.
 issue_token() {
   local name=$1 project=$2 pending output token
   while IFS= read -r pending; do

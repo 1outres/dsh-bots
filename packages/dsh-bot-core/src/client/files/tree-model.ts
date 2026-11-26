@@ -11,17 +11,11 @@ export type DirectoryState =
   | { readonly status: "listed"; readonly truncated: boolean }
 
 export interface TreeSnapshot {
-  /** The rows of the root and of every expanded directory whose ancestors are expanded too. */
   readonly entries: readonly TreeEntry[]
   readonly expanded: readonly string[]
   readonly directories: Readonly<Record<string, DirectoryState>>
 }
 
-/**
- * One bot session's lazily listed workspace tree: the root on the first
- * `load`, a directory on its first expansion; `refresh` lists the root and
- * every expanded directory again.
- */
 export interface TreeModel extends Observable<TreeSnapshot> {
   load(): void
   toggle(path: string, expanded: boolean): void
@@ -43,7 +37,6 @@ function entryOf(directory: string, entry: BotDirectoryEntry): TreeEntry {
   }
 }
 
-/** Every ancestor directory of a workspace-relative path, outermost first. */
 export function ancestorsOf(path: string): string[] {
   const parts = path.split("/").filter((part) => part !== "")
   return parts.slice(0, -1).map((_, index) => parts.slice(0, index + 1).join("/"))

@@ -2,7 +2,6 @@ interface IconProps {
   size?: number
 }
 
-/** Host plus-outline (regular). */
 export function IconPlus({ size = 16 }: IconProps) {
   return (
     <svg
@@ -50,9 +49,6 @@ export function IconStar({ size = 14 }: IconProps) {
   )
 }
 
-/* Glyphs below are copied from the host's icon set (regular weight, stroke 1) so the rows match Workspaces. */
-
-/** Host triangle-right-fill: the expand arrow of Workspaces rows. */
 export function IconTriangleRight({ size = 14 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -64,7 +60,6 @@ export function IconTriangleRight({ size = 14 }: IconProps) {
   )
 }
 
-/** Host new-chat-outline: the New Session button of Workspaces rows. */
 export function IconNewChat({ size = 16 }: IconProps) {
   return (
     <svg
@@ -85,7 +80,6 @@ export function IconNewChat({ size = 16 }: IconProps) {
   )
 }
 
-/** Host ellipsis-outline: the row menu trigger. */
 export function IconEllipsis({ size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
@@ -96,7 +90,6 @@ export function IconEllipsis({ size = 16 }: IconProps) {
   )
 }
 
-/** Host edit-outline: Rename. */
 export function IconEdit({ size = 16 }: IconProps) {
   return (
     <svg
@@ -116,7 +109,6 @@ export function IconEdit({ size = 16 }: IconProps) {
   )
 }
 
-/** Host archive-outline: Archive. */
 export function IconArchive({ size = 16 }: IconProps) {
   return (
     <svg
@@ -140,7 +132,6 @@ export function IconArchive({ size = 16 }: IconProps) {
   )
 }
 
-/** Host unarchive-outline: Unarchive. */
 export function IconUnarchive({ size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -169,7 +160,6 @@ export function IconUnarchive({ size = 16 }: IconProps) {
   )
 }
 
-/** Host archive-off-outline: hide archived sessions. */
 export function IconArchiveOff({ size = 16 }: IconProps) {
   return (
     <svg
@@ -190,7 +180,6 @@ export function IconArchiveOff({ size = 16 }: IconProps) {
   )
 }
 
-/** Host user-outline: Change avatar. */
 export function IconUser({ size = 16 }: IconProps) {
   return (
     <svg
@@ -213,7 +202,6 @@ export function IconUser({ size = 16 }: IconProps) {
   )
 }
 
-/** Host trash-outline: Delete. */
 export function IconTrash({ size = 16 }: IconProps) {
   return (
     <svg
@@ -239,7 +227,6 @@ export function IconTrash({ size = 16 }: IconProps) {
   )
 }
 
-/** Gear: a bot's settings. */
 export function IconSettings({ size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -254,7 +241,6 @@ export function IconSettings({ size = 16 }: IconProps) {
     </svg>
   )
 }
-/** Folder: the bot's files. */
 export function IconFolder({ size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -268,7 +254,6 @@ export function IconFolder({ size = 16 }: IconProps) {
   )
 }
 
-/** Arrow left: back to the file browser. */
 export function IconArrowLeft({ size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -283,7 +268,6 @@ export function IconArrowLeft({ size = 16 }: IconProps) {
   )
 }
 
-/** Circular arrow: read again (there is no change feed). */
 export function IconRefresh({ size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -298,7 +282,6 @@ export function IconRefresh({ size = 16 }: IconProps) {
   )
 }
 
-/** Two linked chat bubbles: a bot's channels (Discord, ...). */
 export function IconChannels({ size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -316,7 +299,6 @@ export function IconChannels({ size = 16 }: IconProps) {
   )
 }
 
-/** A chip: a bot's models. */
 export function IconModel({ size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -331,7 +313,6 @@ export function IconModel({ size = 16 }: IconProps) {
   )
 }
 
-/** A plug: a bot's connectors (desktop, browser, ...). */
 export function IconConnectors({ size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -370,7 +351,6 @@ export function IconAlert({ size = 16 }: IconProps) {
   )
 }
 
-/** A turning ring; still under reduced motion. */
 export function Spinner({ size = 16 }: IconProps) {
   return (
     <svg className="dshb-spinner" width={size} height={size} viewBox="0 0 16 16" aria-hidden="true">
@@ -394,7 +374,6 @@ export function Spinner({ size = 16 }: IconProps) {
   )
 }
 
-/** A globe: the bots' web lookup. */
 export function IconGlobe({ size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -408,7 +387,6 @@ export function IconGlobe({ size = 16 }: IconProps) {
     </svg>
   )
 }
-/** A screen (a connector's panel). */
 export function IconScreen({ size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -501,7 +479,6 @@ export function IconSearch({ size = 16 }: IconProps) {
   )
 }
 
-/** A wrench: the settings shared by every bot (apart from a bot's own gear). */
 export function IconWrench({ size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -515,7 +492,6 @@ export function IconWrench({ size = 16 }: IconProps) {
   )
 }
 
-/** A clipboard with a check: the bot's connector actions. */
 export function IconActions({ size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -544,7 +520,6 @@ export function IconActions({ size = 16 }: IconProps) {
   )
 }
 
-/** An envelope (a mail connector's panel). */
 export function IconMail({ size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -568,7 +543,6 @@ export function IconMail({ size = 16 }: IconProps) {
   )
 }
 
-/** A calendar page (a calendar connector's panel). */
 export function IconCalendar({ size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -597,7 +571,6 @@ export function IconChevronUp({ size = 16 }: IconProps) {
   )
 }
 
-/** An open book: the bot's skills. */
 export function IconSkills({ size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -611,7 +584,6 @@ export function IconSkills({ size = 16 }: IconProps) {
   )
 }
 
-/** A session the bot's Main session manages: Main (the dot) leading a session (the box). */
 export function IconManaged({ size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -622,7 +594,6 @@ export function IconManaged({ size = 16 }: IconProps) {
   )
 }
 
-/** Taking a managed session back from the Main session. */
 export function IconManagedOff({ size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -690,7 +661,6 @@ export function IconNotes({ size = 16 }: IconProps) {
   )
 }
 
-/** A key: password managers and logins. */
 export function IconKey({ size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">

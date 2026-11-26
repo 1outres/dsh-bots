@@ -20,9 +20,7 @@ import {
 import { isOpId, secretReference } from "./op/reference"
 import { type OpCommand, runOp } from "./op/runner"
 
-/** How long a listing of the items answers the owner's searches before op is asked again. */
 export const LIST_TTL_MS = 30_000
-/** op processes one session runs at once. */
 export const MAX_CONCURRENT_COMMANDS = 4
 
 const KIB = 1024
@@ -30,7 +28,6 @@ const MIB = 1024 * KIB
 
 export interface OnePasswordSessionDeps {
   readonly binary: string
-  /** The service account token's bytes, the session's own: wiped on close. */
   readonly token: Uint8Array
   readonly home: OpHome
   secret(bytes: Uint8Array): SecretBytes
@@ -109,13 +106,6 @@ function limiter(slots: number) {
 const gone = (error: unknown) =>
   error instanceof OpFailure && (error.reason === "not-found" || error.reason === "forbidden")
 
-/**
- * One connected service account. It keeps no value: only item metadata
- * (names, field ids, usernames, URLs), by the item's `updated_at`, so a
- * listing asks op for the items that changed (each `item get` is one of the
- * account's rate-limited reads), and a listing answers searches for
- * {@link LIST_TTL_MS}. Every value is read for one `reveal` and handed over.
- */
 export function createOnePasswordSession(deps: OnePasswordSessionDeps): VaultSession {
   const closing = new AbortController()
   const limit = limiter(MAX_CONCURRENT_COMMANDS)

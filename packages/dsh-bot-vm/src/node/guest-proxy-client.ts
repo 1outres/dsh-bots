@@ -1,9 +1,3 @@
-/**
- * The ProxyCommand side of src/host/guest-transport.ts: name the instance to
- * the relay, then carry stdin to it and its bytes to stdout. Resolves with
- * the exit code: 0 when the guest closed the stream, 255 when the relay
- * refused or vanished (ssh reports it).
- */
 import { connect } from "node:net"
 import type { Readable, Writable } from "node:stream"
 import { RELAY_READY, requestLine } from "../host/guest-transport"

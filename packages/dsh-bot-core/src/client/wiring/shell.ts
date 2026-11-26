@@ -39,11 +39,6 @@ export interface ShellSources {
   readonly mainView: ShellFace["mainView"]
 }
 
-/**
- * The bot session shell in `main.conversation`, a single Slot where the
- * lowest priority renders alone: registered while bot-core occupies the main
- * view, once, at the fixed priority (README: Bot session shell).
- */
 export function wireShell(
   ctx: ClientContext,
   sources: ShellSources,

@@ -75,7 +75,6 @@ export function toEmbeds(embeds: readonly DiscordEmbed[]): APIEmbed[] {
   }))
 }
 
-/** discord.js's options for replacing a message the bot posted. */
 export function toEditOptions(message: DiscordMessageEdit): InteractionUpdateOptions {
   return {
     content: message.content,
@@ -137,7 +136,6 @@ export function toComponentPress(interaction: MessageComponentInteraction): Disc
   }
 }
 
-/** A modal the bot showed: its one text input carries the modal's id (see {@link toModal}). */
 export function toModalSubmit(interaction: ModalSubmitInteraction): DiscordModalSubmit {
   const channelId = interaction.channelId
   if (channelId === null) throw new Error("a modal submit without a channel")

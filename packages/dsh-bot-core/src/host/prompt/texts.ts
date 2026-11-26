@@ -1,9 +1,3 @@
-/**
- * The English text of bot-core's prompt sections (docs/specs/bot-system-prompt.md
- * §2). Each section's text is fixed for a session: what changes during one is
- * in the `bot:status` context (status.ts).
- */
-
 export const PRINCIPLES = `## Operating principles
 - Act on actionable requests now, with your tools. Nothing you do in your own environment needs approval, so do not ask for permission you do not need; ask one question only when the answer would change what you do.
 - Check anything that can change (files, the time, web content, the state of a service or an account) instead of answering from memory. When a lookup comes back empty or weak, try another query, path or source before concluding.

@@ -1,14 +1,9 @@
-/**
- * Mount composed bot presets with the real Cordis Loader: what the checks in
- * compose.ts assume about how the Loader mounts rows holds.
- */
 import { Context, Service } from "@deepseek-ai/cordis"
 import { Group, Loader } from "@deepseek-ai/cordis-plugin-loader"
 import { describe, expect, it } from "vitest"
 import { composeBotPreset } from "../src/host/preset/compose"
 import type { BotOverlay, BotTemplate, PluginRow } from "../src/shared/preset"
 
-/** One `fs` service implementation, tagged with where it comes from. */
 class FakeFs extends Service {
   kind: string
   constructor(ctx: Context, config: { kind: string }) {
@@ -17,7 +12,6 @@ class FakeFs extends Service {
   }
 }
 
-/** A Loader whose rows import from a fixed module table, with `cordis:group` built in. */
 function mount() {
   const seen: string[] = []
   const modules: Record<string, unknown> = {

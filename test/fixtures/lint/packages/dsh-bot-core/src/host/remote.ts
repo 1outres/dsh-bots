@@ -1,4 +1,3 @@
-// The Remote entry may take a Context; removeBot is not "remove".
 import type { Context } from "@deepseek-ai/cordis"
 import { TypertRemoteService } from "@deepseek-ai/dsh-typert-protocol"
 

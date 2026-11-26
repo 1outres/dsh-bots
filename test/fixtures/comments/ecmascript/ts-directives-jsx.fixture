@@ -1,0 +1,8 @@
+export const view = (
+  <div>
+    {/* @ts-expect-error */}
+    <Missing />
+    {/* @ts-expect-error the component does not exist */}
+    <Other />
+  </div>
+)

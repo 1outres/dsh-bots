@@ -1,25 +1,13 @@
-/**
- * Where the Incus API is (docs/specs/incus-endpoint.md §5.1): this machine's
- * Unix socket, or a VM host over HTTPS whose server certificate was pinned at
- * pairing and that knows this installation's client certificate.
- */
-
-/** An endpoint ready to connect to; the client key is held in memory only. */
 export type IncusEndpoint =
   | { readonly kind: "local"; readonly socket: string }
   | {
       readonly kind: "remote"
-      /** `https://host:port`. */
       readonly url: string
-      /** Lowercase hex SHA-256 of the server certificate (DER); the only check of the server. */
       readonly serverCertificateSha256: string
-      /** PEM. */
       readonly clientCertificate: string
-      /** PEM (PKCS#8). */
       readonly clientKey: string
     }
 
-/** What is stored of the endpoint: everything but the client key. */
 export type StoredEndpoint =
   | { readonly kind: "local"; readonly socket: string }
   | {
@@ -29,37 +17,31 @@ export type StoredEndpoint =
       readonly clientCertificate: string
     }
 
-/** The VM host chosen in the dsh-bots settings: where, and in which project. */
 export interface StoredScope {
   readonly endpoint: StoredEndpoint
   readonly project: string
 }
 
-/** The chosen VM host (state only: no logic); none stored means this machine's socket by default. */
 export interface EndpointStore {
   read(): Promise<StoredScope | undefined>
   write(scope: StoredScope): Promise<void>
   clear(): Promise<void>
 }
 
-/** The client key of the paired VM host, kept apart from the endpoint (state only). */
 export interface ClientKeyStore {
   read(): Promise<string | undefined>
   write(key: string): Promise<void>
   clear(): Promise<void>
 }
 
-/** The endpoint and the project every request of this installation is scoped to. */
 export interface IncusScope {
   readonly endpoint: IncusEndpoint
   readonly project: string
 }
 
 const SHA256 = /^[0-9a-f]{64}$/
-/** Incus project names (no slash, no leading dot), at most 63 characters. */
 const PROJECT = /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}$/
 
-/** A project bot VMs may use. @throws on an invalid name or "default". */
 export function parseProjectName(value: string): string {
   const name = value.trim()
   if (!PROJECT.test(name)) throw new Error(`"${value}" is not an Incus project name`)
@@ -67,14 +49,12 @@ export function parseProjectName(value: string): string {
   return name
 }
 
-/** A server certificate fingerprint as Incus prints it, normalized (lowercase, no colons). */
 export function normalizeSha256(value: string): string {
   const normalized = value.replaceAll(":", "").toLowerCase()
   if (!SHA256.test(normalized)) throw new Error(`"${value}" is not a SHA-256 fingerprint`)
   return normalized
 }
 
-/** An `https://host:port` URL with nothing else. @throws on anything else. */
 export function parseEndpointUrl(value: string): URL {
   let url: URL
   try {
@@ -133,7 +113,6 @@ function endpointOfRecord(record: Readonly<Record<string, unknown>>, what: strin
 
 const SCOPE_VERSION = 2
 
-/** The chosen VM host as written by {@link serializeStoredScope}. @throws on anything else. */
 export function parseStoredScope(text: string, what = "the stored VM host"): StoredScope {
   let value: unknown
   try {
@@ -158,7 +137,6 @@ export function serializeStoredScope(scope: StoredScope): string {
   return `${JSON.stringify({ version: SCOPE_VERSION, project: scope.project, endpoint: scope.endpoint }, null, 2)}\n`
 }
 
-/** The stored endpoint made connectable. @throws when a remote endpoint's key is missing. */
 export async function endpointOf(
   stored: StoredEndpoint,
   keys: ClientKeyStore,
@@ -173,7 +151,6 @@ export async function endpointOf(
   return { ...stored, clientKey }
 }
 
-/** What is stored of a connectable endpoint. */
 export function storedOf(endpoint: IncusEndpoint): StoredEndpoint {
   if (endpoint.kind === "local") return endpoint
   const { clientKey: _, ...stored } = endpoint

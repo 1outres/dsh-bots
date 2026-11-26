@@ -2,7 +2,6 @@ import type { ExaFailure } from "./failure"
 import { errorDetail } from "./map"
 import type { ExaRequest } from "./request"
 
-/** The `fetch` the client sends with (`globalThis.fetch`, or a fake in tests). */
 export type FetchFunction = (url: string, init: RequestInit) => Promise<Response>
 
 export interface ExaCall {
@@ -54,7 +53,6 @@ function parse(body: string): { ok: true; value: unknown } | { ok: false } {
   }
 }
 
-/** POSTs JSON to `{baseURL}{path}` with the key in `x-api-key`; redirects are refused. */
 export function createExaClient(deps: {
   readonly baseURL: string
   readonly fetch: FetchFunction

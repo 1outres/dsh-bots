@@ -1,0 +1,41 @@
+{
+  "path": "packages/demo/test/types.test.ts",
+  "diagnostics": [
+    {
+      "line": 3,
+      "column": 1,
+      "rule": 75,
+      "fixable": true
+    },
+    {
+      "line": 5,
+      "column": 1,
+      "rule": 75,
+      "fixable": true
+    },
+    {
+      "line": 7,
+      "column": 1,
+      "rule": 75,
+      "fixable": true
+    },
+    {
+      "line": 9,
+      "column": 1,
+      "rule": 75,
+      "fixable": false
+    },
+    {
+      "line": 11,
+      "column": 1,
+      "rule": 75,
+      "fixable": false
+    },
+    {
+      "line": 13,
+      "column": 1,
+      "rule": 75,
+      "fixable": false
+    }
+  ]
+}

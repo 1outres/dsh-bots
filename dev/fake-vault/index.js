@@ -1,4 +1,3 @@
-// Verification only (dev/, outside packages/: never built, published or bundled). See README.md.
 import { vaultProbeConnector } from "./connector.js"
 import { fakeVaultProvider } from "./provider.js"
 

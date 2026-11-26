@@ -3,7 +3,6 @@ import { DesktopControl } from "../src/host/control"
 import { relay } from "../src/host/screen/relay"
 import type { ScreenUp } from "../src/shared/screen"
 
-/** A queue both sides of a test stream push into and read from. */
 function queue<T>() {
   const items: T[] = []
   let wake: (() => void) | undefined

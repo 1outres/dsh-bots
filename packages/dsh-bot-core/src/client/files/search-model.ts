@@ -20,9 +20,7 @@ export const BROWSER_TIMERS: Timers = {
 
 export interface SearchMatches {
   readonly entries: readonly TreeEntry[]
-  /** Every directory that holds a match, and every matched directory. */
   readonly expanded: readonly string[]
-  /** More matches exist than `entries` holds. */
   readonly truncated: boolean
 }
 
@@ -33,26 +31,17 @@ export type SearchResult =
   | { readonly status: "failed"; readonly term: string; readonly failure: BotFileFailure }
 
 export interface SearchState {
-  /** The query as typed. */
   readonly query: string
   readonly result: SearchResult
 }
 
-/**
- * One session's workspace search. A query is searched for, trimmed,
- * {@link SEARCH_DELAY_MS} after it stops changing; an empty one clears the result.
- */
 export interface SearchModel extends Observable<SearchState> {
   setQuery(query: string): void
-  /** Expand or collapse one directory of the matches. */
   toggle(path: string, expanded: boolean): void
-  /** Search for the current query again. */
   refresh(): void
-  /** Stop a pending or running search; a loading result goes back to `idle`. */
   cancel(): void
 }
 
-/** Search matches as tree rows: every match, every directory expanded so they show. */
 export function searchMatches(result: BotFileSearchResult): SearchMatches {
   const entries = result.matches.map((match) => ({
     path: match.path,

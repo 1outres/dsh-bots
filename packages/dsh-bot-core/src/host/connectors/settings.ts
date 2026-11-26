@@ -14,39 +14,25 @@ import type { CatalogConnector, ConnectorCatalog } from "./catalog"
 import { type SettingsRecord, settingsRecordKey } from "./domain"
 
 export interface ConnectorSettingsDeps {
-  /** The settings table of CONNECTORS_DOMAIN. */
   records: BotTable<SettingsRecord>
   catalog: Pick<ConnectorCatalog, "get" | "list">
-  /** The queue the bot's environment spec is saved in, so neither check races the other. */
   queue: SaveQueue
-  /** The bot's environment spec, read inside the queue; undefined until it is read. */
   spec(botId: string): BotEnvironmentSpec | undefined
   now(): number
 }
 
-/** A bot's settings of one connector: whether it is on, and every field's value. */
 export interface ConnectorSettingsView {
   readonly enabled: boolean
   readonly values: ConnectorSettingValues
-  /** The stored delivery of a connector with events. */
   readonly events?: ConnectorEventDelivery
 }
 
-/** Which bots have which connectors enabled, and with which settings. A connector is off until enabled. */
 export interface ConnectorSettings {
   view(botId: string, connector: CatalogConnector): ConnectorSettingsView
-  /** Whether the connector is registered and enabled for the bot. */
   enabled(botId: string, connectorId: string): boolean
-  /** How the bot gets the connector's events: `off` unless it is enabled, has events, and the bot turned them on. */
   delivery(botId: string, connectorId: string): ConnectorEventDelivery
-  /**
-   * Store a parsed change. Saves never interleave.
-   * @throws when it turns the connector on before one it requires or while the bot's spec has less than its `minimumSpec`, or off before one requiring it (`connectorSwitchBlock`).
-   */
   configure(botId: string, connector: CatalogConnector, change: BotConnectorChange): Promise<void>
-  /** Forget the settings of bots `keep` refuses. */
   purge(keep: (botId: string) => boolean): Promise<void>
-  /** Called with the bot and connector after every stored change. */
   subscribe(listener: (botId: string, connectorId: string) => void): () => void
 }
 

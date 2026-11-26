@@ -1,18 +1,3 @@
-/**
- * Creating and removing bots in the background, and what the browser sees of
- * both until they are done.
- *
- * Rules:
- * - A creation is accepted once its record is stored. Its environment, its
- *   preset and its Main session follow; the first of them that fails stops it
- *   and the failure is stored with the bot, which is then held (not prepared
- *   again, also across restarts) until the creation is retried or discarded.
- *   A creation stored before a restart continues by itself.
- * - A removal is accepted once the record is gone. Its sessions are archived
- *   and forgotten, and its environment removed (by the environment keeper,
- *   which retries with backoff); it is listed until both are done. A failed
- *   step is shown until it is retried or the removal is dismissed.
- */
 import type {
   BotCreateInput,
   BotFailure,
@@ -45,34 +30,27 @@ export interface BotLifecycleDeps {
     "status" | "progress" | "removal" | "retry" | "retryRemoval" | "subscribe" | "onActivity"
   >
   readonly preset: {
-    /** Recompose the bot's preset against the current environment; its state once settled. */
     settle(botId: string): Promise<BotPresetState | undefined>
-    /** Whether the bot's preset is registered, so its Main can start. */
     registered(botId: string): boolean
   }
   readonly preparations: Pick<SessionPreparations, "ids" | "subscribe">
-  /** Archive a removed bot's sessions (idempotent). */
   cleanup(bot: BotSessions): Promise<void>
   now(): number
   warn(message: string): void
 }
 
 export interface BotLifecycle {
-  /** Listed bots, those being created or removed, and the sessions still being prepared. */
   snapshot(): BotsSnapshot
-  /** @returns the new bot's id, once stored. */
   create(input: BotCreateInput): Promise<string>
   retryCreate(id: string): Promise<void>
   discardCreate(id: string): Promise<void>
   remove(id: string): Promise<void>
   retryRemove(id: string): Promise<void>
   dismissRemove(id: string): Promise<void>
-  /** Called after the {@link snapshot} may have changed. */
   subscribe(listener: () => void): () => void
   dispose(): void
 }
 
-/** The step a creation is at, from what its parts report. */
 export function creationPhase(
   bot: Pick<CreatingBot, "startingMain" | "failure">,
   environment: EnvironmentStatus,
@@ -111,7 +89,6 @@ export function createBotLifecycle(deps: BotLifecycleDeps): BotLifecycle {
 
   const creatingOf = (id: string) => registry.creating().find((bot) => bot.id === id)
 
-  /** Every creation has the start of its current attempt: now, for one first seen. */
   const syncAttempts = () => {
     const ids = new Set<string>()
     for (const bot of registry.creating()) {
@@ -126,7 +103,6 @@ export function createBotLifecycle(deps: BotLifecycleDeps): BotLifecycle {
     if (stored) deps.warn(`bot-core: creating bot "${bot.name}" (${bot.id}) failed: ${message}`)
   }
 
-  /** Once the environment is ready: stop the creation when its preset cannot be registered. */
   const settlePreset = async (id: string) => {
     if (settling.has(id)) return
     settling.add(id)
@@ -141,7 +117,6 @@ export function createBotLifecycle(deps: BotLifecycleDeps): BotLifecycle {
     }
   }
 
-  /** Follow one creation after its environment changed. */
   const follow = (id: string) => {
     const bot = creatingOf(id)
     if (disposed || bot === undefined || bot.failure !== undefined) return

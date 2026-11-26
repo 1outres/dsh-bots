@@ -1,0 +1,13 @@
+// @ts-expect-error
+export const bare: number = "a"
+// @ts-expect-error a string is not a number
+export const described: number = "b"
+// @ts-expect-error -- with a dash
+export const dashed: number = "c"
+//@ts-expect-error
+export const tight: number = "d"
+/* @ts-expect-error */
+export const block: number = "e"
+// @ts-ignore
+export const ignored: number = "f"
+// @ts-nocheck

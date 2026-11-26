@@ -1,8 +1,3 @@
-/**
- * A fake of Chrome's DevTools for the login helpers: /json/version and a
- * WebSocket that answers the commands they send from a small model of the
- * tabs (frames and their origins, where the mark is, the marked element).
- */
 import { createHash } from "node:crypto"
 import { createServer, type Server } from "node:http"
 import type { Socket } from "node:net"
@@ -18,7 +13,6 @@ export interface FakeElement {
 export interface FakeFrame {
   readonly id: string
   origin: string
-  /** How many elements in it carry the mark. */
   marks: number
   readonly children?: readonly FakeFrame[]
 }
@@ -33,14 +27,12 @@ export interface DevtoolsLog {
   readonly method: string
   readonly sessionId?: string
   readonly params: Record<string, unknown>
-  /** The raw message bytes as the helper sent them. */
   readonly raw: Buffer
 }
 
 export interface FakeDevtoolsModel {
   readonly tabs: FakeTab[]
   element: FakeElement
-  /** Called before every Page.getFrameTree (to change an origin mid-way). */
   onFrameTree?: (count: number) => void
 }
 
@@ -221,7 +213,6 @@ export async function startFakeDevtools(model: FakeDevtoolsModel) {
   return {
     endpoint: `127.0.0.1:${port}`,
     log,
-    /** An event to the helper (a DevTools notification). */
     emit: (message: object) => send?.(message),
     async close() {
       for (const socket of sockets) socket.destroy()

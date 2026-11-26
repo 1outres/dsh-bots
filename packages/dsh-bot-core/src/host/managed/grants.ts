@@ -12,24 +12,17 @@ import type { GrantStore } from "./grants-store"
 
 export interface WorkspaceGrantsDeps {
   readonly store: GrantStore
-  /** Whether the bot is stored. */
   exists(botId: string): boolean
-  /** DSH's Workspaces now, in its order. */
   workspaces(): readonly DshWorkspace[]
-  /** What a grant can choose from now. */
   options(): Promise<BotWorkspaceOptions>
-  /** Why DSH cannot run the model now, or undefined when it can. */
   modelProblem(choice: BotModelChoice): Promise<string | undefined>
-  /** The grant went away: the management of the bot's sessions in the Workspace ends. */
   ended(grant: BotWorkspaceGrant, by: "revoked" | "workspace-removed"): Promise<void>
   now(): number
 }
 
-/** The Workspaces owners grant bots (docs/specs/bot-managed-sessions.md §10.1). */
 export interface WorkspaceGrants {
   snapshot(): BotWorkspacesSnapshot
   get(botId: string, workspaceId: string): BotWorkspaceGrant | undefined
-  /** The bot's grants with their Workspaces, oldest first. */
   granted(
     botId: string,
   ): readonly { readonly grant: BotWorkspaceGrant; readonly workspace: DshWorkspace }[]
@@ -44,9 +37,7 @@ export interface WorkspaceGrants {
     change: BotWorkspaceSettingsChange,
   ): Promise<BotWorkspaceGrant>
   revoke(botId: string, workspaceId: string): Promise<void>
-  /** Drop the grants of Workspaces DSH no longer has (one removed, or removed while bot-core was not running). */
   reconcile(): Promise<void>
-  /** Drop the grants of bots that no longer exist (no notice: the bot is gone). */
   purge(exists: (botId: string) => boolean): Promise<void>
   subscribe(listener: () => void): () => void
 }

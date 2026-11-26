@@ -1,0 +1,19 @@
+name: demo
+on:
+  push:
+    branches: [main, "#hash"]
+env:
+  URL: https://example.com/#fragment
+  TAG: a#b
+  QUOTED: "# not a comment"
+  SINGLE: '# nor this'
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          # shell comment inside the block scalar, part of the value
+          echo "#"
+      - run: >-
+          folded # text
+          continues

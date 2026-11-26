@@ -7,7 +7,6 @@ import type {
   MainTurnOutcome,
 } from "../../shared/main-view"
 
-/** What the timeline draws, top to bottom. */
 export type TimelineRow =
   | { readonly kind: "day"; readonly key: string; readonly day: string }
   | {
@@ -25,7 +24,6 @@ export type TimelineRow =
     }
   | { readonly kind: "turn"; readonly key: string; readonly item: MainTurnOutcome }
 
-/** Messages of one speaker this close together read as one group. */
 export const GROUP_GAP_MS = 5 * 60_000
 
 export function authorKey(author: MainMessageAuthor): string {
@@ -37,11 +35,6 @@ const near = (entries: readonly MainTimelineItem[], at: number) => {
   return last !== undefined && at - last.at <= GROUP_GAP_MS
 }
 
-/**
- * The items as rows: a day line where the day changes, consecutive messages
- * of one person or of the bot grouped, a turn's outcome on its own.
- * @param dayOf - the calendar day (`YYYY-MM-DD`) of an instant, in the reader's time zone.
- */
 export function timelineRows(
   items: readonly MainTimelineItem[],
   dayOf: (at: number) => string,

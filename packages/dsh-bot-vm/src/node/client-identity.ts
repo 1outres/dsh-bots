@@ -1,8 +1,3 @@
-/**
- * A self-signed X.509 certificate with an EC P-384 key, as Incus clients use
- * (`incus remote add` makes the same kind). Node creates keys but no
- * certificates, so the certificate's DER is written here.
- */
 import { createHash, generateKeyPairSync, randomBytes, sign, X509Certificate } from "node:crypto"
 import type { ClientIdentity } from "../host/pairing"
 
@@ -63,13 +58,11 @@ const CLIENT_AUTH = "1.3.6.1.5.5.7.3.2"
 const SERVER_AUTH = "1.3.6.1.5.5.7.3.1"
 
 const VALIDITY_YEARS = 10
-/** How far a VM host's clock may be behind this one: the certificate is valid from that long ago. */
 const CLOCK_SKEW_MS = 24 * 60 * 60 * 1000
 
 export interface IdentityOptions {
   readonly commonName: string
   readonly now: Date
-  /** "client" for Incus clients; "server" for test servers. */
   readonly usage: "client" | "server"
 }
 
@@ -93,7 +86,6 @@ export function createSelfSignedIdentity(options: IdentityOptions): ClientIdenti
     explicit(
       3,
       sequence(
-        // digitalSignature (+ keyAgreement for a server's ECDHE): bit string with unused bits.
         extension(
           KEY_USAGE,
           true,
@@ -127,7 +119,6 @@ export function createSelfSignedIdentity(options: IdentityOptions): ClientIdenti
   }
 }
 
-/** Lowercase hex SHA-256 of a PEM certificate's DER (how Incus names certificates). */
 export function certificateFingerprint(pem: string): string {
   return createHash("sha256").update(new X509Certificate(pem).raw).digest("hex")
 }

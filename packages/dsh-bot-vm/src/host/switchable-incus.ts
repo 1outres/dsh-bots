@@ -1,8 +1,3 @@
-/**
- * One IncusClient for the whole plugin whose every call goes to the client of
- * the VM host chosen at that moment (src/host/endpoint-scope.ts), so the
- * environment and the image import follow a change of VM host or project.
- */
 import type { IncusClient } from "./incus"
 
 export function switchableIncusClient(current: () => Promise<IncusClient>): IncusClient {

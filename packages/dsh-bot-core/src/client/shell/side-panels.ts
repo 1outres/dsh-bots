@@ -1,14 +1,12 @@
 import { createStore, type Observable } from "../observable"
 import type { Viewer } from "../viewer"
 
-/** A panel of the bot session shell besides the file viewer: the bot's notes or actions, the Main's session log, or a connector's panel. */
 export type SidePanel =
   | { readonly kind: "notes" }
   | { readonly kind: "actions" }
   | { readonly kind: "session-log" }
   | { readonly kind: "connector"; readonly connectorId: string }
 
-/** Which panel each bot session shows, by session id. */
 export type OpenPanels = Readonly<Record<string, SidePanel>>
 
 export const NOTES_PANEL: SidePanel = { kind: "notes" }
@@ -27,17 +25,11 @@ export function samePanel(a: SidePanel | undefined, b: SidePanel): boolean {
   return a.kind !== "connector" || (b.kind === "connector" && a.connectorId === b.connectorId)
 }
 
-/**
- * The side panels of the bot sessions. A session shows one side panel at a
- * time: opening one closes the file viewer, and the file viewer opening
- * closes it.
- */
 export interface SidePanels extends Observable<OpenPanels> {
   of(sessionId: string): SidePanel | undefined
   open(sessionId: string, panel: SidePanel): void
   toggle(sessionId: string, panel: SidePanel): void
   close(sessionId: string): void
-  /** Drop the sessions `keep` refuses. */
   forget(keep: (sessionId: string) => boolean): void
   dispose(): void
 }

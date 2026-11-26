@@ -19,7 +19,6 @@ import { brokerSetup, settle } from "./connectors-support"
 
 const OWNER = { kind: "owner" }
 
-/** A token endpoint in memory: codes it issued, refresh tokens it honours, and every request. */
 function fakeTokenEndpoint() {
   const requests: { url: string; form: Record<string, string> }[] = []
   const codes = new Map<string, { subject: string; scope: string }>()
@@ -98,7 +97,6 @@ const PROVIDER: BotConnectionProvider = {
   },
 }
 
-/** Which subject each access token the fake endpoint issues belongs to (set by the tests). */
 const identities = new Map<string, string>()
 
 function mailbox(log: string[] = []): BotConnector {
@@ -188,7 +186,6 @@ function signInSetup() {
     deadline: () => new AbortController().signal,
     exists: (botId) => setup.bots.has(botId),
   })
-  /** Sign an account in through the whole flow, as the browser would. */
   const connect = async (subject: string, request: Record<string, unknown> = {}) => {
     const authorization = await panel.authorize(OWNER, {
       provider: "acme",

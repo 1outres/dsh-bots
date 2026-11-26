@@ -1,10 +1,3 @@
-/**
- * Signing an account in (OAuth 2.0 authorization code with PKCE, a
- * confidential Web client): the owner starts an attempt in the Web UI, the
- * browser goes to the provider, and the provider sends it back to
- * bot-core's callback route with the attempt's `state`. Attempts live in
- * memory only, each for one callback.
- */
 import type { BotConnectionProvider } from "../../connector-contract"
 import {
   CONNECTION_CALLBACK_PATH,
@@ -35,12 +28,9 @@ export interface ConnectionSignInDeps {
   vault: Pick<ConnectionVault, "writeGrant">
   tokens: Pick<ConnectionTokens, "remember">
   client(provider: string): Promise<ClientCredentials | undefined>
-  /** Whether the bot is stored. */
   exists(botId: string): boolean
   fetch: OAuthFetch
-  /** A fresh unguessable token (base64url). */
   secret(): string
-  /** The PKCE S256 challenge of a verifier. */
   challenge(verifier: string): string
   newConnectionId(): string
   newAttemptId(): string
@@ -49,24 +39,19 @@ export interface ConnectionSignInDeps {
   deadline(ms: number): AbortSignal
 }
 
-/** What the callback route answers the browser. */
 export type SignInOutcome =
   | { readonly ok: true; readonly provider: string; readonly connection: ConnectionRecord }
   | { readonly ok: false; readonly status: number; readonly reason: string }
 
 export interface ConnectionSignIn {
-  /** @throws naming what is wrong with the request. */
   start(request: unknown): Promise<ConnectionAuthorization>
-  /** The provider sent the browser back with these query parameters. */
   callback(query: URLSearchParams): Promise<SignInOutcome>
   attempts(): readonly ConnectionAttemptView[]
   subscribe(listener: () => void): () => void
   dispose(): void
 }
 
-/** How long a sign-in may take. */
 const ATTEMPT_TTL_MS = 10 * 60_000
-/** How long an ended attempt stays visible. */
 const ENDED_KEPT_MS = 10 * 60_000
 const MAX_ATTEMPTS = 20
 const EXCHANGE_TIMEOUT_MS = 30_000

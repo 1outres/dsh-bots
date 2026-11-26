@@ -1,0 +1,23 @@
+{
+  "path": ".biome/plugins/99-demo.grit",
+  "diagnostics": [
+    {
+      "line": 1,
+      "column": 1,
+      "rule": 73,
+      "fixable": true
+    },
+    {
+      "line": 4,
+      "column": 1,
+      "rule": 73,
+      "fixable": true
+    },
+    {
+      "line": 7,
+      "column": 32,
+      "rule": 73,
+      "fixable": true
+    }
+  ]
+}

@@ -1,9 +1,3 @@
-/**
- * What the `botMainView` Remote serves (docs/specs/bot-main-view.md §3): each
- * bot's timeline over its Mains. The Main being watched is followed live from
- * its log events; former Mains are read from their stored logs, up to the
- * moment a new Main took their place.
- */
 import {
   MAIN_TIMELINE_PAGE,
   type MainTimelineCursor,
@@ -16,7 +10,6 @@ import type { LoggedEvent, SessionLog } from "../conversations/history"
 import type { BotMainRecord } from "../registry"
 import { foldEvent, replyingOf, type TimelineFold, timelineOf } from "./timeline"
 
-/** dsh-attachment's `ImageAttachmentRef`, as `readImage` takes it. */
 export interface MainImageRef {
   readonly attachmentId: string
   readonly mediaType: string
@@ -27,20 +20,15 @@ export interface MainImageRef {
 }
 
 export interface MainViewDeps {
-  /** The bot's Mains, oldest first; undefined for a bot that is not stored. */
   mainsOf(botId: string): readonly BotMainRecord[] | undefined
-  /** A session's own log; undefined when DSH has no such session (yet). */
   read(sessionId: string, signal: AbortSignal): Promise<SessionLog | undefined>
   readImage(ref: MainImageRef, signal: AbortSignal): Promise<Uint8Array>
   encodeBase64(data: Uint8Array): string
-  /** The bots' records changed (a bot got a new Main). */
   subscribe(listener: () => void): () => void
-  /** Ends the reads of live timelines (the plugin unloads). */
   readonly signal: AbortSignal
 }
 
 export interface MainView {
-  /** Every session's log events, in order. */
   sessionEvent(sessionId: string, event: LoggedEvent): void
   watch(botId: string, signal: AbortSignal): AsyncIterable<MainTimelineFrame>
   page(botId: string, before: MainTimelineCursor, signal: AbortSignal): Promise<MainTimelinePage>
@@ -52,21 +40,18 @@ export interface MainView {
   ): Promise<MainTimelineImageData>
 }
 
-/** The end of a session, as a cursor's position. */
 const END = Number.MAX_SAFE_INTEGER
 
 interface LiveTimeline {
   fold: TimelineFold
   items: MainTimelineItem[]
   cursor: number
-  /** Events that arrived while the log was read. */
   pending: LoggedEvent[] | undefined
   readonly listeners: Set<() => void>
   readonly ready: Promise<void>
   watchers: number
 }
 
-/** Former Mains' timelines kept for paging back through them. */
 const FORMER_CACHE = 4
 
 export function createMainView(deps: MainViewDeps): MainView {
@@ -179,7 +164,6 @@ export function createMainView(deps: MainViewDeps): MainView {
       : { items: collected, earlier: { sessionId: previous.sessionId, seq: END } }
   }
 
-  /** Wakes a stream on its live timeline's changes, the bots' records' changes and its abort. */
   const wakeups = (signal: AbortSignal) => {
     let dirty = false
     let wake: (() => void) | undefined

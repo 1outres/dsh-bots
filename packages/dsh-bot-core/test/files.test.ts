@@ -26,14 +26,8 @@ interface Target {
 
 const text = (value: string) => new TextEncoder().encode(value)
 
-/**
- * An in-memory POSIX file system shaped like dsh-fs: symlinks resolved by
- * `resolve`/`stat`, kept by `lstat`; text streamed in small chunks so a
- * page is cut across chunk boundaries.
- */
 function fakeFs(entries: Record<string, Node>) {
   const nodes = new Map<string, Node>([["/", { type: "directory" }], ...Object.entries(entries)])
-  // Every ancestor is a directory.
   for (const path of [...nodes.keys()]) {
     for (let dir = posix.dirname(path); dir !== "/"; dir = posix.dirname(dir)) {
       if (!nodes.has(dir)) nodes.set(dir, { type: "directory" })
@@ -118,7 +112,6 @@ function fakeFs(entries: Record<string, Node>) {
   return { fs, calls, nodes }
 }
 
-/** A piped stdout yielding `chunks`; `destroy` ends it as a destroyed Readable would. */
 function output(chunks: AsyncGenerator<string, void>): EnvironmentOutput {
   return Object.assign(chunks, {
     setEncoding() {},
@@ -128,7 +121,6 @@ function output(chunks: AsyncGenerator<string, void>): EnvironmentOutput {
   })
 }
 
-/** A subprocess whose one run prints `files` NUL-separated and exits with `exitCode`. */
 function fakeSubprocess(
   files: string[],
   exitCode = 0,
@@ -142,7 +134,6 @@ function fakeSubprocess(
       const handle: EnvironmentProcess = {
         stdout: output(
           (async function* () {
-            // Records split across chunks.
             const listing = files.map((file) => `${file}\0`).join("")
             for (let index = 0; index < listing.length; index += 5)
               yield listing.slice(index, index + 5)
@@ -193,7 +184,6 @@ function setup(
   } = {},
 ) {
   const fake = fakeFs(options.entries ?? tree())
-  /** session id -> bot id, as the registry records it (stored bots only). */
   const sessions = new Map([
     ["s-main", "b1"],
     ["s-other", "b1"],
@@ -215,7 +205,6 @@ function setup(
   return { files, fake, sessions, asked, warnings }
 }
 
-/** The rejection's RemoteError code and details. */
 async function failure(promise: Promise<unknown>) {
   try {
     await promise
@@ -525,7 +514,6 @@ describe("botFiles: readBytes", () => {
       code: "bot-file/too-large",
       details: { path: "image.bin", limit: 5 },
     })
-    // Refused from the stat, without transferring the file.
     expect(read).toBe(false)
   })
 })
@@ -552,7 +540,6 @@ describe("botFiles: list", () => {
       ],
       truncated: false,
     })
-    // A link to a directory inside the workspace lists as its target.
     expect((await files.list("s-main", "inside")).path).toBe("src")
   })
 
@@ -595,7 +582,6 @@ describe("botFiles: search", () => {
     ])
     expect(run.spawned[0]?.argv).toContain("--glob=!.git")
     expect(run.spawned[0]?.argv).not.toContain("--hidden")
-    // A query with "/" matches relative paths; matches sort by depth, then path.
     expect((await files.search("s-main", { query: "src/" })).matches.map((m) => m.path)).toEqual([
       "src/app.ts",
       "src/lib",
@@ -697,7 +683,6 @@ describe("botFiles: cancellation and concurrency", () => {
       return undefined
     }
     await expect(files.stat("s-main", "notes.md", controller.signal)).rejects.toBe(reason)
-    // Already aborted: nothing is asked.
     await expect(files.read("s-main", "notes.md", {}, controller.signal)).rejects.toBe(reason)
   })
 
@@ -789,7 +774,6 @@ describe("createEnvironmentFilesKeeper", () => {
     const retired = keeper.attach("b1", "t0", "retired")
     const next = keeper.attach("b1", "t1", "new")
     expect(keeper.get("b1", "t1")).toBe("new")
-    // A retired revision re-attaching later never wins.
     expect(keeper.get("b1", "t2")).toBeUndefined()
     next()
     expect(keeper.get("b1", "t1")).toBe("old")

@@ -1,9 +1,3 @@
-/**
- * The Incus API over Node: HTTP on the Unix socket (local), or HTTP on TLS
- * with a client certificate (remote). A remote server is trusted only when its
- * certificate's SHA-256 equals the pinned one; the check runs once the TLS
- * handshake finished and before any request byte is written.
- */
 import { createHash, randomBytes } from "node:crypto"
 import { Agent, type ClientRequest, type IncomingMessage, request } from "node:http"
 import { isIP, connect as netConnect, type Socket } from "node:net"
@@ -53,7 +47,6 @@ function remoteConnector(endpoint: IncusEndpoint & { kind: "remote" }): Connecto
       ...(isIP(host) === 0 ? { servername: host } : {}),
       cert: endpoint.clientCertificate,
       key: endpoint.clientKey,
-      // The CA chain and host name are not used: the pin below is the check.
       rejectUnauthorized: false,
       minVersion: "TLSv1.2",
     })
@@ -78,7 +71,6 @@ function remoteConnector(endpoint: IncusEndpoint & { kind: "remote" }): Connecto
 
 function agentOf(connect: Connector, keepAlive: boolean): Agent {
   const agent = new Agent({ keepAlive, maxSockets: keepAlive ? 16 : Number.POSITIVE_INFINITY })
-  // Node's Agent accepts a socket handed to the callback later (documented).
   Object.assign(agent, {
     createConnection: (
       _options: unknown,
@@ -104,7 +96,6 @@ async function bodyOf(response: IncomingMessage): Promise<unknown> {
 }
 
 export interface ClosableIncusTransport extends IncusTransport {
-  /** Close every connection, the websockets of operations included. */
   close(): void
 }
 
@@ -113,7 +104,6 @@ export function createIncusTransport(endpoint: IncusEndpoint): ClosableIncusTran
     endpoint.kind === "local" ? localConnector(endpoint.socket) : remoteConnector(endpoint)
   const pooled = agentOf(connect, true)
   const single = agentOf(connect, false)
-  /** Upgraded sockets leave their agent: they are closed with the transport. */
   const upgraded = new Set<Socket>()
 
   const exchange = (

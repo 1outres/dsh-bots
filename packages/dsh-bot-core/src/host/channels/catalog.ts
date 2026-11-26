@@ -2,15 +2,9 @@ import type { BotChannel } from "../../contract"
 import { checkChannelDescriptor, sourceOf } from "../../shared/channels"
 import { checkChannelCapabilities } from "./capabilities"
 
-/** The version of a channel's settings shape. */
 export const settingsVersionOf = (channel: Pick<BotChannel, "settingsVersion">): number =>
   channel.settingsVersion ?? 1
 
-/**
- * Check what a channel offers beside its descriptor: an upgrade for a
- * settings version above 1, options for the sources its fields name.
- * @throws naming the first problem.
- */
 export function checkChannelHooks(channel: BotChannel): void {
   const what = `channel "${channel.id}"`
   const version = settingsVersionOf(channel)
@@ -26,13 +20,10 @@ export function checkChannelHooks(channel: BotChannel): void {
   }
 }
 
-/** The channels channel plugins registered, by id. */
 export interface ChannelCatalog {
-  /** @throws when the descriptor or capabilities are invalid or the id is taken. */
   register(channel: BotChannel): () => void
   list(): readonly BotChannel[]
   get(id: string): BotChannel | undefined
-  /** Called after every registration and unregistration. */
   subscribe(listener: () => void): () => void
 }
 

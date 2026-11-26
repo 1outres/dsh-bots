@@ -1,15 +1,8 @@
-/** A session log event, as far as read here. */
 export interface LoggedEvent {
   readonly type: string
   readonly data: unknown
 }
 
-/**
- * Successful compactions in a session log: `compaction/start` … `compaction/end`
- * brackets that recorded a `compaction/summary` and ended without an error.
- * Automatic (mid-turn) and idle compactions both count; a bracket that only
- * pruned tool results (no summary) does not.
- */
 export function countCompactions(events: Iterable<LoggedEvent>): number {
   let count = 0
   let open = false
@@ -35,7 +28,6 @@ export function countCompactions(events: Iterable<LoggedEvent>): number {
   return count
 }
 
-/** The context's fill in percent, from DSH's token meter; undefined while either number is unknown. */
 export function usagePercentOf(pressure: {
   readonly pressureTokens?: number
   readonly contextWindow?: number

@@ -1,7 +1,3 @@
-// Verification only. A connector whose tool takes one value of a login the
-// way a browser connector would (run.vault.reveal for a page's origin) and
-// only says how many bytes it got: it lets a verification DSH give a login
-// to a connector and see the use recorded, without a browser.
 export const vaultProbeConnector = {
   id: "vaultprobe",
   name: "Vault probe",

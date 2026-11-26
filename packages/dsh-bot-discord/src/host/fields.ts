@@ -1,10 +1,8 @@
 import type { BotChannelField, BotChannelValuesOf } from "@1outres/dsh-bot-core"
 
-/** The option sources of the Discord settings. */
 export const HOME_SOURCE = "home"
 export const OWNERS_SOURCE = "owners"
 
-/** A bot's Discord settings: bot-core renders them in the bot's Channels dialog and stores the token as a secret. */
 export const DISCORD_FIELDS = [
   {
     kind: "secret",
@@ -63,5 +61,4 @@ export const DISCORD_FIELDS = [
 
 export type DiscordSettings = BotChannelValuesOf<typeof DISCORD_FIELDS>
 
-/** The shape of the settings: version 2 replaced the allowed users with the home. */
 export const DISCORD_SETTINGS_VERSION = 2

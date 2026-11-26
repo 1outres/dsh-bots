@@ -1,6 +1,5 @@
 import type { DiscordChannelInfo, DiscordGuildInfo } from "./discord"
 
-/** Discord's permission bits the bot reads. */
 export const PERMISSION = {
   administrator: 1n << 3n,
   addReactions: 1n << 6n,
@@ -14,11 +13,9 @@ export const PERMISSION = {
 
 const ALL = (1n << 64n) - 1n
 
-/** What the bot needs in a channel to make it its home. */
 export const HOME_PERMISSIONS =
   PERMISSION.viewChannel | PERMISSION.sendMessages | PERMISSION.readMessageHistory
 
-/** What the bot's invite asks for: its home's needs, and what its cards and the pinned list use. */
 export const INVITE_PERMISSIONS =
   HOME_PERMISSIONS |
   PERMISSION.embedLinks |
@@ -26,7 +23,6 @@ export const INVITE_PERMISSIONS =
   PERMISSION.addReactions |
   PERMISSION.pinMessages
 
-/** A member's permissions in a channel, as Discord computes them (base, then overwrites). */
 export function permissionsIn(
   guild: DiscordGuildInfo,
   channel: DiscordChannelInfo,

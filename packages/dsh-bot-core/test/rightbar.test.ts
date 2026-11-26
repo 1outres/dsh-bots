@@ -44,7 +44,6 @@ describe("file addresses (copy of dsh-util-workspace-path parseFileAddress)", ()
       sessionId: "b1",
       path: "src/a b.ts",
     })
-    // An absolute path outside the workspace keeps its spelling in the session's address.
     expect(parseFileAddress("dsh-resource://file/session/b1//tmp/x.txt")).toEqual({
       scope: "session",
       sessionId: "b1",
@@ -86,7 +85,6 @@ describe("the bot file tab type", () => {
       priority: "extension",
     })
     expect(definition.canOpen("dsh-resource://file/session/b1/x/y.ts")).toBe(true)
-    // A Workspace session's files stay with DSH's own viewers.
     expect(definition.canOpen("dsh-resource://file/session/w1/x/y.ts")).toBe(false)
     expect(definition.canOpen("dsh-resource://file/absolute/etc/hosts")).toBe(false)
     expect(definition.title("dsh-resource://file/session/b1/x/y.ts")).toBe("y.ts")
@@ -248,7 +246,6 @@ const surface = (expanded: boolean, tabs: SidebarTab[]): SidebarSurface => ({
 })
 
 describe("planSweep: what lands in a bot session's DSH sidebar layout", () => {
-  /** Drive the planner through a sequence of layouts, as the seat's effect does. */
   function sweeper(atMount: SidebarSurface | undefined) {
     let memory = initialSweepMemory(atMount)
     return (next: SidebarSurface | undefined) => {
@@ -302,17 +299,13 @@ describe("planSweep: what lands in a bot session's DSH sidebar layout", () => {
 
   it("toggles on an expansion that brought only the default page, each time", () => {
     const step = sweeper(undefined)
-    // Materialized collapsed and empty: nothing.
     expect(step(surface(false, []))).toEqual({ actions: [], close: [], collapse: false })
-    // The toggle shortcut seeds the guide.
     expect(step(surface(true, [tab("g", "guide")])).actions).toEqual([{ kind: "toggle" }])
-    // Our collapse lands: nothing more (no re-entrant toggle).
     expect(step(surface(false, [tab("g", "guide")]))).toEqual({
       actions: [],
       close: [],
       collapse: false,
     })
-    // Expanded again with the guide already there.
     expect(step(surface(true, [tab("g", "guide")])).actions).toEqual([{ kind: "toggle" }])
     expect(step(undefined).actions).toEqual([])
   })
@@ -320,7 +313,6 @@ describe("planSweep: what lands in a bot session's DSH sidebar layout", () => {
   it("does not toggle again while a collapse does not take (no flapping)", () => {
     const step = sweeper(surface(false, [tab("g", "guide")]))
     expect(step(surface(true, [tab("g", "guide")])).actions).toEqual([{ kind: "toggle" }])
-    // setExpanded(false) failed: the layout stays expanded, the next commits toggle nothing.
     for (let i = 0; i < 3; i += 1) {
       const plan = step(surface(true, [tab("g", "guide")]))
       expect(plan.actions).toEqual([])
@@ -332,7 +324,6 @@ describe("planSweep: what lands in a bot session's DSH sidebar layout", () => {
     const step = sweeper(surface(false, []))
     const opened = surface(true, [tab("t1", BOT_FILE_TAB_KIND, "dsh-resource://file/session/b1/a")])
     expect(step(opened).actions).toEqual([{ kind: "file", tabId: "t1" }])
-    // closeIn threw: the tab is still there, closed again but not opened again.
     expect(step(opened)).toEqual({ actions: [], close: ["t1"], collapse: true })
     expect(step(surface(false, []))).toEqual({ actions: [], close: [], collapse: false })
   })
@@ -443,7 +434,6 @@ describe("runSweep", () => {
       {
         actions: [
           { kind: "refused", tabId: "x", tabKind: "terminal" },
-          // Our kind, but the address is not this bot session's.
           { kind: "file", tabId: "other" },
         ],
         close: ["x"],
@@ -565,7 +555,6 @@ describe("the rightbar seat", () => {
     expect(render({ ...face, ...store, sessionId: "w1" })).toBe("")
     expect(render({ ...face, ...store, sessionId: undefined })).toBe("")
     expect(useStore).not.toHaveBeenCalled()
-    // Server rendering warns that the sweep's layout effect does not run there.
     const warning = vi.spyOn(console, "error").mockImplementation(() => {})
     expect(render({ ...face, ...store, sessionId: "b1" })).toBe("")
     expect(useStore).toHaveBeenCalledTimes(1)

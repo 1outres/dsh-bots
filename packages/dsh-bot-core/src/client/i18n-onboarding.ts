@@ -1,4 +1,3 @@
-/** The copy of the welcome guide and the release notes. */
 export const ONBOARDING_EN = {
   "welcome.eyebrow.setup": "Set up",
   "welcome.eyebrow.bot": "Your first bot",

@@ -1,8 +1,3 @@
-/**
- * DSH's question and approval vocabulary as bot-core reads it
- * (`@deepseek-ai/dsh-user-questions` types.ts, `@deepseek-ai/dsh-user-approval` types.ts).
- */
-
 export interface DshLocalized {
   readonly en: string
   readonly [locale: string]: string
@@ -43,7 +38,6 @@ export interface DshQuestionAnswer {
   readonly answers: DshAnswerItem[]
 }
 
-/** `user-questions/request`'s payload. */
 export interface DshQuestionRequest<A> {
   readonly questions: readonly DshQuestionItem[]
   readonly agent?: A
@@ -51,7 +45,6 @@ export interface DshQuestionRequest<A> {
   readonly wait?: { readonly callId: string; readonly timed?: boolean }
 }
 
-/** `approval/request`'s payload. */
 export interface DshApprovalRequest<A> {
   readonly agent: A
   readonly toolName: string
@@ -63,7 +56,6 @@ export interface DshApprovalRequest<A> {
 
 export type DshApprovalOutcome = "allowed-once" | "rejected" | "cancelled" | "unavailable"
 
-/** One answerable timed call of the `userQuestions` Session projection. */
 export interface DshPendingQuestion {
   readonly callId: string
   readonly questions: readonly DshQuestionItem[]
@@ -78,10 +70,6 @@ const REJECTION_MESSAGES: Readonly<Record<DshQuestionRejection, string>> = {
   ASK_TIMED_OUT: "ask_user_question timed out before the user answered",
 }
 
-/**
- * A rejection DSH's `ask()` restores as its own `UserQuestionError` (it
- * reads `name`, `message` and `code`), as the Web card's wire rejections are.
- */
 export function questionRejection(code: DshQuestionRejection): Error {
   const error = new Error(REJECTION_MESSAGES[code]) as Error & { code: string }
   error.name = "UserQuestionError"
@@ -89,7 +77,6 @@ export function questionRejection(code: DshQuestionRejection): Error {
   return error
 }
 
-/** The code of a `UserQuestionError`, if `error` is one. */
 export function questionErrorCode(error: unknown): string | undefined {
   if (typeof error !== "object" || error === null) return undefined
   const value = error as { name?: unknown; code?: unknown }

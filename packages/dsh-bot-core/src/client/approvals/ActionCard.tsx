@@ -14,7 +14,6 @@ function refusalKey(result: Extract<ConnectorDecisionResult, { accepted: false }
   return `approvals.refused.${result.reason}`
 }
 
-/** Text that may run long, folded with "Show all" (shown as typed: never as HTML or Markdown). */
 function LongText(props: {
   readonly t: Translate
   readonly text: string
@@ -37,7 +36,6 @@ function LongText(props: {
   )
 }
 
-/** The connector, the tool and when it was asked for, on one tertiary line. */
 export function actionMeta(t: Translate, action: ConnectorActionView, at: number, now: number) {
   return [
     action.connector.name ?? action.connector.id,
@@ -67,13 +65,11 @@ function Preview({ t, action }: { readonly t: Translate; readonly action: Connec
 
 export interface ActionCardProps {
   readonly t: Translate
-  /** An open action: pending, approved or running. */
   readonly action: ConnectorActionView
   readonly now: number
   decide(actionId: string, decision: ConnectorDecision): Promise<DecisionOutcome>
 }
 
-/** An open action: its state and expiry, the preview, where it comes from, and Reject / Approve while it is pending. */
 export function ActionCard(props: ActionCardProps) {
   const { t, action, now } = props
   const { status } = action
@@ -176,7 +172,6 @@ function Outcome({ t, action }: { readonly t: Translate; readonly action: Connec
   }
 }
 
-/** An ended action's details, disclosed under its history row: how it ended, who decided in a channel, its preview and arguments. */
 export function ActionDetails({
   t,
   action,

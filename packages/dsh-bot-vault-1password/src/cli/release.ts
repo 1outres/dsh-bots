@@ -1,10 +1,3 @@
-/**
- * The 1Password CLI this package runs, pinned (infra/RELEASING.md, "1Password
- * CLI"): the version and, per platform, the SHA-256 of the official zip and
- * of the `op` inside it, both taken from archives whose GPG signature was
- * verified against 1Password's key 3FEF9748469ADBE15DA7CA80AC2D62742012EA22.
- */
-
 export interface OpArchive {
   readonly os: "linux" | "darwin"
   readonly arch: "amd64" | "arm64"
@@ -14,7 +7,6 @@ export interface OpArchive {
 
 export interface OpRelease {
   readonly version: string
-  /** By `<process.platform>-<process.arch>`. */
   readonly archives: Readonly<Record<string, OpArchive>>
 }
 

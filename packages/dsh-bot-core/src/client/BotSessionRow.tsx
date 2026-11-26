@@ -9,7 +9,6 @@ import type { SessionOverflow } from "./session-window"
 import { overflowKey, type SessionLabel, type SessionRow, sessionKey, sessionLabel } from "./tree"
 import type { Translate } from "./types"
 
-/** Where a row of a bot's group sits among its siblings, and the tree's tab stop. */
 export interface GroupPlace {
   readonly position: number
   readonly size: number
@@ -40,11 +39,6 @@ type RowFace = Pick<
   | "managed"
 >
 
-/**
- * One of a bot's sessions besides Main, as Workspaces' session rows: a hover
- * Archive (Unarchive once archived) button and the session's menu on a right
- * click, the menu key or Shift+F10. An archived row is grayed and does not open.
- */
 export function BotSessionRow(
   props: RowFace & { bot: BotView; row: SessionRow; place: GroupPlace },
 ) {
@@ -109,10 +103,8 @@ export function BotSessionRow(
         </span>
       )}
       {row.running && <span className="dshb-dot" />}
-      {/* Hover action as in Workspaces rows: out of the tab order; the menu key
-          and Shift+F10 open the same action from the row. */}
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: only stops clicks from opening the row */}
-      {/* biome-ignore lint/a11y/useKeyWithClickEvents: only stops clicks from opening the row */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: - */}
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: - */}
       <span className="dshb-row-actions" onClick={stop}>
         <button
           type="button"
@@ -132,7 +124,6 @@ export function BotSessionRow(
   )
 }
 
-/** The last row of a bot's group while its window folds sessions away: Show more, or Show less. */
 export function SessionOverflowRow(props: {
   readonly t: Translate
   readonly botId: string
@@ -143,7 +134,7 @@ export function SessionOverflowRow(props: {
   const { t, botId, overflow, place } = props
   const key = overflowKey(botId)
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: the tree handles keys for its treeitems
+    // biome-ignore lint/a11y/useKeyWithClickEvents: -
     <div
       className="dshb-overflow"
       role="treeitem"

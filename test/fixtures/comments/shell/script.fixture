@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Runs the demo.
+set -euo pipefail
+# shellcheck source=lib.sh
+. "$(dirname "$0")/lib.sh"
+# shellcheck disable=SC2034,SC2154
+count=$#
+length=${#count}
+echo "#not" '#not' a#b "${count}#" $((length + 1)) # trailing
+cat <<EOF
+# heredoc text, not a comment
+$count
+EOF
+cat <<'RAW'
+# quoted heredoc
+RAW
+value=$(
+  # inside a command substitution
+  echo "$length"
+)
+case "$value" in
+  \#*) echo hash ;; # after a case item
+  *) echo other ;;
+esac
+# shellcheck disable=SC2024 # sudo reads the password from the terminal itself
+sudo tee /dev/null </dev/tty
+# shellcheck shell=bash
+# shellcheck disable=SC2034 
+# shellcheck source=lib.sh trailing words
+# shellcheck disable=2034
+# shellcheck shell=dash
+# shellcheck shell=bash # sourced by every script
+# shellcheck shell=zsh
+# shellcheck shell=
+#!/bin/sh is a comment off line one

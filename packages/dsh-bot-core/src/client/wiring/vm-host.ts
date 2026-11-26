@@ -8,10 +8,8 @@ import { vmHostBadge } from "../vm-host/model"
 import { VmHostSection } from "../vm-host/VmHostSection"
 import type { SettingsScreens } from "./screens"
 
-/** Id of the VM host section of the dsh-bots settings. */
 export const VM_HOST_SECTION = "bot-core.vm-host"
 
-/** Where the bots' VMs run, in the dsh-bots settings. */
 export function wireVmHost(
   ctx: ClientContext,
   host: VmHostClient,

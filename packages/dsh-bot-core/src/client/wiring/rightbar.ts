@@ -33,7 +33,6 @@ const injected = (face: SessionRightbarFace, handle: RightbarStore["handle"]) =>
   handle,
 })
 
-/** The `rightbar.session` registration options for one store handle; DSH hands the store props only with `store`. */
 function rightbarOptions(handle: StoreHandle, priority: number, face: SessionRightbarFace) {
   const base = { name: SLOT.rightbarSession, priority, locale: NAMESPACE }
   switch (handle.state) {
@@ -44,10 +43,6 @@ function rightbarOptions(handle: StoreHandle, priority: number, face: SessionRig
   }
 }
 
-/**
- * Hold the lockdown registration with the corner's current store handle:
- * a new handle (DSH re-registering its seat) re-registers it, a refusal is final.
- */
 function holdLockdown(
   slots: SlotsService,
   wanted: Observable<boolean>,
@@ -93,15 +88,9 @@ function holdLockdown(
   }
 }
 
-/**
- * The right sidebar lockdown of bot sessions and the routing of what opens
- * there into the bot file viewer, while DSH's right sidebar is loaded
- * (README: Bot file viewer and right sidebar lockdown).
- */
 export function wireRightbar(ctx: ClientContext, sources: RightbarSources): void {
   const { classification, lockdown } = sources
   ctx.inject(SIDEBAR_SERVICES, (sidebarCtx) => {
-    // Read as the injected properties (design rule 8 keeps ctx.get to store.ts).
     const sidebar = sidebarCtx.sidebarRight as SidebarRightFace
     const tabs = sidebarCtx.sidebarRightTabs as SidebarRightTabsFace
     sidebarCtx.effect(

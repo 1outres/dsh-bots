@@ -10,41 +10,27 @@ import type { BotTable } from "../registry"
 import type { BotModelsRecord } from "./domain"
 
 export interface BotModelStoreDeps {
-  /** The models table of MODELS_DOMAIN; only this store writes it (design rule 51). */
   readonly models: BotTable<BotModelsRecord>
   now(): number
 }
 
-/** One bot's stored models. */
 export interface StoredBotModels {
   readonly models: BotModelSettings
   readonly mainPending: boolean
 }
 
 export interface BotModelStore {
-  /**
-   * Give every bot of `botIds` without a row {@link DEFAULT_BOT_MODELS}, and
-   * every row its missing roles' defaults (start-up, before anything reads).
-   */
   migrate(botIds: Iterable<string>): Promise<void>
-  /** @throws when the bot has no row (an unknown bot). */
   get(botId: string): StoredBotModels
   has(botId: string): boolean
-  /** A new bot's row. @throws when it has one. */
   create(botId: string, settings: BotModelSettings): Promise<void>
-  /** Replace the roles the change names; naming `main` marks it pending for the Main session. */
   configure(botId: string, change: BotModelsChange): Promise<StoredBotModels>
-  /** The Main session took `applied`: clears the pending mark unless `main` changed since. */
   markApplied(botId: string, applied: BotModelChoice): Promise<void>
-  /** Delete one row (a creation rolled back). */
   discard(botId: string): Promise<void>
-  /** Delete the rows of bots that no longer exist. */
   purge(exists: (botId: string) => boolean): Promise<void>
-  /** Called with the bot id after its row changed. */
   subscribe(listener: (botId: string) => void): () => void
 }
 
-/** The migration's completion of a row: every missing role at its default. */
 function withDefaults(roles: BotModelsRecord["roles"]): BotModelSettings {
   return {
     main: roles.main ?? DEFAULT_BOT_MODELS.main,
@@ -56,7 +42,6 @@ function withDefaults(roles: BotModelsRecord["roles"]): BotModelSettings {
 const missingRoles = (roles: BotModelsRecord["roles"]) =>
   BOT_MODEL_ROLE_IDS.filter((role) => roles[role] === undefined)
 
-/** A row's settings; every role is there once {@link BotModelStore.migrate} ran. */
 function settingsOf(botId: string, roles: BotModelsRecord["roles"]): BotModelSettings {
   const { main, utility, delegates } = roles
   if (main === undefined || utility === undefined || delegates === undefined) {

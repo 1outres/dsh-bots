@@ -20,7 +20,6 @@ export interface AccountExceptionsProps {
   readonly rows: readonly ConnectorToolRow[]
   readonly choices: readonly Choice<ConnectorPermission>[]
   readonly pending: readonly string[]
-  /** Saves the account's permission of the tool; `null` follows the tool's. */
   onChange(
     row: ConnectorToolRow,
     account: ConnectorAccountRow,
@@ -33,11 +32,6 @@ interface Draft {
   readonly tool: string
 }
 
-/**
- * The tools whose permission as an account differs from the tool's, and a
- * row that adds one: pick the account and the tool, then the permission,
- * which saves it.
- */
 export function AccountExceptions({ t, rows, choices, pending, onChange }: AccountExceptionsProps) {
   const accounts = connectorAccounts(rows)
   const [draft, setDraft] = useState<Draft | null>(null)

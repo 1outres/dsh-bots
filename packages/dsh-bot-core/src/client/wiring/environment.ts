@@ -5,10 +5,8 @@ import { IconServer } from "../icons"
 import type { ClientContext } from "../types"
 import type { SettingsScreens } from "./screens"
 
-/** Id of the VM section of a bot's settings. */
 export const ENVIRONMENT_SECTION = "bot-core.environment"
 
-/** A bot's VM section: the CPUs, memory and disk of its VM. */
 export function wireEnvironment(
   ctx: ClientContext,
   sources: {

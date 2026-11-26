@@ -8,7 +8,6 @@ import { createStore, type Observable } from "../observable"
 import type { BotConnectorActionsRemote, RemoteMount } from "../remote"
 import { followStream } from "./follow"
 
-/** A bot's connector actions as this page follows them; the last list stays while it reconnects. */
 export type ActionsState =
   | { readonly status: "loading" }
   | {
@@ -18,7 +17,6 @@ export type ActionsState =
     }
   | { readonly status: "failed"; readonly message: string }
 
-/** A decision from this page: the Host's result, or why it did not reach the Host. */
 export type DecisionOutcome =
   | { readonly kind: "result"; readonly result: ConnectorDecisionResult }
   | { readonly kind: "unreachable"; readonly message: string }
@@ -35,7 +33,6 @@ export interface ActionsModelDeps {
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
-/** Follow one bot's actions through `remote.botConnectorActions` and decide them as the owner. */
 export function createActionsModel(deps: ActionsModelDeps, botId: string): ActionsModel {
   const state = createStore<ActionsState>({ status: "loading" })
   let disposed = false

@@ -22,31 +22,20 @@ export interface HubBot {
 
 export interface ChannelHubDeps {
   channels(): readonly BotChannel[]
-  /** Listed bots: those with a Main session. */
   bots(): readonly HubBot[]
   settings: Pick<ChannelSettings, "readiness" | "revision" | "resolve">
   conversation: ConversationDeps
   outlets: Pick<ChannelOutlets, "attach" | "publishTo">
   interactions: Pick<InteractionBoard, "mainOf">
   approvals: Pick<ConnectorApprovals, "open" | "pending" | "fromChannel" | "pendingFor" | "find">
-  /** The bot's credential incidents its owner has not acknowledged, oldest first. */
   incidents: { open(botId: string): readonly VaultIncidentView[] }
   warn(message: string): void
 }
 
-/**
- * Keeps one connection per listed bot and channel whose settings are enabled
- * and complete, matching `sync()` calls to that desired set: a changed
- * setting or a re-registered channel closes the connection and connects
- * again, after the previous close settled.
- */
 export interface ChannelHub {
   sync(): void
-  /** The connection's state; undefined when none is kept for the pair. */
   state(botId: string, channelId: string): BotChannelConnectionState | undefined
-  /** Called after every state change and every connection kept or dropped. */
   subscribe(listener: () => void): () => void
-  /** Close every connection. */
   dispose(): Promise<void>
 }
 
@@ -55,7 +44,6 @@ interface Slot {
   readonly revision: number
   readonly controller: AbortController
   state: BotChannelConnectionState
-  /** Settles once connected (or failed); the connection, if any. */
   readonly connected: Promise<BotChannelConnection | undefined>
 }
 
@@ -63,7 +51,6 @@ const messageOf = (error: unknown) => (error instanceof Error ? error.message : 
 
 export function createChannelHub(deps: ChannelHubDeps): ChannelHub {
   const slots = new Map<string, Slot>()
-  /** Closes still running, by pair: a new connection of the pair waits for it. */
   const closing = new Map<string, Promise<void>>()
   const listeners = new Set<() => void>()
   let disposed = false

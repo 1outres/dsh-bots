@@ -5,5 +5,5 @@ declare const run: {
   }
 }
 
-export const fill = () => run.vault?.reveal("cred-1", "password", { kind: "browser", origin: "x" }) // rule: 65
-export const offer = () => run.vault?.passkey("cred-1", { kind: "browser", origin: "x" }) // rule: 65
+export const fill = () => run.vault?.reveal("cred-1", "password", { kind: "browser", origin: "x" })
+export const offer = () => run.vault?.passkey("cred-1", { kind: "browser", origin: "x" })

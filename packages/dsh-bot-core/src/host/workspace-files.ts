@@ -1,10 +1,3 @@
-/**
- * The bot's initial AGENTS.md and SOUL.md (docs/specs/bot-system-prompt.md
- * §6), placed in its workspace through its environment's own file system,
- * never the Host's. A file already there is left as it is. Once both are
- * there the bot's record keeps the version, so they are placed once per bot:
- * a bot that later deletes one of them does not get it back.
- */
 import type { WorkspaceFilesVersion } from "./domain"
 import type { EnvironmentFileSystem, FileTarget } from "./files"
 
@@ -52,7 +45,6 @@ Concise when that is enough, thorough when it matters. Warm, plain, never a syco
 Every session starts fresh; my files are how I persist. This file is mine to evolve as I learn who I am, and I tell my owner when I change it.
 `
 
-/** The initial files of the current version, by name in the workspace. */
 export const INITIAL_WORKSPACE_FILES: readonly {
   readonly name: string
   readonly content: string
@@ -61,7 +53,6 @@ export const INITIAL_WORKSPACE_FILES: readonly {
   { name: "SOUL.md", content: SOUL_MD },
 ]
 
-/** dsh-fs `FileSystem` with its guarded write, structurally. */
 export interface WritableFileSystem extends EnvironmentFileSystem {
   writeText(
     target: FileTarget,
@@ -72,9 +63,7 @@ export interface WritableFileSystem extends EnvironmentFileSystem {
 }
 
 export interface WorkspaceFilesDeps {
-  /** The registered revision's file system of the bot's environment, or undefined. */
   fsOf(botId: string): WritableFileSystem | undefined
-  /** The environment's workspace, or undefined without an environment. */
   workspace(): string | undefined
   readonly version: WorkspaceFilesVersion
   placed(botId: string, version: WorkspaceFilesVersion): boolean
@@ -82,11 +71,6 @@ export interface WorkspaceFilesDeps {
 }
 
 export interface WorkspaceFiles {
-  /**
-   * Place the bot's missing initial files unless they were placed before.
-   * Concurrent calls for a bot share one attempt.
-   * @throws when the environment cannot be reached or a file cannot be written.
-   */
   ensure(botId: string, signal: AbortSignal): Promise<void>
 }
 

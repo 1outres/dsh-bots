@@ -1,8 +1,3 @@
-/**
- * The notes screen's browser half (docs/specs/bot-notes.md §12): note links in
- * Markdown, the list, search, type filter and calendar, a note with its Links
- * and Backlinks, and the model reading again when the notes change.
- */
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
@@ -288,7 +283,6 @@ describe("the notes screen", () => {
     expect(out).toContain("the bot&#x27;s environment is not available")
     expect(out).not.toContain("data-dshb-notes-tab")
     expect(fake.calls).toEqual([])
-    // Refresh asks again for what the screen shows, which reads the notes on the Host.
     model.refresh()
     expect(fake.calls).toEqual(["list all"])
     unavailable.set({

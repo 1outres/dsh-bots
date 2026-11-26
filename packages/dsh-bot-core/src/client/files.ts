@@ -9,7 +9,6 @@ import {
 } from "./file-failure"
 import type { BotFilesRemote, RemoteMount } from "./remote"
 
-/** `remote.botFiles` unwrapped: every failure rejects with a {@link BotFileError}, an abort as itself. */
 export type BotFilesClient = BotFilesApi
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
@@ -28,7 +27,6 @@ const isContractCode = codeIn<RemoteContractCode>(REMOTE_CONTRACT_CODES)
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null
 
-/** The failure a refused `RemoteResult` reports; `result` is the whole response. */
 function refusalOf(result: Readonly<Record<string, unknown>>): BotFileFailure {
   const { error } = result
   if (!isRecord(error)) {
@@ -62,7 +60,6 @@ function unwrap<T>(result: unknown): T {
   throw failed(refusalOf(result))
 }
 
-/** Wrap `remote.botFiles` once `mount` settles. */
 export function createBotFilesClient(mount: Promise<RemoteMount>): BotFilesClient {
   const call = async <T>(run: (files: BotFilesRemote) => Promise<unknown>): Promise<T> => {
     const mounted = await mount

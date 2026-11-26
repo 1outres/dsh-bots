@@ -1,79 +1,51 @@
-/**
- * Bot channel settings: the schema a channel plugin declares, the values a bot
- * keeps for it and the state of its connection. Wire shapes shared by the Host
- * and the browser, and the rules both halves check values with.
- */
-
-/** Text a channel plugin shows in the browser; English is required. */
 export type BotChannelText = {
   readonly en: string
   readonly ja?: string
 }
 
 interface FieldBase<K extends string> {
-  /** Stable key, lowercase camelCase letters and digits (e.g. "token"). */
   readonly key: K
   readonly label: BotChannelText
   readonly description?: BotChannelText
 }
 
-/** A secret (a token): stored in DSH's credential store, never sent to the browser. */
 export interface BotChannelSecretField<K extends string = string> extends FieldBase<K> {
   readonly kind: "secret"
   readonly required: boolean
   readonly maxLength: number
 }
 
-/** One value an enumerated text field takes, as people pick it. */
 export interface BotChannelChoice {
   readonly value: string
   readonly label: BotChannelText
 }
 
-/** One line of text, trimmed. An optional text left empty is "". */
 export interface BotChannelTextField<K extends string = string> extends FieldBase<K> {
   readonly kind: "text"
   readonly required: boolean
   readonly maxLength: number
-  /** Whole-value regular expression (anchors implied). */
   readonly pattern?: string
   readonly placeholder?: string
-  /**
-   * The only values it takes, picked from a list instead of typed. An
-   * optional field lists `""` among them (its empty value); a required one does not.
-   */
   readonly choices?: readonly BotChannelChoice[]
 }
 
-/**
- * One value picked from the options the channel gives for {@link source}
- * (`BotChannel.options`), stored as the option's value. An optional pick left empty is "".
- */
 export interface BotChannelPickField<K extends string = string> extends FieldBase<K> {
   readonly kind: "pick"
   readonly required: boolean
   readonly source: string
   readonly maxLength: number
-  /** Whole-value regular expression (anchors implied). */
   readonly pattern?: string
-  /**
-   * Keys of the pick and list fields whose options follow this one: the
-   * form empties them in the same change that changes this value.
-   */
   readonly clears?: readonly string[]
 }
 
-/** A list of distinct text items (e.g. user ids), trimmed, empty items dropped. */
 export interface BotChannelListField<K extends string = string> extends FieldBase<K> {
   readonly kind: "list"
   readonly minItems: number
   readonly maxItems: number
   readonly item: {
     readonly maxLength: number
-    /** Whole-item regular expression (anchors implied). */
     readonly pattern?: string
     readonly placeholder?: string
-    /** Items are picked from the options the channel gives for this source instead of typed. */
     readonly source?: string
   }
 }
@@ -84,23 +56,19 @@ export type BotChannelField =
   | BotChannelPickField
   | BotChannelListField
 
-/** The option source of a field: a pick's, or a list's items'. */
 export function sourceOf(field: BotChannelField): string | undefined {
   if (field.kind === "pick") return field.source
   if (field.kind === "list") return field.item.source
   return undefined
 }
 
-/** One option a channel offers for a pick field or a picked list's items. */
 export interface BotChannelOption {
   readonly value: string
   readonly label: BotChannelText
   readonly detail?: BotChannelText
-  /** An https image (an avatar, a server icon). */
   readonly image?: string
 }
 
-/** The options of one source, or why there are none now. `suggested` lists values to propose while the field is empty. */
 export type BotChannelOptions =
   | {
       readonly state: "ready"
@@ -114,7 +82,6 @@ export interface BotChannelInspectionLink {
   readonly url: string
 }
 
-/** What the channel tells about its settings beside the fields: the account, links, warnings. */
 export type BotChannelInspection =
   | {
       readonly state: "ready"
@@ -124,15 +91,10 @@ export type BotChannelInspection =
     }
   | { readonly state: "unavailable"; readonly reason: BotChannelText }
 
-/** Whether settings fit together (`BotChannel.check`). */
 export type BotChannelCheck =
   | { readonly ok: true }
   | { readonly ok: false; readonly reason: BotChannelText }
 
-/**
- * The settings a query is about: a bot's stored ones (secrets stay on the
- * Host), or the welcome guide's draft before its bot exists, secrets typed.
- */
 export type BotChannelSettingsRef =
   | { readonly kind: "bot"; readonly botId: string }
   | {
@@ -141,126 +103,85 @@ export type BotChannelSettingsRef =
       readonly secrets: Readonly<Record<string, string>>
     }
 
-/** A person a connection knows by name. */
 export interface BotChannelPerson {
   readonly displayName: string
-  /** Their unique name in the channel, without "@". */
   readonly handle: string
 }
 
-/** What the browser needs to render a channel's settings form. */
 export interface BotChannelDescriptor {
-  /** Stable id, unique across channels: lowercase letters, digits and hyphens (e.g. "discord"). */
   readonly id: string
-  /** Display name (a product name, not translated). */
   readonly name: string
   readonly description?: BotChannelText
-  /** An https page that walks through setting the channel up. */
   readonly guide?: string
-  /**
-   * The steps that get what the fields ask for, one short line each (at most
-   * {@link MAX_CHANNEL_SETUP_STEPS}); the welcome guide lists them.
-   */
   readonly setup?: readonly BotChannelText[]
   readonly fields: readonly BotChannelField[]
-  /**
-   * The key of the list field naming the bot's owners in this channel (their
-   * ids there): the people who can instruct the bot as its owner and decide
-   * its connector actions. Absent, or an empty list: nobody there is the owner.
-   */
   readonly owners?: string
 }
 
-/** Values of a channel's text and list fields, by key (secrets are never among them). */
 export type BotChannelPublicValues = Readonly<Record<string, string | readonly string[]>>
 
-/** A secret field's edit: keep the stored value, replace it, or remove it. */
 export type BotChannelSecretChange =
   | { readonly op: "keep" }
   | { readonly op: "set"; readonly value: string }
   | { readonly op: "clear" }
 
-/** One save of a bot's settings for a channel. Every text and list field is given; secrets default to keep. */
 export interface BotChannelChange {
   readonly enabled: boolean
   readonly values: BotChannelPublicValues
   readonly secrets: Readonly<Record<string, BotChannelSecretChange>>
 }
 
-/** What a channel plugin reports about its connection for one bot. */
 export type BotChannelConnectionState =
   | { readonly state: "connecting" }
   | {
       readonly state: "connected"
       readonly account?: string
-      /** The owners the connection knows by name, by their channel id. */
       readonly people?: Readonly<Record<string, BotChannelPerson>>
     }
   | { readonly state: "failed"; readonly message: string }
 
-/**
- * A bot's channel as the browser shows it: `off` (not enabled),
- * `incomplete` (enabled, required fields missing), `waiting` (the bot has
- * no Main session yet), or the connection's own state.
- */
 export type BotChannelStatus =
   | { readonly state: "off" }
   | { readonly state: "incomplete"; readonly missing: readonly string[] }
   | { readonly state: "waiting" }
   | BotChannelConnectionState
 
-/** A bot's settings for one registered channel. */
 export interface BotChannelView {
   readonly channel: BotChannelDescriptor
   readonly enabled: boolean
   readonly values: BotChannelPublicValues
-  /** Whether each secret field holds a value; the value itself never leaves the Host. */
   readonly secrets: Readonly<Record<string, boolean>>
   readonly status: BotChannelStatus
-  /** Changes with every stored change of these settings (a secret replaced too). */
   readonly revision: number
 }
 
-/** A save, or why the channel refused the settings it would make (`BotChannel.check`). */
 export type BotChannelConfigureResult =
   | { readonly saved: true; readonly view: BotChannelView }
   | { readonly saved: false; readonly reason: BotChannelText }
 
-/** What the `botChannels` Remote's `watch` streams for one bot. */
 export interface BotChannelsSnapshot {
   readonly botId: string
-  /** Every registered channel, by id. */
   readonly channels: readonly BotChannelView[]
 }
 
-/**
- * The `botChannels` Remote: each bot's channel settings. Secret values only
- * travel inward (`configure`); every view says whether a secret is set,
- * never what it is.
- */
 export interface BotChannelsApi {
-  /** The bot's settings for every registered channel, again after every change. */
   watch(botId: string, signal?: AbortSignal): AsyncIterable<BotChannelsSnapshot>
-  /** Save the bot's settings for one channel (checked against its fields, then by the channel); the connection follows them. */
   configure(
     botId: string,
     channelId: string,
     change: BotChannelChange,
   ): Promise<BotChannelConfigureResult>
-  /** The options of one of the channel's sources for these settings. */
   options(
     channelId: string,
     settings: BotChannelSettingsRef,
     source: string,
     signal?: AbortSignal,
   ): Promise<BotChannelOptions>
-  /** What the channel tells about these settings. */
   inspect(
     channelId: string,
     settings: BotChannelSettingsRef,
     signal?: AbortSignal,
   ): Promise<BotChannelInspection>
-  /** Whether these settings fit together, as a save would check them. */
   check(
     channelId: string,
     settings: BotChannelSettingsRef,
@@ -271,12 +192,9 @@ export interface BotChannelsApi {
 const CHANNEL_ID = /^[a-z][a-z0-9-]*$/
 const FIELD_KEY = /^[a-z][a-zA-Z0-9]*$/
 const SOURCE = /^[a-z][a-zA-Z0-9-]*$/
-/** Upper bound of a channel's setup steps. */
 export const MAX_CHANNEL_SETUP_STEPS = 8
 
-/** Upper bound of any one stored text value (a secret, a text, a list item). */
 export const MAX_CHANNEL_VALUE_LENGTH = 4096
-/** Upper bound of the items of one list field. */
 export const MAX_CHANNEL_LIST_ITEMS = 256
 
 function wholeMatch(pattern: string): RegExp {
@@ -335,10 +253,6 @@ function checkSource(source: string, what: string): void {
   if (!SOURCE.test(source)) throw new Error(`${what} must be letters, digits and hyphens`)
 }
 
-/**
- * Check a channel's descriptor as a channel plugin declares it.
- * @throws naming the first problem.
- */
 export function checkChannelDescriptor(channel: BotChannelDescriptor): void {
   if (!CHANNEL_ID.test(channel.id)) {
     throw new Error(`channel id "${channel.id}" must be lowercase letters, digits and hyphens`)
@@ -425,7 +339,6 @@ export function checkChannelDescriptor(channel: BotChannelDescriptor): void {
   }
 }
 
-/** The empty value of every text and list field. */
 export function emptyChannelValues(fields: readonly BotChannelField[]): BotChannelPublicValues {
   const values: Record<string, string | readonly string[]> = {}
   for (const field of fields) {
@@ -435,7 +348,6 @@ export function emptyChannelValues(fields: readonly BotChannelField[]): BotChann
   return values
 }
 
-/** Stored values over the empty ones: a field declared later reads empty, an undeclared one is dropped. */
 export function channelValuesOf(
   fields: readonly BotChannelField[],
   stored: BotChannelPublicValues,
@@ -525,12 +437,6 @@ function recordOf(value: unknown, what: string): Record<string, unknown> {
   return value as Record<string, unknown>
 }
 
-/**
- * Parse a change from outside (the browser) against a channel's fields: every
- * text and list field present and valid, secret changes only for secret
- * fields (absent ones are kept), nothing else.
- * @throws naming the first problem.
- */
 export function parseChannelChange(
   fields: readonly BotChannelField[],
   input: unknown,
@@ -576,7 +482,6 @@ function isMissing(
   return (values[field.key]?.length ?? 0) < field.minItems
 }
 
-/** Keys of the required fields that have no value. */
 export function missingChannelFields(
   fields: readonly BotChannelField[],
   values: BotChannelPublicValues,
@@ -585,17 +490,11 @@ export function missingChannelFields(
   return fields.filter((field) => isMissing(field, values, secretSet)).map((field) => field.key)
 }
 
-/** A draft's values and secrets as the Host takes them: parsed like a change, secrets set only. */
 export interface BotChannelDraftSettings {
   readonly values: BotChannelPublicValues
   readonly secrets: Readonly<Record<string, string>>
 }
 
-/**
- * Parse a settings reference from outside (the browser) against a channel's
- * fields: a bot id, or a draft whose values and secrets parse as a change would.
- * @throws naming the first problem.
- */
 export function parseChannelSettingsRef(
   fields: readonly BotChannelField[],
   input: unknown,

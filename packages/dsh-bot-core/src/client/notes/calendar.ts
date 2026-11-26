@@ -1,4 +1,3 @@
-/** A month of the notes calendar, as weeks from Sunday; `null` pads the first and last week. */
 export type MonthGrid = readonly (readonly (string | null)[])[]
 
 const MONTH = /^(\d{4})-(\d{2})$/u
@@ -13,7 +12,6 @@ const pad = (value: number, length: number) => String(value).padStart(length, "0
 
 export const monthOf = (year: number, month: number) => `${pad(year, 4)}-${pad(month, 2)}`
 
-/** The month `delta` months after `month`. */
 export function shiftMonth(month: string, delta: number): string {
   const { year, month: index } = partsOf(month)
   const total = year * 12 + (index - 1) + delta

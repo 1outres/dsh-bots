@@ -1,5 +1,3 @@
-// Map/Set deletes are not bot table writes; time comes in as a dependency;
-// other classes may use #private and remove.
 export function forget(masks: Map<string, number>, listeners: Set<() => void>, now: () => number) {
   masks.delete("a")
   listeners.delete(() => {})

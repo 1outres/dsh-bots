@@ -1,11 +1,5 @@
-/**
- * The part of the Model Context Protocol the connector speaks with
- * Playwright MCP, and checks of what the server answers: it runs in the
- * bot's environment, where the bot is root, so every answer is untrusted.
- */
 export const PROTOCOL_VERSION = "2025-06-18"
 
-/** A tool as tools/list declares it. */
 export interface McpTool {
   readonly name: string
   readonly description: string
@@ -85,7 +79,6 @@ export function parseCallResult(value: unknown): McpCallResult {
   return { content, isError: value.isError === true }
 }
 
-/** The server's name and version from its initialize result. */
 export function parseInitialize(value: unknown): {
   readonly name: string
   readonly version: string

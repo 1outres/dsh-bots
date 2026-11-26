@@ -51,7 +51,6 @@ describe("lifecycleEvents", () => {
       { kind: "gone", id: "d", operation: "create" },
     ])
     expect(lifecycleEvents(after, after)).toEqual([])
-    // Failing again without a retry in between is no news; after a retry it is.
     expect(lifecycleEvents(after, snapshot([failed(creating("b"), "again", 20)]))).toEqual([
       { kind: "gone", id: "c", operation: "remove" },
       { kind: "gone", id: "e", operation: "create" },

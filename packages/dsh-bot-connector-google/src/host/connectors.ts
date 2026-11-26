@@ -8,7 +8,6 @@ import type { Google } from "./google"
 import { GOOGLE_PROVIDER } from "./provider"
 import { CALENDAR_SCOPES, GMAIL_SCOPES } from "./scopes"
 
-/** Gmail (docs/specs/bot-connectors.md 9): the bot's Main session acts as the Google accounts assigned to it. */
 export function gmailConnector(google: Google): BotConnector {
   return {
     id: "gmail",
@@ -24,7 +23,6 @@ export function gmailConnector(google: Google): BotConnector {
   }
 }
 
-/** Google Calendar: events without guests run at once; invitations, changes others see and answers ask first. */
 export function calendarConnector(google: Google, own: OwnChanges): BotConnector {
   return {
     id: "gcal",

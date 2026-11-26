@@ -1,32 +1,17 @@
 import type { MainTurnResult } from "../../mains-contract"
 import { endedTurnOf, type SessionEventLike, type TurnEndReason } from "../channels/feed"
 
-/**
- * Maintenance turns of Main sessions: the turn a preparation asked for, from
- * its start to its end. Its outputs stay off the channels and its end is not
- * the user's activity.
- */
 export interface MaintenanceTurns {
-  /**
-   * The session's next turn is a maintenance turn; resolves once it ended and
-   * the Agent left it (became idle, or started its next turn).
-   * @throws while an earlier maintenance turn of the session is still expected.
-   */
   expect(sessionId: string): Promise<MainTurnResult>
-  /** The expected turn will not come (its prompt was not queued). */
   abandon(sessionId: string, message: string): void
-  /** Follow a session's log (before anything asks {@link belongs} about the event). */
   follow(sessionId: string, event: SessionEventLike): void
-  /** The session's Agent became idle. */
   idled(sessionId: string): void
-  /** Whether the event is part of a maintenance turn of the session. */
   belongs(sessionId: string, event: SessionEventLike): boolean
 }
 
 interface Expected {
   turn: number | undefined
   ended: MainTurnResult | undefined
-  /** The Agent became idle after the turn started. */
   idle: boolean
   readonly settle: (result: MainTurnResult) => void
 }
@@ -46,7 +31,6 @@ function resultOf(reason: TurnEndReason): MainTurnResult {
   }
 }
 
-/** The turn number a log event carries, if any. */
 function turnOf(event: SessionEventLike): number | undefined {
   const data = event.data as { readonly turn?: unknown } | null
   return typeof data?.turn === "number" ? data.turn : undefined
@@ -54,7 +38,6 @@ function turnOf(event: SessionEventLike): number | undefined {
 
 export function createMaintenanceTurns(): MaintenanceTurns {
   const expected = new Map<string, Expected>()
-  /** The latest maintenance turn of each session, running or ended. */
   const marked = new Map<string, number>()
   const settle = (sessionId: string, entry: Expected, result: MainTurnResult) => {
     expected.delete(sessionId)

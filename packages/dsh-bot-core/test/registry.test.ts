@@ -34,9 +34,7 @@ function registry(
   const mainIds: string[] = []
   const renamed: [string, string][] = []
   const warnings: string[] = []
-  /** Main sessions opened, and the bot whose Main each was by then. */
   const opened: { sessionId: string; main: string | undefined }[] = []
-  /** Connectors enabled per bot, and whether the bot was announced when they were. */
   const enabled: { botId: string; ids: string[]; announced: boolean }[] = []
   let announced = new Set<string>()
   const initialFor: { botId: string; connectors: string[] }[] = []
@@ -82,7 +80,6 @@ function registry(
       store: async () => {},
       discard: async () => {},
     },
-    // Like Bot.createSession: the session is recorded as the bot's before it resolves.
     startMain: async (bot) => {
       const fail =
         typeof options.failMain === "function" ? options.failMain(bot.id) : options.failMain
@@ -129,7 +126,6 @@ function registry(
   }
 }
 
-/** Store a bot and start its Main, as the preset subscription does once it is ready. */
 async function created(bots: ReturnType<typeof registry>["bots"], name = "Alpha") {
   const id = await bots.create({
     name,
@@ -307,7 +303,6 @@ describe("bot registry", () => {
     await expect(bots.adopt(bot.id, "x1")).resolves.toBe(true)
     await expect(bots.adopt(bot.id, "x1")).resolves.toBe(false)
     await expect(bots.adopt(bot.id, "x2")).resolves.toBe(true)
-    // Another bot's session, or a bot that is not stored: not recorded.
     await expect(bots.adopt("zz", "x3")).resolves.toBe(false)
     expect(bots.get(bot.id)?.sessionIds).toEqual(["x1", "x2"])
     expect(bots.sessionsOf(bot.id)).toEqual(["s1", "x1", "x2"])
@@ -346,7 +341,6 @@ describe("bot registry", () => {
     const { bots, rows } = registry()
     const bot = await created(bots)
     const seen: { template?: string; overlay?: unknown }[] = []
-    // Only template "helper" without an overlay, or "default" with one, compose.
     const validate = (merged: BotRecord) => {
       seen.push({ template: merged.template, overlay: merged.overlay })
       if (merged.template === "helper" && merged.overlay !== undefined) throw new Error("no fit")
@@ -385,7 +379,6 @@ describe("bot registry", () => {
       failure: { phase: "starting-main", message: "no session" },
     })
     expect(warnings).toEqual([expect.stringContaining("no session")])
-    // Held: no repair starts it again.
     fail = false
     await bots.repairMains()
     expect(mainIds).toEqual([])
@@ -531,7 +524,6 @@ describe("bot registry", () => {
     const bot = await created(bots)
     await bots.update(bot.id, { name: "Beta" })
     await bots.remove(bot.id, "listed", ignore)
-    // Creation publishes four times: stored, its Main starting, recorded, then stored with it.
     expect(changes).toBe(6)
     expect(bots.list()).toEqual([])
   })
@@ -644,7 +636,6 @@ describe("bot registry", () => {
     expect(rows.get("old")).not.toHaveProperty("workspaceId")
     expect([...sessions.keys()]).toEqual(["m", "a", "b"])
     expect(bots.get("old")?.sessionIds).toEqual(["a", "b"])
-    // Nothing left to migrate.
     await bots.migrateLegacy(
       () => [],
       async (id) => {

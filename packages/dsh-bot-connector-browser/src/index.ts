@@ -1,9 +1,3 @@
-/**
- * `@1outres/dsh-bot-connector-browser` (row `bot-connector-browser`):
- * registers the `browser` connector with bot-core. This file is the
- * composition root: it reads the package's vm/ files and gives the Host
- * modules the clock.
- */
 import { randomBytes } from "node:crypto"
 import { readdir, readFile } from "node:fs/promises"
 import type { Bot } from "@1outres/dsh-bot-core"
@@ -17,10 +11,6 @@ export { createBrowserConnector } from "./host/connector"
 export { BROWSER_CONNECTOR_ID } from "./shared/connector"
 
 export const name = "bot-connector-browser"
-/**
- * The `bot` service of @1outres/dsh-bot-core. Only types come from that
- * package: a value import would bundle bot-core's runtime into this one.
- */
 const BOT = "bot"
 export const inject = ["bot"]
 
@@ -32,7 +22,6 @@ function botOf(ctx: Context): Bot {
 
 const VM = new URL("../vm/", import.meta.url)
 
-/** The vm/ files the preparation installs Playwright MCP and the login helpers from. */
 export async function readBrowserInstallation(directory: URL = VM): Promise<BrowserInstallation> {
   const read = async (path: string) => new Uint8Array(await readFile(new URL(path, directory)))
   const helpers = (await readdir(new URL("helper/", directory)))

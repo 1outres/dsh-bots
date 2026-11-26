@@ -1,10 +1,4 @@
 #!/usr/bin/env node
-/**
- * Run the fake Google for a verification DSH:
- *   node dev/fake-google/cli.js --host 127.0.0.1 --port 3399
- * Prints the origin to set as the Google connector's development.googleOrigin,
- * and the fake OAuth client id and secret to enter in the dsh-bots settings.
- */
 import { createFakeGoogle } from "./server.js"
 
 const argument = (name, otherwise) => {

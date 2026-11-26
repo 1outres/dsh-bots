@@ -2,13 +2,11 @@ import { createStore, type Observable } from "../observable"
 import type { SessionViewer, Viewer } from "../viewer"
 import type { OpenPanels, SidePanels } from "./side-panels"
 
-/** A panel floating over a bot session's chat: a connector's. */
 export interface ShellPopover {
   readonly kind: "connector"
   readonly connectorId: string
 }
 
-/** Which popover each bot session shows, by session id. */
 export type OpenPopovers = Readonly<Record<string, ShellPopover>>
 
 export const connectorPopover = (connectorId: string): ShellPopover => ({
@@ -25,17 +23,11 @@ export interface ShellPopoversSources {
   readonly viewer: Pick<Viewer, "of" | "subscribe">
 }
 
-/**
- * The popovers of the bot sessions. A session shows one popover at a time,
- * over its side panel or file viewer: opening one leaves them as they are,
- * and a side panel opening or the file viewer showing something closes it.
- */
 export interface ShellPopovers extends Observable<OpenPopovers> {
   of(sessionId: string): ShellPopover | undefined
   open(sessionId: string, popover: ShellPopover): void
   toggle(sessionId: string, popover: ShellPopover): void
   close(sessionId: string): void
-  /** Drop the sessions `keep` refuses. */
   forget(keep: (sessionId: string) => boolean): void
   dispose(): void
 }

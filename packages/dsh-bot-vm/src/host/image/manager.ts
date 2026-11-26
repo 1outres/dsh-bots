@@ -1,9 +1,3 @@
-/**
- * The base image's state and its one import at a time
- * (docs/specs/incus-endpoint.md §5.5). The settings screen reads and drives
- * it through {@link BotEnvironmentImageHost}; `ensure` waits on it through
- * {@link ImageGate} before it creates a VM.
- */
 import type {
   BotEnvironmentImageHost,
   BotEnvironmentImageStatus,
@@ -16,35 +10,26 @@ import type { ImageManifest } from "./manifest"
 import type { ReleaseChoice } from "./release"
 
 export interface ImageGate {
-  /**
-   * Resolve once the alias points at the image bot VMs start from, joining or
-   * starting the import; `importing` is called when it waits for one. An
-   * abort stops only this wait, never the import.
-   */
   ready(signal: AbortSignal | undefined, importing: () => void): Promise<void>
 }
 
 export interface ImageManager extends BotEnvironmentImageHost, ImageGate {
-  /** Stop the running import and the listeners (plugin dispose). */
   close(): void
 }
 
 export interface ImageManagerSettings {
   readonly alias: string
-  /** Whether the release's image is imported; otherwise the alias is used as it is. */
   readonly managed: boolean
   readonly release: ReleaseChoice
 }
 
 export interface ImageManagerDeps {
   readonly importer: Importer
-  /** The project the Incus client is scoped to now; undefined while no VM host is decided. */
   readonly project: () => string | undefined
   readonly now: () => number
   readonly log: (message: string) => void
 }
 
-/** Progress is published at most this often per import: every 1/200 of the bytes. */
 const PROGRESS_STEPS = 200
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
@@ -98,7 +83,6 @@ export function createImageManager(
     return settings.release.release
   }
 
-  /** A failure as the problem the view shows. */
   function stepErrorOf(error: unknown, step: ImageImportStep | "check", signal?: AbortSignal) {
     if (error instanceof ImageStepError) return error
     if (signal?.aborted) {
@@ -123,7 +107,6 @@ export function createImageManager(
     return manifest
   }
 
-  /** What the alias points at, against the image it should. */
   async function check(signal?: AbortSignal): Promise<BotEnvironmentImageStatus> {
     requireProject()
     if (!managed) {

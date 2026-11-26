@@ -8,7 +8,6 @@ import { CALENDAR_SCOPES, GMAIL_SCOPES } from "../src/host/scopes"
 
 const google = createGoogle(GOOGLE_ENDPOINTS)
 
-/** docs/specs/bot-connectors.md 9: every tool and its default permission. */
 const SPEC = {
   gmail: {
     allow: [

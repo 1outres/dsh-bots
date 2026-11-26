@@ -8,10 +8,8 @@ import { secretsSet } from "../web/model"
 import { WebLookupSection } from "../web/WebLookupSection"
 import { Actions, BackButton, Heading, SkipOrNext, type StepProps } from "./parts"
 
-/** Where the Exa dashboard hands out API keys. */
 export const EXA_API_KEYS = "https://dashboard.exa.ai/api-keys"
 
-/** Web lookup: the same section as the dsh-bots settings'. */
 export function WebPage(props: StepProps) {
   const { t } = props
   const state = useObservable(props.web)
@@ -45,7 +43,6 @@ export function WebPage(props: StepProps) {
   )
 }
 
-/** Google accounts: each provider's OAuth client, as in the dsh-bots settings. */
 export function AccountsPage(props: StepProps) {
   const { t } = props
   const state = useObservable(props.connections)
@@ -86,10 +83,6 @@ export function AccountsPage(props: StepProps) {
   )
 }
 
-/**
- * Channels (Discord, ...): each channel's steps and the same group as a bot's
- * Channels settings, kept on this page and set up with the bot it creates.
- */
 export function ChannelsPage(props: StepProps) {
   const { t, drafts, channels } = props
   useObservable(drafts)

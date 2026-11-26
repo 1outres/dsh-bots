@@ -2,7 +2,6 @@ import type { FileDelivery } from "./outlets"
 import type { PresentedFile } from "./presented"
 import type { PresentedFileResult, PresentedReport } from "./presented-delivery"
 
-/** The notice that tells the Main session which presented files did not reach a channel. */
 export interface PresentedNotice {
   readonly text: string
   readonly summary: string
@@ -49,7 +48,6 @@ function noticeOf(lines: readonly string[]): PresentedNotice {
   }
 }
 
-/** The notice a turn's report makes, or undefined when every file reached every channel. */
 export function presentedNoticeOf(report: PresentedReport): PresentedNotice | undefined {
   const lines =
     report.kind === "environment-unavailable"

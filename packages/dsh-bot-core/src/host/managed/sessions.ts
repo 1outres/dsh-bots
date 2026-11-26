@@ -9,43 +9,27 @@ import type { ManagedStore } from "./store"
 
 export interface ManagedSessionsDeps {
   readonly store: ManagedStore
-  /** The bot the session is recorded for (its Main included). */
   botOfSession(sessionId: string): string | undefined
-  /** The DSH Workspace the session is a member of. */
   workspaceOfSession(sessionId: string): string | undefined
-  /** Whether the owner granted the bot the Workspace. */
   granted(botId: string, workspaceId: string): boolean
-  /** The bot's Main session. */
   mainOf(botId: string): string | undefined
-  /** Whether the session was the bot's Main before a new one took its place. */
   pastMain(sessionId: string): boolean
-  /** Whether a schedule run (running or recorded) used the session. */
   isScheduleRun(sessionId: string): boolean
   archived(sessionId: string): boolean
-  /** Tell the bot's Main session that its management ended without its own session_release. */
   ended(session: BotManagedSession, by: ManagedEnding): Promise<void>
   now(): number
 }
 
-/** Who ends a management: the owner (Remote), the Main session (session_release). */
 export type ManagedReleaser = "owner" | "main"
 
-/**
- * Which sessions bots' Main sessions manage, and the rules of starting,
- * handing over, ending and choosing the answerer, per target
- * (docs/specs/bot-managed-sessions.md §4, §8, §10).
- */
 export interface ManagedSessions {
   list(botId?: string): readonly BotManagedSession[]
   get(sessionId: string): BotManagedSession | undefined
-  /** The bot's managed session. @throws when the bot does not manage it. */
   require(botId: string, sessionId: string): BotManagedSession
-  /** Where the bot would manage the session, or why it cannot. */
   targetOf(
     botId: string,
     sessionId: string,
   ): { readonly target: BotManagedTarget } | { readonly problem: string }
-  /** A session the Main session just started. */
   start(
     botId: string,
     sessionId: string,
@@ -55,18 +39,14 @@ export interface ManagedSessions {
       readonly label: string
     },
   ): Promise<BotManagedSession>
-  /** The owner hands a session over. */
   entrust(botId: string, sessionId: string): Promise<BotManagedSession>
   release(botId: string, sessionId: string, by: ManagedReleaser): Promise<void>
-  /** The owner chooses who answers. */
   setAnswerer(
     botId: string,
     sessionId: string,
     answerer: BotManagedAnswerer,
   ): Promise<BotManagedSession>
-  /** The session was archived: its management ends. */
   archived(sessionId: string): Promise<void>
-  /** The bot's grant of the Workspace went away: the management of its sessions there ends. */
   grantEnded(botId: string, workspaceId: string, by: "revoked" | "workspace-removed"): Promise<void>
   purge(keep: (botId: string) => boolean): Promise<void>
   subscribe(listener: () => void): () => void

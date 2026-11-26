@@ -8,17 +8,13 @@ export interface ModelRouteProps {
   readonly t: Translate
   readonly menu: ModelMenu
   readonly value: BotModelChoice
-  /** The row's label: the model picker's name, and the effort picker's after it. */
   readonly label: string
   readonly disabled?: boolean
-  /** Called with the picked choice; a new model starts at its provider's effort. */
   onChange(choice: BotModelChoice): void
-  /** Efforts of the current model that cannot be picked (another item holds them). */
   readonly effortTaken?: (effort: string) => boolean
   readonly marks?: DataMarks
 }
 
-/** A model picker (DSH's default and the catalog's models by provider) and, when the model has efforts, its effort. */
 export function ModelRoute({
   t,
   menu,

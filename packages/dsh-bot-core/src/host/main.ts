@@ -1,7 +1,6 @@
 import type { BotView } from "../shared/bots"
 import type { BotRegistry } from "./registry"
 
-/** Thrown when something tries to archive a bot's Main session. */
 export class MainSessionArchiveError extends Error {
   constructor(bot: BotView) {
     super(
@@ -11,17 +10,14 @@ export class MainSessionArchiveError extends Error {
   }
 }
 
-/** What {language} reads as while the bot has no language. */
 export const UNSET_LANGUAGE = "the language your owner writes in"
 
 const LANGUAGE_NAMES = new Intl.DisplayNames(["en"], { type: "language", fallback: "code" })
 
-/** The English name of the bot's language (`ja` → Japanese), for a prompt. */
 export function languageName(language: string | undefined): string {
   return language === undefined ? UNSET_LANGUAGE : (LANGUAGE_NAMES.of(language) ?? language)
 }
 
-/** Fill {name} and {language} in the greeting prompt. */
 export function greetingText(template: string, bot: Pick<BotView, "name" | "language">): string {
   return template
     .replaceAll("{name}", bot.name)
@@ -29,39 +25,16 @@ export function greetingText(template: string, bot: Pick<BotView, "name" | "lang
 }
 
 export interface EnvironmentWaitDeps {
-  /**
-   * One check that the session's environment answers (its fs resolves and
-   * stats the workspace); rejects when it does not. Undefined: nothing to
-   * check with, ready at once.
-   */
   probe: ((signal: AbortSignal) => Promise<void>) | undefined
-  /** Resolves after `ms`, or early once `stopped()`. */
   sleep(ms: number): Promise<void>
   now(): number
-  /** The plugin is unloading: give up quietly. */
   stopped(): boolean
   warn(message: string): void
-  /** How long to wait for the environment in all. */
   budgetMs: number
-  /** Pause between failed checks. */
   intervalMs: number
-  /** Deadline of one check. */
   probeTimeoutMs: number
 }
 
-/**
- * Wait until a new session's environment answers.
- *
- * A turn's preparation (the system prompt reads the bot's workspace) fails the
- * whole turn when the environment cannot answer, and its message is consumed
- * with it. Right after a bot's VM is created its first SSH connection may
- * still be slow, so a new session waits until a check through the session's
- * own file system succeeds (which also leaves that connection open for the
- * turn), at most `budgetMs`; then it goes on with a warning, and a failure
- * shows in the session as any turn's would.
- *
- * @returns whether the session may go on (false only when unloading).
- */
 export async function waitForEnvironment(
   deps: EnvironmentWaitDeps,
   label: string,
@@ -95,18 +68,9 @@ export interface MainGuardDeps {
   registry: Pick<BotRegistry, "botOfMain">
   unarchive(sessionId: string): Promise<void>
   warn(message: string): void
-  /** Run work after the current write queue turn. */
   later(work: () => void): void
 }
 
-/**
- * Keep Main sessions out of the archive.
- *
- * - `activity` answers the `workspace/session-activity` waterfall: a plain
- *   archive of a Main is refused with an error before anything is written.
- * - `archived` answers `workspace/session-archived`, which also fires for a
- *   stop-and-archive that skips the waterfall: the Main is unarchived again.
- */
 export function createMainGuard(deps: MainGuardDeps) {
   return {
     async activity<T>(request: { sessionId: string }, next: () => Promise<T>): Promise<T> {

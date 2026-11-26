@@ -38,7 +38,6 @@ describe("connector broker: allow and disallow", () => {
     const { broker, permissions, clock, log } = await ready()
     await permissions.set("b1", { connectorId: "mail", tool: "echo", permission: "ask" })
     const pending = broker.call(call("echo", { text: "x" }), signal())
-    // A tool without ask timing waits DEFAULT_ASK_WAIT_MS.
     await clock.advance(59_999)
     expect(log).toEqual([])
     await clock.advance(1)

@@ -8,18 +8,14 @@ import { type GuardFinding, GuardStaleError, type VaultGuard } from "./guard"
 
 export interface VaultChecksDeps {
   guard: Pick<VaultGuard, "guards" | "scan" | "record">
-  /** The session of a bot's Agent, if it has one. */
   sessionOf(agentId: string): string | undefined
   warn(message: string): void
 }
 
-/** What the guard does at each place a bot's Agent reads or writes (docs/specs/bot-vaults.md §7.2). */
 export interface VaultChecks {
-  /** Whether the bot has any secret to look for. */
   guards(botId: string): boolean
   toolArguments(botId: string, request: GuardArgumentsRequest): Promise<GuardArgumentsVerdict>
   toolResult(botId: string, request: GuardResultRequest): Promise<GuardResultVerdict>
-  /** An assistant message the bot wrote (text and reasoning): too late to withhold, so it is recorded as exposed. */
   assistantMessage(botId: string, sessionId: string, content: unknown): Promise<void>
 }
 

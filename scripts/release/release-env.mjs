@@ -9,7 +9,6 @@ export const RELEASE_ENV_KEYS = [
   "IMAGE_MANIFEST_SHA256",
 ]
 
-/** Values are plain words so that bash (infra/vm/lib.sh sources the file) reads them as this does. */
 const LINE = /^([A-Z0-9_]+)=([A-Za-z0-9._-]*)$/
 
 export function parseReleaseEnv(text) {

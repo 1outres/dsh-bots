@@ -1,12 +1,4 @@
 #!/usr/bin/env bash
-# Check a VM host the way dsh-bot-vm uses it: start a throw-away VM in the project
-# from its base image, on the pool and network the project declares, and check that
-# Incus' exec reaches it, that HTTPS reaches the internet and that the gateway does
-# not answer. Run it on the VM host as a user in incus-admin (or root), after the
-# dsh-bots settings imported the base image. The first VM from a new image waits for
-# Incus to unpack it (minutes, once).
-#
-# Environment: PROJECT (dsh-bots), IMAGE (dsh-bot-base)
 set -eEuo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 # shellcheck source=lib.sh
@@ -37,7 +29,7 @@ incus config device set "${p[@]}" "$NAME" eth0 \
   security.port_isolation=true security.mac_filtering=true security.ipv4_filtering=true
 incus start "${p[@]}" "$NAME" || fail "The test VM did not start." "See the log; incus info --show-log $NAME --project $PROJECT shows QEMU's output."
 
-wait_for() { # wait_for <seconds> <command...>
+wait_for() {
   local deadline=$((SECONDS + $1))
   shift
   until "$@" >/dev/null 2>&1; do

@@ -1,16 +1,7 @@
-/**
- * An MCP client over newline-delimited JSON-RPC 2.0 on a process's standard
- * input and output (Playwright MCP's stdio transport in the bot's
- * environment). Replies are matched by id; the server's own requests get
- * an answer (ping) or "method not found"; notifications are ignored. A line
- * longer than the limit, a line that is not JSON-RPC, or a stream that ends
- * fails every open call.
- */
 import type { BotEnvironmentProcess } from "@1outres/dsh-bot-core"
 import { McpProtocolError } from "./protocol"
 
 export interface McpClientDeps {
-  /** A signal that aborts after `ms`. */
   deadline(ms: number): AbortSignal
 }
 
@@ -22,11 +13,9 @@ export interface McpRequestOptions {
 export interface McpClient {
   request(method: string, params: object, options: McpRequestOptions): Promise<unknown>
   notify(method: string, params?: object): Promise<void>
-  /** Settles once the stream ended; every later request fails. */
   readonly closed: Promise<void>
 }
 
-/** An error the server answered a request with. */
 export class McpCallError extends Error {
   constructor(
     readonly code: number,

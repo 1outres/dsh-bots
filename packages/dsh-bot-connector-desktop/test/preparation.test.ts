@@ -17,14 +17,11 @@ function line(command: BotEnvironmentCommand): string {
   return command.argv.join(" ")
 }
 
-/** A VM where everything is installed and Xvnc runs at \`size\`. */
 function vm(options: {
   readonly dpkg?: string
   readonly size?: string
   readonly xvncActive?: boolean
-  /** The installed xvnc-start; default: this package's. */
   readonly server?: string
-  /** The installed chrome-run; default: this package's. */
   readonly chrome?: string
 }) {
   let size = options.size ?? "1280x1024"

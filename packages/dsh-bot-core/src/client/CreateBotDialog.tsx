@@ -9,7 +9,6 @@ import type { Translate } from "./types"
 import { Button } from "./ui/Button"
 import { useLayer } from "./ui/layers"
 
-/** What the New bot dialog's overlay registration injects. */
 export interface CreateBotFace
   extends Pick<BotsFace, "createBot" | "createDialog">,
     CreationSources {}
@@ -18,7 +17,6 @@ interface CreateDialogProps extends CreateBotFace {
   t: Translate
 }
 
-/** The New bot dialog, rendered in the frame-wide `shell.overlay` layer like the host's dialogs. */
 export function CreateBotDialog({
   t,
   createBot,
@@ -42,21 +40,11 @@ export function CreateBotDialog({
 
 export interface BotDialogProps extends CreationSources {
   t: Translate
-  /**
-   * Creates the bot. Resolves once the Host accepted it (it is prepared in the
-   * background); a rejection is shown in the dialog and keeps it open.
-   */
   onSubmit(input: BotCreationRequest): Promise<void>
-  /** Unmount the dialog; called on Cancel, ×, Escape, the mask, and after a successful submit. */
   onClose(): void
-  /**
-   * Selector of the element to focus once the dialog closes. Without it the
-   * element focused when the dialog opened gets focus back.
-   */
   returnFocus?: string
 }
 
-/** The New bot modal. Mount it only while open. */
 export function BotDialog({
   t,
   creationOptions,

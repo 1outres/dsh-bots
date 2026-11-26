@@ -1,7 +1,4 @@
 #!/usr/bin/env node
-// A stand-in for OpenSSH in tests: runs the remote command locally, and
-// serves -O forward/cancel of Unix-socket forwards through its control socket.
-// Every invocation's arguments are appended to $SSH_STUB_LOG.
 import { spawn } from "node:child_process"
 import { appendFileSync, existsSync, rmSync } from "node:fs"
 import { connect, createServer } from "node:net"

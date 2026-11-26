@@ -1,5 +1,3 @@
-/** The English texts of the conversation tools and their prompt section (docs/specs/bot-session-search.md §3, §7). */
-
 export const SEARCH_LIMIT = { default: 10, max: 30 } as const
 export const READ_AROUND = { default: 5, max: 20 } as const
 

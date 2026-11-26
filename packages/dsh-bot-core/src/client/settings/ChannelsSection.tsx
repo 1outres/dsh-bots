@@ -61,11 +61,9 @@ import type { SettingsSectionProps } from "./sections"
 
 export interface ChannelsSectionDeps {
   readonly channels: ChannelsHub
-  /** A channel plugin's text in the active language. */
   text(text: BotChannelText): string
 }
 
-/** The bot's channels (Discord, ...): one group per registered channel plugin, each change saved at once. */
 export function ChannelsSection({
   t,
   bot,
@@ -125,7 +123,6 @@ const ISSUE_TEXT = (t: Translate, issue: ChannelFieldIssue): string => {
   }
 }
 
-/** Where a channel's group stores a change: a bot's settings, or the welcome guide's draft of them. */
 export type ChannelConfigure = (
   channelId: string,
   change: BotChannelChange,
@@ -136,15 +133,12 @@ export interface ChannelGroupProps {
   text(text: BotChannelText): string
   readonly view: BotChannelView
   readonly configure: ChannelConfigure
-  /** Questions about the settings the group shows (options, inspection). */
   readonly ask: ChannelAsk
 }
 
-/** What the options and the inspection depend on: the stored settings, as they changed. */
 const settingsKey = (view: BotChannelView) =>
   JSON.stringify([view.revision, view.values, view.secrets])
 
-/** One channel's settings: its title row with state and switch, a row per field, the setup guide. */
 export function ChannelGroup({ t, text, view, configure, ask }: ChannelGroupProps) {
   const { channel } = view
   const latest = useRef(view)
@@ -223,7 +217,6 @@ interface FieldProps {
   text(text: BotChannelText): string
   readonly view: BotChannelView
   readonly field: BotChannelField
-  /** A required field without a value while the channel is on. */
   readonly missing: boolean
   save(edit: ChannelEdit): Promise<CommitResult>
   readonly ask: ChannelAsk
@@ -403,7 +396,6 @@ function ListField(props: {
   )
 }
 
-/** The account, links and warnings the channel tells about the settings. */
 function InspectionRows(props: {
   readonly t: Translate
   text(text: BotChannelText): string
@@ -462,7 +454,6 @@ const pickerOption = (
   ...(option.image === undefined ? {} : { image: option.image }),
 })
 
-/** A source's options as the picker lists them, with the meta its row shows. */
 function useOptions(
   props: FieldProps,
   source: string,
@@ -480,7 +471,6 @@ function useOptions(
   return { options, listed }
 }
 
-/** What a picked row says beside its label: why there are no options, a missing value, a suggestion. */
 function pickMeta(
   props: FieldProps,
   options: QueryState<BotChannelOptions>,

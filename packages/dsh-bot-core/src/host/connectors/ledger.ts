@@ -9,28 +9,18 @@ import {
 } from "./action"
 
 export interface ConnectorLedgerDeps {
-  /** The actions table of CONNECTORS_DOMAIN; only the ledger writes it (design rule 40). */
   actions: BotTable<ConnectorAction>
   warn(message: string): void
 }
 
-/** A transition the ledger applied; `stored` settles once the table has it. */
 export type LedgerTransition =
   | { readonly ok: true; readonly action: ConnectorAction; readonly stored: Promise<void> }
   | Extract<ConnectorActionTransition, { ok: false }>
 
-/**
- * Every bot's connector actions. The ledger is the single writer of action
- * state: a transition is checked and applied in memory synchronously (so of
- * two concurrent approvals one wins), then stored in order.
- */
 export interface ConnectorLedger {
   get(actionId: string): ConnectorAction | undefined
-  /** The bot's actions, oldest first. */
   list(botId: string): readonly ConnectorAction[]
-  /** Every action, oldest first. */
   all(): readonly ConnectorAction[]
-  /** The bot's pending action of that tool with equal arguments (as the same account), if any. */
   pendingTwin(
     botId: string,
     connectorId: string,
@@ -38,13 +28,9 @@ export interface ConnectorLedger {
     args: ConnectorAction["args"],
     connectionId?: string,
   ): ConnectorAction | undefined
-  /** Store a new pending action. */
   create(action: ConnectorAction): Promise<void>
-  /** Apply `event` to the action, or report the state that does not take it. */
   advance(actionId: string, event: ConnectorActionEvent): LedgerTransition | undefined
-  /** Drop ended actions that finished before `before`, and every action of bots `keep` refuses. */
   prune(before: number, keep: (botId: string) => boolean): Promise<void>
-  /** Called after every created or changed action. */
   subscribe(listener: (change: ConnectorActionChange) => void): () => void
 }
 
@@ -58,7 +44,6 @@ export function createConnectorLedger(deps: ConnectorLedgerDeps): ConnectorLedge
     chain = next.catch(() => {})
     return next.then(() => undefined)
   }
-  /** Changes made by a listener wait for the current one, so every listener sees them in order. */
   const queue: ConnectorAction[] = []
   let publishing = false
   const publish = (action: ConnectorAction) => {

@@ -1,17 +1,9 @@
-/**
- * Markdown as Discord shows it. Discord renders no tables, no headings below
- * `###` and no horizontal rules, so a reply's tables become aligned code
- * blocks, deeper headings bold lines and rules a line of box drawing.
- * Code blocks are left as they are.
- */
-
 const FENCE = /^\s*(`{3,}|~{3,})/
 const SEPARATOR_CELL = /^:?-{1,}:?$/
 const DEEP_HEADING = /^\s{0,3}#{4,6}\s+(.*?)\s*#*\s*$/
 const RULE = /^\s{0,3}([-*_])(\s*\1){2,}\s*$/
 const RULE_TEXT = "──────────"
 
-/** Cells of a table row: split at unescaped pipes, outer pipes dropped. */
 export function cellsOf(line: string): string[] {
   let body = line.trim()
   if (body.startsWith("|")) body = body.slice(1)
@@ -44,7 +36,6 @@ function isSeparator(line: string): boolean {
   return cells.length > 0 && cells.every((cell) => SEPARATOR_CELL.test(cell))
 }
 
-/** Columns a character takes in a monospace font: two for wide East Asian characters and emoji. */
 function columnsOf(character: string): number {
   const code = character.codePointAt(0) ?? 0
   if (code < 0x1100) return 1
@@ -70,7 +61,6 @@ export function widthOf(text: string): number {
   return width
 }
 
-/** Inline emphasis and code marks, which a code block would show literally. */
 function plainCell(cell: string): string {
   return cell.replace(/\*\*|__|`/g, "")
 }

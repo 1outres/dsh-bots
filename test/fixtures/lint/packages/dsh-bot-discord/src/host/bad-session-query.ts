@@ -1,1 +1,1 @@
-export const inject = ["bot", "sessionQuery"] // rule: 55
+export const inject = ["bot", "sessionQuery"]

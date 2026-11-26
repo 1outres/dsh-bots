@@ -1,9 +1,3 @@
-# Row ids (bot-<name>) are the settings namespaces the plugins read. Disable a
-# row here (or in your profile patch) to turn that plugin off without
-# uninstalling it.
-#
-# Each plugin package also ships this row as its own one-row bundle. Select
-# either this bundle or a plugin's own bundle for a given plugin, never both.
 - insert:
     - id: bot-core
       name: "@1outres/dsh-bot-core"

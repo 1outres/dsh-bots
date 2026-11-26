@@ -6,7 +6,6 @@ import { failureKey } from "../file-failure"
 import type { SearchMatches } from "./search-model"
 import type { DirectoryState, TreeSnapshot } from "./tree-model"
 
-/** What the tree does and marks, whichever entries it shows. */
 export interface TreeHandlers {
   readonly onToggle: (entry: TreeEntry, expanded: boolean) => void
   readonly onOpen: (entry: TreeEntry) => void
@@ -25,7 +24,6 @@ function directoryState(t: Translate, state: DirectoryState): TreeDirectoryState
   }
 }
 
-/** The workspace tree as the Factory takes it, failures localized. */
 export function browseInput(
   t: Translate,
   snapshot: TreeSnapshot,
@@ -44,7 +42,6 @@ export function browseInput(
 
 const UNMATCHED: TreeDirectoryState = { omitted: "unmatched" }
 
-/** Search matches as the Factory takes them: a directory without a matched child says nothing. */
 export function searchInput(
   term: string,
   matches: SearchMatches,
@@ -65,7 +62,6 @@ export function searchInput(
 
 const NO_SLOTS = {}
 
-/** DSH's `sidebar.files.tree` Factory, a hard dependency of bot-core's client. */
 export function FileTreeView(props: {
   t: Translate
   renderFactory: RenderFactory

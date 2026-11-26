@@ -1,21 +1,10 @@
-/**
- * Where the files people attach are saved: `<workspace>/.inbox/<folder>/<name>`,
- * one new folder per message (named after when it was sent and through which
- * channel), names made safe and distinct inside it.
- */
-
-/** The inbox directory, inside the bot's workspace. */
 export const INBOX_DIRECTORY = ".inbox"
-/** Longest file name kept, in UTF-8 bytes (Linux allows 255). */
 export const MAX_FILE_NAME_BYTES = 120
 const MAX_EXTENSION_LENGTH = 16
 const FALLBACK_NAME = "file"
 
-/** Writes into the bot's environment, never the Host's file system. */
 export interface InboxWriter {
-  /** Create a new folder `root/base` (or `base-2`, `base-3`… when taken), parents included; its path. */
   createFolder(root: string, base: string, signal: AbortSignal): Promise<string>
-  /** Write a new file `folder/name` (refused when it exists); its path. */
   writeFile(folder: string, name: string, data: Uint8Array, signal: AbortSignal): Promise<string>
 }
 
@@ -31,11 +20,6 @@ function cutToBytes(text: string, limit: number): string {
   return result
 }
 
-/**
- * A name that is one plain path segment: no directory part, no control
- * characters, no leading dot or dash, at most {@link MAX_FILE_NAME_BYTES}
- * bytes (the extension kept).
- */
 export function sanitizeFileName(name: string): string {
   const leaf = name.split(/[/\\]/u).at(-1) ?? ""
   const cleaned = leaf
@@ -53,7 +37,6 @@ export function sanitizeFileName(name: string): string {
   return cutToBytes(stem, MAX_FILE_NAME_BYTES - bytesOf(extension)).trimEnd() + extension
 }
 
-/** `name`, or `name (2).ext`, `name (3).ext`… so that no two are equal. */
 export function distinctNames(names: readonly string[]): string[] {
   const taken = new Set<string>()
   return names.map((name) => {
@@ -70,7 +53,6 @@ export function distinctNames(names: readonly string[]): string[] {
 
 const pad = (value: number) => String(value).padStart(2, "0")
 
-/** The folder of one message: `20261123T044509Z-discord` (UTC). */
 export function inboxFolderName(sentAt: number, channelId: string): string {
   const date = new Date(sentAt)
   const day = `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}`

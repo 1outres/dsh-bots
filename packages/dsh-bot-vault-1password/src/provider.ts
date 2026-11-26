@@ -4,7 +4,6 @@ import { tokenProblem } from "./op/environment"
 import { createOpHome } from "./op/home"
 import { createOnePasswordSession } from "./session"
 
-/** bot-core's provider ids start with a letter. */
 export const ONE_PASSWORD_PROVIDER_ID = "onepassword"
 export const TOKEN_KEY = "token"
 export const GUIDE_URL = "https://github.com/1outres/dsh-bots/blob/main/docs/1password.md"
@@ -12,7 +11,6 @@ export const GUIDE_URL = "https://github.com/1outres/dsh-bots/blob/main/docs/1pa
 export interface OnePasswordProviderDeps {
   readonly installer: OpInstaller
   secret(bytes: Uint8Array): SecretBytes
-  /** Where each session's op home is made (the OS's temporary directory). */
   readonly temporaryDirectory: string
   now(): number
 }
@@ -21,11 +19,6 @@ const wipeSetup = (setup: VaultSetup) => {
   for (const secret of Object.values(setup.secrets)) secret.wipe()
 }
 
-/**
- * 1Password through service accounts (docs/specs/bot-vaults.md §10):
- * passwords and one-time codes. Passkeys are out of reach (1Password's SDK,
- * CLI and Connect never hand out their keys), and nothing is ever written.
- */
 export function onePasswordProvider(deps: OnePasswordProviderDeps): BotVaultProvider {
   return {
     id: ONE_PASSWORD_PROVIDER_ID,

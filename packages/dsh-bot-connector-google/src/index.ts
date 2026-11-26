@@ -1,9 +1,3 @@
-/**
- * `@1outres/dsh-bot-connector-google` (row `bot-connector-google`): Google
- * as a provider of connections, and the Gmail and Google Calendar
- * connectors that act as its accounts. bot-core signs the accounts in and
- * keeps their tokens on the Host; Google's APIs are called from the Host only.
- */
 import type { Bot } from "@1outres/dsh-bot-core"
 import type { Context } from "@deepseek-ai/cordis"
 import z from "@deepseek-ai/schemastery"
@@ -15,10 +9,6 @@ import { googleProvider } from "./host/provider"
 
 export const name = "bot-connector-google"
 
-/**
- * The `bot` service of @1outres/dsh-bot-core. Only types come from that
- * package: a value import would bundle bot-core's runtime into this one.
- */
 const BOT = "bot"
 export const inject = ["bot"]
 
@@ -28,7 +18,6 @@ function botOf(ctx: Context): Bot {
   return bot
 }
 
-/** How long the calendar remembers its own changes, so their events are not told. */
 const OWN_CHANGES_MS = 30 * 60_000
 
 export interface Config {

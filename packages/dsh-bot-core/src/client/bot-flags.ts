@@ -1,7 +1,6 @@
 import type { Observable } from "./observable"
 import { createPersistentValue } from "./persistent-value"
 
-/** One yes/no choice per bot id. */
 export type BotFlags = Readonly<Record<string, boolean>>
 
 export interface BotFlagStore extends Observable<BotFlags> {
@@ -19,7 +18,6 @@ export function parseBotFlags(stored: unknown): BotFlags {
   return Object.fromEntries(entries)
 }
 
-/** Per-bot choices of the Bots section, persisted in localStorage under `key`. */
 export function createBotFlagStore(key: string): BotFlagStore {
   const flags = createPersistentValue<BotFlags>({ key, parse: parseBotFlags, initial: {} })
   return {

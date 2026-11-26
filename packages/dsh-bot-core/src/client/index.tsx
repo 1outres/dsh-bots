@@ -57,7 +57,6 @@ import { wireWebLookup } from "./wiring/web"
 import { registerWorkspaceManagedMark, registerWorkspaceSessionMenu } from "./workspace-sessions"
 import { watchWorkspaces } from "./workspaces"
 
-/** Cordis services required by the browser half. */
 export const inject = [
   "slots",
   "locale",
@@ -71,7 +70,6 @@ export const inject = [
   "layout",
 ]
 
-/** Browser half: the Bots section, archiving bot sessions, the bot session shell, its file viewer, the right sidebar lockdown, and the settings screens. */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NAMESPACE, { en, ja }), "bot-core: dictionaries")
 

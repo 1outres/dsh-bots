@@ -43,8 +43,6 @@ describe("botRecordSchema with presets", () => {
     expect(mainOnBotPreset(botRecordSchema.parse({ ...base, mainSessionId: "m" }))).toBe(false)
   })
 
-  // Stored loosely: a record must never be dropped because its preset fields
-  // no longer validate (a later op, a stricter rule); composition reports it.
   it.each([
     ["a bad template id", { template: "Bad_Id" }],
     ["an unknown op", { overlay: [{ op: "move", id: "x" }] }],

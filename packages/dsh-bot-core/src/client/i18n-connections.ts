@@ -1,4 +1,3 @@
-/** The copy of connections (outside accounts), their OAuth clients and connector events. */
 export const CONNECTIONS_EN = {
   "connections.none": "No account yet",
   "connections.assigned": "Use {account} with this bot",

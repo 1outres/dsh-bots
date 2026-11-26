@@ -1,16 +1,3 @@
-/**
- * `@1outres/dsh-bot-core/skills`: bot-core's own row inside every bot's
- * isolated `bot-environment` group (compose.ts puts it after the notes row
- * and the group's own `@deepseek-ai/dsh-skill`; templates and overlays cannot
- * name it). For the bot's Agents it registers the only provider of the
- * group's skill registry, the bot's skills/ (docs/specs/bot-skills.md §2),
- * the skill_manage tool (shown only where the `bot` service lets an Agent
- * change skills), and an `agent/pre-step` listener that reads skills/ again
- * before each step, so a change made with bash reaches the catalog.
- *
- * The listener and the registrations carry the scope of the preset revision
- * this row is mounted in, so DSH applies them only to that revision's Agents.
- */
 import type { Context } from "@deepseek-ai/cordis"
 import type { PreStepDecision } from "@deepseek-ai/dsh-agent"
 import type { SkillCandidate, SkillDefinition } from "@deepseek-ai/dsh-skill"
@@ -37,11 +24,9 @@ import {
 
 export interface Config {
   botId: string
-  /** The preset revision's token (compose.ts), as every bot-core row carries it. */
   token: string
 }
 
-/** The provider name of the bot's skills in its group's registry. */
 export const SKILL_PROVIDER = "bot-skills"
 
 const methodOf = <T>(bot: Bot, key: symbol): T => {

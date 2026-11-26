@@ -13,16 +13,10 @@ import { askAbout, type ChannelAsk, type ChannelQueries } from "../channel-queri
 import { ChannelsError, checkFailure } from "../channels-model"
 import { createStore, type Observable } from "../observable"
 
-/**
- * A channel's settings typed in the welcome guide before its bot exists: on
- * this page only, until the bot is created with them or the guide skips them.
- */
 export interface ChannelDraft {
   readonly enabled: boolean
   readonly values: BotChannelPublicValues
-  /** The secrets typed, by key; they leave the page only with the creation or a question about them. */
   readonly secrets: Readonly<Record<string, string>>
-  /** Counts the changes kept. */
   readonly revision: number
 }
 
@@ -33,7 +27,6 @@ export const emptyDraft = (channel: BotChannelDescriptor): ChannelDraft => ({
   revision: 0,
 })
 
-/** A change stored into a draft as the Host stores it into a bot's settings. */
 export function withChange(draft: ChannelDraft, change: BotChannelChange): ChannelDraft {
   const secrets: Record<string, string> = { ...draft.secrets }
   for (const [key, edit] of Object.entries(change.secrets)) {
@@ -46,18 +39,15 @@ export function withChange(draft: ChannelDraft, change: BotChannelChange): Chann
 const missingOf = (channel: BotChannelDescriptor, draft: ChannelDraft) =>
   missingChannelFields(channel.fields, draft.values, (key) => draft.secrets[key] !== undefined)
 
-/** Whether the draft is on with every required field: it is set up with the bot. */
 export const draftReady = (channel: BotChannelDescriptor, draft: ChannelDraft): boolean =>
   draft.enabled && missingOf(channel, draft).length === 0
 
-/** The draft as the Host's questions about settings name it. */
 export const draftRef = (draft: ChannelDraft): BotChannelSettingsRef => ({
   kind: "draft",
   values: draft.values,
   secrets: draft.secrets,
 })
 
-/** The draft as the channel's group shows a bot's settings; a ready draft waits for its bot. */
 export function draftView(channel: BotChannelDescriptor, draft: ChannelDraft): BotChannelView {
   const missing = missingOf(channel, draft)
   return {
@@ -78,7 +68,6 @@ export function draftView(channel: BotChannelDescriptor, draft: ChannelDraft): B
   }
 }
 
-/** The setup a ready draft gives the creation. */
 export const setupOf = (
   channel: BotChannelDescriptor,
   draft: ChannelDraft,
@@ -93,27 +82,15 @@ export const setupOf = (
   },
 })
 
-/** The drafts of one guide on this page, by channel id; an untouched channel has none. */
 export interface ChannelDrafts extends Observable<ReadonlyMap<string, ChannelDraft>> {
-  /** The channel's view, its draft or an empty one. */
   view(channel: BotChannelDescriptor): BotChannelView
-  /**
-   * Check the change against the channel's fields, as the Host will, and
-   * against the channel's own check once it is ready, then keep it.
-   * Rejects naming the problem (a {@link ChannelsError} for the channel's refusal).
-   */
   configure(channel: BotChannelDescriptor, change: BotChannelChange): Promise<BotChannelView>
-  /** Questions about the channel's current draft. */
   ask(channel: BotChannelDescriptor): ChannelAsk
-  /** Whether any of `channels` is ready to be set up. */
   ready(channels: readonly BotChannelDescriptor[]): boolean
-  /** The ready drafts of `channels` as the creation's setups. */
   setups(channels: readonly BotChannelDescriptor[]): BotWelcomeChannelSetup[]
-  /** Drop every draft, secrets included. */
   clear(): void
 }
 
-/** How long a draft's check may take. */
 const CHECK_MS = 20_000
 
 export function createChannelDrafts(queries: ChannelQueries): ChannelDrafts {

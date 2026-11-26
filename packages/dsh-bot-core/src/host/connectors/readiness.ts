@@ -1,24 +1,3 @@
-/**
- * Each bot's readiness of each connector (`ConnectorReadiness`), and the runs
- * of connectors' preparations that make it ready.
- *
- * Rules:
- * - A connector is `disabled` for a bot until the bot's settings enable it.
- * - An enabled connector with connections is `unavailable` while the bot has no usable account.
- * - An enabled connector without preparation is `ready` at once.
- * - One with a preparation is `unavailable` while the bot's environment is not ready.
- * - One that requires other connectors is then `unavailable` while one of
- *   them is off, missing, unavailable or failed.
- * - One that requires others is then `preparing` while one of them prepares.
- * - Otherwise its `prepare` runs once per environment generation (every
- *   ensure that resolved), settings values and readiness of the connectors it
- *   requires; it is `ready` once that resolved. A rejection is `failed` and retried with a doubling backoff.
- * - Preparations and unpreparations of one bot run one at a time, in order.
- *   A change of what is wanted aborts the running preparation.
- * - Disabling a connector this process prepared runs its `unprepare`.
- *
- * Timers come from the caller ({@link ConnectorReadinessDeps.later}).
- */
 import type { BotConnectorContext } from "../../connector-contract"
 import type { ConnectorPreparationStage, ConnectorReadiness } from "../../shared/connectors"
 import { canonicalJson } from "./action"
@@ -26,11 +5,9 @@ import type { CatalogConnector, ConnectorCatalog } from "./catalog"
 import { dependentsOf, requirementState } from "./requirements"
 import type { ConnectorSettings } from "./settings"
 
-/** The bot's environment as readiness sees it. */
 export type EnvironmentState =
   | {
       readonly ready: true
-      /** Changes with every ensure that resolved (it may be a new VM). */
       readonly generation: string
     }
   | { readonly ready: false; readonly reason: string }
@@ -38,14 +15,10 @@ export type EnvironmentState =
 export interface ConnectorReadinessDeps {
   catalog: Pick<ConnectorCatalog, "list" | "get">
   settings: Pick<ConnectorSettings, "view">
-  /** Every stored bot. */
   bots(): Iterable<string>
-  /** Whether the bot is stored. */
   exists(botId: string): boolean
   environment(botId: string): EnvironmentState
-  /** Why a connector with connections cannot serve the bot for lack of an account, or undefined. */
   accounts(botId: string, connector: CatalogConnector): string | undefined
-  /** The context of a hook for the bot, or undefined once the bot is gone. */
   context(
     botId: string,
     connector: CatalogConnector,
@@ -54,21 +27,15 @@ export interface ConnectorReadinessDeps {
   now(): number
   later(ms: number, work: () => void): () => void
   warn(message: string): void
-  /** First retry delay; doubles up to {@link maxRetryMs}. Default 5 s. */
   retryMs?: number
-  /** Default 5 min. */
   maxRetryMs?: number
 }
 
 export interface ConnectorReadinessKeeper {
   state(botId: string, connectorId: string): ConnectorReadiness
-  /** Evaluate the bot's connectors again (or every bot's) after something they depend on changed. */
   sync(botId?: string): void
-  /** Prepare a failed connector again now, as a first attempt. */
   retry(botId: string, connectorId: string): void
-  /** Called with the bot and connector after its readiness changed. */
   subscribe(listener: (botId: string, connectorId: string) => void): () => void
-  /** Abort every preparation; later calls do nothing. */
   dispose(): void
 }
 
@@ -79,15 +46,11 @@ interface Job {
 
 interface Entry {
   readiness: ConnectorReadiness
-  /** The key the last preparation succeeded for. */
   prepared?: string | undefined
-  /** Whether this process prepared it since it was last unprepared. */
   started: boolean
   running?: Job | undefined
-  /** A queued or running preparation's key. */
   queued?: string | undefined
   failures: number
-  /** The key a failure is waiting to retry. */
   failedKey?: string | undefined
   cancelRetry?: (() => void) | undefined
 }
@@ -135,7 +98,6 @@ export function createConnectorReadiness(deps: ConnectorReadinessDeps): Connecto
   const stateOf = (botId: string, connectorId: string): ConnectorReadiness =>
     entries.get(keyOf(botId, connectorId))?.readiness ?? DISABLED
 
-  /** Nothing runs or waits to run for the entry any more. */
   const halt = (entry: Entry) => {
     abort(entry)
     cancelRetry(entry)
@@ -143,7 +105,6 @@ export function createConnectorReadiness(deps: ConnectorReadinessDeps): Connecto
     entry.prepared = undefined
   }
 
-  /** Preparing at `stage`: `since` stays from the first stage, a stage's own time stays while it is unchanged. */
   const preparing = (entry: Entry, stage: ConnectorPreparationStage): ConnectorReadiness => {
     const current = entry.readiness
     if (current.state !== "preparing") return { state: "preparing", since: stage.since, stage }
@@ -178,7 +139,6 @@ export function createConnectorReadiness(deps: ConnectorReadinessDeps): Connecto
     })
   }
 
-  /** What the connector needs now: undefined when it is not wanted, else the preparation key. */
   const wanted = (botId: string, connector: CatalogConnector | undefined) => {
     if (connector === undefined || !deps.exists(botId)) return undefined
     const view = deps.settings.view(botId, connector)

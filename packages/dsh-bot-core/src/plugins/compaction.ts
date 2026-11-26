@@ -1,11 +1,3 @@
-/**
- * `@1outres/dsh-bot-core/compaction`: bot-core's own row in every bot's
- * preset, inside the group that isolates the bot's `compaction` (compose.ts
- * places it; without such a group it sits in the `bot-environment` group,
- * whose compaction is then the one the bot's Agents use). While the revision
- * is mounted it hands that realm's `compactNow` to the `bot` service with its
- * token, for compacting an idle Main (docs/specs/bot-main-rotation.md).
- */
 import type { Context } from "@deepseek-ai/cordis"
 import z from "@deepseek-ai/schemastery"
 import { BOT_SERVICE } from "../contract"
@@ -13,11 +5,9 @@ import { ATTACH_COMPACTION, type AttachCompaction } from "../internal"
 
 export interface Config {
   botId: string
-  /** The preset revision's token (compose.ts); bot-core ignores rows of other revisions. */
   token: string
 }
 
-/** DSH's `CompactionEngine`, as far as used here. */
 interface CompactionEngine {
   compactNow(agent: object, signal: AbortSignal): Promise<unknown>
 }

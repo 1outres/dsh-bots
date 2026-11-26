@@ -30,10 +30,6 @@ function memoryTable<V>() {
   }
 }
 
-/**
- * Bot "a": Main "m", sessions "s1", "s2", "run" (a schedule run's) and "old" (archived); bot "b": "t1".
- * DSH Workspace "w1" (granted to "a") holds "ws1", "ws2"; "w2" (granted to nobody) holds "ws3".
- */
 function world() {
   const table = memoryTable<ManagedSessionRecord>()
   const ended: string[] = []

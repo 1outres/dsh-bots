@@ -1,8 +1,3 @@
-/**
- * The English texts of the note tools, the mention notice (docs/specs/bot-notes.md §4, §5)
- * and the memory write-out turn (docs/specs/bot-main-rotation.md §9).
- */
-
 import type { MainMaintenance, MainTurnPrompt } from "../../mains-contract"
 import { groupDigits } from "./names"
 import { PINNED_LIMIT } from "./pinned"
@@ -66,7 +61,6 @@ const MEMORY_FLUSH_SUMMARY: { readonly [K in MainMaintenance["kind"]]: string } 
   rotate: "Memory write-out before a new Main",
 }
 
-/** The maintenance turn that has the Main write down what it still needs before the maintenance. */
 export function memoryFlushPrompt(maintenance: MainMaintenance): MainTurnPrompt {
   return {
     text: [

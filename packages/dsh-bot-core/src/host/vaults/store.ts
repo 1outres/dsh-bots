@@ -9,16 +9,9 @@ import {
   vaultGrantKey,
 } from "./domain"
 
-/** Uses kept per bot, and for how long. */
 export const MAX_USES_PER_BOT = 500
 export const USE_RETENTION_MS = 90 * 24 * 60 * 60_000
-/** How long a removed login's fingerprints are still looked for. */
 export const REVOKED_PRINT_RETENTION_MS = 30 * 24 * 60 * 60_000
-/**
- * Acknowledged incidents kept per bot, and for how long. Unacknowledged ones
- * stay; a repeat of one (same login, kind, source and outcome) is counted on
- * it, so there are at most a few per login.
- */
 export const MAX_INCIDENTS_PER_BOT = 500
 export const INCIDENT_RETENTION_MS = 90 * 24 * 60 * 60_000
 
@@ -31,14 +24,8 @@ export interface VaultStoreDeps {
   now(): number
 }
 
-/**
- * The vaults' records: the only writer of VAULTS_DOMAIN (design rule 58).
- * Reads come from memory; writes never interleave, and listeners hear of
- * each once stored.
- */
 export interface VaultStore {
   account(accountId: string): VaultAccountRecord | undefined
-  /** Oldest first. */
   accounts(): readonly VaultAccountRecord[]
   putAccount(record: VaultAccountRecord): Promise<void>
   setAccountStatus(
@@ -47,34 +34,22 @@ export interface VaultStore {
     reason?: string,
   ): Promise<void>
   renameAccount(accountId: string, label: string): Promise<VaultAccountRecord>
-  /** Forget the account and its logins (their fingerprints stay a while); resolves to the logins removed. */
   removeAccount(accountId: string): Promise<readonly VaultGrantRecord[]>
   grant(botId: string, grantId: string): VaultGrantRecord | undefined
-  /** The bot's logins, oldest first. */
   grants(botId: string): readonly VaultGrantRecord[]
   grantsOfAccount(accountId: string): readonly VaultGrantRecord[]
   putGrant(record: VaultGrantRecord): Promise<void>
-  /** Forget the login; its fingerprints stay {@link REVOKED_PRINT_RETENTION_MS}. */
   removeGrant(botId: string, grantId: string): Promise<void>
   recordUse(record: VaultUseRecord): Promise<void>
-  /** Newest first. */
   uses(botId: string): readonly VaultUseRecord[]
   fingerprint(botId: string, grantId: string, kind: string): VaultFingerprintRecord | undefined
-  /** The bot's fingerprints, removed logins' included. */
   fingerprints(botId: string): readonly VaultFingerprintRecord[]
-  /** Store the fingerprints of a login's secret (ignored once the login is gone). */
   putFingerprint(record: VaultFingerprintRecord): Promise<void>
-  /** Store an incident, or count it as a repeat of an unacknowledged one; resolves to the stored incident. */
   recordIncident(record: VaultIncidentRecord): Promise<VaultIncidentRecord>
-  /** Newest first. */
   incidents(botId: string): readonly VaultIncidentRecord[]
-  /** @throws when the bot has no such incident. */
   acknowledge(botId: string, incidentId: string): Promise<VaultIncidentRecord>
-  /** Unacknowledged incidents per bot. */
   openIncidents(): Readonly<Record<string, number>>
-  /** Forget every record of bots `keep` refuses. */
   purgeBots(keep: (botId: string) => boolean): Promise<void>
-  /** Called with the bot a change concerns, or undefined for accounts. */
   subscribe(listener: (botId: string | undefined) => void): () => void
 }
 

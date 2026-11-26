@@ -1,9 +1,7 @@
 import type { NotesFileSystem, NoteWriteGuard } from "../../src/host/notes/notebook"
 
-/** A bot's environment file system in memory: paths are absolute, versions count writes. */
 export interface MemoryNotesFs extends NotesFileSystem {
   readonly files: Map<string, { text: string; version: string }>
-  /** Write a file as the bot's bash would, bypassing the guards. */
   put(path: string, text: string): void
   readonly reads: string[]
 }
@@ -76,7 +74,6 @@ export function memoryNotesFs(): MemoryNotesFs {
   }
 }
 
-/** Note ids in creation order. */
 export function idMaker() {
   let next = 0
   return () => {

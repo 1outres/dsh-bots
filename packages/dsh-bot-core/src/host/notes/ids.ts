@@ -1,4 +1,3 @@
-/** A UUIDv7 (RFC 9562) from a Unix time in milliseconds and 10 random bytes: ids sort by creation time. */
 export function uuidv7(ms: number, random: Uint8Array): string {
   if (random.length < 10) throw new Error("a UUIDv7 takes 10 random bytes")
   const bytes = new Uint8Array(16)

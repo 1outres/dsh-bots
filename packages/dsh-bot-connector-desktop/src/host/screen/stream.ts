@@ -1,9 +1,3 @@
-/**
- * The desktop panel's `screen` stream: one viewer of the bot's screen,
- * relayed from Xvnc's socket in the VM through `socat` (bot-core's
- * environment `spawn`). bot-core opens it only for the DSH Host's owner
- * while the desktop is ready for the bot, and ends it when it is not.
- */
 import type { BotConnectorStream, BotConnectorStreamDefinition } from "@1outres/dsh-bot-core"
 import { parseScreenUp, SCREEN_STREAM, type ScreenUp } from "../../shared/screen"
 import type { DesktopControl } from "../control"

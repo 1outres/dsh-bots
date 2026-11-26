@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { isBotPresetRow, markMenu, unmarkMenu } from "../src/client/hide-picker-workspaces"
 
-/** Just enough of an Element for the attribute selectors the picker uses. */
 class FakeElement {
   readonly attrs = new Map<string, string>()
   readonly children: FakeElement[] = []
@@ -72,7 +71,6 @@ const row = (label: string, attrs: Record<string, string> = {}, workspace = fals
   )
   return { wrapper: new FakeElement("div").append(button), button }
 }
-/** What the host Menu's keyboard walk visits: `button:not(:disabled)`. */
 const walk = (menu: FakeElement) =>
   menu.querySelectorAll('[role="menuitem"]').filter((button) => !button.disabled)
 

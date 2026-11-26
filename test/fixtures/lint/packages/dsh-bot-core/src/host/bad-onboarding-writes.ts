@@ -7,7 +7,7 @@ declare const deps: {
 }
 
 export async function write(key: string, record: unknown) {
-  await deps.onboardingState.put(key, record) // rule: 57
-  await deps.onboardingState.delete(key) // rule: 57
+  await deps.onboardingState.put(key, record)
+  await deps.onboardingState.delete(key)
   await deps.store.change(record)
 }

@@ -1,10 +1,3 @@
-/**
- * The `incus-vm` bot environment: one Incus VM per bot in the project made
- * for dsh-bots, its workspace on a block volume of its own, reached over SSH
- * whose transport is `sshd -i` run through Incus' exec API
- * (src/host/guest-transport.ts). All I/O (Incus, files, child processes,
- * clock) is injected by src/index.ts.
- */
 import type {
   BotEnvironment,
   BotEnvironmentCapacity,
@@ -30,18 +23,12 @@ import { type VolumePlan, volumeNameOf, volumePlan } from "./workspace-volume"
 
 export const ENVIRONMENT_ID = "incus-vm"
 
-/** Where each bot's OpenSSH config (`ssh -F`) lives. */
 export const sshConfigDirOf = (stateDir: string) => `${stateDir}/ssh`
 
-/** Host files under the state directory. Paths are absolute. */
 export interface EnvironmentFiles {
-  /** File contents, or `undefined` when it does not exist. */
   read(path: string): Promise<string | undefined>
-  /** Replace a file atomically with the given mode. */
   write(path: string, content: string, mode: number): Promise<void>
-  /** Create a directory (and parents) with the given mode. */
   mkdir(path: string, mode: number): Promise<void>
-  /** Remove a file or directory tree; missing is fine. */
   remove(path: string): Promise<void>
 }
 
@@ -58,15 +45,10 @@ export type RunCommand = (
 ) => Promise<CommandResult>
 
 export interface EnvironmentDeps {
-  /** The Incus API of the endpoint, scoped to {@link EnvironmentSettings.project}. */
   readonly incus: IncusClient
-  /** The base image a new VM is created from (src/host/image/manager.ts). */
   readonly image: ImageGate
-  /** The VM host now: this machine's socket or a paired one, and the project {@link incus} is scoped to. */
   readonly scope: () => Promise<{ readonly kind: "local" | "remote"; readonly project: string }>
-  /** What the egress probe found from inside a bot's VM after its ensure (src/host/egress-probe.ts). */
   readonly egress: (botId: string, report: EgressReport) => void
-  /** The absolute ripgrep path the Host's DSH spawns, inside the bot's environment too. */
   readonly hostRipgrep: () => Promise<string>
   readonly files: EnvironmentFiles
   readonly run: RunCommand
@@ -76,78 +58,39 @@ export interface EnvironmentDeps {
 }
 
 export interface EnvironmentSettings extends RowSettings {
-  /** Absolute state directory (keys, known_hosts, state); `ssh/` under it holds each bot's ssh config. */
   readonly stateDir: string
-  /**
-   * Marks the instances and volumes this installation created
-   * (`user.dsh-bot.owner`). Others are never started, stopped or deleted.
-   */
   readonly owner: string
-  /** How long the VM and workspace volume of a deleted bot stay before they are deleted. */
   readonly orphanGraceMs: number
-  /** Incus instance name is `<instancePrefix><botId>`, its volume's `<instancePrefix><botId>-workspace`. */
   readonly instancePrefix: string
   readonly image: string
-  /** Size of every VM's root disk; the workspace volume is the spec's `diskGiB`. */
   readonly rootDiskGiB: number
   readonly guestUser: string
-  /** The ProxyCommand reaching the guest's sshd through the relay. */
   readonly guestProxy: GuestProxy
-  /** The guest's ripgrep; the Host DSH's ripgrep path is linked to it in every VM. */
   readonly guestRipgrep: string
   readonly readyTimeoutMs: number
   readonly probeIntervalMs: number
-  /** VMs created or started (and waited for) at the same time, across all bots. */
   readonly maxConcurrentProvisions: number
 }
 
-/**
- * What the provider remembers per bot, in `<stateDir>/bots/<id>/state.json`:
- * that it provisioned the bot's VM (an older `seeded` field is ignored).
- */
 interface BotState {
   readonly version: 1
 }
 
 const BOT_ID = /^[a-zA-Z0-9][a-zA-Z0-9-]*$/
-/** Incus instance names: a letter first, then letters, digits and hyphens. */
 const INSTANCE_PREFIX = /^[a-zA-Z][a-zA-Z0-9-]*$/
-/** dsh-ssh's `host` pattern. */
 const ALIAS_PREFIX = /^[a-zA-Z0-9][a-zA-Z0-9_.@-]*$/
 const MAX_INSTANCE_NAME = 63
-/** The helper warm-up gets at least this long, even past the readiness deadline. */
 const WARM_UP_MIN_MS = 120_000
-/** A warm-up this slow is logged. */
 const WARM_UP_LOG_MS = 5_000
-/** The egress probe tries every connection at once, each for a few seconds. */
 const EGRESS_PROBE_TIMEOUT_MS = 30_000
-/** ssh's own failure; any other exit code comes from the remote command. */
 const SSH_FAILURE = 255
 
-/** The environment plus the upkeep src/index.ts schedules. */
 export interface VmEnvironment extends BotEnvironment {
   capacity(botId: string, signal?: AbortSignal): Promise<BotEnvironmentCapacity>
   onChange(listener: (botId: string) => void): () => void
-  /**
-   * Report every bot ensured in this process whose VM is no longer running
-   * (stopped, deleted outside), so bot-core ensures it again.
-   */
   poll(signal?: AbortSignal): Promise<void>
-  /**
-   * Retire the VMs and workspace volumes of bots that no longer exist. Only
-   * those this owner created for that bot id are considered. `keep` lists the
-   * bots that do exist; bots ensured in this process are always kept. A first
-   * pass stops the instance and marks it and its volume orphaned; once marked
-   * longer than `orphanGraceMs`, the instance (with its keys and ssh config)
-   * and the volume are deleted.
-   */
   reconcile(keep: Iterable<string>, signal?: AbortSignal): Promise<ReconcileResult>
-  /**
-   * The streams of `sshd -i` in a bot's VM, for the relay. Only a running
-   * instance this owner created for a bot is reached.
-   */
   openGuest(instance: string, signal?: AbortSignal): Promise<ExecSession>
-  /** The VM host or project changed: ask bot-core to ensure every bot seen in this process again, there. */
   rehome(): void
 }
 
@@ -158,7 +101,6 @@ export interface ReconcileResult {
 
 export const CONFIG_BOT_ID = "user.dsh-bot.id"
 export const CONFIG_OWNER = "user.dsh-bot.owner"
-/** ISO time the bot was found gone; empty or absent while the bot exists. */
 export const CONFIG_ORPHANED = "user.dsh-bot.orphaned"
 
 export function createVmEnvironment(
@@ -182,12 +124,9 @@ export function createVmEnvironment(
   }
   const serial = createSerializer()
   const provisions = createLimiter(settings.maxConcurrentProvisions)
-  /** Bots ensure was called for in this process (and not removed since). */
   const seen = new Set<string>()
-  /** Bots whose last ensure succeeded; only these are polled. */
   const healthy = new Set<string>()
   let polling = false
-  /** Bots with an ensure running right now. */
   const busy = new Map<string, number>()
   const listeners = new Set<(botId: string) => void>()
   const { incus, files } = deps
@@ -210,11 +149,6 @@ export function createVmEnvironment(
   const volumeOf = (botId: string) => volumeNameOf(instanceOf(botId))
   const tags = (botId: string) => ({ [CONFIG_BOT_ID]: botId, [CONFIG_OWNER]: settings.owner })
 
-  /**
-   * The pool and network the project declares, once the endpoint and project
-   * pass every check (src/host/endpoint-check.ts); otherwise what is missing
-   * and how to fix it.
-   */
   async function placement(
     signal?: AbortSignal,
   ): Promise<ProjectDeclaration & { readonly project: string }> {
@@ -247,11 +181,6 @@ export function createVmEnvironment(
   const writeState = (path: string, state: BotState) =>
     files.write(path, `${JSON.stringify(state, null, 2)}\n`, 0o600)
 
-  /**
-   * An ed25519 key pair at `path` / `path.pub`, generated once. A lost public
-   * half is derived again from the private key; a lost private key is only
-   * replaced while no instance holds the old one (`mayCreate`).
-   */
   async function keyPair(path: string, comment: string, mayCreate: boolean, signal?: AbortSignal) {
     let privateKey = await files.read(path)
     let publicKey = await files.read(`${path}.pub`)
@@ -298,7 +227,6 @@ export function createVmEnvironment(
     }
   }
 
-  /** ssh as the bot's connection runs it: the bot's own config, never the user's. */
   const sshArgs = (alias: string, command: string) => [
     "-F",
     paths(alias.slice(settings.hostAliasPrefix.length)).conf,
@@ -312,15 +240,6 @@ export function createVmEnvironment(
     command,
   ]
 
-  /**
-   * Wait until ssh logs in through the alias, cloud-init's boot finished and
-   * the workspace is the mounted volume, a directory the guest user can
-   * write; then warm the SSH helper up ({@link warmUp}).
-   *
-   * A new VM boots twice (the first boot restarts within seconds, before
-   * cloud-init runs; cloud-init writes boot-finished on the second), so
-   * boot-finished is never seen before the final boot.
-   */
   async function waitForSsh(alias: string, signal?: AbortSignal): Promise<void> {
     const workspace = shellQuote(settings.workspace)
     const deadline = deps.now() + settings.readyTimeoutMs
@@ -336,7 +255,6 @@ export function createVmEnvironment(
         { signal, timeoutMs: 30_000 },
       )
       if (result.code === 0) return warmUp(alias, deadline, signal)
-      // Right after boot sshd may answer before cloud-init finished: retry both.
       last =
         result.code === SSH_FAILURE
           ? `did not answer over SSH: ${result.stderr.trim()}`
@@ -350,15 +268,6 @@ export function createVmEnvironment(
     }
   }
 
-  /**
-   * Start dsh-ssh's helper once, the way a bot session's connection will
-   * (`node --disable-sigusr1 <helper>` in the workspace), with no input so it
-   * exits as soon as it has loaded. On a VM that just booted from a fresh
-   * copy of the image everything the helper loads is read cold: measured 6–9 s
-   * for this first start, and more on a busy Host, against dsh-ssh's 30 s
-   * handshake deadline. Advisory: a failure here is logged, the connection
-   * itself is retried by the ssh row.
-   */
   async function warmUp(alias: string, deadline: number, signal?: AbortSignal): Promise<void> {
     const started = deps.now()
     const command = `cd ${shellQuote(settings.workspace)} && ${shellQuote(settings.guestNode)} --disable-sigusr1 ${shellQuote(settings.helper)} </dev/null >/dev/null 2>&1; exit 0`
@@ -377,7 +286,6 @@ export function createVmEnvironment(
     }
   }
 
-  /** Whether an instance or volume is one this owner created for this bot. */
   const tagged = (config: Readonly<Record<string, string>>, botId: string) =>
     config[CONFIG_BOT_ID] === botId && config[CONFIG_OWNER] === settings.owner
   const ours = (instance: IncusInstance, botId: string) =>
@@ -386,7 +294,6 @@ export function createVmEnvironment(
     volume.name === volumeOf(botId) && tagged(volume.config, botId)
   const orphanedSince = (config: Readonly<Record<string, string>>) => config[CONFIG_ORPHANED] ?? ""
 
-  /** Delete our ssh config of a bot, only when it carries the managed header. */
   async function removeConf(botId: string): Promise<void> {
     const conf = paths(botId).conf
     const text = await files.read(conf)
@@ -398,7 +305,6 @@ export function createVmEnvironment(
     await files.remove(paths(botId).dir)
   }
 
-  /** Mark the bot's workspace volume orphaned now (it is deleted after the grace period). */
   async function markVolume(pool: string, botId: string, signal?: AbortSignal): Promise<void> {
     const volume = await incus.volume(pool, volumeOf(botId), signal)
     if (volume === undefined || !oursVolume(volume, botId) || orphanedSince(volume.config) !== "")
@@ -459,7 +365,6 @@ export function createVmEnvironment(
       instance === undefined ? undefined : { instance, plan: reconfigure(instance, layout) }
     const stopsForVolume =
       volumeChange.kind === "grow" && instance !== undefined && instance.status !== "Stopped"
-    // Creating or booting VMs is heavy: only a few at a time (all bots ensure at start-up).
     const needsBoot =
       existing === undefined ||
       existing.instance.status !== "Running" ||
@@ -471,7 +376,6 @@ export function createVmEnvironment(
         report,
         signal,
       )
-    // "image" comes after "queued": a wait for a slot after an import stays shown as "image".
     let imported = false
     if (existing === undefined) {
       await deps.image.ready(signal, () => {
@@ -485,7 +389,6 @@ export function createVmEnvironment(
     } else await bring()
   }
 
-  /** Create the workspace volume or grow it (its instance stopped or absent). */
   async function applyVolume(
     pool: string,
     botId: string,
@@ -511,11 +414,6 @@ export function createVmEnvironment(
     }
   }
 
-  /**
-   * Carry out an existing instance's {@link Reconfiguration} and the volume's
-   * growth, stopping it first when either needs it; resolves with the instance as
-   * it is then. A refused change leaves the VM as it ran, not stopped.
-   */
   async function reconfigureInstance(
     instance: IncusInstance,
     plan: Reconfiguration,
@@ -579,7 +477,6 @@ export function createVmEnvironment(
     const file = paths(botId)
     let instance: IncusInstance | undefined
     if (existing === undefined) {
-      // A state without an instance means the VM was deleted: provision anew.
       await writeState(file.state, { version: 1 })
       report("creating")
       await applyVolume(pool, botId, volumeChange, target.spec.diskGiB, signal)
@@ -642,7 +539,6 @@ export function createVmEnvironment(
     await measureEgress(botId, alias, signal)
   }
 
-  /** Report what the bot's VM reaches that it must not (advisory: never fails the ensure). */
   async function measureEgress(botId: string, alias: string, signal?: AbortSignal): Promise<void> {
     const result = await deps.run("ssh", sshArgs(alias, egressProbeScript()), {
       signal,
@@ -667,10 +563,6 @@ export function createVmEnvironment(
     deps.egress(botId, report)
   }
 
-  /**
-   * DSH's grep and glob spawn the Host's own ripgrep path in the bot's
-   * environment: make that path, in the VM, a link to the VM's ripgrep.
-   */
   async function linkHostRipgrep(alias: string, signal?: AbortSignal): Promise<void> {
     const host = await deps.hostRipgrep()
     if (!isCanonicalPath(host)) throw new Error(`DSH's ripgrep path "${host}" is not canonical`)
@@ -690,7 +582,6 @@ export function createVmEnvironment(
     }
   }
 
-  /** A bot's instance, keys and config gone now; its volume marked for deletion after the grace period. */
   async function retire(botId: string, signal?: AbortSignal): Promise<void> {
     const name = instanceOf(botId)
     const instance = await incus.instance(name, signal)
@@ -703,7 +594,6 @@ export function createVmEnvironment(
     await forgetFiles(botId)
   }
 
-  /** Mark or delete the orphaned volumes of bots that are not kept. */
   async function reconcileVolumes(
     pool: string,
     kept: ReadonlySet<string>,
@@ -806,8 +696,6 @@ export function createVmEnvironment(
         incus.poolSpace(pool, signal),
         incus.instances(signal),
       ])
-      // Only a project with limits.memory makes the others' memory count; Incus
-      // then refuses percentages, so every value there is a size.
       const othersMemoryBytes =
         project[MEMORY_KEY] === undefined
           ? 0
@@ -883,7 +771,6 @@ export function createVmEnvironment(
       for (const listed of await incus.instances(signal)) {
         const botId = listed.config[CONFIG_BOT_ID]
         if (botId === undefined || !BOT_ID.test(botId) || !ours(listed, botId)) continue
-        // Decided again under the bot's lock: an ensure may have started meanwhile.
         await serial.run(botId, async () => {
           const instance = await incus.instance(listed.name, signal)
           if (instance === undefined || !ours(instance, botId)) return

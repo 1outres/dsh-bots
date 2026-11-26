@@ -10,7 +10,6 @@ function expectedRange(field, version) {
   return field === "peerDependencies" ? `^${version}` : version
 }
 
-/** Why a packed package.json is not what the release `version` should publish. */
 export function packedManifestProblems(manifest, version) {
   const problems = []
   if (manifest.version !== version) {
@@ -31,7 +30,6 @@ export function packedManifestProblems(manifest, version) {
   return problems
 }
 
-/** Packs every workspace package with pnpm, as pnpm publish does, and returns each packed package.json. */
 export function packWorkspace(root) {
   const destination = mkdtempSync(join(tmpdir(), "dsh-bots-release-pack-"))
   try {
@@ -54,7 +52,6 @@ export function packWorkspace(root) {
   }
 }
 
-/** Why the workspace's tarballs are not what the release `version` should publish. */
 export function packedProblems(root, version) {
   const packed = packWorkspace(root)
   const expected = workspaceManifests(root).map(({ manifest }) => manifest.name)

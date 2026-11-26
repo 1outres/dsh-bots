@@ -21,11 +21,8 @@ import type { SessionInteractions } from "./session"
 import { answerSummary } from "./summary"
 import type { InteractionCard } from "./view"
 
-/** What bot-core injects into its `conversation.composer` entry. */
 export interface InteractionComposerFace {
-  /** The interactions of a bot session this page follows. */
   interactionsOf(sessionId: string): SessionInteractions | undefined
-  /** Text in the page's language. */
   text(text: BotChannelText): string
 }
 
@@ -38,12 +35,10 @@ interface CardProps {
   readonly t: Translate
   readonly model: SessionInteractions
   readonly text: InteractionComposerFace["text"]
-  /** Folded to its header, freeing the transcript while it stays open. */
   readonly minimized: boolean
   toggleMinimized(): void
 }
 
-/** bot-core's card in a bot session's composer seat: its first open interaction, or a closure. */
 export function InteractionComposer(props: InteractionComposerProps) {
   const model = props.interactionsOf(props.matched.sessionId)
   if (model === undefined) return null
@@ -69,7 +64,6 @@ function SessionCards(props: InteractionComposerProps & { readonly model: Sessio
   )
 }
 
-/** The seat's card, on the composer's width axis, as DSH's QuestionComposer. */
 function CardFrame(
   props: Omit<CardProps, "minimized" | "toggleMinimized"> & {
     readonly card: InteractionCard
@@ -101,7 +95,6 @@ function CardFrame(
   )
 }
 
-/** The card's header: eyebrow over title, then its controls and the minimize button. */
 function CardHead(props: {
   readonly t: Translate
   readonly eyebrow: ReactNode
@@ -149,7 +142,6 @@ function CardBody(props: CardProps & { readonly card: InteractionCard; readonly 
   }
 }
 
-/** Submit an answer; the refusal's message, if any. */
 function useSubmit(model: SessionInteractions, interactionId: string) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
@@ -193,7 +185,6 @@ function Countdown({ t, deadline }: { readonly t: Translate; readonly deadline: 
   return <span>{t("ask.wait.countdown", { relative })}</span>
 }
 
-/** How long the bot waits for the answer, in the header. */
 function WaitStatus(props: {
   readonly t: Translate
   readonly interaction: BotQuestionInteraction

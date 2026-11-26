@@ -2,7 +2,6 @@ import { Context, Service } from "@deepseek-ai/cordis"
 import { describe, expect, it } from "vitest"
 import FullAccessSandboxPolicy from "../src/plugins/full-access-policy"
 
-/** Every session asks for read-only through its `sandbox/mode` log. */
 class FakeProjections extends Service {
   registered: string[] = []
   constructor(ctx: Context) {

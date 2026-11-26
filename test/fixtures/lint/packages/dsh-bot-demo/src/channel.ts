@@ -1,4 +1,3 @@
-// A channel plugin reaches bot-core through its public entries only.
 import { botOf } from "@1outres/dsh-bot-core"
 import { TemplateDeclaration } from "@1outres/dsh-bot-core/template"
 

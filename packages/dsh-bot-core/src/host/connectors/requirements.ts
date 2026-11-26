@@ -1,13 +1,7 @@
-/**
- * Connectors that require others (`BotConnector.requires`): whether a bot's
- * required connectors are ready, and whether a person operates one of them.
- */
 import type { ConnectorReadiness, ConnectorStatus } from "../../shared/connectors"
 import type { CatalogConnector } from "./catalog"
 
-/** Where a connector's requirements stand for one bot. */
 export type RequirementState =
-  /** `key` changes whenever one of them became ready again. */
   | { readonly kind: "met"; readonly key: string }
   | { readonly kind: "waiting"; readonly connectors: readonly string[] }
   | { readonly kind: "unavailable"; readonly reason: string }
@@ -56,7 +50,6 @@ export function requirementState(
   return { kind: "met", key: keys.join(",") }
 }
 
-/** The name of a required connector a person operates for the bot now, if any. */
 export function operatedRequirement(
   connector: CatalogConnector,
   deps: {
@@ -73,10 +66,6 @@ export function operatedRequirement(
   return undefined
 }
 
-/**
- * Whether every connector `connector` requires, and every one those require,
- * is registered and enabled for the bot: by settings only, not readiness.
- */
 export function requirementsOn(
   connector: CatalogConnector,
   deps: {
@@ -90,7 +79,6 @@ export function requirementsOn(
   })
 }
 
-/** `connectors` reordered so that each comes after the ones of them it requires, otherwise in their order. */
 export function requirementOrder(
   connectors: readonly CatalogConnector[],
 ): readonly CatalogConnector[] {
@@ -110,7 +98,6 @@ export function requirementOrder(
   return ordered
 }
 
-/** The connectors that require `connectorId`, directly. */
 export function dependentsOf(
   connectors: readonly CatalogConnector[],
   connectorId: string,
@@ -118,7 +105,6 @@ export function dependentsOf(
   return connectors.filter((connector) => connector.requires?.includes(connectorId) === true)
 }
 
-/** Whether registering `connector` beside `registered` closes a cycle of requirements. */
 export function closesRequirementCycle(
   connector: CatalogConnector,
   registered: readonly CatalogConnector[],

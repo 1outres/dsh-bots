@@ -7,7 +7,7 @@ declare const deps: {
 }
 
 export async function write(key: string, grant: unknown) {
-  await deps.workspaceGrants.put(key, grant) // rule: 56
-  await deps.workspaceGrants.delete(key) // rule: 56
+  await deps.workspaceGrants.put(key, grant)
+  await deps.workspaceGrants.delete(key)
   await deps.grants.grant(key, grant)
 }

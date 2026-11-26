@@ -1,6 +1,5 @@
 import { createStore, type Observable } from "./observable"
 
-/** Per-bot transient state: the last failure. */
 export interface BotStatus {
   readonly error?: string
 }

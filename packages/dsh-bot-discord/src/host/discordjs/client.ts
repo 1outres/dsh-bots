@@ -31,11 +31,6 @@ export interface DiscordJsDeps {
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
-/**
- * Serve {@link DiscordClient} with a new discord.js client, logged in with
- * `token`. discord.js keeps the Gateway session (heartbeats, resume,
- * reconnects) and REST (rate limits, retries).
- */
 export function openDiscordJsClient(
   token: string,
   mode: DiscordGatewayMode,
@@ -86,7 +81,6 @@ export function openDiscordJsClient(
     if (!stopped) deps.warn(`bot-discord: Discord client error: ${error.message}`)
   })
 
-  /** The home's channel: a DM in DM mode, a server text channel in channel mode. */
   const textChannel = async (
     channelId: string,
   ): Promise<DMChannel | PartialDMChannel | GuildTextBasedChannel> => {
@@ -171,7 +165,6 @@ export function openDiscordJsClient(
   }
 }
 
-/** Open each client with discord.js. */
 export function discordJsClients(deps: Pick<DiscordJsDeps, "warn">): OpenDiscordClient {
   const create = (options: ClientOptions) => new Client(options)
   return (token, mode, events) => openDiscordJsClient(token, mode, events, { ...deps, create })

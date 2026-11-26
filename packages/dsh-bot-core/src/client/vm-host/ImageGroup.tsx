@@ -27,7 +27,6 @@ function imagePill(
   }
 }
 
-/** The base image bot VMs start from: whether the project has it, and its import. */
 export function ImageGroup(props: {
   readonly t: Translate
   readonly image: BotEnvironmentImageView

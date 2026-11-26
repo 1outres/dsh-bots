@@ -7,17 +7,14 @@ import { actionText } from "./texts"
 
 const TITLE_LIMIT = 256
 const DESCRIPTION_LIMIT = 4096
-/** Longest action title in a line of the list. */
 export const LINE_TITLE_LIMIT = 100
 
-/** Where a message sits: its server (`null` for a DM), channel and message. */
 export interface MessageLocation {
   readonly guildId: string | null
   readonly channelId: string
   readonly messageId: string
 }
 
-/** A pending action in the list, with its card at the home when there is one. */
 export interface DigestEntry {
   readonly action: ConnectorActionView
   readonly card: MessageLocation | undefined
@@ -38,11 +35,6 @@ function lineOf(entry: DigestEntry, index: number, locale: DiscordLocale): strin
   return `${index + 1}. ${named} — ${where} · ${expires}`
 }
 
-/**
- * The list of a bot's pending actions, one line each in the order given
- * (oldest first): its title linking to its card, the connector and tool, and
- * when it expires. Lines past the embed's limit become one "and N more".
- */
 export function digestEmbed(
   bot: string,
   entries: readonly DigestEntry[],
@@ -68,7 +60,6 @@ export function digestEmbed(
   return { title, description: [...body, hint].join("\n") }
 }
 
-/** The pending approvals list as the message pinned at the home. */
 export function renderDigest(
   bot: string,
   entries: readonly DigestEntry[],

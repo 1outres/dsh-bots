@@ -1,8 +1,3 @@
-/**
- * The login helpers of vm/helper/ run against a fake DevTools: they type
- * exactly the value, only into the marked element of the expected origin,
- * and never print it (design rule 66).
- */
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import { afterEach, describe, expect, it } from "vitest"
@@ -62,7 +57,6 @@ function model(
   return value
 }
 
-/** A helper process and its output lines, collected as they come. */
 function run(script: string) {
   const child: ChildProcessWithoutNullStreams = spawn(process.execPath, [`${HELPER}${script}`], {
     stdio: ["pipe", "pipe", "pipe"],

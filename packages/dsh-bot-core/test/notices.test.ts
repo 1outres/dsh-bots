@@ -10,7 +10,6 @@ import { createNoticeOutbox } from "../src/host/notices/outbox"
 import { memoryTable } from "./channels-support"
 import { manualClock, settle } from "./connectors-support"
 
-/** A Main session Agent: its inbox and recorded history, and what it was handed. */
 function fakeAgent() {
   const state = {
     status: "idle" as "idle" | "running",
@@ -37,7 +36,6 @@ function fakeAgent() {
       state.inbox.push(message)
     },
   }
-  /** The turn claims and records every queued message. */
   const record = () => {
     for (const message of state.inbox) state.history.push(message.id)
     const ids = state.inbox.map((message) => message.id)
@@ -153,19 +151,16 @@ describe("notice outbox and delivery", () => {
     main.state.status = "running"
     const waiting = await outbox.enqueue("b1", "schedule", { text: "s", summary: "s" })
     await settle()
-    // Another notice makes a pass while the schedule one still waits in the inbox.
     const connector = await outbox.enqueue("b1", "connector", text)
     await settle()
     expect(main.state.handed).toEqual([
       `followup ${waiting.messageId}`,
       `inject ${connector.messageId}`,
     ])
-    // A cancel drops the inbox while the turn still runs: nothing is sent yet.
     main.state.inbox = []
     await outbox.enqueue("b1", "connector", text)
     await settle()
     expect(main.state.handed.filter((line) => line.endsWith(waiting.messageId))).toHaveLength(1)
-    // Once idle, the dropped one is sent again (after the backoff), as its own turn.
     main.state.status = "idle"
     delivery.idle("main-1")
     await clock.advance(1_000)
@@ -186,7 +181,6 @@ describe("notice outbox and delivery", () => {
     const { outbox, main, delivery, clock } = setup()
     const entry = await outbox.enqueue("b1", "connector", text)
     await settle()
-    // The turn claimed it but failed before recording it.
     main.state.inbox = []
     main.state.status = "idle"
     delivery.idle("main-1")
@@ -215,7 +209,6 @@ describe("notice outbox and delivery", () => {
       ],
     ]
     const { main, delivery, notices } = setup(stored)
-    // m1 was recorded before the restart; m2 still waits in the restored inbox.
     main.state.history.push("m1")
     main.state.inbox.push({ id: "m2" } as NoticeMessage)
     delivery.start()

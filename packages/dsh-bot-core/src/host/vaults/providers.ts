@@ -11,7 +11,6 @@ const isText = (value: unknown) =>
   typeof (value as { en?: unknown }).en === "string" &&
   (value as { en: string }).en.trim() !== ""
 
-/** Why a provider cannot be registered, or undefined. */
 export function vaultProviderProblem(provider: BotVaultProvider): string | undefined {
   if (typeof provider !== "object" || provider === null) return "the provider is not an object"
   if (typeof provider.id !== "string" || !ID.test(provider.id)) {
@@ -69,13 +68,10 @@ export function vaultProviderProblem(provider: BotVaultProvider): string | undef
 }
 
 export interface VaultProviders {
-  /** @throws when the provider is invalid or its id is taken. */
   register(provider: BotVaultProvider): () => void
   get(providerId: string): BotVaultProvider | undefined
   list(): readonly BotVaultProvider[]
-  /** Called after a registration, an unregistration or a provider's status change. */
   subscribe(listener: () => void): () => void
-  /** Called with the provider id after it was unregistered. */
   onRemoved(listener: (providerId: string) => void): () => void
 }
 

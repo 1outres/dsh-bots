@@ -1,4 +1,3 @@
-// The one place that builds "bot-" ids; every property readonly.
 export interface BotTemplate {
   readonly id: string
   readonly plugins: readonly unknown[]

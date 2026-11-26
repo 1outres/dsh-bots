@@ -33,7 +33,6 @@ import {
   pendingListReply,
 } from "./texts"
 
-/** One call of a connector tool by a bot's Agent, after bot-core checked who calls. */
 export interface ConnectorCall {
   readonly botId: string
   readonly sessionId: string
@@ -42,7 +41,6 @@ export interface ConnectorCall {
   readonly args: ConnectorJson
 }
 
-/** A decision whose person bot-core checked may decide for the bot (host/connectors/approvals.ts). */
 export interface ConnectorDecisionRequest {
   readonly botId: string
   readonly actionId: string
@@ -52,9 +50,7 @@ export interface ConnectorDecisionRequest {
 
 export type ConnectorDecisionOutcome =
   | { readonly ok: true; readonly action: ConnectorAction }
-  /** The bot has no such action. */
   | { readonly ok: false; readonly code: "not-found" }
-  /** It was decided, cancelled or expired before. */
   | {
       readonly ok: false
       readonly code: "settled"
@@ -69,30 +65,18 @@ export interface ConnectorBrokerDeps {
   deadlines: Deadlines
   readiness: Pick<ConnectorReadinessKeeper, "state" | "subscribe">
   runs: Pick<ConnectorRuns, "prepare">
-  /** The accounts of connectors with connections. */
   accounts: Pick<ConnectorAccounts, "resolve" | "pinned">
   exclusive: ExclusiveRuns
-  /** The name of a connector the given one requires that a person operates for the bot now, if any. */
   operated(botId: string, connector: CatalogTool["connector"]): string | undefined
-  /**
-   * What a connector returned that bot-core keeps or hands the bot outside a
-   * tool call (an approved action's outcome, an `ask` call's snapshot), with
-   * the bot's secrets withheld (docs/specs/bot-vaults.md §7.2).
-   * @throws when the vault guard cannot check it.
-   */
   shield<T>(botId: string, tool: string, value: T): Promise<T>
-  /** Queue a notice for the bot's Main session (the outbox stores it first). */
   notify(botId: string, notice: ConnectorNotice): Promise<void>
   newId(): string
   now(): number
-  /** Run `work` after `ms`; returns the cancel. */
   later(ms: number, work: () => void): () => void
-  /** How long ended actions are kept. */
   readonly retentionMs: number
   warn(message: string): void
 }
 
-/** A preparation stage in English, for the model. */
 export function preparationStageText(stage: ConnectorPreparationStage): string {
   switch (stage.kind) {
     case "requirements":
@@ -104,7 +88,6 @@ export function preparationStageText(stage: ConnectorPreparationStage): string {
   }
 }
 
-/** Why a connector that is not ready cannot run a call now. */
 export function notReadyReason(name: string, readiness: ConnectorReadiness): string | undefined {
   switch (readiness.state) {
     case "ready":
@@ -120,30 +103,16 @@ export function notReadyReason(name: string, readiness: ConnectorReadiness): str
   }
 }
 
-/** Why a tool that changes what a person operates does not run while they do. */
 export function userInControl(operated: string, entry: CatalogTool): string {
   return `USER_IN_CONTROL: a person is operating this bot's ${operated}, which ${entry.connector.name} works on, so ${entry.name} did not run. Its reading tools still work; wait until they hand it back, then look again (the page may have changed).`
 }
 
-/**
- * The connector actions' logic: runs `allow` calls, turns `ask` calls into
- * pending actions and waits a short while for their decision, runs an
- * approved action exactly once (approved → executing is the one claim),
- * expires pending ones, and sends the bot a notice of every action that
- * ended after its call had returned.
- */
 export interface ConnectorBroker {
-  /** @throws with the reason when the call cannot be made (unknown or disallowed tool, invalid arguments). */
   call(call: ConnectorCall, signal: AbortSignal): Promise<ConnectorToolReply>
-  /** Record a checked decision (design rule 46: only host/connectors/approvals.ts calls it); the first one wins. */
   recordDecision(request: ConnectorDecisionRequest): Promise<ConnectorDecisionOutcome>
-  /** The bot cancels one of its pending actions. @throws when it is not pending. */
   cancel(botId: string, actionId: string): Promise<ConnectorToolReply>
-  /** The bot's actions that are pending, approved or running. */
   pending(botId: string): ConnectorToolReply
-  /** Resume after start-up: running ones are interrupted, approved ones run, pending ones expire on time. */
   recover(): Promise<void>
-  /** Forget the actions of bots `keep` refuses, and ended ones past retention. */
   prune(keep: (botId: string) => boolean): Promise<void>
   dispose(): void
 }
@@ -173,9 +142,7 @@ function previewProblem(preview: unknown): string | undefined {
 export function createConnectorBroker(deps: ConnectorBrokerDeps): ConnectorBroker {
   const { ledger } = deps
   const lifetime = new AbortController()
-  /** Calls waiting on an action, by action id. */
   const attendance = new Map<string, number>()
-  /** Ended actions a waiting call is about to return; noticed if none does. */
   const uncollected = new Set<string>()
   const waiters = new Map<string, Set<() => void>>()
   const running = new Set<string>()
@@ -219,7 +186,6 @@ export function createConnectorBroker(deps: ConnectorBrokerDeps): ConnectorBroke
     })
   }
 
-  /** One run of the tool, serialized with the connector's runs of the same exclusive key. */
   const run = async (
     entry: CatalogTool,
     botId: string,
@@ -307,7 +273,6 @@ export function createConnectorBroker(deps: ConnectorBrokerDeps): ConnectorBroke
       undefined,
       connection,
     )
-    // Unloading: the action stays executing, and the next load reports it as interrupted.
     if (lifetime.signal.aborted && !outcome.ok) return
     let kept: ExecutionOutcome
     try {
@@ -329,7 +294,6 @@ export function createConnectorBroker(deps: ConnectorBrokerDeps): ConnectorBroke
     )
   }
 
-  /** Run an approved action once its connector is registered. */
   const runApproved = (actionId: string) => {
     const action = ledger.get(actionId)
     if (action?.status.state !== "approved" || running.has(actionId)) return
@@ -378,7 +342,6 @@ export function createConnectorBroker(deps: ConnectorBrokerDeps): ConnectorBroke
     }
   })
 
-  /** Wait until the action ends, or while it is pending until `until`, or until `signal` aborts. */
   const wait = async (actionId: string, until: number, signal: AbortSignal) => {
     const release = attend(actionId)
     const onAbort = () => release(false)

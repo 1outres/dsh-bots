@@ -22,5 +22,4 @@ export function providerPill(
   }
 }
 
-/** A provider's text in the user's language. */
 export type ResolveText = (text: ConnectorText) => string

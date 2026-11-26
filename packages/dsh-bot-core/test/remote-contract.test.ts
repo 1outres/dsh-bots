@@ -13,7 +13,6 @@ import {
   type RemoteMethodContract,
 } from "../src/shared/remote-contract"
 
-/** The parameter names each `@Remote` method of host/remote.ts declares, by endpoint. */
 function sourceSignatures(): Map<string, string[]> {
   const source = readFileSync(new URL("../src/host/remote.ts", import.meta.url), "utf8")
   const constants = new Map(

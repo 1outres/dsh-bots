@@ -16,7 +16,6 @@ import { createConnectorApprovals } from "../src/host/connectors/approvals"
 import { createEventPoller } from "../src/host/events/poller"
 import { brokerSetup } from "./connectors-support"
 
-/** DSH's credential store, in memory. */
 export function memoryCredentials(): ConnectionCredentialRecords & {
   records: Map<string, unknown>
 } {
@@ -39,11 +38,6 @@ export function memoryCredentials(): ConnectionCredentialRecords & {
 
 export const OWNER = { kind: "owner" }
 
-/**
- * bot-core's connectors and connections wired as `apply` wires them, in
- * memory: providers, connectors, OAuth sign-in, Host-kept tokens (real
- * refreshes over `fetch`), the broker and the events poller.
- */
 export function connectionsSetup(options: {
   readonly providers: readonly BotConnectionProvider[]
   readonly connectors: readonly BotConnector[]
@@ -144,7 +138,6 @@ export function connectionsSetup(options: {
   }
 }
 
-/** The bot's actions as the Web UI and a channel's approvers get them (`ConnectorActionView`). */
 export function actionViews(setup: ReturnType<typeof brokerSetup>, botId: string) {
   const approvals = createConnectorApprovals({ ...setup, exists: (id) => id === botId })
   return setup.ledger.list(botId).map((action) => approvals.view(action))

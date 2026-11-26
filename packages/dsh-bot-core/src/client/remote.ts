@@ -40,50 +40,41 @@ import type {
 
 export type { BotCoreApi, RemoteNamespace } from "../shared/remote-contract"
 
-/** A Host API as its mounted Remote face: every result wrapped in a `RemoteResult`. */
 export type Remoted<Api> = {
   readonly [Method in keyof Api]: Api[Method] extends (...args: infer Args) => infer Result
     ? (...args: Args) => Promise<RemoteResult<Awaited<Result>>>
     : never
 }
 
-/** The mounted `remote.bots`; `watch` and `watchModels` stream instead of resolving once. */
 export interface BotsRemote extends Remoted<Omit<BotsApi, "watch" | "watchModels">> {
   watch(): StreamHandle<BotsSnapshot>
   watchModels(id: string): StreamHandle<BotModelsView>
 }
 
-/** The mounted `remote.botFiles`; a failure carries a `BotFileWireCode`. */
 export type BotFilesRemote = Remoted<BotFilesApi>
 
-/** The mounted `remote.botChannels`; `watch` streams instead of resolving once. */
 export interface BotChannelsRemote extends Remoted<Omit<BotChannelsApi, "watch">> {
   watch(botId: string): StreamHandle<BotChannelsSnapshot>
 }
 
-/** The mounted `remote.botInteractions`; `watch` streams instead of resolving once. */
 export interface BotInteractionsRemote extends Remoted<Omit<BotInteractionsApi, "watch">> {
   watch(sessionId: string): StreamHandle<BotInteractionsSnapshot>
 }
 
-/** The mounted `remote.botConnectors`; `watch` streams instead of resolving once. */
 export interface BotConnectorsRemote extends Remoted<Omit<BotConnectorsApi, "watch">> {
   watch(botId: string): StreamHandle<BotConnectorsSnapshot>
 }
 
-/** The mounted `remote.botConnectorActions`; both watches stream instead of resolving once. */
 export interface BotConnectorActionsRemote
   extends Remoted<Omit<BotConnectorActionsApi, "watch" | "watchWaiting">> {
   watch(botId: string): StreamHandle<BotConnectorActionsSnapshot>
   watchWaiting(): StreamHandle<ConnectorWaitingSnapshot>
 }
 
-/** The mounted `remote.botConnections`; `watch` streams instead of resolving once. */
 export interface BotConnectionsRemote extends Remoted<Omit<BotConnectionsApi, "watch">> {
   watch(): StreamHandle<BotConnectionsSnapshot>
 }
 
-/** The mounted `remote.botConnectorStreams`: a stream both ways. */
 export interface BotConnectorStreamsRemote {
   open(
     botId: string,
@@ -92,58 +83,47 @@ export interface BotConnectorStreamsRemote {
   ): DuplexStreamHandle<ConnectorJson, ConnectorJson>
 }
 
-/** The mounted `remote.botWeb`; `watch` streams instead of resolving once. */
 export interface BotWebRemote extends Remoted<Omit<BotWebApi, "watch">> {
   watch(): StreamHandle<BotWebView>
 }
 
-/** The mounted `remote.botWorkspaces`; `watch` streams instead of resolving once. */
 export interface BotWorkspacesRemote extends Remoted<Omit<BotWorkspacesApi, "watch">> {
   watch(): StreamHandle<BotWorkspacesSnapshot>
 }
 
-/** The mounted `remote.botManagedSessions`; `watch` streams instead of resolving once. */
 export interface BotManagedSessionsRemote extends Remoted<Omit<BotManagedSessionsApi, "watch">> {
   watch(): StreamHandle<BotManagedSessionsSnapshot>
 }
 
-/** The mounted `remote.botMains`; both watches stream instead of resolving once. */
 export interface BotMainsRemote extends Remoted<Omit<BotMainsApi, "watch" | "watchDefaults">> {
   watchDefaults(): StreamHandle<MainRotationSettings>
   watch(botId: string): StreamHandle<BotMainsView>
 }
 
-/** The mounted `remote.botMainView`; `watch` streams instead of resolving once. */
 export interface BotMainViewRemote extends Remoted<Omit<BotMainViewApi, "watch">> {
   watch(botId: string): StreamHandle<MainTimelineFrame>
 }
 
-/** The mounted `remote.botSkills`; `watch` streams instead of resolving once. */
 export interface BotSkillsRemote extends Remoted<Omit<BotSkillsApi, "watch">> {
   watch(botId: string): StreamHandle<BotSkillsView>
 }
 
-/** The mounted `remote.botNotes`; `watch` streams instead of resolving once, a failure carries a `BotNoteWireCode`. */
 export interface BotNotesRemote extends Remoted<Omit<BotNotesApi, "watch">> {
   watch(sessionId: string): StreamHandle<BotNotesStatus>
 }
 
-/** The mounted `remote.botEnvironment`; `watch` streams instead of resolving once. */
 export interface BotEnvironmentRemote extends Remoted<Omit<BotEnvironmentApi, "watch">> {
   watch(botId: string): StreamHandle<BotEnvironmentView>
 }
 
-/** The mounted `remote.botEnvironmentHost`; `watch` streams instead of resolving once. */
 export interface BotEnvironmentHostRemote extends Remoted<Omit<BotEnvironmentHostApi, "watch">> {
   watch(): StreamHandle<BotEnvironmentHostState>
 }
 
-/** The mounted `remote.botOnboarding`; `watch` streams instead of resolving once. */
 export interface BotOnboardingRemote extends Remoted<Omit<BotOnboardingApi, "watch">> {
   watch(): StreamHandle<BotOnboardingView>
 }
 
-/** The mounted `remote.botVaults`; both watches stream instead of resolving once. */
 export interface BotVaultsRemote extends Remoted<Omit<BotVaultsApi, "watch" | "watchBot">> {
   watch(): StreamHandle<BotVaultsSnapshot>
   watchBot(botId: string): StreamHandle<BotVaultView>
@@ -171,7 +151,6 @@ export interface BotCoreRemote {
   readonly botVaults: BotVaultsRemote
 }
 
-/** The outcome of mounting the contribution: every namespace, or why none is. */
 export type RemoteMount =
   | { readonly status: "mounted"; readonly remote: BotCoreRemote }
   | { readonly status: "failed"; readonly error: string }
@@ -207,7 +186,6 @@ function descriptor({
   }
 }
 
-/** The one contribution `ctx.remote.$mount` takes for bot-core; typert registers a package once. */
 export const BOT_CORE_REMOTE: RemoteContribution = {
   package: REMOTE_PACKAGE,
   descriptors: REMOTE_ENDPOINTS.map(descriptor),

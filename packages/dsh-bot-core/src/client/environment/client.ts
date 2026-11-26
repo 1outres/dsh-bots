@@ -6,7 +6,6 @@ import type { RemoteResult } from "../types"
 
 export type { FeedState } from "../remote-feed"
 
-/** The `botEnvironment` Remote for the browser: one shared stream per bot, and saves that reject with the Host's message. */
 export interface EnvironmentClient {
   bot(botId: string): Observable<FeedState<BotEnvironmentView>>
   configure(botId: string, spec: BotEnvironmentSpec): Promise<BotEnvironmentView>

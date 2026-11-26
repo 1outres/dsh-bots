@@ -20,17 +20,8 @@ export interface DigestKeeperDeps {
   warn(message: string): void
 }
 
-/**
- * The pending approvals list at the home: one message, pinned once, edited
- * whenever what it lists changes. One that is gone (deleted in Discord) is
- * posted again and pinned again; a pin Discord refuses is not tried again for
- * that message, which is still kept up to date. Its callers run it in order
- * with the cards.
- */
 export interface DigestKeeper {
-  /** Bring the home's list up to date. */
   refresh(home: HomeChannel): Promise<void>
-  /** What the list shows, for `/pending`: refused for anyone but an owner. */
   entriesFor(userId: string, home: HomeChannel): DigestRead
 }
 
@@ -38,7 +29,6 @@ const messageOf = (error: unknown) => (error instanceof Error ? error.message : 
 
 export function createDigestKeeper(deps: DigestKeeperDeps): DigestKeeper {
   const { records } = deps
-  /** What the list shows now, as last written in this connection. */
   let shown: string | undefined
   const warn = (what: string, error: unknown) => {
     if (!deps.closed()) deps.warn(`bot-discord: ${what}: ${messageOf(error)}`)

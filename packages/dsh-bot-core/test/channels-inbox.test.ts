@@ -47,7 +47,6 @@ describe("inbox names", () => {
   })
 })
 
-/** dsh-subprocess, as the bot's environment would run it, on this machine. */
 const localSubprocess: EnvironmentWriteSubprocess = {
   spawn(spec) {
     const child = spawn(spec.argv[0] as string, spec.argv.slice(1), {

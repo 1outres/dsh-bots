@@ -1,11 +1,3 @@
-/**
- * The work of skill_manage (docs/specs/bot-skills.md §3, §4), of the
- * owner's restores in the Web UI and of the daily archive of unused skills
- * (§12). Every change is checked whole before
- * anything is written, and kept as a version; a skill whose files changed
- * outside skill_manage since its latest version first gets a version of
- * what the files hold (origin `files`), so a restore never loses it.
- */
 import { z } from "zod"
 import type { SkillFile, SkillOperation, SkillOrigin } from "../../shared/skills"
 import type { StoredSkillVersion } from "./domain"
@@ -22,7 +14,6 @@ import {
 } from "./skill"
 import type { SkillStore } from "./store"
 
-/** The tool's name. */
 export const SKILL_MANAGE_TOOL = "skill_manage"
 
 export const SKILL_ACTIONS = [
@@ -36,23 +27,17 @@ export const SKILL_ACTIONS = [
   "restore",
 ] as const
 
-/** A refusal the model reads and can act on; nothing was written. */
 export class SkillToolError extends Error {
   override readonly name = "SkillToolError"
 }
 
-/** Who changes a skill. */
 export type SkillActor =
   | { readonly kind: "conversation"; readonly agentId: string; readonly sessionId: string }
-  /** A background review of `sessionId`'s conversation, run by Agent `agentId`. */
   | { readonly kind: "review"; readonly agentId: string; readonly sessionId: string }
-  /** The weekly curation by the model, run by Agent `agentId`. */
   | { readonly kind: "curator"; readonly agentId: string }
-  /** The daily archive of unused skills. */
   | { readonly kind: "sweep" }
   | { readonly kind: "owner" }
 
-/** The changes one Agent of a background run may make. */
 export const CHANGE_LIMITS = { review: 1, curator: 3 } as const
 
 const LIMIT_REACHED: Readonly<Record<keyof typeof CHANGE_LIMITS, string>> = {
@@ -60,16 +45,12 @@ const LIMIT_REACHED: Readonly<Record<keyof typeof CHANGE_LIMITS, string>> = {
   curator: "a curation makes at most three changes, and this one has made them; reply now",
 }
 
-/** The Agent that acts, for the actors that view before they change. */
 const agentOf = (actor: SkillActor): string | undefined =>
   actor.kind === "owner" || actor.kind === "sweep" ? undefined : actor.agentId
 
-/** One bot's skills: what was read of its files, and what each Agent viewed. */
 export interface BotSkillsState {
   readonly library: SkillLibrary
-  /** Per Agent: the text it last viewed (or wrote) of each skill file, keyed "<name>/<path>". */
   readonly viewed: Map<string, Map<string, string>>
-  /** Changes each Agent of a background run (a review, a curation) made. */
   readonly changeCounts: Map<string, number>
 }
 
@@ -77,9 +58,7 @@ export interface SkillManagerDeps {
   readonly store: SkillStore
   newId(): string
   now(): number
-  /** A day in the bot's time zone, YYYY-MM-DD. */
   day(botId: string, at: number): string
-  /** The bot's skills changed: its catalog is read again. */
   changed(botId: string): void
 }
 
@@ -144,7 +123,6 @@ export function parseSkillArgs(args: unknown): SkillManageArgs {
   throw new SkillToolError(`Invalid arguments: ${issues.join("; ")}`)
 }
 
-/** Whether an action changes a skill. */
 export const changes = (action: SkillManageArgs["action"]): boolean =>
   action !== "list" && action !== "view"
 
@@ -176,7 +154,6 @@ function originOf(actor: SkillActor): SkillOrigin {
   }
 }
 
-/** The checked SKILL.md of a set of files, for `name`. */
 function checkedSkill(name: string, files: readonly SkillFile[]) {
   const skill = files.find((file) => file.path === SKILL_FILE)
   if (skill === undefined) throw new SkillToolError(`the skill has no ${SKILL_FILE}`)
@@ -192,13 +169,11 @@ function checkedSkill(name: string, files: readonly SkillFile[]) {
   return parsed.value
 }
 
-/** An active skill as the daily archive weighs it, after its files were recorded. */
 export interface SweptSkill {
   readonly name: string
 }
 
 export interface SkillManager {
-  /** One skill_manage call (or an owner's restore). @throws {SkillToolError} with what to do instead. */
   run(
     botId: string,
     state: BotSkillsState,
@@ -207,11 +182,6 @@ export interface SkillManager {
     args: SkillManageArgs,
     signal: AbortSignal,
   ): Promise<string>
-  /**
-   * The daily archive: record every active skill's files that are not its
-   * latest version (so each has a version to count from), then archive the
-   * ones `select` names, with `reason`. @returns the archived names.
-   */
   sweep(
     botId: string,
     state: BotSkillsState,
@@ -228,7 +198,6 @@ export function createSkillManager(deps: SkillManagerDeps): SkillManager {
   const versionLine = (botId: string, version: StoredSkillVersion) =>
     `- ${version.id} ${deps.day(botId, version.at)} ${version.operation}${version.archived ? " (archived)" : ""}${version.reason === undefined ? "" : ` — ${version.reason}`}`
 
-  /** Keep what the files hold when it is not the latest version. */
   const observeFiles = async (botId: string, skill: string, located: Located) => {
     const latest = store.versions(botId, skill)[0]
     const files = filesOf(located.directory)
@@ -308,7 +277,6 @@ export function createSkillManager(deps: SkillManagerDeps): SkillManager {
       deps.changed(botId)
       return id
     }
-    /** Write `text` at a workspace path, replacing only the version there now. */
     const put = async (path: string, text: string, known: string | undefined) =>
       library.write(
         place,

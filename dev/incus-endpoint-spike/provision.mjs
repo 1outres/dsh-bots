@@ -1,5 +1,3 @@
-// Spike: provision a bot-like VM whose workspace is a block custom volume (as the restricted client).
-// Usage: node provision.mjs <endpoint.json> <project> <vm> <volume> <keysdir>
 import { readFileSync } from "node:fs"
 import { call, endpointFrom, waitOp } from "./incus.mjs"
 
@@ -34,7 +32,6 @@ const userData = {
   ssh_deletekeys: true,
   ssh_genkeytypes: ["ed25519"],
   ssh_keys: { ed25519_private: k("host"), ed25519_public: k("host.pub").trim() },
-  // cloud-init's fs_setup reformatted an existing volume (partition: none, overwrite: false) — measured; systemd-makefs only formats a device without a file system.
   mounts: [
     [
       dev,

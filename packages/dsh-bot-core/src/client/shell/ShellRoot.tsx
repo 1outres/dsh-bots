@@ -6,11 +6,6 @@ import type { ShellSlotProps } from "./face"
 import { ShellBoundary } from "./ShellBoundary"
 import { shellView } from "./shell-view"
 
-/**
- * bot-core's `main.conversation` entry. Everything sits in its own error
- * boundary; the Slot renderer remounts a session-maybe entry per session,
- * which resets the boundary too.
- */
 export function ShellRoot(props: ShellSlotProps) {
   return (
     <ShellBoundary t={props.t}>
@@ -37,7 +32,6 @@ function ShellContent(props: ShellSlotProps) {
   }
 }
 
-/** Neutral until the session is known to be a bot's or not: no header, no menu. */
 export function ClassifyingPlaceholder({ t }: { readonly t: Translate }) {
   return (
     <div className="dshb-shell" data-dshb-shell-classifying="">

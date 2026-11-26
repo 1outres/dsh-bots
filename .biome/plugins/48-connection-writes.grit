@@ -1,7 +1,3 @@
-// Design rule 48: connections are written in one place.
-// `connections.put/delete`, `grants.put/delete` and `clients.put/delete` (a
-// receiver with that name or ending in it) may appear only in
-// host/connections/store.ts: an account and the bots it serves change together.
 JsCallExpression(callee = $callee) as $call where {
   $callee <: or { `$receiver.put`, `$receiver.delete`, `$receiver?.put`, `$receiver?.delete` },
   $receiver <: or { `connections`, `$_.connections`, `$_?.connections`, `grants`, `$_.grants`, `$_?.grants`, `clients`, `$_.clients`, `$_?.clients` },

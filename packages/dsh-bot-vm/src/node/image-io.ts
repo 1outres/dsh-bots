@@ -1,8 +1,3 @@
-/**
- * The image import's Host side over Node (src/host/image/io.ts): files under
- * the image directory, sha256, and HTTP GETs with a byte range whose body
- * fails once no byte arrived for `stallMs`.
- */
 import { createHash, type Hash } from "node:crypto"
 import { createReadStream } from "node:fs"
 import {

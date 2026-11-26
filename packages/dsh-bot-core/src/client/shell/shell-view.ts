@@ -6,22 +6,16 @@ export type ShellBot =
   | { readonly kind: "known"; readonly bot: BotView }
   | { readonly kind: "pending" }
 
-/** What the `main.conversation` entry draws. */
 export type ShellView =
   | { readonly kind: "classifying" }
   | { readonly kind: "stock" }
   | { readonly kind: "bot"; readonly sessionId: string; readonly bot: ShellBot }
-  /** The creation progress of a bot, over whatever session the main view is bound to. */
   | { readonly kind: "progress"; readonly botId: string }
 
 const CLASSIFYING: ShellView = { kind: "classifying" }
 const STOCK: ShellView = { kind: "stock" }
 const PENDING: ShellBot = { kind: "pending" }
 
-/**
- * A bot's creation progress, once asked for, comes first. Otherwise unknown is
- * neutral, with or without a session yet; a settled main view without a session is stock.
- */
 export function shellView(
   sessionId: string | undefined,
   session: SessionClass,
@@ -42,7 +36,6 @@ export function shellView(
 
 export type ConnectionNotice = "reconnecting" | "unavailable"
 
-/** What a bot session says about the bots list it is drawn from. */
 export function connectionNotice(state: BotsState): ConnectionNotice | undefined {
   switch (state.status) {
     case "loading":
@@ -60,7 +53,6 @@ export type ShellNoticeView =
   | { readonly kind: "lockdown" }
   | { readonly kind: "viewer"; readonly notice: ViewerNotice }
 
-/** The one notice a bot session's header shows: a refused lockdown, until dismissed, outranks the viewer's. */
 export function shellNotice(
   registration: RegistrationStatus,
   lockdownDismissed: boolean,

@@ -1,15 +1,11 @@
-/** One choice of a select or a segmented control. */
 export interface Choice<Value extends string> {
   readonly value: Value
   readonly label: string
-  /** Shown as the choice's tooltip. */
   readonly title?: string
-  /** The heading consecutive choices are listed under (a provider's name). */
   readonly group?: string
   readonly disabled?: boolean
 }
 
-/** The enabled choice an arrow key, Home or End moves to from `index`, if the key moves at all. */
 export function stepChoice(
   choices: readonly { readonly disabled?: boolean }[],
   index: number,
@@ -34,7 +30,6 @@ export function stepChoice(
   return undefined
 }
 
-/** Consecutive choices of the same group, in order; ungrouped ones form groups of their own runs. */
 export function groupChoices<Value extends string>(
   choices: readonly Choice<Value>[],
 ): readonly { readonly group: string | undefined; readonly choices: readonly Choice<Value>[] }[] {
@@ -49,7 +44,6 @@ export function groupChoices<Value extends string>(
 
 const normalized = (text: string) => text.toLowerCase().replaceAll("_", " ")
 
-/** The choices whose label, value or group contains every word of `query`, in order. */
 export function searchChoices<Value extends string>(
   choices: readonly Choice<Value>[],
   query: string,

@@ -15,7 +15,6 @@ import { createStore, type Observable } from "../observable"
 import type { BotVaultsRemote, RemoteMount } from "../remote"
 import type { RemoteResult } from "../types"
 
-/** Why the password managers or a bot's logins cannot be read or changed. */
 export type VaultsFailure =
   | { readonly kind: "mount"; readonly message: string }
   | { readonly kind: "connection"; readonly message: string }
@@ -90,7 +89,6 @@ async function call<T>(
   )
 }
 
-/** Follow a stream into a store of `ready` / `failed` states; the last ready one stays while it reconnects. */
 function follow<T, S>(
   deps: VaultsDeps,
   open: (vaults: BotVaultsRemote) => AsyncIterable<T> & { dispose(): void },
@@ -137,7 +135,6 @@ function follow<T, S>(
   }
 }
 
-/** The password managers, streamed while anything shows them; one stream for every screen. */
 export type VaultsFeed = Observable<VaultsState> & VaultsOperations
 
 export function createVaultsFeed(deps: VaultsDeps): VaultsFeed {
@@ -165,7 +162,6 @@ export function createVaultsFeed(deps: VaultsDeps): VaultsFeed {
   return hub.feed("all")
 }
 
-/** One bot's logins, uses and incidents, streamed while anything shows them. */
 export type BotVaultFeed = Observable<BotVaultState> & BotVaultOperations
 
 export interface BotVaultsHub {
@@ -211,7 +207,6 @@ export function createBotVaultsHub(deps: VaultsDeps): BotVaultsHub {
 
 const NONE: Readonly<Record<string, number>> = {}
 
-/** Unacknowledged credential incidents per bot, as the Bots list and the shell show them. */
 export function openIncidentsOf(state: VaultsState): Readonly<Record<string, number>> {
   return state.status === "ready" ? state.snapshot.openIncidents : NONE
 }

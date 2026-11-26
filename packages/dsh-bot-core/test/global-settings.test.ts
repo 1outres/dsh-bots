@@ -68,7 +68,7 @@ describe("global settings sections", () => {
       close() {},
       confirm: async () => true,
     }
-    // @ts-expect-error a global section receives no bot
+    // @ts-expect-error
     expect(props.bot).toBeUndefined()
   })
 })

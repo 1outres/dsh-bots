@@ -11,17 +11,10 @@ import type { WebState } from "./state"
 
 export interface WebBridgeDeps {
   readonly state: WebState
-  /** Whether `token` belongs to a revision bot-core registered for the bot during this load. */
   sealed(botId: string, token: string): boolean
-  /** The Agent whose step is asking, if the call runs inside one. */
   caller(): string | undefined
 }
 
-/**
- * What bot-core's bridge row asks of the Host for a bot's Agents. Each Agent
- * reads the settings as they were when its turn started, so a change applies
- * from its next turn and never inside a running one.
- */
 export interface WebBridge {
   ready(botId: string, token: string, capability: BotWebCapability): Promise<boolean>
   search(
@@ -36,7 +29,6 @@ export interface WebBridge {
     request: WebFetchRequest,
     signal: AbortSignal,
   ): Promise<WebOutcome<WebFetchResult>>
-  /** A turn of `agentId` started: it keeps the settings of now until it ends. */
   turnStarted(agentId: string): void
   turnEnded(agentId: string): void
 }

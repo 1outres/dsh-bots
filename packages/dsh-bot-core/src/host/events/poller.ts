@@ -1,11 +1,3 @@
-/**
- * Polls connectors' events: one stream per account and connector that some
- * bot receives events of, polled at once when it starts (so a restart
- * catches up) and then every `intervalMs`. Each poll stores its events
- * before the new cursor; the first one only marks where to start. A stream
- * nobody receives any more forgets its cursor, so turning events on again
- * starts from then, not from the old cursor.
- */
 import type {
   BotConnectorConnection,
   BotConnectorPoll,
@@ -20,15 +12,9 @@ import type { EventStore } from "./store"
 export interface EventPollerDeps {
   catalog: Pick<ConnectorCatalog, "list">
   connections: Pick<ConnectionStore, "list">
-  /** The bots that receive the connector's events of the account. */
   subscribers(connectionId: string, connector: CatalogConnector): readonly string[]
   store: Pick<EventStore, "cursor" | "start" | "receive" | "dropCursor">
-  /**
-   * Events with the bot's secrets withheld before they are kept (docs/specs/bot-vaults.md §7.2).
-   * @throws when the vault guard cannot check them: nothing is kept, the poll fails.
-   */
   shield(botId: string, events: readonly ConnectorEvent[]): Promise<readonly ConnectorEvent[]>
-  /** The account as a poll uses it. */
   connection(record: ConnectionRecord): BotConnectorConnection
   later(ms: number, work: () => void): () => void
   deadline(ms: number): AbortSignal
@@ -36,14 +22,12 @@ export interface EventPollerDeps {
   warn(message: string): void
 }
 
-/** How one stream's polling goes. */
 export interface EventStreamStatus {
   readonly lastPolledAt?: number
   readonly lastError?: string
 }
 
 export interface EventPoller {
-  /** Start and stop streams after what they depend on changed. */
   sync(): void
   status(connectionId: string, connectorId: string): EventStreamStatus | undefined
   dispose(): void

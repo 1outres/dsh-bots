@@ -11,7 +11,6 @@ export type FsFailure =
   | "aborted"
   | "unidentified"
 
-/** dsh-fs `FS_ERROR_CODES`, and the Node errno codes dsh-fs' `fsErrorFromErrno` classifies. */
 export const FS_FAILURE_BY_CODE = {
   FS_NOT_FOUND: "not-found",
   FS_NOT_TEXT: "not-text",
@@ -30,7 +29,6 @@ export const FS_FAILURE_BY_CODE = {
 
 export type FsFailureCode = keyof typeof FS_FAILURE_BY_CODE
 
-/** The `name` dsh-ssh gives the helper's error on the client side. */
 export const REMOTE_OPERATION_ERROR = "RemoteOperationError"
 
 interface CodedError {
@@ -47,21 +45,17 @@ const failureOfCode = (code: unknown): FsFailure | undefined =>
     ? FS_FAILURE_BY_CODE[code as FsFailureCode]
     : undefined
 
-// dsh-fs-ssh adopts the helper's code only when its `instanceof` recognises dsh-ssh's class;
-// with dsh-ssh loaded twice it says FS_IO_ERROR and the code survives on the named cause.
 const remoteCodeOf = (error: CodedError): unknown => {
   const cause = asCoded(error.cause)
   return cause?.name === REMOTE_OPERATION_ERROR ? cause.code : undefined
 }
 
-/** The failure `error` names by its structured code (never its message). */
 export function fsFailureOf(error: unknown): FsFailure {
   const coded = asCoded(error)
   if (coded === undefined) return "unidentified"
   return failureOfCode(coded.code) ?? failureOfCode(remoteCodeOf(coded)) ?? "unidentified"
 }
 
-/** What a failed `botFiles` call read: a path, under the byte cap the call enforces if it has one. */
 export type FsFailureSubject =
   | { readonly kind: "uncapped"; readonly path: string }
   | { readonly kind: "capped"; readonly path: string; readonly limit: number }
@@ -69,7 +63,6 @@ export type FsFailureSubject =
 export interface FsFailureContext {
   readonly sessionId: string
   readonly subject: FsFailureSubject
-  /** The quoted path and the environment's own message. */
   readonly description: string
   readonly cause: unknown
 }
@@ -86,7 +79,6 @@ const unavailable = (context: FsFailureContext, reason: string) =>
     options(context),
   )
 
-/** Every environment failure as the `bot-file/…` error it answers; the caller's own abort never reaches it. */
 export const BOT_FILE_ERROR_OF_FAILURE = {
   "not-found": (c) =>
     new RemoteError("bot-file/not-found", c.description, { path: c.subject.path }, options(c)),

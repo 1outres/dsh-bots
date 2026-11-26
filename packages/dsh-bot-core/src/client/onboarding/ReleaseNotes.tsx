@@ -6,7 +6,6 @@ import { Button, ErrorText } from "../ui"
 import { useLayer } from "../ui/layers"
 import type { OnboardingClient } from "./client"
 
-/** What changed since the notes were last read, as each GitHub release tells it (English); only OK takes it away. */
 export function ReleaseNotesDialog(props: {
   readonly t: Translate
   readonly notes: readonly ReleaseNote[]

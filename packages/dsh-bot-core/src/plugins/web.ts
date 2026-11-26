@@ -1,14 +1,3 @@
-/**
- * `@1outres/dsh-bot-core/web`: bot-core's own row inside every bot's
- * isolated `bot-environment` group, after the group's `@deepseek-ai/dsh-web`
- * row (`env-bot-core-web`, which selects the provider id "bot-core"; compose.ts
- * places both, templates and overlays cannot name them). For each capability
- * the composition offers, it registers that provider on the group's web seam
- * and hands every call to the `bot` service with the revision's token, which
- * runs it through the web backend the settings name (design rule 45).
- * Readiness reads only whether the backend's secrets are stored, so tool-web
- * shows a tool from the step its key is set.
- */
 import type { Context } from "@deepseek-ai/cordis"
 import {
   WebError,
@@ -33,15 +22,12 @@ import { WEB_PROVIDER_ID } from "../shared/web"
 
 export interface Config {
   botId: string
-  /** The preset revision's token (compose.ts). */
   token: string
-  /** The web backend the composition was made for. */
   backend: string
   search: boolean
   fetch: boolean
 }
 
-/** The slice of the group's `web` service (dsh-web `WebRuntime`) this row uses. */
 interface GroupWeb {
   registerSearchProvider(provider: WebSearchProvider): () => void
   registerFetchProvider(provider: WebFetchProvider): () => void

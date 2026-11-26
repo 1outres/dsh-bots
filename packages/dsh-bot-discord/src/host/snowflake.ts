@@ -1,4 +1,3 @@
-/** Order of two snowflakes (Discord ids grow with time). */
 export function compareSnowflakes(a: string, b: string): number {
   const left = BigInt(a)
   const right = BigInt(b)

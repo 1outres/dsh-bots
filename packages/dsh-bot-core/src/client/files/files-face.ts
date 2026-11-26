@@ -6,20 +6,16 @@ import { createPreviewModel, type PreviewModel } from "./preview-model"
 import { createSearchModel, type SearchModel, type Timers } from "./search-model"
 import { createTreeModel, type TreeModel } from "./tree-model"
 
-/** What the file panel reads and drives. */
 export interface FilesFace {
   readonly viewer: Viewer
   readonly width: PanelWidth
-  /** False while file links cannot reach the viewer (DSH's sidebar store is not borrowed). */
   readonly linksAvailable: Observable<boolean>
   treeOf(sessionId: string): TreeModel
   searchOf(sessionId: string): SearchModel
   previewOf(sessionId: string): PreviewModel
 }
 
-/** Each bot session's file models, kept while the page lives so closing the panel keeps them. */
 export interface SessionModels extends Pick<FilesFace, "treeOf" | "searchOf" | "previewOf"> {
-  /** Release the models of every session `keep` refuses. */
   forget(keep: (sessionId: string) => boolean): void
   dispose(): void
 }

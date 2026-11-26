@@ -1,25 +1,13 @@
-/**
- * When the background skill review of a conversation runs
- * (docs/specs/bot-skills.md §6): after {@link REVIEW_STEPS} steps of a Main or
- * Web session since its last review, once a turn has ended and nothing has
- * happened for {@link REVIEW_QUIET_MS}. One review of a session at a time.
- */
-
-/** Model steps of a session that call for a review. */
 export const REVIEW_STEPS = 10
-/** How long a session stays quiet after a turn before its review starts. */
 export const REVIEW_QUIET_MS = 30_000
 
-/** Which session a review Agent reviews, and that session's kind. */
 export interface ReviewRecord {
   readonly botId: string
   readonly sessionId: string
   readonly kind: "main" | "web"
 }
 
-/** The review Agents running now, by their session id. */
 export interface ReviewSessions {
-  /** @returns the disposer that forgets it. */
   add(reviewId: string, record: ReviewRecord): () => void
   get(reviewId: string): ReviewRecord | undefined
 }
@@ -39,24 +27,17 @@ export function createReviewSessions(): ReviewSessions {
 }
 
 export interface SkillReviewDeps {
-  /** The bot's `skillReview` setting. */
   enabled(botId: string): boolean
-  /** The session's Agent is idle with nothing waiting. */
   idle(sessionId: string): boolean
-  /** Review the session's conversation; resolves when the review is over. */
   run(botId: string, sessionId: string): Promise<void>
   later(ms: number, work: () => void): () => void
   warn(message: string): void
 }
 
 export interface SkillReviews {
-  /** A step of a Main or Web session started. */
   stepped(botId: string, sessionId: string): void
-  /** A turn of a Main or Web session ended. */
   turnEnded(botId: string, sessionId: string): void
-  /** The session started working again: its quiet wait starts over at its next turn end. */
   busy(sessionId: string): void
-  /** Whether a review of the session runs now. */
   reviewing(sessionId: string): boolean
   dispose(): void
 }

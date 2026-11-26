@@ -22,30 +22,19 @@ import type { ChannelSettings } from "./settings"
 export interface ChannelPanelDeps {
   channels(): readonly BotChannel[]
   channel(id: string): BotChannel | undefined
-  /** The stored bot (listed or being created), by id. */
   bot(botId: string): { readonly id: string; readonly name: string } | undefined
-  /** Whether the bot is listed (has its Main session). */
   listed(botId: string): boolean
   settings: Pick<
     ChannelSettings,
     "view" | "readiness" | "configure" | "revision" | "resolve" | "preview"
   >
   hub: Pick<ChannelHub, "state" | "sync">
-  /** A signal that aborts once a channel took too long to answer about settings. */
   deadline(): AbortSignal
 }
 
-/** What the `botChannels` Remote serves: each bot's channel settings, their status, and the channels' answers about settings. */
 export interface ChannelPanel {
-  /** @throws when the bot does not exist. */
   snapshot(botId: string): BotChannelsSnapshot
-  /**
-   * Store a change from the browser (parsed against the channel's fields, then
-   * checked by the channel when it leaves the settings enabled and complete) and apply it.
-   * @throws when the bot or channel does not exist or the change is invalid.
-   */
   configure(botId: string, channelId: string, change: unknown): Promise<BotChannelConfigureResult>
-  /** @throws when the channel or the bot does not exist, the reference is invalid or the source unknown. */
   options(
     channelId: string,
     settings: unknown,
@@ -64,7 +53,6 @@ export interface ChannelPanel {
   ): Promise<BotChannelCheck>
 }
 
-/** Only what the browser needs to render the form: no plugin methods. */
 export function descriptorOf(channel: BotChannel): BotChannelDescriptor {
   return {
     id: channel.id,
@@ -106,7 +94,6 @@ export function createChannelPanel(deps: ChannelPanelDeps): ChannelPanel {
     revision: deps.settings.revision(botId, channel.id),
   })
 
-  /** The request a settings reference makes: a bot's stored settings, or a draft's. */
   const requestOf = async (
     channel: BotChannel,
     input: unknown,

@@ -3,19 +3,10 @@ import { templateProblem } from "./compose"
 import type { TemplateCatalog } from "./types"
 
 export interface TemplateCatalogDeps {
-  /** Report a subscriber that threw; the other subscribers still run. Defaults to ignoring it. */
   warn?(message: string): void
 }
 
-/**
- * In-memory template catalog. Registering validates the template with
- * {@link templateProblem} and mounts nothing; the catalog keeps the object it
- * was given (the caller must not mutate it afterwards), `!!js` nodes in its
- * rows included.
- */
 export function createTemplateCatalog(deps: TemplateCatalogDeps = {}): TemplateCatalog {
-  // Each registration gets its own record, so a stale disposer never removes a
-  // later registration of the same id, even of the same template object.
   const templates = new Map<string, { readonly template: BotTemplate }>()
   const listeners = new Set<(templateId: string) => void>()
 
@@ -57,7 +48,6 @@ export function createTemplateCatalog(deps: TemplateCatalogDeps = {}): TemplateC
         .sort((left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0)),
 
     subscribe(listener) {
-      // Wrap so subscribing one function twice yields two independent subscriptions.
       const entry = (templateId: string) => listener(templateId)
       listeners.add(entry)
       return () => {

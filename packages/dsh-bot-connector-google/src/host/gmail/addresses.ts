@@ -1,4 +1,3 @@
-/** One mailbox of a header: an optional display name and an address. */
 export interface Mailbox {
   readonly name?: string
   readonly address: string
@@ -7,11 +6,6 @@ export interface Mailbox {
 const ADDRESS = /^[^\s@<>()",;:\\[\]]+@[^\s@<>()",;:\\[\]]+\.[^\s@<>()",;:\\[\]]+$/
 const CONTROL = /[\p{Cc}\p{Cf}\u2028\u2029]/u
 
-/**
- * A mailbox written by the bot: `name <address>` or `address`. Line breaks
- * and control characters are refused, so no argument can add a header.
- * @throws naming what is wrong.
- */
 export function parseMailbox(input: string): Mailbox {
   if (CONTROL.test(input))
     throw new Error(`"${input.replace(CONTROL, "?")}" has a line break or control character`)
@@ -37,12 +31,10 @@ export function parseMailboxes(inputs: readonly string[] | undefined, what: stri
   return list
 }
 
-/** A mailbox as people read it. */
 export function showMailbox(mailbox: Mailbox): string {
   return mailbox.name === undefined ? mailbox.address : `${mailbox.name} <${mailbox.address}>`
 }
 
-/** Split an address header (From, To, Cc) into mailboxes, as received (lenient: outside data). */
 export function readMailboxes(header: string | undefined): Mailbox[] {
   if (header === undefined || header.trim() === "") return []
   const parts: string[] = []

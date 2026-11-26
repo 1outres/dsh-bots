@@ -1,12 +1,3 @@
-/**
- * bot-core's prompt row under DSH's real prompt registry and scopes: mounted
- * as dsh-agent-preset-registry mounts a preset (a Loader tree on a scope of
- * its own, which the Agents bound to that revision take as their scope's
- * parent), its sections, context, variable and `system-prompt/assemble`
- * listener change the assemblies of that preset's Agents only. The prompt
- * each kind of session gets is pinned as a snapshot
- * (docs/specs/bot-system-prompt.md).
- */
 import { Context, Service } from "@deepseek-ai/cordis"
 import { EntryTree, Group, Loader } from "@deepseek-ai/cordis-plugin-loader"
 import { agentEvents } from "@deepseek-ai/dsh-agent"
@@ -82,7 +73,6 @@ const SESSIONS: Readonly<Record<string, BotSessionKind>> = {
   "session-curator": "curator",
 }
 
-/** Sessions the Main session manages: one it started, one the owner handed over. */
 const MANAGED: Readonly<Record<string, BotManagementFacts>> = {
   "session-delegated": { answerer: "main" },
   "session-entrusted": { answerer: "owner" },
@@ -96,7 +86,6 @@ const liveAgent = (id: string) => ({
   },
 })
 
-/** bot-core's notes of bot "a", in a file system in memory. */
 function botNotes() {
   const fs = memoryNotesFs()
   const place = { fs, workspace: "/home/bot/workspace" }
@@ -129,7 +118,6 @@ function botNotes() {
   return { notes, initial, fs }
 }
 
-/** The `bot` service as the prompt and notes rows read it, with the rows' token checked. */
 class FakeBot extends Service {
   readonly asked: string[] = []
   status: BotStatusFacts = STATUS
@@ -164,7 +152,6 @@ class FakeBot extends Service {
   }
 }
 
-/** dsh-tools' registry as far as the notes row uses it. */
 class FakeTools extends Service {
   readonly registered = new Set<string>()
   constructor(ctx: Context) {
@@ -176,7 +163,6 @@ class FakeTools extends Service {
   }
 }
 
-/** dsh-persona's part here: the preset's persona prefix, shadowing the deployment's. */
 class Persona {
   static inject = ["systemPrompt"]
   constructor(ctx: Context, config: { prefix: string }) {
@@ -212,7 +198,6 @@ class TestLoader extends Loader {
   commit() {}
 }
 
-/** dsh-agent-preset-registry's PresetTree: a Loader tree on the preset's scope context. */
 class PresetTree extends EntryTree {
   override import(name: string) {
     return Promise.resolve(modules[name])
@@ -262,7 +247,6 @@ async function host() {
     new AbortController().signal,
   )
   prompt.variable("model", () => "deepseek-v4")
-  // dsh-agent-preset-registry mints preset scopes from its own context, which injects the loader.
   let owner: Context | undefined
   await root.plugin({
     name: "agent-presets",
@@ -286,13 +270,11 @@ async function host() {
     await tree.await()
     return key
   }
-  /** An Agent bound to `parent` (a preset revision, or the Agent that delegated it). */
   const agentOf = (id: string, parent: object | undefined) => {
     const agent = { id }
     if (parent !== undefined) bindScopeParent(agent, parent)
     return agent
   }
-  /** As dsh-agent's `assembleContextFor`: the Agent is both the scope and the assembly's agent. */
   const assemble = (agent: { id: string } | undefined): Promise<PromptAssembly> =>
     prompt.assemble(agent === undefined ? {} : ({ scope: agent, agent } as never))
   const names_ = async (agent: { id: string } | undefined) => {
@@ -302,7 +284,6 @@ async function host() {
       contexts: assembly.contexts.map((context) => context.name),
     }
   }
-  /** The step waterfall as dsh-agent-loop dispatches it for an Agent. */
   const preStep = (agent: { id: string }, text: string) => {
     const message = createUserMessage({
       content: [{ type: "text", text }],
@@ -345,7 +326,6 @@ describe("@1outres/dsh-bot-core/prompt in a bot preset", () => {
     const helper = h.agentOf("session-helper", main)
     for (const agent of [main, helper]) {
       const assembly = await h.names(agent)
-      // The test's own sections take orders 0 to 5; the persona prefix sorts before them by name.
       expect(assembly.sections).toEqual([
         "harness:identity",
         "deployment:persona-prefix",

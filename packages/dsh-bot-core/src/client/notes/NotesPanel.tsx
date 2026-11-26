@@ -19,11 +19,6 @@ export interface NotesPanelProps {
   close(): void
 }
 
-/**
- * The bot's notes, read only: a list (search, type, the pinned notes) or a
- * calendar of daily notes, and the notes opened from there with Back.
- * Escape closes it; opening a note moves focus to its title.
- */
 export function NotesPanel(props: NotesPanelProps) {
   const { t, face } = props
   const model = face.modelOf(props.sessionId)

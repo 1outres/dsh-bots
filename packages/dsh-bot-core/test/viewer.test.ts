@@ -301,7 +301,6 @@ describe("markdown", () => {
     for (const input of inputs) {
       const started = performance.now()
       parseMarkdown(input)
-      // Quadratic parsing took seconds at a third of this size.
       expect(performance.now() - started, input.slice(0, 12)).toBeLessThan(1500)
     }
     expect(MARKDOWN_RENDER_LIMIT).toBe(256 * 1024)

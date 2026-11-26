@@ -11,7 +11,6 @@ import type { RemoteResult } from "../types"
 
 export type { FeedState } from "../remote-feed"
 
-/** The `botMains` Remote for the browser: shared streams while anything subscribes, and calls that reject with the Host's message. */
 export interface MainsClient {
   defaults: Observable<FeedState<MainRotationSettings>>
   bot(botId: string): Observable<FeedState<BotMainsView>>

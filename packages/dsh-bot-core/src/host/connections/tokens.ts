@@ -14,27 +14,18 @@ export interface ConnectionTokensDeps {
   store: Pick<ConnectionStore, "get" | "setStatus">
   vault: Pick<ConnectionVault, "grant" | "writeGrant">
   providers: Pick<ConnectionProviders, "get">
-  /** The provider's OAuth client, when both its id and secret are set. */
   client(provider: string): Promise<ClientCredentials | undefined>
   fetch: OAuthFetch
   now(): number
   deadline(ms: number): AbortSignal
 }
 
-/**
- * Access tokens of connections, kept in memory only and refreshed with the
- * stored refresh token, one refresh per connection at a time. A refresh the
- * provider refuses marks the connection for signing in again.
- */
 export interface ConnectionTokens {
-  /** @throws with what the person must do when the connection cannot be used. */
   accessToken(connectionId: string, options?: { readonly refresh?: boolean }): Promise<string>
-  /** Keep the access token a sign-in just got. */
   remember(connectionId: string, tokens: OAuthTokens): void
   forget(connectionId: string): void
 }
 
-/** Renew a token this long before it expires. */
 const MARGIN_MS = 60_000
 const REFRESH_TIMEOUT_MS = 30_000
 

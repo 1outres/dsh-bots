@@ -1,14 +1,10 @@
 export interface DeadlinesDeps {
-  /** Run `work` after `ms` (bounded by the timer's limit); returns the cancel. */
   later(ms: number, work: () => void): () => void
   now(): number
-  /** Longest single timer delay. */
   readonly maxDelayMs: number
 }
 
-/** One timer per key, due at an instant however far away (longer waits are chained). */
 export interface Deadlines {
-  /** Call `due` at `at` (at once when past); replaces the key's earlier one. */
   arm(key: string, at: number, due: () => void): void
   disarm(key: string): void
   dispose(): void

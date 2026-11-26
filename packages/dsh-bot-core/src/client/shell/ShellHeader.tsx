@@ -7,13 +7,10 @@ import type { ShellFace } from "./face"
 
 interface HeaderParts {
   readonly t: Translate
-  /** The session's name after the bot's, when it has one. */
   readonly sessionTitle: string | undefined
-  /** The folded menu bar on a compact window. */
   readonly menuButton: ReactNode
 }
 
-/** The header's name, the target focus returns to from a dismissed banner. */
 export const SHELL_NAME_SELECTOR = "[data-dshb-shell-name]"
 
 function HeaderFrame(
@@ -44,7 +41,6 @@ function HeaderFrame(
   )
 }
 
-/** The header of a session whose bot is known: its face, its name, the session's and its settings button. */
 export function BotHeader(
   props: Pick<ShellFace, "openSettings"> & HeaderParts & { readonly bot: BotView },
 ) {
@@ -77,7 +73,6 @@ export function BotHeader(
   )
 }
 
-/** The header of a bot session whose bot is not known yet: placeholders and a disabled settings button. */
 export function PendingHeader(props: HeaderParts) {
   const { t } = props
   const label = t("shell.settings.pending")

@@ -1,10 +1,7 @@
 import type { MainPreparation } from "../../mains-contract"
 
-/** The registered participants of the preparation stage. */
 export interface MainPreparations {
-  /** @throws when the id is empty or taken, or the order is not a finite number. */
   register(preparation: MainPreparation): () => void
-  /** Lowest order first; equal orders in registration order. */
   list(): readonly MainPreparation[]
 }
 

@@ -1,7 +1,6 @@
 import type { WebFetchRequest, WebSearchRequest } from "@deepseek-ai/dsh-web"
 import type { ExaOptions } from "./options"
 
-/** One request to the Exa API: the path under the base URL and the JSON body. */
 export interface ExaRequest {
   readonly path: "/search" | "/contents"
   readonly body: Readonly<Record<string, unknown>>
@@ -29,7 +28,6 @@ export function searchRequest(request: WebSearchRequest, options: ExaOptions): E
   }
 }
 
-/** One character more than kept, so a longer page is known to be cut. */
 export function fetchRequest(request: WebFetchRequest, options: ExaOptions): ExaRequest {
   return {
     path: "/contents",
@@ -37,7 +35,6 @@ export function fetchRequest(request: WebFetchRequest, options: ExaOptions): Exa
   }
 }
 
-/** The connection test: the cheapest search, billed as one. */
 export function testRequest(): ExaRequest {
   return {
     path: "/search",

@@ -8,10 +8,6 @@ interface BoundaryProps {
 
 const COMPOSITION_ERRORS = new Set(["SlotAssemblyError", "HocContentError"])
 
-/**
- * Blanks the session with a notice once its subtree throws, so a failure never
- * reaches the Slot renderer, whose fallback is DSH's stock shell.
- */
 export class ShellBoundary extends Component<BoundaryProps, { failed: boolean }> {
   override state = { failed: false }
   static getDerivedStateFromError(): { failed: boolean } {
@@ -20,7 +16,6 @@ export class ShellBoundary extends Component<BoundaryProps, { failed: boolean }>
   override componentDidCatch(error: unknown): void {
     const name = error instanceof Error ? error.name : undefined
     if (name !== undefined && COMPOSITION_ERRORS.has(name)) {
-      // DSH's own boundaries rethrow these; this one swallows them, so it names them.
       console.error(
         `bot-core: ${name} inside the bot session shell — a DSH Slot composition error, not a bot-core bug; the session is left blank`,
         error,

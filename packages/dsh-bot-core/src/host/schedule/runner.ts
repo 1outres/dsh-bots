@@ -1,20 +1,3 @@
-/**
- * One run of a job, from its check to what reaches the Main session:
- *
- * - the previous run of the job still running: `skipped`;
- * - a check: exit 0 goes on with its output, exit 1 ends `quiet`, anything
- *   else (or the time limit) fails the run;
- * - `main`: a notice with the instruction to the Main session (`ran`);
- * - `separate`: a new session of the bot (Bot.createSession) runs the
- *   instruction as one turn and answers with `schedule_result`: a report
- *   goes to the Main session (`reported`), nothing is only recorded
- *   (`nothing`); a turn that ends without it, or any error, fails the run.
- *   The session is archived afterwards.
- *
- * Which notice the Main session gets is {@link chooseNotice}'s: a timed run
- * tells a failure only when it starts a streak, a manual run always tells its
- * outcome, and the run that ends a streak says so.
- */
 import { endedTurnOf, type TurnEndReason } from "../channels/feed"
 import { type CheckRunner, checkVerdict } from "./check"
 import { chooseNotice, type NoticeChoice } from "./choice"
@@ -34,7 +17,6 @@ import {
 import { endedRun, type RunOutcome, skippedRun, startedRun, streakAfter, withSession } from "./runs"
 import type { ScheduleStore } from "./store"
 
-/** What a separate run's session answers with `schedule_result`. */
 export type ScheduleResult =
   | { readonly outcome: "report"; readonly report: string }
   | { readonly outcome: "nothing" }
@@ -42,16 +24,11 @@ export type ScheduleResult =
 export interface ScheduleRunnerDeps {
   store: ScheduleStore
   check: CheckRunner
-  /** Store a notice for the bot's Main session (the notice outbox). */
   notify(botId: string, notice: ScheduleNotice): Promise<void>
-  /** Bot.createSession: a new session of the bot under its preset. */
   openSession(botId: string, title: string): Promise<string>
-  /** Hand a session its prompt, which opens its turn. */
   prompt(sessionId: string, prompt: ScheduleNotice): Promise<void>
-  /** Archive a session, stopping what it still runs. */
   archive(sessionId: string): Promise<void>
   later(ms: number, work: () => void): () => void
-  /** Longest a separate run's session may take before the run fails. */
   readonly separateLimitMs: number
   now(): number
   newId(): string
@@ -59,20 +36,11 @@ export interface ScheduleRunnerDeps {
 }
 
 export interface ScheduleRunner {
-  /** Whether a run of the job is running. */
   isRunning(jobId: string): boolean
-  /**
-   * Run the job for its occurrence `scheduledAt` (or a manual run), or record
-   * it `skipped` while its previous run runs. Resolves once the run ended.
-   */
   start(job: ScheduleJob, trigger: RunTrigger, scheduledAt: number): Promise<ScheduleRun>
-  /** A session's log event (`session/event`): a separate run ends with its session's turn. */
   sessionEvent(sessionId: string, event: { readonly type: string; readonly data: unknown }): void
-  /** The run whose own session this is, while it runs. */
   runOfSession(sessionId: string): ScheduleRun | undefined
-  /** `schedule_result` of a separate run's session. @throws when none waits for it. */
   result(sessionId: string, result: ScheduleResult): void
-  /** Runs stored as running are from before a restart: they failed. */
   recover(): Promise<void>
 }
 
@@ -86,7 +54,6 @@ const messageOf = (error: unknown) => (error instanceof Error ? error.message : 
 
 type ToldOutcome = Extract<RunOutcome, { readonly kind: "ran" | "reported" }>
 
-/** How a run ended, with the notice of an outcome that carries its own. */
 type Ending =
   | { readonly outcome: ToldOutcome; readonly notice: (recoveredFrom: number) => ScheduleNotice }
   | { readonly outcome: Exclude<RunOutcome, ToldOutcome> }
@@ -146,7 +113,6 @@ export function createScheduleRunner(deps: ScheduleRunnerDeps): ScheduleRunner {
     }
   }
 
-  /** End the run: tell the Main session what it should hear, record the run and the job's streak. */
   const conclude = async (
     job: ScheduleJob,
     run: ScheduleRun,

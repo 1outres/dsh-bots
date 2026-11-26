@@ -2,12 +2,9 @@ import { EventEmitter } from "node:events"
 import { Context } from "@deepseek-ai/cordis"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-/** Fake dsh-ssh connections, in creation order. */
 const connections: FakeConnection[] = []
-/** Whether the next connection's helper answers. */
 const reachable: boolean[] = []
 
-/** Streams handed out, to close them in tests. */
 const streams: (EventEmitter & { label: string })[] = []
 
 class FakeConnection {
@@ -138,7 +135,6 @@ describe("@1outres/dsh-bot-vm/ssh", () => {
     await expect(ssh.request("break", {}, schema)).rejects.toThrow("SSH helper disconnected")
     expect(await ssh.request("fs.stat", {}, schema)).toBe("fs.stat@1")
 
-    // The old process is gone with its helper: a release resolves, anything else fails.
     expect(await ssh.request("process.terminate", { id: "p0" }, schema)).toBeNull()
     await expect(
       ssh.request("process.wait", { id: "p0" }, schema, undefined, true),
@@ -148,7 +144,6 @@ describe("@1outres/dsh-bot-vm/ssh", () => {
     ).rejects.toThrow("was lost")
     expect(connections[1]?.requests).toEqual(["fs.stat"])
 
-    // And the providers' dispose() after such a failure leaves the healthy successor alone.
     await ssh.dispose()
     expect(connections[1]?.disposed).toBe(0)
     expect(await ssh.request("fs.list", {}, schema)).toBe("fs.list@1")
@@ -186,9 +181,7 @@ describe("@1outres/dsh-bot-vm/ssh", () => {
       expect((failure as Error).message).toBe(
         "cannot reach the bot VM over SSH (dsh-bot-x): ssh: connect to host dsh-bot-x port 22: Connection refused",
       )
-      // No cause chain: DSH renders message and causes, which repeated the text (E2E).
       expect((failure as Error).cause).toBeUndefined()
-      // Both connect attempts of the call were used.
       expect(connections).toHaveLength(2)
       await expect(ssh.request("a", {}, schema)).rejects.toThrow("cannot reach the bot VM")
       expect(connections).toHaveLength(2)
@@ -200,7 +193,6 @@ describe("@1outres/dsh-bot-vm/ssh", () => {
   })
 
   it("tries connecting again within the same call when the first handshake fails", async () => {
-    // A VM that just booted: the first helper start misses the handshake deadline.
     reachable.push(false)
     const { ssh } = await mount()
     expect(await ssh.request("a", {}, schema)).toBe("a@1")

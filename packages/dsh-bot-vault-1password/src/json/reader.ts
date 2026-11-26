@@ -1,11 +1,3 @@
-/**
- * A JSON reader over bytes that never turns a value into a JS string unless
- * asked to (design rule 70). Parsing yields a tree of byte spans; only
- * {@link JsonDocument.text} decodes, one string node at a time, so a caller
- * reads the fields it trusts and every other value (a password, a one-time
- * code's seed) stays bytes until {@link JsonDocument.wipe} fills them with zeros.
- */
-
 export interface JsonSpan {
   readonly start: number
   readonly end: number
@@ -13,7 +5,6 @@ export interface JsonSpan {
 
 export interface JsonStringNode {
   readonly type: "string"
-  /** The bytes between the quotes, escapes not resolved. */
   readonly span: JsonSpan
   readonly escaped: boolean
 }
@@ -29,7 +20,6 @@ export type JsonNode =
   | JsonStringNode
   | { readonly type: "number" | "boolean" | "null"; readonly span: JsonSpan }
 
-/** Malformed JSON; the message names a byte offset, never the content. */
 export class JsonSyntaxError extends Error {
   override readonly name = "JsonSyntaxError"
   readonly offset: number
@@ -41,15 +31,10 @@ export class JsonSyntaxError extends Error {
 
 export interface JsonDocument {
   readonly root: JsonNode
-  /** The value of an object's member, or undefined (not an object, no such key). */
   member(node: JsonNode | undefined, key: string): JsonNode | undefined
-  /** An array's items, or none. */
   items(node: JsonNode | undefined): readonly JsonNode[]
-  /** A string node decoded, or undefined for any other node. */
   text(node: JsonNode | undefined): string | undefined
-  /** Whether a string node holds exactly `expected`, compared as bytes. */
   isText(node: JsonNode | undefined, expected: string): boolean
-  /** Fill the bytes with zeros; the document cannot be read afterwards. */
   wipe(): void
 }
 
@@ -216,7 +201,6 @@ function parse(bytes: Uint8Array): JsonNode {
   return root
 }
 
-/** A string node's bytes with escapes resolved, in a new array the caller wipes. */
 function unescaped(bytes: Uint8Array, node: JsonStringNode): Uint8Array {
   const { start, end } = node.span
   if (!node.escaped) return Uint8Array.prototype.slice.call(bytes, start, end)
@@ -275,11 +259,6 @@ function unescaped(bytes: Uint8Array, node: JsonStringNode): Uint8Array {
   return result
 }
 
-/**
- * Read `bytes` as JSON. The document holds the array itself (not a copy):
- * the caller wipes it with {@link JsonDocument.wipe} when done.
- * @throws JsonSyntaxError when the bytes are not one JSON value.
- */
 export function readJson(bytes: Uint8Array): JsonDocument {
   const root = parse(bytes)
   const decoder = new TextDecoder("utf-8", { fatal: true })

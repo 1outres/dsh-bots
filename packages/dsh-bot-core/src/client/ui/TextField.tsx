@@ -7,19 +7,16 @@ import { type TextDraft, type TextDraftOptions, useTextDraft } from "./text-draf
 
 export interface TextFieldProps {
   readonly draft: TextDraft
-  /** The field's accessible name (the row's label). */
   readonly label: string
   readonly placeholder?: string
   readonly maxLength?: number
   readonly type?: "text" | "url" | "email"
-  /** `fill` takes the row's whole width (a block row, a dialog). */
   readonly width?: "regular" | "fill"
   readonly disabled?: boolean
   readonly autoFocus?: boolean
   readonly marks?: DataMarks
 }
 
-/** A single-line field over a `TextDraft`: Enter or leaving it saves, Escape drops the typed text. */
 export function TextField(props: TextFieldProps) {
   const { draft, label, maxLength, disabled, marks } = props
   const [focused, setFocused] = useState(false)
@@ -72,7 +69,6 @@ export function TextField(props: TextFieldProps) {
 
 export interface TextFieldRowProps extends TextDraftOptions {
   readonly label: string
-  /** Shown under the label while there is no error. */
   readonly meta?: ReactNode
   readonly placeholder?: string
   readonly maxLength?: number
@@ -81,7 +77,6 @@ export interface TextFieldRowProps extends TextDraftOptions {
   readonly marks?: DataMarks
 }
 
-/** A row with a text setting: the field at the right, its error as the row's meta. */
 export function TextFieldRow(props: TextFieldRowProps) {
   const draft = useTextDraft(props)
   return (

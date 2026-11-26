@@ -5,7 +5,6 @@ import { watchBots } from "../src/client/store"
 import type { BotsSnapshot } from "../src/shared/bots"
 import { bot, creating, value } from "./support/client"
 
-/** One `watch` stream per call, fed and ended by the test. */
 function remote() {
   const streams: {
     push(snapshot: BotsSnapshot): void

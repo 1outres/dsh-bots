@@ -1,10 +1,3 @@
-/**
- * The `schedule` and `schedule_result` tools' work. Who calls decides what
- * they may do: the bot's Main session manages every job of the bot; a
- * `separate` run's own session may only update or delete its job and answer
- * with `schedule_result`; any other session is refused (and is not shown the
- * tools, see {@link ScheduleTools.available}).
- */
 import { z } from "zod"
 import type { ScheduleToolName, ScheduleToolRequest, ScheduleToolResponse } from "../../internal"
 import type { ScheduleJob } from "./domain"
@@ -25,21 +18,16 @@ import { InvalidScheduleError } from "./timing"
 
 export const SCHEDULE_ACTIONS = ["create", "list", "update", "delete", "run"] as const
 
-/** Who calls a schedule tool. */
 export type ScheduleCaller =
   | { readonly kind: "main"; readonly sessionId: string }
-  /** The own session of a running `separate` run of `jobId`. */
   | { readonly kind: "run"; readonly sessionId: string; readonly jobId: string }
   | { readonly kind: "refused"; readonly reason: string }
 
 export interface ScheduleToolsDeps {
-  /** Who `agentId` is for bot `botId`, its row's `token` checked against the registered revision. */
   caller(botId: string, token: string, agentId: string): ScheduleCaller
   store: ScheduleStore
   runner: Pick<ScheduleRunner, "isRunning" | "start" | "result">
-  /** Re-arm the timer after a change. */
   changed(): void
-  /** The bot's time zone setting. */
   botTimezone(botId: string): string
   now(): number
   newId(): string
@@ -47,9 +35,7 @@ export interface ScheduleToolsDeps {
 }
 
 export interface ScheduleTools {
-  /** Whether the Agent may use the tool now (its step's tool list). */
   available(botId: string, token: string, agentId: string, tool: ScheduleToolName): boolean
-  /** @throws with the reason the call was refused or failed. */
   call(botId: string, token: string, request: ScheduleToolRequest): Promise<ScheduleToolResponse>
 }
 

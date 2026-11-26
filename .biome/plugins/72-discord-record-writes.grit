@@ -1,8 +1,3 @@
-// Design rule 72: the Discord channel's records are written in one place each.
-// `cards` / `digests` / `incidents` `.put(...)` / `.delete(...)` (a receiver of
-// that name or ending in it) may appear only in host/actions/records.ts and
-// host/incidents/records.ts: a card or list is found again by its record, and
-// a credential incident is shown to an owner once because of its record.
 JsCallExpression(callee = $callee) as $call where {
   $callee <: or { `$receiver.put`, `$receiver.delete`, `$receiver?.put`, `$receiver?.delete` },
   $receiver <: or {

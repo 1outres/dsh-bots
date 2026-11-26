@@ -14,7 +14,6 @@ import type {
   WebComposition,
 } from "./types"
 
-// The Agent preset registry lists presets by ascending order (the shipped ones use 1–4).
 export const BOT_PRESET_ORDER = 1000
 
 const TEMPLATE_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
@@ -29,14 +28,12 @@ function quote(value: unknown): string {
 
 export const GROUP_PLUGIN = "cordis:group"
 
-// The Loader mounts the children of a cordis:group row whatever its group flag says.
 export function nestedRowsOf(row: unknown): readonly unknown[] | undefined {
   if (!isRecord(row)) return undefined
   if (row.group !== true && row.name !== GROUP_PLUGIN) return undefined
   return Array.isArray(row.config) ? row.config : []
 }
 
-// Mirrors entryListProblem of @deepseek-ai/dsh-agent-preset-registry; the Loader keeps one entry per id across the tree.
 export function rowListProblem(
   rows: unknown,
   at = "",
@@ -118,7 +115,6 @@ const LOADING_PLUGINS = [
   "@deepseek-ai/cordis-plugin-loader",
 ]
 
-// The Loader imports a row's name as a Host module, so outside overlays may only name allowed packages.
 export function pluginNameProblem(name: string, allowed: ReadonlySet<string>): string | undefined {
   if (name === GROUP_PLUGIN) return undefined
   const lower = name.toLowerCase()
@@ -140,7 +136,6 @@ export function pluginNameProblem(name: string, allowed: ReadonlySet<string>): s
   return undefined
 }
 
-// Config keys that point an allowed plugin at Host paths it reads as trusted content.
 const HOST_PATH_CONFIG: Readonly<Record<string, readonly string[]>> = {
   "@deepseek-ai/dsh-agent-instructions": ["dshHome", "agentsHome"],
 }
@@ -186,7 +181,6 @@ export const ENVIRONMENT_GROUP_ID = "bot-environment"
 
 export const ENVIRONMENT_ROW_PREFIX = "env-"
 
-// Always isolated in a bot's group, so a row needing one the environment lacks stays pending (fail closed).
 export const ENVIRONMENT_SERVICES: readonly string[] = [
   "ssh",
   "fs",
@@ -228,17 +222,12 @@ const HOST_EXECUTION_PACKAGES = new Set([
   "@deepseek-ai/dsh-working-directory",
   "@deepseek-ai/dsh-tool-terminal",
   "@deepseek-ai/dsh-tool-bash-persistent",
-  // MCP stdio servers are spawned on the Host.
   "@deepseek-ai/dsh-mcp-client",
   "@deepseek-ai/dsh-mcp-manager",
   "@deepseek-ai/dsh-tool-cordis",
-  // Authorizes by equal working directories, and every bot shares one path.
   "@deepseek-ai/dsh-tool-session-query",
-  // Schedules sessions through sessionController.create, which makes the
-  // directory on the Host (and starts them outside Bot.createSession).
   "@deepseek-ai/dsh-tool-schedule",
   "@deepseek-ai/dsh-schedule",
-  // Read, write or open Host paths with the Host's own file system.
   "@deepseek-ai/dsh-tool-workspace-dependencies",
   "@deepseek-ai/dsh-host-open-in-app",
   "@deepseek-ai/dsh-creation-recommendations",
@@ -256,7 +245,6 @@ const HOST_EXECUTION_PREFIXES = [
   "@deepseek-ai/dsh-computer-use",
 ]
 
-// Packages that register web providers: a bot's web seam is bot-core's alone (env-bot-core-web).
 const WEB_SEAM_PACKAGES = new Set([
   "@deepseek-ai/dsh-web",
   "@deepseek-ai/dsh-web-fetch-http",
@@ -266,14 +254,12 @@ const WEB_SEAM_PACKAGES = new Set([
   "@1outres/dsh-bot-web",
 ])
 
-// Packages that provide skills: a bot's skill registry is bot-core's alone (env-bot-core-skill), and its skills are skills/ of the workspace.
 const SKILL_SEAM_PACKAGES = new Set([
   "@deepseek-ai/dsh-skill",
   "@deepseek-ai/dsh-skill-filesystem",
   "@deepseek-ai/dsh-skill-office",
 ])
 
-// Packages whose rows carry further rows or presets that bot-core would not check.
 const ROW_CARRIER_PACKAGES = new Set([
   "@deepseek-ai/cordis-plugin-group",
   "@deepseek-ai/cordis-plugin-include",
@@ -325,7 +311,6 @@ function compositionPluginProblem(name: string): string | undefined {
   return undefined
 }
 
-// isolate values other than true would un-isolate (false) or join a realm shared across the Host (a label).
 export function environmentEscapeProblem(
   rows: readonly unknown[],
   isolated: ReadonlySet<string>,
@@ -419,89 +404,72 @@ function environmentLayerProblem(layer: EnvironmentLayer): string | undefined {
 
 export const FILES_ROW_ID = "env-bot-core-files"
 
-// Hands the group's fs / subprocess to the botFiles Remote (src/plugins/files.ts).
 export const FILES_ROW_PLUGIN = "@1outres/dsh-bot-core/files"
 
 export const CHANNEL_ROW_ID = "env-bot-core-channel"
 
-// Registers the stay_silent tool for the bot's Agents (src/plugins/channel.ts).
 export const CHANNEL_ROW_PLUGIN = "@1outres/dsh-bot-core/channel"
 
 export const CONNECTORS_ROW_ID = "env-bot-core-connectors"
 
-// Registers the bot's connector tools, which run on the Host (src/plugins/connectors.ts).
 export const CONNECTORS_ROW_PLUGIN = "@1outres/dsh-bot-core/connectors"
 
 export const VAULTS_ROW_ID = "env-bot-core-vaults"
 
-// credentials_list (docs/specs/bot-vaults.md §4).
 export const VAULTS_ROW_PLUGIN = "@1outres/dsh-bot-core/vaults"
 
 export const VAULT_GUARD_ROW_ID = "env-bot-core-vault-guard"
 
-// The leak guard on every tool call of the bot's Agents (docs/specs/bot-vaults.md §7).
 export const VAULT_GUARD_ROW_PLUGIN = "@1outres/dsh-bot-core/vault-guard"
 
 export const SCHEDULE_ROW_ID = "env-bot-core-schedule"
 
-// Registers the schedule and schedule_result tools for the bot's Agents (src/plugins/schedule.ts).
 export const SCHEDULE_ROW_PLUGIN = "@1outres/dsh-bot-core/schedule"
 
 export const SESSIONS_ROW_ID = "env-bot-core-sessions"
 
-// Registers the session tools of the bot's Main session (src/plugins/sessions.ts).
 export const SESSIONS_ROW_PLUGIN = "@1outres/dsh-bot-core/sessions"
 
 export const PROMPT_ROW_ID = "env-bot-core-prompt"
 
-// bot-core's prompt of the bot's Agents, and its exclusions (src/plugins/prompt.ts).
 export const PROMPT_ROW_PLUGIN = "@1outres/dsh-bot-core/prompt"
 
 export const NOTES_ROW_ID = "env-bot-core-notes"
 
-// Registers the note tools, the pinned notes context and the notes' step listener (src/plugins/notes.ts).
 export const NOTES_ROW_PLUGIN = "@1outres/dsh-bot-core/notes"
 
 export const SKILLS_ROW_ID = "env-bot-core-skills"
 
-// Registers the bot's skills/ as the group's only skill provider, skill_manage and the skills' step listener (src/plugins/skills.ts).
 export const SKILLS_ROW_PLUGIN = "@1outres/dsh-bot-core/skills"
 
 export const CONVERSATIONS_ROW_ID = "env-bot-core-conversations"
 
-// Registers conversation_search and conversation_read of the bot's conversations with its owner (src/plugins/conversations.ts).
 export const CONVERSATIONS_ROW_PLUGIN = "@1outres/dsh-bot-core/conversations"
 
 export const SKILL_ROW_ID = "env-bot-core-skill"
 
-// The group's own skill registry: only bot-core's skills row provides it.
 export const SKILL_ROW_PLUGIN = "@deepseek-ai/dsh-skill"
 
 const SKILL_ROW = { id: SKILL_ROW_ID, plugin: SKILL_ROW_PLUGIN } as const
 
 export const WEB_ROW_ID = "env-bot-core-web"
 
-// The group's own web seam: only bot-core's bridge provides it (always the provider id "bot-core").
 export const WEB_ROW_PLUGIN = "@deepseek-ai/dsh-web"
 
 export const WEB_BRIDGE_ROW_ID = "env-bot-core-web-bridge"
 
-// Registers the provider that hands the group's web seam to the registered web backend (src/plugins/web.ts).
 export const WEB_BRIDGE_ROW_PLUGIN = "@1outres/dsh-bot-core/web"
 
 const WEB_ROW = { id: WEB_ROW_ID, plugin: WEB_ROW_PLUGIN } as const
 
 export const COMPACTION_ROW_ID = "env-bot-core-compaction"
 
-// Hands the realm's compaction to the bot service, for idle compaction of the Main (src/plugins/compaction.ts).
 export const COMPACTION_ROW_PLUGIN = "@1outres/dsh-bot-core/compaction"
 
 const COMPACTION_ROW = { id: COMPACTION_ROW_ID, plugin: COMPACTION_ROW_PLUGIN } as const
 
-/** The service a group isolates to hold the bot's own compaction backend. */
 export const COMPACTION_SERVICE = "compaction"
 
-/** Index paths of the groups that isolate `compaction`, outermost first. */
 export function compactionGroupsOf(
   rows: readonly unknown[],
   at: readonly number[] = [],
@@ -517,7 +485,6 @@ export function compactionGroupsOf(
   return found
 }
 
-/** `rows` with `row` appended to the group at `path` (the top level when empty). */
 function withRowAt(
   rows: readonly PluginRow[],
   path: readonly number[],
@@ -533,15 +500,12 @@ function withRowAt(
 }
 export const PRESENT_ROW_ID = "env-bot-core-present"
 
-// DSH's present, on the group's fs: what the Main session presents goes to the bot's channels (host/channels/presented.ts).
 export const PRESENT_ROW_PLUGIN = "@deepseek-ai/dsh-tool-present"
 
-/** The Host tool `present` reads Host paths; a bot has its own (PRESENT_ROW_ID). */
 export const PRESENT_TOOL = "present"
 
 const PRESENT_ROW = { id: PRESENT_ROW_ID, plugin: PRESENT_ROW_PLUGIN } as const
 
-/** bot-core's own rows of every bot's group, each carrying the revision's token. */
 const BOT_CORE_ROWS = [
   { id: FILES_ROW_ID, plugin: FILES_ROW_PLUGIN },
   { id: CHANNEL_ROW_ID, plugin: CHANNEL_ROW_PLUGIN },
@@ -567,11 +531,6 @@ export const BOT_CORE_ROW_IDS: readonly string[] = [
 
 export const TOOL_WEB_PLUGIN = "@deepseek-ai/dsh-tool-web"
 
-/**
- * Every tool-web row (nested ones too) offers a capability only when the
- * template or overlay wants it (`search` / `fetch`, true when absent) and
- * the bot's web composition can serve it.
- */
 export function withWebCapabilities(rows: readonly PluginRow[], web: WebComposition): PluginRow[] {
   return rows.map((row) => {
     if (row.name === TOOL_WEB_PLUGIN) {
@@ -594,7 +553,6 @@ export function withWebCapabilities(rows: readonly PluginRow[], web: WebComposit
   })
 }
 
-// The environment's rows go first, so every composed row sees the environment's services.
 function environmentGroup(layer: EnvironmentLayer, members: readonly PluginRow[]): PluginRow {
   const isolate = new Set([...ENVIRONMENT_SERVICES, ...layer.isolate])
   return {
@@ -606,10 +564,8 @@ function environmentGroup(layer: EnvironmentLayer, members: readonly PluginRow[]
   }
 }
 
-// @deepseek-ai/dsh-tool-subagent's fields that pick a subagent's Agent preset.
 const PRESET_SELECTORS = ["agentPreset", "allowedAgentPresets"] as const
 
-// A subagent under another preset would run in the bot's directory, which isolation locks down.
 export function foreignPresetProblem(
   rows: readonly unknown[],
   presetId: string,
@@ -658,7 +614,6 @@ function locate(
   const index = rows.findIndex((row) => row.id === id)
   if (index >= 0) return { index }
   const nested = new Map<string, string>()
-  // The list was valid before this op, so this only collects ids.
   rowListProblem(rows, "", nested)
   return nested.has(id)
     ? { problem: `${role} "${id}" is nested in a group; overlays address top-level rows only` }
@@ -721,7 +676,6 @@ export function applyOverlay(
   return { ok: true, rows: current }
 }
 
-// Identity tokens for values the digest cannot spell out; weakly held so composing never pins user values.
 const identities = new WeakMap<object, number>()
 const symbols = new Map<symbol, number>()
 let nextIdentity = 0
@@ -740,7 +694,6 @@ function isPlain(value: object): boolean {
   return proto === Object.prototype || proto === null
 }
 
-// Keys sorted; values JSON cannot carry are tagged by value or by identity (a fresh object changes the digest, so a change is never missed).
 function canonical(value: unknown, ancestors: Set<object>): unknown {
   switch (typeof value) {
     case "string":
@@ -770,9 +723,7 @@ function canonical(value: unknown, ancestors: Set<object>): unknown {
     const out: Record<string, unknown> = {}
     for (const key of Object.keys(object).sort()) {
       const field = (object as Record<string, unknown>)[key]
-      // Absent and undefined fields mean the same to the Loader.
       if (field === undefined) continue
-      // Prefix keys so data keys never collide with the tags above.
       out[`.${key}`] = canonical(field, ancestors)
     }
     return out
@@ -781,7 +732,6 @@ function canonical(value: unknown, ancestors: Set<object>): unknown {
   }
 }
 
-// Display fields are left out, so renaming a bot never re-mounts its preset.
 export function presetDigest(preset: ComposedPreset, hostTools: readonly string[]): string {
   const mounted = { id: preset.id, plugins: preset.plugins }
   const text = JSON.stringify(canonical({ preset: mounted, hostTools }, new Set()))
@@ -824,7 +774,6 @@ function withBotCoreRows(
   }
   const registry: PluginRow = { id: SKILL_ROW_ID, name: SKILL_ROW_PLUGIN }
   const present: PluginRow = { id: PRESENT_ROW_ID, name: PRESENT_ROW_PLUGIN }
-  // Each seam goes right before the bot-core row that serves it.
   const seams: Readonly<Record<string, PluginRow>> = {
     [SKILLS_ROW_ID]: registry,
     [WEB_BRIDGE_ROW_ID]: seam,
@@ -835,7 +784,6 @@ function withBotCoreRows(
     ),
     present,
   ]
-  // In the realm of the bot's compaction: the group isolating it, else the environment's own.
   const compactor: PluginRow = {
     id: COMPACTION_ROW_ID,
     name: COMPACTION_ROW_PLUGIN,

@@ -5,21 +5,15 @@ import type { DataMarks } from "./marks"
 export interface TextInputProps {
   readonly value: string
   onChange(value: string): void
-  /** The field's accessible name. */
   readonly label: string
   readonly placeholder?: string
   readonly maxLength?: number
   readonly disabled?: boolean
   readonly autoFocus?: boolean
-  /** `fill` (default) spans the row; `compact` fits a short number. */
   readonly width?: "fill" | "compact"
   readonly marks?: DataMarks
 }
 
-/**
- * A single-line field in the `TextField` look whose value its form owns (a
- * dialog's field, sent with the dialog's button); Enter submits the form.
- */
 export function TextInput(props: TextInputProps) {
   const { value, maxLength, disabled } = props
   const [focused, setFocused] = useState(false)

@@ -13,18 +13,10 @@ const SEAT_SLOTS: { readonly [Seat in ComposerSeat]: SlotName } = {
   permissionSeat: SLOT.inputPermission,
 }
 
-/** What a bot session's composer shows in a seat bot-core empties: nothing. */
 function EmptySeat() {
   return null
 }
 
-/**
- * Empties the composer seats whose controls are a bot's own settings (its
- * models, its permission) while the main view shows a bot session: single
- * Slots, each held at the bot session priority (`slot-priority.ts`) only
- * then, below DSH's control and any plugin's replacement of it, which every
- * other session keeps.
- */
 export function wireComposerSeats(
   ctx: ClientContext,
   occupies: Observable<boolean>,

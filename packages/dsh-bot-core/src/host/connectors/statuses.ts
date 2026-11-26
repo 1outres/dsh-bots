@@ -1,8 +1,3 @@
-/**
- * Connectors' statuses per bot (`BotConnector.status`): read from the
- * connector while it is enabled for the bot, followed through every
- * registered connector's source.
- */
 import type { ConnectorStatus } from "../../shared/connectors"
 import type { CatalogConnector, ConnectorCatalog } from "./catalog"
 import type { ConnectorSettings } from "./settings"
@@ -15,7 +10,6 @@ export interface ConnectorStatusesDeps {
 
 export interface ConnectorStatuses {
   read(botId: string, connector: CatalogConnector): ConnectorStatus
-  /** Called with the bot after a connector's status of it changed. */
   subscribe(listener: (botId: string) => void): () => void
   dispose(): void
 }

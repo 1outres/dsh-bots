@@ -1,120 +1,51 @@
-/**
- * The bots' execution environment: which one is registered, and whether it is
- * ready for each bot. Bot presets are composed from its rows and registered
- * only while it is ready for that bot (fail closed).
- *
- * Rules:
- * - At most one environment is registered. Registering it `ensure`s every
- *   stored bot; a bot stored later is ensured on the next {@link sync}.
- * - Only the environment id the config names is accepted, and only with an
- *   absolute, normalized `workspace` (the cwd of every bot session).
- * - A bot is ready once its latest `ensure` resolved. A rejected `ensure` is
- *   retried with a doubling backoff; the bot keeps its failure (not ready, not
- *   pending) until an `ensure` resolves, and the failure is warned about once
- *   per distinct reason.
- * - `onChange(botId)` re-runs `ensure`. A bot that was ready stays ready
- *   meanwhile (the provider's rows reconnect on their own); a rejection marks
- *   it not ready.
- * - Unregistering aborts every `ensure` and makes every bot not ready.
- * - A bot no longer stored is aborted, then, once its preset is released
- *   ({@link EnvironmentKeeperDeps.release}), its environment is removed; a
- *   failed removal is retried with the same backoff. With no environment
- *   registered, removal waits for the next one (in memory only: the provider
- *   reconciles environments of unknown bots itself).
- * - A held bot (its creation failed) is not ensured, not even by a retry
- *   scheduled before it was held, until {@link EnvironmentKeeper.retry}.
- * - What an `ensure` reports it is doing, and how each removal stands, is
- *   kept for the bot and announced through {@link EnvironmentKeeper.onActivity}.
- * - No environment registered a while after start (bots stored): warned once.
- * - Disposing aborts every `ensure` and removes nothing.
- * - A bot's target carries its stored spec ({@link EnvironmentKeeperDeps.spec}).
- *   A bot stored before specs has none: before its first `ensure`, the
- *   environment's `inspect` is stored as its spec ({@link EnvironmentKeeperDeps.adopt}),
- *   so it keeps the machine it has; a failure is retried like a rejected `ensure`.
- * - {@link EnvironmentKeeper.reconcile} ensures a bot again after its spec
- *   changed, and the target of its latest resolved `ensure` is kept
- *   ({@link EnvironmentKeeper.ensured}).
- *
- * Timers come from the caller ({@link EnvironmentKeeperDeps.later}).
- */
 import type { BotEnvironment, BotEnvironmentBot, BotEnvironmentTarget } from "../contract"
 import type { EnvironmentPhase } from "../shared/bots"
 import type { BotEnvironmentSpec } from "../shared/environment"
 import type { EnvironmentLayer } from "./preset/types"
 
-/** Whether the environment is ready for a bot. */
 export type EnvironmentStatus =
   | { readonly ready: true }
   | {
       readonly ready: false
       readonly problem: string
-      /** Expected to clear by itself: no environment yet, or `ensure` still running. */
       readonly pending?: true
     }
 
-/** How the removal of a gone bot's environment stands; none once it is done. */
 export type RemovalStatus =
   | { readonly state: "running" }
   | { readonly state: "failed"; readonly problem: string; readonly at: number }
 
 export interface EnvironmentKeeperDeps {
-  /** Who a stored bot is, or undefined once it is gone. */
   target(botId: string): BotEnvironmentBot | undefined
-  /** The bot's stored spec; undefined for a bot stored before specs until it is adopted. */
   spec(botId: string): BotEnvironmentSpec | undefined
-  /** Store what the bot's environment runs with (`inspect`) as its spec. */
   adopt(botId: string, inspected: BotEnvironmentSpec | undefined): Promise<void>
-  /** Every stored bot. */
   botIds(): Iterable<string>
-  /** Whether a stored bot is held: not ensured until it is retried. */
   held(botId: string): boolean
-  /** Resolves once the gone bot's preset is unregistered (before its environment is removed). */
   release(botId: string): Promise<unknown>
-  /** Run `work` after `ms`; returns a canceller. */
   later(work: () => void, ms: number): () => void
   now(): number
   warn(message: string): void
-  /** First retry delay after a rejected `ensure`; doubles up to {@link maxRetryMs}. Default 5 s. */
   retryMs?: number
-  /** Longest retry delay. Default 5 min. */
   maxRetryMs?: number
-  /** The only environment id accepted (bot-core's `environment` config); undefined accepts any. */
   acceptedId?: string | undefined
-  /** How long after creation a missing environment is warned about. Default 30 s. */
   graceMs?: number
 }
 
 export interface EnvironmentKeeper {
-  /** Register the environment; the returned function unregisters it. Throws when one is registered. */
   register(environment: BotEnvironment): () => void
   current(): BotEnvironment | undefined
-  /**
-   * The registered environment's layer for the bot, or undefined with none.
-   * @throws when its `rows` throws.
-   */
   layer(bot: BotEnvironmentBot): EnvironmentLayer | undefined
-  /** The target of the bot's latest resolved `ensure`, while it is ready. */
   ensured(botId: string): BotEnvironmentTarget | undefined
-  /** Ensure the bot again because its target changed; it stays ready meanwhile. */
   reconcile(botId: string): void
   status(botId: string): EnvironmentStatus
-  /** The step the bot's latest `ensure` reported, kept after it settled; none before it reports. */
   progress(botId: string): EnvironmentPhase | undefined
-  /** How the removal of a gone bot's environment stands; undefined when none is pending. */
   removal(botId: string): RemovalStatus | undefined
-  /** Ensure a stored bot now, as a first attempt: its failure and backoff are forgotten. */
   retry(botId: string): void
-  /** Run a failed removal now instead of at its next backoff. */
   retryRemoval(botId: string): void
-  /** Ensure bots stored since the last sync; abort and remove those no longer stored. */
   sync(): Promise<void>
-  /** Called with the bot id after its status changed, or after an `ensure` resolved. */
   subscribe(listener: (botId: string) => void): () => void
-  /** Called with the bot id after its {@link progress} or {@link removal} changed. */
   onActivity(listener: (botId: string) => void): () => void
-  /** Called after an environment was registered or unregistered. */
   onRegistration(listener: () => void): () => void
-  /** Abort every `ensure`; later calls do nothing. */
   dispose(): void
 }
 
@@ -123,10 +54,8 @@ interface Tracked {
   controller?: AbortController | undefined
   cancelRetry?: (() => void) | undefined
   failures: number
-  /** The failure last warned about, so a retry that fails alike stays quiet. */
   warned?: string | undefined
   progress?: EnvironmentPhase | undefined
-  /** The target the latest resolved ensure was given. */
   ensured?: BotEnvironmentTarget | undefined
 }
 
@@ -140,7 +69,6 @@ const NO_ENVIRONMENT: EnvironmentStatus = {
   pending: true,
 }
 
-/** Why `workspace` is not an absolute, normalized POSIX directory, or undefined. */
 export function workspaceProblem(workspace: unknown): string | undefined {
   if (typeof workspace !== "string" || !workspace.startsWith("/")) {
     return "its workspace must be an absolute path"
@@ -158,9 +86,7 @@ export function createEnvironmentKeeper(deps: EnvironmentKeeperDeps): Environmen
   const maxRetryMs = deps.maxRetryMs ?? 300_000
   const backoff = (failures: number) => Math.min(retryMs * 2 ** (failures - 1), maxRetryMs)
   const tracked = new Map<string, Tracked>()
-  /** Cancellers of scheduled removal retries. */
   const removals = new Map<string, () => void>()
-  /** Bots gone while no environment was registered: removed by the next one. */
   const orphans = new Set<string>()
   const listeners = new Set<(botId: string) => void>()
   const activityListeners = new Set<(botId: string) => void>()
@@ -207,7 +133,6 @@ export function createEnvironmentKeeper(deps: EnvironmentKeeperDeps): Environmen
     announce(botId)
   }
 
-  /** The bot's target, its spec read from the environment first when it has none. */
   const resolveTarget = async (
     env: BotEnvironment,
     bot: BotEnvironmentBot,
@@ -243,7 +168,6 @@ export function createEnvironmentKeeper(deps: EnvironmentKeeperDeps): Environmen
     pending: true,
   })
 
-  /** (Re-)run `ensure` for a tracked bot against the current environment. */
   const start = (botId: string) => {
     const entry = tracked.get(botId)
     const env = environment
@@ -257,7 +181,6 @@ export function createEnvironmentKeeper(deps: EnvironmentKeeperDeps): Environmen
       entry.progress = undefined
       announce(botId)
     }
-    // A failure stays until an ensure resolves: no flicker back to "preparing".
     if (!entry.status.ready && entry.status.pending === true) {
       setStatus(botId, entry, preparing(env))
     }
@@ -285,7 +208,6 @@ export function createEnvironmentKeeper(deps: EnvironmentKeeperDeps): Environmen
           entry.failures = 0
           entry.warned = undefined
           entry.ensured = target
-          // Notified even when it was ready: the rows may have changed.
           entry.status = { ready: true }
           notify(botId)
         },
@@ -312,7 +234,6 @@ export function createEnvironmentKeeper(deps: EnvironmentKeeperDeps): Environmen
       )
   }
 
-  /** Remove a deleted bot's environment, retrying a failure with backoff. */
   const orphan = (botId: string) => {
     orphans.add(botId)
     setRemoval(botId, {
@@ -323,10 +244,8 @@ export function createEnvironmentKeeper(deps: EnvironmentKeeperDeps): Environmen
     })
   }
 
-  /** Cancellers and attempt counts of failed removals, so a retry continues the backoff. */
   const removalFailures = new Map<string, number>()
 
-  /** A scheduled retry keeps the failure shown until it succeeds; any other attempt shows it running. */
   const remove = (botId: string, failures = 0, scheduled = false): Promise<void> => {
     removals.get(botId)?.()
     removals.delete(botId)
@@ -445,7 +364,6 @@ export function createEnvironmentKeeper(deps: EnvironmentKeeperDeps): Environmen
         } catch (error) {
           deps.warn(`bot-core: could not stop observing the environment: ${describe(error)}`)
         }
-        // Removals not done yet wait for the next environment.
         for (const [botId, cancel] of removals) {
           cancel()
           orphan(botId)
@@ -538,9 +456,7 @@ export function createEnvironmentKeeper(deps: EnvironmentKeeperDeps): Environmen
       removals.clear()
       try {
         offChange?.()
-      } catch {
-        // Unloading: nothing left to tell.
-      }
+      } catch {}
       offChange = undefined
       listeners.clear()
       registrationListeners.clear()

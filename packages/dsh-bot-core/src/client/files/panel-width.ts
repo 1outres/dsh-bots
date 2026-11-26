@@ -11,7 +11,6 @@ export interface WidthBounds {
   readonly max: number
 }
 
-/** At least {@link MIN_WIDTH}, at most 70% of the space the panel shares. */
 export function widthBounds(available: number): WidthBounds {
   return { min: MIN_WIDTH, max: Math.max(MIN_WIDTH, Math.floor(available * MAX_SHARE)) }
 }
@@ -21,10 +20,6 @@ export function clampWidth(width: number, available: number): number {
   return Math.min(Math.max(Math.round(width), min), max)
 }
 
-/**
- * The width a key on the panel's left-edge separator asks for (WAI-ARIA
- * window splitter): ← widens, → narrows, Home is the narrowest, End the widest.
- */
 export function separatorKeyWidth(
   key: string,
   width: number,
@@ -51,13 +46,11 @@ function parseWidth(stored: unknown): number {
   return stored
 }
 
-/** A side panel's width, kept across reloads; one per page and kind of panel. */
 export interface PanelWidth extends Observable<number> {
   resize(width: number, available: number): void
 }
 
 export interface PanelWidthOptions {
-  /** The `localStorage` key. */
   readonly key: string
   readonly initial: number
 }

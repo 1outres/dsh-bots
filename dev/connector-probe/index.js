@@ -1,4 +1,3 @@
-// Verification only (dev/, outside packages/: never built, published or bundled). See README.md.
 import { probeConnectors } from "./connectors.js"
 import { discard, fileJournal } from "./journal.js"
 import { watchTriggers } from "./trigger.js"

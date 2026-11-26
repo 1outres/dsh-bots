@@ -113,7 +113,6 @@ describe("checkAvatarFile", () => {
   })
 })
 
-/** A minimal GIF: header, screen descriptor with a 2-color table, `frames` images, trailer. */
 function gif(frames: number): Uint8Array {
   const bytes = [
     ...Array.from("GIF89a", (c) => c.charCodeAt(0)),

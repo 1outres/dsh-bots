@@ -6,36 +6,20 @@ import { type OpArchive, type OpRelease, opArchiveUrl } from "./release"
 import type { StatusCell } from "./status"
 import { extractZipEntry } from "./zip"
 
-/**
- * The 1Password CLI dsh-bots runs: `<directory>/op/<version>/op`, every
- * directory on the way 0700. Installed from the official zip only when the
- * zip and the `op` in it match the pinned SHA-256; an existing `op` is
- * used only when it matches too. Nothing else is ever run: no `op` from
- * `PATH`, no other version.
- */
-
 const MAX_ARCHIVE_BYTES = 64 * 1024 * 1024
 const MAX_BINARY_BYTES = 192 * 1024 * 1024
 
 export interface OpInstallerDeps {
   readonly release: OpRelease
-  /** `<process.platform>-<process.arch>`. */
   readonly platform: string
-  /** The plugin's data directory. */
   readonly directory: string
   readonly status: StatusCell
   download(url: string, maxBytes: number, signal: AbortSignal): Promise<Uint8Array>
-  /** The installer's lifetime (the plugin's). */
   readonly signal: AbortSignal
 }
 
 export interface OpInstaller {
   readonly status: VaultProviderStatusSource
-  /**
-   * The verified binary's path, installing it first when needed (one
-   * installation at a time; after a failure the next call tries again).
-   * @throws why the CLI cannot be used.
-   */
   binary(signal: AbortSignal): Promise<string>
 }
 

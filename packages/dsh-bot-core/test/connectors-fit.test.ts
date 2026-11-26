@@ -1,11 +1,3 @@
-import { DEFAULT_BOT_ENVIRONMENT_SPEC, environmentShortfall } from "../src/shared/environment"
-/**
- * The connectors of docs/specs/bot-connectors.md (9) fitted to the contract:
- * the desktop and browser connectors as their packages define them, and
- * the others' tools and default permissions as definitions the catalog
- * accepts. Type-level and registration only; nothing here ships.
- */
-
 import {
   createBrowserConnector,
   GENERATED_SERVER,
@@ -24,9 +16,9 @@ import {
 } from "../src/connector-contract"
 import type { ConnectorPermission } from "../src/contract"
 import { createConnectorCatalog } from "../src/host/connectors/catalog"
+import { DEFAULT_BOT_ENVIRONMENT_SPEC, environmentShortfall } from "../src/shared/environment"
 import { VAULT_KIT } from "../src/vault-bytes"
 
-/** The spec's browser table (9): every listed tool allow, run_code_unsafe disallow. */
 const BROWSER_ALLOWED = [
   "navigate",
   "navigate_back",
@@ -110,7 +102,6 @@ const GMAIL: [string, ConnectorPermission, boolean?][] = [
     (name) => [name, "ask"] as [string, ConnectorPermission],
   ),
 ]
-/** The accounts and events of the Google connectors; bot-core adds accounts, events_list and events_ack. */
 const googleAccounts = (scope: string) => ({
   connections: { provider: "google", scopes: [scope] },
   events: {
@@ -220,7 +211,6 @@ describe("the spec's connectors fit the contract", () => {
     expect(permission("gmail", "modify_labels")).toBe("allow")
     expect(permission("gcal", "delete_event")).toBe("ask")
     expect(catalog.get("desktop")?.minimumSpec).toEqual({ memoryMiB: 4096 })
-    // A new bot's spec gives every connector what it needs, so creating one with the workstation on passes the gate.
     expect(
       catalog
         .list()

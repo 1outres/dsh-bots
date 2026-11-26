@@ -33,7 +33,6 @@ export interface ConnectorDetailProps {
   readonly t: Translate
   text(text: ConnectorText): string
   readonly view: BotConnectorView
-  /** Why its switch cannot be flipped now (a connector it requires, or one requiring it). */
   readonly block: ConnectorSwitchBlock | undefined
   readonly feed: ConnectorsFeed
   readonly confirm: SettingsSectionProps["confirm"]
@@ -45,7 +44,6 @@ const DELIVERY_LABEL: Readonly<Record<ConnectorEventDelivery, MessageKey>> = {
   queue: "connectors.events.queue",
 }
 
-/** One connector's page: on or off and its readiness, its settings and events, and its tools' permissions. */
 export function ConnectorDetail({ t, text, view, block, feed, confirm }: ConnectorDetailProps) {
   const { connector } = view
   const saves = useConnectorSaves({ t, view, feed })

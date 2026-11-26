@@ -1,9 +1,3 @@
-/**
- * bot-core's question, approval and plan review cards in a bot session's
- * composer seat, in DSH's QuestionComposer measures (ui-user-questions
- * QuestionComposer.module.css): the composer's width axis, no border,
- * radius-xl, the input-major fill and the panel elevation.
- */
 export const INTERACTIONS_CSS = `
 .dshb-ask-frame {
   display: flex;

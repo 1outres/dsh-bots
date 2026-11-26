@@ -7,7 +7,6 @@ import {
   grantRecordKey,
 } from "./domain"
 
-/** A connection as connectors and people see it: without where its token was issued. */
 export function connectionInfo(record: ConnectionRecord): ConnectorConnectionInfo {
   const { issuer: _, ...info } = record
   return info
@@ -20,33 +19,20 @@ export interface ConnectionStoreDeps {
   now(): number
 }
 
-/**
- * The connections, their assignment to bots and the providers' client ids:
- * the only writer of CONNECTIONS_DOMAIN (design rule 48). Reads come from
- * memory; writes never interleave, and listeners hear of each once stored.
- */
 export interface ConnectionStore {
   get(connectionId: string): ConnectionRecord | undefined
-  /** Every connection, oldest first. */
   list(): readonly ConnectionRecord[]
-  /** The provider's connection of that account, if one exists. */
   byAccount(provider: string, subject: string): ConnectionRecord | undefined
-  /** Store a new connection or replace one (a sign-in again). */
   put(record: ConnectionRecord): Promise<void>
   setStatus(connectionId: string, status: ConnectionStatus, reason?: string): Promise<void>
   rename(connectionId: string, label: string): Promise<ConnectionRecord>
-  /** Forget the connection and its assignments. */
   remove(connectionId: string): Promise<void>
-  /** The bot's connections, oldest first. */
   assigned(botId: string): readonly ConnectionRecord[]
   isAssigned(botId: string, connectionId: string): boolean
-  /** Bots the connection is assigned to. */
   botsOf(connectionId: string): readonly string[]
   assign(botId: string, connectionId: string, assigned: boolean): Promise<void>
-  /** Forget the assignments of bots `keep` refuses. */
   purgeBots(keep: (botId: string) => boolean): Promise<void>
   clientId(provider: string): string | undefined
-  /** Store (or with undefined, remove) the provider's client id. */
   setClientId(provider: string, clientId: string | undefined): Promise<void>
   subscribe(listener: () => void): () => void
 }

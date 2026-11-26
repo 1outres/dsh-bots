@@ -10,36 +10,14 @@ import { botQuestionOf, type QuestionPresentation, replyOf } from "./presentatio
 
 export interface ContinuedQuestionsDeps {
   board: Pick<InteractionBoard, "open">
-  /** The bot session `sessionId` is, while its root Agent is live. */
   placeOf(sessionId: string): InteractionPlace | undefined
-  /** The session's `userQuestions` projection rows; undefined without a live Agent. */
   rows(sessionId: string): readonly DshPendingQuestion[] | undefined
-  /**
-   * DSH's `userQuestions.answer`: steer a late reply into the session's root
-   * Agent (resumed first). False when the call is no longer continued; throws
-   * its `UserQuestionError` (`REPLY_QUEUED`, `BAD_ANSWER`).
-   */
   reply(sessionId: string, callId: string, answer: DshQuestionAnswer): Promise<boolean>
 }
 
-/**
- * The timed questions of bot sessions after their foreground wait: DSH's
- * `userQuestions` projection lists a call as `continued` once its tool call
- * returned pending (or the process that owned it ended), and it stays
- * answerable by a late reply until that reply is admitted. bot-core keeps
- * every such call on the board, answered through `userQuestions.answer`, and
- * withdraws a call the projection no longer lists.
- */
 export interface ContinuedQuestions {
-  /**
-   * A live request's interaction whose foreground wait of call `callId`
-   * ended: answered as a late reply from now on, and followed like the
-   * projection's other continued calls.
-   */
   adopt(entry: OpenInteraction, callId: string, presentation: QuestionPresentation): void
-  /** Follow the session's projection rows. */
   reconcile(sessionId: string): void
-  /** A late reply to `callId` was discarded before the Agent admitted it: the call is answerable again. */
   released(sessionId: string, callId: string): void
 }
 
@@ -47,7 +25,6 @@ interface Tracked {
   readonly sessionId: string
   readonly callId: string
   readonly entry: OpenInteraction
-  /** The projection listed the call since it was tracked. */
   seen: boolean
 }
 

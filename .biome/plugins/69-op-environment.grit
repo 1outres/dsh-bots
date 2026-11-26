@@ -1,7 +1,3 @@
-// Design rule 69: op never sees DSH's environment.
-// packages/dsh-bot-vault-1password does not read process.env, so nothing of
-// DSH's environment (OP_CONNECT_HOST, OP_CONNECT_TOKEN, another account's
-// session) can reach op; src/op/environment.ts builds op's whole environment.
 `process.env` as $env where {
   register_diagnostic(
     span = $env,

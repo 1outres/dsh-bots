@@ -2,7 +2,6 @@ import type { BotStatusChannel, BotStatusConnector, BotStatusFacts } from "../..
 import type { BotWebCapability, BotWebCapabilityStatus } from "../../shared/web"
 import { headerHandle, headerName } from "../channels/header"
 
-/** Shown for a channel whose settings list no owner (docs/specs/bot-system-prompt.md §5). */
 export const NO_OWNER = "no owner listed: nobody there can instruct you as your owner"
 
 function channelState(channel: BotStatusChannel): string {
@@ -23,7 +22,6 @@ function channelState(channel: BotStatusChannel): string {
   }
 }
 
-/** The owners by the names the connection reports; those it does not name yet are counted. */
 function ownersText(channel: BotStatusChannel): string {
   if (channel.owners.length === 0) return NO_OWNER
   const people = channel.status.state === "connected" ? (channel.status.people ?? {}) : {}
@@ -89,7 +87,6 @@ function webLine(web: BotStatusFacts["web"]): string {
 
 const listOrNone = (items: readonly string[]) => (items.length === 0 ? "none" : items.join(", "))
 
-/** The `bot:status` context (docs/specs/bot-system-prompt.md §3). */
 export function renderStatus(status: BotStatusFacts): string {
   return [
     "Bot status:",

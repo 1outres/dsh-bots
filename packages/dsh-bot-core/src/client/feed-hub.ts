@@ -1,25 +1,16 @@
 import type { Observable } from "./observable"
 
-/** A per-key model that streams while it lives. */
 export interface FollowedModel<S> extends Observable<S> {
   dispose(): void
 }
 
 export interface FeedHubOptions<S, M extends FollowedModel<S>, Extra extends object> {
-  /** What the feeds follow, in messages ("channels" reads "channels of "<key>" are not followed"). */
   readonly name: string
-  /** The snapshot while nothing follows a key. */
   readonly idle: S
   open(key: string): M
-  /** The feed's operations; `followed` throws while nothing follows the key. */
   extend(followed: () => M): Extra
 }
 
-/**
- * Per-key models shared by everything that shows them: one model per key,
- * opened by the first subscriber and disposed after the last. A key's feed is
- * the same object every time.
- */
 export interface FeedHub<S, Extra extends object> {
   feed(key: string): Observable<S> & Extra
 }

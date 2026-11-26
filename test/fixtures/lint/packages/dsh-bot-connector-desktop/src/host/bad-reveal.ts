@@ -4,6 +4,6 @@ declare const vault: {
 }
 
 export async function take() {
-  await vault.reveal("cred-1", "password", { kind: "desktop", application: "zenity" }) // rule: 62
-  await vault.passkey("cred-1", { kind: "browser", origin: "https://a.test" }) // rule: 62
+  await vault.reveal("cred-1", "password", { kind: "desktop", application: "zenity" })
+  await vault.passkey("cred-1", { kind: "browser", origin: "https://a.test" })
 }

@@ -4,8 +4,8 @@ declare const deps: {
 }
 
 export async function bypass(value: unknown) {
-  await deps.jobs.put("j", value) // rule: 42
-  await deps.jobs.delete("j") // rule: 42
-  await deps.runs.put("r", value) // rule: 42
-  await deps.runs.delete("r") // rule: 42
+  await deps.jobs.put("j", value)
+  await deps.jobs.delete("j")
+  await deps.runs.put("r", value)
+  await deps.runs.delete("r")
 }

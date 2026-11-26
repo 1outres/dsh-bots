@@ -16,10 +16,8 @@ declare module "@deepseek-ai/dsh-typert-protocol" {
   interface RemoteErrorDetailsMap extends BotFileErrorDetails {}
 }
 
-/** A file system target; opaque here. */
 export type FileTarget = object
 
-/** dsh-fs `FileSystem`, structurally. */
 export interface EnvironmentFileSystem {
   resolve(path: string, options?: { cwd?: string; signal?: AbortSignal }): Promise<FileTarget>
   processPath(target: FileTarget): string
@@ -70,13 +68,11 @@ export interface EnvironmentFileSystem {
   >
 }
 
-/** A piped dsh-subprocess stdout (`Readable`), structurally; it yields strings once its encoding is set. */
 export interface EnvironmentOutput extends AsyncIterable<string> {
   setEncoding(encoding: "utf8"): unknown
   destroy(): unknown
 }
 
-/** dsh-subprocess `SubprocessHandle` of a spawn with piped stdout and collected stderr, structurally. */
 export interface EnvironmentProcess {
   readonly stdout: EnvironmentOutput
   readonly collected: {
@@ -87,7 +83,6 @@ export interface EnvironmentProcess {
   waitForExit(signal?: AbortSignal): Promise<boolean>
 }
 
-/** dsh-subprocess `SubprocessRuntime`, structurally. */
 export interface EnvironmentSubprocess {
   spawn(spec: {
     argv: readonly string[]
@@ -99,25 +94,17 @@ export interface EnvironmentSubprocess {
   resolveExecutable(command: string, env: undefined, signal: AbortSignal): Promise<string>
 }
 
-/** The services of one bot's environment; a group without a subprocess service cannot search. */
 export interface EnvironmentFiles {
   readonly fs: EnvironmentFileSystem
   readonly subprocess: EnvironmentSubprocess | undefined
 }
 
-/** Caps, named as `workspaceFiles` names them (bot-core's `files` config). */
 export interface BotFilesLimits {
-  /** Inclusive byte cap on one page's text and on one byte window. */
   readonly maxBytes: number
-  /** Inclusive byte cap on a complete-file `readBytes`. */
   readonly maxFileBytes: number
-  /** Default and largest page in lines. */
   readonly maxLines: number
-  /** Cap on returned directory entries. */
   readonly maxEntries: number
-  /** Refuse `read`/`readBytes`/`stat` of paths outside the workspace. */
   readonly confineReads: boolean
-  /** Calls served at once per bot; more wait their turn (or their caller's abort). */
   readonly maxConcurrent: number
   readonly search: {
     readonly maxResults: number
@@ -125,12 +112,10 @@ export interface BotFilesLimits {
     readonly graceMs: number
     readonly timeoutMs: number
     readonly stderrMaxBytes: number
-    /** ripgrep in the environment: a path used as is, or a command the environment resolves. */
     readonly ripgrep: string
   }
 }
 
-// workspaceFiles' defaults, except maxFileBytes: a complete file travels base64 over SSH and again in JSON.
 export const DEFAULT_FILES_LIMITS: BotFilesLimits = {
   maxBytes: 2 * 1024 * 1024,
   maxFileBytes: 8 * 1024 * 1024,
@@ -149,20 +134,14 @@ export const DEFAULT_FILES_LIMITS: BotFilesLimits = {
 }
 
 export interface BotFilesDeps {
-  /** The stored bot whose session `sessionId` is, or undefined. */
   botOfSession(sessionId: string): string | undefined
-  /** The bot's environment services, from its own composed preset, or undefined. */
   environmentOf(botId: string): EnvironmentFiles | undefined
-  /** The registered environment's workspace, or undefined without one. */
   workspace(): string | undefined
   readonly limits: BotFilesLimits
-  /** A signal that aborts after `ms` (search deadline). */
   deadline(ms: number): AbortSignal
-  /** Reports what an answer cannot carry: an environment failure behind `bot-file/unavailable`, a process left unobserved. */
   warn(message: string): void
 }
 
-/** The Host's `botFiles` service. */
 export type BotFiles = BotFilesApi
 
 interface Scope {
@@ -174,7 +153,6 @@ interface Scope {
 }
 
 interface ProcessOutcome {
-  /** The listing was cut short by bot-core (entry cap), not by ripgrep. */
   readonly stopped: boolean
   readonly exitCode: number | null
   readonly signal: string | null
@@ -188,7 +166,6 @@ const describe = (error: unknown) => (error instanceof Error ? error.message : S
 
 const bad = (message: string) => new RemoteError("gateway/bad-request", message, {})
 
-/** Most entries `excludedPaths` may hold, and the longest one (and the longest query). */
 export const MAX_EXCLUDED_PATHS = 256
 export const MAX_SEARCH_TEXT = 1024
 
@@ -214,7 +191,6 @@ function causeChain(error: unknown): string {
   return parts.join(" <- ")
 }
 
-/** Lines `offset` .. `offset + limit - 1` of decoded chunks, stopping past the page (workspaceFiles' page cutter). */
 async function cutPage(
   chunks: AsyncIterable<string>,
   offset: number,
@@ -262,7 +238,6 @@ async function cutPage(
   return { text: lines.join("\n"), lines: lines.length, eof: true }
 }
 
-/** A literal rg glob exclusion. */
 function exclusion(path: string): string {
   const literal = path.replace(/[\\*?[\]{}!]/g, "\\$&")
   return `--glob=!${path.includes("/") ? "/" : ""}${literal}`
@@ -310,7 +285,6 @@ function checkQuery(request: BotFileSearchRequest | undefined): string {
   return query
 }
 
-/** Collects the files ripgrep lists, and their directories, whose name (or path, for a query with "/") matches. */
 function createMatcher(query: string) {
   const needle = query.toLowerCase()
   const byPath = query.includes("/")
@@ -335,14 +309,12 @@ function createMatcher(query: string) {
   }
 }
 
-/** Read NUL-separated records from a process; `onRecord` returning false stops it. Resolves whether it was stopped. */
 async function readRecords(
   handle: EnvironmentProcess,
   signal: AbortSignal,
   onRecord: (record: string) => boolean,
 ): Promise<boolean> {
   const { stdout } = handle
-  // The provider terminates on the spec's signal too; this does not rely on it.
   const stop = () => {
     handle.terminate()
     stdout.destroy()
@@ -443,7 +415,6 @@ export function createBotFiles(deps: BotFilesDeps): BotFiles {
     else if (slot.active === 0) slots.delete(botId)
   }
 
-  /** Run `work` in one of the bot's turns, answering the environment's failures as `bot-file/…` errors. */
   const guarded = async <T>(
     scope: Scope,
     subject: FsFailureSubject,
@@ -482,7 +453,6 @@ export function createBotFiles(deps: BotFilesDeps): BotFiles {
     return path
   }
 
-  /** Every gate for a regular file, ending in the stat that names its version and size. */
   const locateFile = async (scope: Scope, path: string, signal: AbortSignal | undefined) => {
     const { fs, workspace } = scope
     const entry = await fs.lstat(path, { cwd: workspace }, signal)
@@ -549,7 +519,6 @@ export function createBotFiles(deps: BotFilesDeps): BotFiles {
     return { offset, length }
   }
 
-  /** `path` relative to the directory of `baseFile`. */
   const relativeTo = async (
     scope: Scope,
     baseFile: string,
@@ -563,7 +532,6 @@ export function createBotFiles(deps: BotFilesDeps): BotFiles {
     return posix.resolve(posix.dirname(stat.absolutePath), path)
   }
 
-  /** Run ripgrep's listing in the workspace, feeding each listed file to `onFile` until it returns false. */
   const runListing = async (
     scope: Scope,
     subprocess: EnvironmentSubprocess,
@@ -645,7 +613,6 @@ export function createBotFiles(deps: BotFilesDeps): BotFiles {
         const { target, info, stat } = await locateFile(scope, resolved, signal)
         if (window !== undefined) {
           const data = await scope.fs.readByteRange(target, window, signal)
-          // Without a size from the environment, a short window is the end of the file.
           const eof =
             info.size === undefined
               ? data.length < window.length
@@ -782,7 +749,6 @@ export function createBotFiles(deps: BotFilesDeps): BotFiles {
         signal?.throwIfAborted()
         if (timeout.aborted) throw timedOut()
         const { stopped, exitCode, stderr } = outcome
-        // rg exits 1 when it lists nothing and 2 after errors it skipped (a partial listing).
         if (
           !stopped &&
           (outcome.signal !== null || (exitCode !== 0 && exitCode !== 1 && exitCode !== 2))
@@ -804,17 +770,9 @@ export function createBotFiles(deps: BotFilesDeps): BotFiles {
   }
 }
 
-/**
- * Per bot, what its preset's `files` rows hand over while mounted (one per live
- * revision), each under its revision's token. Only the newest with the asked
- * token is served, so a retired revision never wins over the registered one.
- */
 export interface EnvironmentFilesKeeper<T> {
-  /** Called by a bot preset's row while it is active; the returned function detaches it. */
   attach(botId: string, token: string, files: T): () => void
-  /** The newest value attached for the bot with `token`. */
   get(botId: string, token: string): T | undefined
-  /** Called with the bot after a value was attached or detached. */
   subscribe(listener: (botId: string) => void): () => void
 }
 

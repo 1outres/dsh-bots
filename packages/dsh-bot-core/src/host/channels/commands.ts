@@ -6,27 +6,21 @@ import type {
 } from "../../channel-contract"
 import type { MainRotationOutcome } from "../../shared/mains"
 
-/** A live Main session Agent, as the commands read it. */
 export interface MainAgentView {
   readonly activity: BotActivity
   readonly model?: BotConversationStatus["model"]
-  /** People's messages in its inbox (next turn and next step). */
   readonly queued: number
 }
 
 export interface CommandDeps {
   mainSessionOf(botId: string): string | undefined
-  /** The session's live Agent; undefined until it is resumed. */
   agentOf(sessionId: string): MainAgentView | undefined
-  /** DSH's `session.cancel`: the Web UI's stop (the turn ends, its inbox stays). */
   cancel(sessionId: string): Promise<void>
-  /** The owner starts a new Main (host/mains/controller.ts `startNew`). */
   startNew(botId: string): Promise<MainRotationOutcome>
 }
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
-/** The channel-independent operations behind every channel's commands. */
 export function createCommandRunner(deps: CommandDeps): {
   run(botId: string, command: BotCommandId): Promise<BotCommandOutcome>
 } {

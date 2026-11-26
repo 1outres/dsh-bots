@@ -2,10 +2,8 @@ import type { BotTurnState } from "../../channel-contract"
 import type { BotInteractionKind } from "../../shared/interactions"
 import type { BotManagedAnswerer, BotManagedSession } from "../../shared/managed-sessions"
 
-/** Why a management ended without the Main session's own session_release. */
 export type ManagedEnding = "owner" | "archive" | "revoked" | "workspace-removed"
 
-/** What happened in a managed session that its bot's Main session hears of. */
 export type SessionNoticeEvent =
   | { readonly kind: "turn"; readonly turn: Exclude<BotTurnState, { readonly phase: "started" }> }
   | {
@@ -15,7 +13,6 @@ export type SessionNoticeEvent =
     }
   | { readonly kind: "released"; readonly by: ManagedEnding }
 
-/** A notice for the bot's Main session (the notice outbox's topic `session`). */
 export interface SessionNotice {
   readonly text: string
   readonly summary: string

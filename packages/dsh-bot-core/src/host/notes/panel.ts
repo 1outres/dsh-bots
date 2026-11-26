@@ -1,12 +1,3 @@
-/**
- * What the `botNotes` Remote serves (docs/specs/bot-notes.md §12): one bot's
- * notes for a session bot-core recorded as that bot's, read through the
- * registered revision's environment, never the Host's file system. Every
- * query reads notes/ again first (an edit with bash is seen), and while the
- * Web UI watches a bot its notes are read again after every change bot-core
- * learns of (a note tool's write, a step's reading) and whenever its
- * environment comes or goes.
- */
 import { RemoteError } from "@deepseek-ai/dsh-typert-protocol"
 import {
   type BotNoteErrorDetails,
@@ -33,23 +24,17 @@ declare module "@deepseek-ai/dsh-typert-protocol" {
 }
 
 export interface NotesPanelDeps {
-  /** The stored bot whose session `sessionId` is, or undefined. */
   botOfSession(sessionId: string): string | undefined
-  /** Where the bot's registered revision reaches its notes, or undefined without one. */
   placeOf(botId: string): NotesPlace | undefined
   notes: Pick<BotNotes, "withNotes" | "subscribe">
   timeZone(botId: string): string
-  /** Today in the bot's time zone, `YYYY-MM-DD`. */
   today(botId: string): string
-  /** Aborts after the time one reading may take, and when the plugin unloads. */
   deadline(): AbortSignal
 }
 
 export interface NotesPanel {
-  /** @throws `bot-note/not-bot-session`. */
   botOf(sessionId: string): string
   status(botId: string): BotNotesStatus
-  /** Follow the bot's notes while the returned function is not called: read them now and after each change. */
   follow(botId: string): () => void
   list(
     sessionId: string,
@@ -59,14 +44,11 @@ export interface NotesPanel {
   search(sessionId: string, search: NoteSearch, signal?: AbortSignal): Promise<NoteListing>
   read(sessionId: string, noteId: string, signal?: AbortSignal): Promise<NoteDocument>
   month(sessionId: string, month: string | undefined, signal?: AbortSignal): Promise<NoteMonth>
-  /** The bot's environment came or went: a watched bot's notes are read again. */
   environmentChanged(botId: string): void
-  /** Called with the bot id after its status changed. */
   subscribe(listener: (botId: string) => void): () => void
   dispose(): void
 }
 
-/** Longest search query. */
 export const MAX_NOTE_QUERY = 1024
 
 const ENVIRONMENT_UNAVAILABLE = "the bot's environment is not available"

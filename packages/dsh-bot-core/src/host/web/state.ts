@@ -11,26 +11,15 @@ export interface WebStateDeps {
   warn(message: string): void
 }
 
-/**
- * The web lookup state every bot shares: the stored settings, the registered
- * backends, the vault while DSH's `credentials` service is there, and which
- * secrets each backend has stored (never their values).
- */
 export interface WebState {
   settings(): BotWebSettings
-  /** The settings' backend, if registered. */
   backend(): BotWebBackend | undefined
-  /** The vault, while DSH's `credentials` service is available. */
   vault(): WebSecretVault | undefined
   status(): BotWebStatus
-  /** What the settings' backend can serve; an input of every bot's composition. */
   servable(): WebServable
   view(): BotWebView
-  /** Use DSH's credential store; the returned function stops using it. */
   attachVault(vault: WebSecretVault): () => void
-  /** The secrets a write left stored for `backendId`. */
   stored(backendId: string, secrets: Readonly<Record<string, string>>): void
-  /** Called after any change of the view. */
   subscribe(listener: () => void): () => void
   dispose(): void
 }

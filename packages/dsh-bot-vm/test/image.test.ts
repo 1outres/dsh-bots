@@ -107,11 +107,8 @@ describe("image manifest", () => {
 
 interface Served {
   url: string
-  /** `name range` of every request. */
   requests: string[]
-  /** Cut the next response of a name after this many bytes. */
   cut: Map<string, number>
-  /** Names whose Range is ignored (answered 200). */
   ignoreRange: Set<string>
   files: Map<string, Buffer>
   close(): Promise<void>
@@ -164,7 +161,6 @@ async function serve(files: Map<string, Buffer>): Promise<Served> {
   }
 }
 
-/** A release of two parts and its manifest. */
 function release(): { files: Map<string, Buffer>; fingerprint: string; manifestSha256: string } {
   const image = Buffer.alloc(3 * 1024 * 1024 + 123)
   for (let index = 0; index < image.length; index++) image[index] = (index * 7919) % 251
@@ -190,7 +186,6 @@ interface FakeImages {
   images: Map<string, IncusImage>
   aliases: Map<string, string>
   uploads: number
-  /** What Incus says it imported, instead of the uploaded bytes' sha256. */
   claim?: string
 }
 

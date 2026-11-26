@@ -1,5 +1,3 @@
-// A DevTools Protocol client over a minimal WebSocket (RFC 6455) on node:net, so that a message
-// holding a secret is written from bytes the caller wipes, never built as a JS string.
 import { randomBytes } from "node:crypto"
 import { connect } from "node:net"
 
@@ -14,7 +12,6 @@ export class CdpError extends Error {
   }
 }
 
-/** `127.0.0.1:<port>` only: DevTools on loopback. */
 export function parseEndpoint(value) {
   const match = typeof value === "string" ? /^127\.0\.0\.1:([0-9]{2,5})$/.exec(value) : null
   if (match === null) throw new CdpError("the DevTools endpoint is not on loopback")
@@ -49,7 +46,6 @@ function frameHeader(opcode, length) {
   return header
 }
 
-/** One masked frame of the parts; the frame is wiped once the socket wrote it. */
 function writeFrame(socket, opcode, parts) {
   const length = parts.reduce((sum, part) => sum + part.length, 0)
   const header = frameHeader(opcode, length)
@@ -102,7 +98,6 @@ function handshake(socket, path, endpoint) {
   })
 }
 
-/** Reads frames, answers pings, and hands each whole text message on. */
 function frameReader(socket, onMessage, onClose) {
   let buffer = Buffer.alloc(0)
   let fragments = []
@@ -155,11 +150,6 @@ function frameReader(socket, onMessage, onClose) {
   }
 }
 
-/**
- * The browser's DevTools connection. `call` sends a command; `callWithSecret` sends one whose
- * params are `before` + secret + `after` (JSON text), the secret already encoded as JSON
- * string body bytes; the caller wipes it.
- */
 export async function connectBrowser(endpoint) {
   const path = await browserPath(endpoint)
   const socket = connect(endpoint)

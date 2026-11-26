@@ -1,0 +1,9 @@
+// Design rule 99: a header that explains the rule.
+language js
+
+/* A block comment. */
+`$callee($args)` where {
+  $callee <: `fetch // not a comment`,
+  $args <: r"https?://[^\"]+", // trailing
+  register_diagnostic(span = $callee, message = "Design rule 99: do not // call /* fetch */.")
+}

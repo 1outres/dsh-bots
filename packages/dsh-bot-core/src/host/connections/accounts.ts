@@ -8,19 +8,12 @@ export type AccountResolution =
   | { readonly ok: true; readonly connection: ConnectionRecord }
   | { readonly ok: false; readonly reason: string }
 
-/** The accounts a bot's connector acts as: its assigned connections of the connector's provider. */
 export interface ConnectorAccounts {
-  /** The bot's accounts of the connector's provider, as people see them. */
   of(botId: string, connector: CatalogConnector): readonly BotConnectorAccount[]
-  /** Those a call may act as now: active, and granted the connector's scopes. */
   usable(botId: string, connector: CatalogConnector): readonly ConnectionRecord[]
-  /** The account a call names (its email or label). */
   resolve(botId: string, connector: CatalogConnector, account: string): AccountResolution
-  /** The account an approved action was made as, if the bot may still act as it. */
   pinned(botId: string, connector: CatalogConnector, connectionId: string): AccountResolution
-  /** Why the connector cannot serve the bot for lack of an account, or undefined. */
   problem(botId: string, connector: CatalogConnector): string | undefined
-  /** The `<connector>_accounts` tool's answer. */
   list(
     botId: string,
     connector: CatalogConnector,

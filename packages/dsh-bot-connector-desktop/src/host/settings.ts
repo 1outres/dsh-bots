@@ -1,6 +1,3 @@
-/**
- * The desktop's per-bot settings: the screen size.
- */
 import type { ConnectorSettingField } from "@1outres/dsh-bot-core"
 
 const RESOLUTIONS = ["1280x1024", "1280x800"] as const

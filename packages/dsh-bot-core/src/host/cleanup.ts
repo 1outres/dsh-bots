@@ -1,21 +1,15 @@
-/** What deleting a bot leaves to clean up: its sessions (and a legacy Workspace registration). */
 export interface BotSessions {
   name: string
   mainSessionId?: string | undefined
-  /** Every session recorded for the bot. */
   sessionIds: readonly string[]
-  /** Legacy (version 1 record): the Workspace once registered for the bot's Host directory. */
   workspaceId?: string | undefined
 }
 
 export interface SessionCleanupDeps {
-  /** Archive one session, stopping its running work. Already archived ids resolve. */
   archive(sessionId: string): Promise<void>
-  /** Delete a legacy Workspace registration; its session logs stay. */
   deleteWorkspace(workspaceId: string): Promise<unknown>
 }
 
-/** Thrown when a deleted bot's sessions could not all be cleaned up. */
 export class BotCleanupError extends Error {
   constructor(bot: BotSessions, failures: readonly string[]) {
     super(
@@ -25,14 +19,6 @@ export class BotCleanupError extends Error {
   }
 }
 
-/**
- * Archive every session of a deleted bot (its Main included), so none is left
- * in the sidebar's Ungrouped list, then drop a legacy Workspace registration.
- *
- * Every session is attempted even after a failure; the legacy Workspace goes
- * only once all of them are archived.
- * @throws {BotCleanupError} naming every step that failed.
- */
 export async function cleanupBotSessions(
   deps: SessionCleanupDeps,
   bot: BotSessions,

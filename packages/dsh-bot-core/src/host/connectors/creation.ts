@@ -14,19 +14,9 @@ export interface CreationConnectorsDeps {
   settings: Pick<ConnectorSettings, "configure" | "purge">
 }
 
-/** The connectors a bot starts with, by the creation options chosen when it is created. */
 export interface CreationConnectors {
-  /** Each option some registered connector belongs to, with what its connectors need. */
   offer(): readonly BotCreationOptionOffer[]
-  /**
-   * The registered connectors of the options a creation turns on (untrusted input).
-   * @throws for malformed choices, or an option on that no registered connector belongs to.
-   */
   select(input: unknown): readonly CatalogConnector[]
-  /**
-   * Enable each for the bot with its default settings (and its events off),
-   * each after the ones it requires; on a failure none stays stored.
-   */
   enable(botId: string, connectors: readonly CatalogConnector[]): Promise<void>
 }
 

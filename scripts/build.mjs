@@ -19,11 +19,6 @@ async function fileExists(path) {
   }
 }
 
-/**
- * Wrap a CommonJS bundle in the classic-script factory the DSH client module
- * loader expects. The wrapped bundle must stay a classic script: it calls
- * `window.__ModuleLoader__.load` synchronously and returns the module exports.
- */
 function wrapClient(id, code) {
   const body = code
     .split("\n")
@@ -74,11 +69,6 @@ async function pluginEntries(targetDir) {
     .map((file) => join(pluginDir, file))
 }
 
-/**
- * Build each `src/plugins/*.ts` to `lib/<name>.js`: a further Host plugin of
- * the package, exported as `<package>/<name>` so a Cordis row can name it.
- * Built like `src/index.ts`, dependencies external.
- */
 async function buildPluginEntries(name, entries, outDir) {
   for (const entry of entries) {
     const script = basename(entry, ".ts")
@@ -106,11 +96,6 @@ async function buildPluginEntries(name, entries, outDir) {
   }
 }
 
-/**
- * Build each `src/worker/*.ts` to `lib/<name>.js` as a classic script. A
- * service worker has no module loader: the browser evaluates the file as a
- * plain script, so it bundles everything it imports and emits no ESM syntax.
- */
 async function buildWorkerScripts(name, entries, outDir) {
   for (const entry of entries) {
     const script = basename(entry, ".ts")
@@ -146,10 +131,6 @@ async function buildWorkerScripts(name, entries, outDir) {
   }
 }
 
-/**
- * Build each `src/standalone/*.ts` to `lib/<name>.js`. These run as their own Node process, so
- * they bundle everything they import.
- */
 async function buildStandaloneScripts(name, entries, outDir) {
   for (const entry of entries) {
     const script = basename(entry, ".ts")
@@ -213,8 +194,6 @@ async function buildPackage(name) {
     return
   }
 
-  // Every entry lands in lib/<name>.js; two entries with one name would
-  // silently overwrite each other.
   const outputs = new Map()
   const claim = (script, source) => {
     const previous = outputs.get(script)

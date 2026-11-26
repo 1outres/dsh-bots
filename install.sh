@@ -1,31 +1,9 @@
 #!/usr/bin/env bash
-# dsh-bots VM host installer: prepares this machine to run the bots' Incus VMs.
-# DSH itself needs no installer: add the plugin in DSH and choose this VM host in the
-# dsh-bots settings.
-#
-#   curl -fsSL https://raw.githubusercontent.com/1outres/dsh-bots/main/install.sh | bash
-#
-# For an Incus server that already runs other things, its administrator creates the
-# project instead (infra/incus/create-project.sh; no root):
-#
-#   curl -fsSL https://raw.githubusercontent.com/1outres/dsh-bots/main/install.sh | bash -s -- incus-project --help
-#
-# Safe to run again: every step checks what is done and continues from there.
-# Environment (all optional):
-#   DSH_BOTS_ACCESS     local (DSH runs on this machine) or remote (DSH runs on another one); else asked
-#   DSH_BOTS_REF        tag (or branch) whose tree a piped run uses (default: the latest release)
-#   DSH_BOTS_SOURCE     a checkout to use instead of downloading one
-#   DSH_BOTS_YES=1      answer yes to every question (third-party Incus repository)
-#   DSH_BOTS_NONINTERACTIVE=1  never read the terminal (for agents): questions stop with what to set
-#   POOL, POOL_SIZE, PROJECT, LIMIT_VMS, LIMIT_CPU, LIMIT_MEMORY, LIMIT_DISK,
-#   HTTPS_ADDRESS, CLIENT_NAME  passed to infra/vm/host-setup.sh (defaults there)
 set -euo pipefail
 
 REPO=1outres/dsh-bots
 STATE=${XDG_STATE_HOME:-$HOME/.local/state}/dsh-bots
 
-# ------------------------------------------------------------- the tree
-# The tag of the latest dsh-bots release (v<version>); image-* releases are never marked latest.
 latest_release() {
   local url="https://api.github.com/repos/$REPO/releases/latest" tag
   tag=$(curl -fsSL -H 'Accept: application/vnd.github+json' "$url" 2>/dev/null |
@@ -41,7 +19,6 @@ latest_release() {
   printf '%s' "$tag"
 }
 
-# Piped into bash, this file has no tree around it: fetch the release's tree and run its install.sh.
 locate_tree() {
   if [[ -n ${DSH_BOTS_SOURCE:-} ]]; then
     TREE=$(cd "$DSH_BOTS_SOURCE" && pwd)
@@ -67,7 +44,6 @@ locate_tree() {
   [[ -f $TREE/infra/vm/host-setup.sh ]] || { printf 'dsh-bots: %s is not a dsh-bots tree.\n' "$TREE" >&2; exit 1; }
 }
 
-# ------------------------------------------------------------- output
 TOTAL=6
 STEP=0
 LINE_OPEN=0
@@ -86,9 +62,6 @@ step_label() {
   printf '%s ' "$C_OFF"
 }
 
-# step <title> <function>: one line; details go to the log. The function runs in a
-# subshell with errexit, so any failing command ends the step; what later steps
-# need it hands back with keep.
 step() {
   STEP=$((STEP + 1))
   local title=$1 fn=$2 note rc
@@ -118,7 +91,6 @@ step() {
   fi
 }
 
-# keep <name> <value>: hand a variable from a step back to the installer.
 keep() { printf '%s=%q\n' "$1" "$2" >>"$KEEP_FILE"; }
 
 close_line() {
@@ -139,15 +111,12 @@ report_failure() {
   exit 1
 }
 
-# stop <what> <fix>: fail the current step (inside a step function).
 stop() {
   printf '%s\n%s\n' "$1" "$2" >"$REPORT_FILE"
   printf 'error: %s\n  fix: %s\n' "$1" "$2"
   exit 1
 }
 
-# ask <question> <default y|n>: yes/no from the terminal; without one the default,
-# or DSH_BOTS_YES=1 for yes.
 ask() {
   local answer
   if [[ ${DSH_BOTS_YES:-} == 1 ]]; then return 0; fi
@@ -160,7 +129,6 @@ ask() {
   [[ $answer == [yY]* ]]
 }
 
-# choose <question> <default> <options...>: one of the options, from the terminal (HAVE_TTY).
 choose() {
   local question=$1 default=$2 answer
   shift 2
@@ -172,10 +140,8 @@ choose() {
   printf '%s' "$answer"
 }
 
-# ------------------------------------------------------------- root
 SUDO=()
 SUDO_KEEPALIVE=""
-# Once, before the first step that needs it: say why, then ask sudo.
 acquire_root() {
   ((EUID == 0)) && return 0
   local why="  Root access is needed to install packages and set up Incus and the firewall (sudo)."
@@ -189,7 +155,7 @@ acquire_root() {
       exit 1
     fi
     printf '%s\n' "$why"
-    # shellcheck disable=SC2024 # sudo reads the password from the terminal itself
+    # shellcheck disable=SC2024
     sudo -v </dev/tty || { printf '  sudo did not grant root access.\n' >&2; exit 1; }
   fi
   SUDO=(sudo)
@@ -205,8 +171,7 @@ host_setup() {
   "${SUDO[@]}" env DSH_BOTS_REPORT="$REPORT_FILE" DSH_BOTS_NOTE="$NOTE_FILE" "${settings[@]}" "$@"
 }
 
-# ------------------------------------------------------------- state
-save_choice() { # save_choice <key> <value>
+save_choice() {
   local file=$STATE/install.env
   touch "$file"
   grep -v "^$1=" "$file" >"$file.tmp" || true
@@ -219,7 +184,6 @@ saved_choice() {
   sed -n "s/^$1=//p" "$STATE/install.env" | tail -n1
 }
 
-# ------------------------------------------------------------- steps
 step_system() {
   [[ $(uname -m) == x86_64 ]] || stop "This is a $(uname -m) machine; dsh-bots VM hosts are x86_64 only." "Use an x86_64 machine as the VM host."
   detect_os
@@ -276,7 +240,6 @@ step_grant() {
   fi
 }
 
-# ------------------------------------------------------------- main
 finish() {
   [[ -z $SUDO_KEEPALIVE ]] || kill "$SUDO_KEEPALIVE" 2>/dev/null || true
   rm -f "$NOTE_FILE" "$REPORT_FILE" "$KEEP_FILE" "$TOKEN_FILE"
@@ -309,7 +272,6 @@ main() {
   detect_os
   mkdir -p "$STATE/logs"
   LOG=$STATE/logs/install-$(date +%Y%m%d-%H%M%S).log
-  # Not in /tmp: root (sudo) may not write another user's file in a sticky directory (protected_regular).
   NOTE_FILE=$(mktemp -p "$STATE" .note.XXXXXX)
   REPORT_FILE=$(mktemp -p "$STATE" .report.XXXXXX)
   KEEP_FILE=$(mktemp -p "$STATE" .keep.XXXXXX)

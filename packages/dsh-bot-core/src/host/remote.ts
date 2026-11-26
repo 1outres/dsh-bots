@@ -160,17 +160,14 @@ import type { WebPanel } from "./web/panel"
 
 export const BOTS_REMOTE = "bots" satisfies RemoteNamespace
 
-/** What the `bots` Remote serves. */
 export interface BotsBackend {
   readonly lifecycle: BotLifecycle
   readonly update: BotRegistry["update"]
   readonly creationOptions: () => Promise<BotCreationOffer>
-  /** A stock draft would start in a Host Workspace, so a bot's New session comes here. */
   readonly createSession: (botId: string) => Promise<{ sessionId: string }>
   readonly models: ModelPanel
 }
 
-// The Gateway calls Remote methods with a service proxy as `this`, where a private field throws.
 const BACKEND = Symbol("botsBackend")
 
 const ACCEPTED: BotAccepted = { accepted: true }
@@ -477,7 +474,6 @@ export const BOT_CONNECTOR_ACTIONS_REMOTE = "botConnectorActions" satisfies Remo
 
 const APPROVALS = Symbol("botConnectorApprovals")
 
-/** The owner's approvals in the Web UI: a decision carries the calling Peer's principal to the gate. */
 export class BotConnectorActionsRemoteService
   extends TypertRemoteService
   implements BotConnectorActionsApi
@@ -524,7 +520,6 @@ export const BOT_CONNECTIONS_REMOTE = "botConnections" satisfies RemoteNamespace
 
 const CONNECTIONS = Symbol("botConnectionPanel")
 
-/** The owner's outside accounts in the Web UI: every change carries the calling Peer's principal to the panel. */
 export class BotConnectionsRemoteService extends TypertRemoteService implements BotConnectionsApi {
   [CONNECTIONS]: ConnectionPanel
 
@@ -578,7 +573,6 @@ export const BOT_CONNECTOR_STREAMS_REMOTE = "botConnectorStreams" satisfies Remo
 
 const STREAMS = Symbol("botConnectorStreams")
 
-/** Connectors' panel streams: the calling Peer's principal and the browser's uplink go to the gate. */
 export class BotConnectorStreamsRemoteService
   extends TypertRemoteService
   implements BotConnectorStreamsApi
@@ -702,7 +696,6 @@ export const BOT_WORKSPACES_REMOTE = "botWorkspaces" satisfies RemoteNamespace
 const WORKSPACES = Symbol("botWorkspacesPanel")
 const WORKSPACES_CHANGES = Symbol("botWorkspacesChanges")
 
-/** The DSH Workspaces owners grant bots (docs/specs/bot-managed-sessions.md §10.1). */
 export class BotWorkspacesRemoteService extends TypertRemoteService implements BotWorkspacesApi {
   [WORKSPACES]: WorkspacesPanel;
   [WORKSPACES_CHANGES]: (listener: () => void) => () => void
@@ -757,7 +750,6 @@ export const BOT_MAINS_REMOTE = "botMains" satisfies RemoteNamespace
 const MAINS = Symbol("botMainPanel")
 const MAINS_CHANGES = Symbol("botMainChanges")
 
-/** The Main sessions' compaction and rotation settings, and the owner's new Main. */
 export class BotMainsRemoteService extends TypertRemoteService implements BotMainsApi {
   [MAINS]: MainPanel;
   [MAINS_CHANGES]: (listener: () => void) => () => void
@@ -803,7 +795,6 @@ const MAIN_VIEW = Symbol("botMainView")
 
 const unaborted = (signal: AbortSignal | undefined) => signal ?? new AbortController().signal
 
-/** Each bot's Main as its channels see it, across its Mains (docs/specs/bot-main-view.md). */
 export class BotMainViewRemoteService extends TypertRemoteService implements BotMainViewApi {
   [MAIN_VIEW]: MainView
 
@@ -837,7 +828,6 @@ export const BOT_SKILLS_REMOTE = "botSkills" satisfies RemoteNamespace
 
 const SKILLS = Symbol("botSkillPanel")
 
-/** A bot's skills, their history and the owner's restores and marks, and the review and curation settings. */
 export class BotSkillsRemoteService extends TypertRemoteService implements BotSkillsApi {
   [SKILLS]: SkillPanel
 
@@ -905,7 +895,6 @@ export const BOT_NOTES_REMOTE = "botNotes" satisfies RemoteNamespace
 
 const NOTES = Symbol("botNotesPanel")
 
-/** A bot's notes, read for one of its sessions. */
 export class BotNotesRemoteService extends TypertRemoteService implements BotNotesApi {
   [NOTES]: NotesPanel
 
@@ -959,7 +948,6 @@ export const BOT_ENVIRONMENT_REMOTE = "botEnvironment" satisfies RemoteNamespace
 const ENVIRONMENT = Symbol("botEnvironmentPanel")
 const ENVIRONMENT_CHANGES = Symbol("botEnvironmentChanges")
 
-/** Each bot's VM page: its spec, what the Host accepts, what its connectors need, and whether it runs with it. */
 export class BotEnvironmentRemoteService extends TypertRemoteService implements BotEnvironmentApi {
   [ENVIRONMENT]: EnvironmentPanel;
   [ENVIRONMENT_CHANGES]: (listener: () => void) => () => void
@@ -992,7 +980,6 @@ export const BOT_ENVIRONMENT_HOST_REMOTE = "botEnvironmentHost" satisfies Remote
 
 const ENVIRONMENT_HOST = Symbol("botEnvironmentHostPanel")
 
-/** The VM host of the dsh-bots settings: which one bots run on, its check, pairing, the base image. */
 export class BotEnvironmentHostRemoteService
   extends TypertRemoteService
   implements BotEnvironmentHostApi
@@ -1064,7 +1051,6 @@ export const BOT_ONBOARDING_REMOTE = "botOnboarding" satisfies RemoteNamespace
 
 const ONBOARDING = Symbol("botOnboardingPanel")
 
-/** The welcome guide and the release notes every page shows until one of them finishes it. */
 export class BotOnboardingRemoteService extends TypertRemoteService implements BotOnboardingApi {
   [ONBOARDING]: OnboardingPanel
 
@@ -1110,7 +1096,6 @@ export const BOT_VAULTS_REMOTE = "botVaults" satisfies RemoteNamespace
 
 const VAULTS = Symbol("botVaultPanel")
 
-/** The owner's password managers and the bots' logins: every call carries the calling Peer's principal to the panel. */
 export class BotVaultsRemoteService extends TypertRemoteService implements BotVaultsApi {
   [VAULTS]: VaultPanel
 
@@ -1185,7 +1170,6 @@ export class BotVaultsRemoteService extends TypertRemoteService implements BotVa
   }
 }
 
-/** The Service serving each namespace of bot-core's Remote. */
 export const REMOTE_SERVICES = {
   bots: BotsRemoteService,
   botFiles: BotFilesRemoteService,

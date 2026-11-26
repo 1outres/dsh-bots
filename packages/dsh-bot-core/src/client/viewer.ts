@@ -1,9 +1,5 @@
 import { createStore, type Observable } from "./observable"
 
-/**
- * What the bot file viewer shows for one session. `serial` changes on every
- * request, so asking for the same file again reads it again.
- */
 export type ViewerContent =
   | { readonly kind: "browse" }
   | {
@@ -22,11 +18,9 @@ export type ViewerContent =
 export interface SessionViewer {
   readonly open: boolean
   readonly content: ViewerContent
-  /** The file shown last, which the file browser marks as current. */
   readonly lastFile?: string
 }
 
-/** Something the session's viewer could not open, for its shell. */
 export interface ViewerNotice {
   readonly key: string
   readonly params?: Readonly<Record<string, string>>
@@ -43,21 +37,17 @@ export interface Viewer extends Observable<ViewerState> {
   openFile(sessionId: string, path: string, line?: number): void
   browse(sessionId: string): void
   showDocument(sessionId: string, title: string, markdown: string): void
-  /** Request the file on show again; other content has nothing to read. */
   refresh(sessionId: string): void
-  /** Open the viewer on its current content, or close it. */
   toggle(sessionId: string): void
   close(sessionId: string): void
   notify(sessionId: string, key: string, params?: Readonly<Record<string, string>>): void
   dismiss(sessionId: string): void
-  /** Drop the state of every session `keep` refuses. */
   forget(keep: (sessionId: string) => boolean): void
 }
 
 const BROWSE: ViewerContent = { kind: "browse" }
 const CLOSED: SessionViewer = { open: false, content: BROWSE }
 
-/** The bot file viewers' state, one per bot session. */
 export function createViewer(): Viewer {
   const state = createStore<ViewerState>({ sessions: {}, notices: {} })
   let serial = 0

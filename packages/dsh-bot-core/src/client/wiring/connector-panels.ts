@@ -13,7 +13,6 @@ export interface ConnectorPanelsSources {
   readonly surfaces: ShellPanels
 }
 
-/** Connectors' panels in the bot shell: where they show, their width and streams. */
 export function wireConnectorPanels(
   ctx: ClientContext,
   sources: ConnectorPanelsSources,

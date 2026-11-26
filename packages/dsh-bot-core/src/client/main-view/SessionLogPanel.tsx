@@ -11,7 +11,6 @@ export interface SessionLogPanelProps {
   close(): void
 }
 
-/** The Main session as DSH shows it (its tools, reasoning and notices), beside the timeline. */
 export function SessionLogPanel(props: SessionLogPanelProps) {
   const { t, face, sessionId } = props
   const release = useRef<(() => void) | undefined>(undefined)

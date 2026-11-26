@@ -14,7 +14,6 @@ const originSchema = z.discriminatedUnion("kind", [
   }),
 ])
 
-/** A decision as it arrives from a surface (untrusted). */
 export const decisionInputSchema = z.enum(CONNECTOR_DECISIONS)
 
 const decisionSchema = z.object({
@@ -59,7 +58,6 @@ const previewSchema = z.object({
   body: z.string().optional(),
 })
 
-/** One connector action of a bot, keyed by its id. */
 export const connectorActionSchema = z.object({
   id: z.string().min(1),
   botId: z.string().min(1),
@@ -75,7 +73,6 @@ export const connectorActionSchema = z.object({
   status: statusSchema,
 })
 
-/** A bot's permission override of one tool (for one of its accounts, with `connectionId`), keyed by {@link permissionRecordKey}. */
 export const permissionRecordSchema = z.object({
   botId: z.string().min(1),
   connectorId: z.string().min(1),
@@ -97,7 +94,6 @@ export function permissionRecordKey(
   return connectionId === undefined ? key : `${key}:${connectionId}`
 }
 
-/** A bot's settings of one connector, keyed by {@link settingsRecordKey}. */
 export const settingsRecordSchema = z.object({
   botId: z.string().min(1),
   connectorId: z.string().min(1),
@@ -113,7 +109,6 @@ export function settingsRecordKey(botId: string, connectorId: string): string {
   return `${botId}:${connectorId}`
 }
 
-/** A permission change as it arrives from a surface (untrusted). */
 export const permissionChangeSchema = z.strictObject({
   connectorId: z.string().min(1),
   tool: z.string().min(1),
@@ -121,15 +116,6 @@ export const permissionChangeSchema = z.strictObject({
   connectionId: z.string().min(1).optional(),
 })
 
-/**
- * Bots' connector actions, tool permissions and connector settings, apart
- * from the bot records (design rule 27). Version 2 added the `settings`
- * table and the optional `snapshot` and `text` of actions. Version 3
- * decides only through the owner's surfaces: a decision's origin is the Web
- * UI or a channel with its name, never a Host plugin. Records of the earlier
- * versions are read with the current schema; one decided by a Host plugin
- * (no surface decided before version 3) is backed up and skipped.
- */
 export const CONNECTORS_DOMAIN = {
   name: "dsh_bot_connectors",
   version: 3,

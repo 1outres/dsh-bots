@@ -1,12 +1,3 @@
-/**
- * `@1outres/dsh-bot-core/conversations`: bot-core's own row inside every
- * bot's isolated `bot-environment` group (compose.ts puts it after the skills
- * row; templates and overlays cannot name it). It registers
- * conversation_search and conversation_read (docs/specs/bot-session-search.md
- * §3), shown only where the `bot` service lets an Agent search the bot's past
- * conversations with its owner, and passes every call to the `bot` service
- * with the revision's token.
- */
 import type { Context } from "@deepseek-ai/cordis"
 import { defineTool, ToolContextUnavailableError } from "@deepseek-ai/dsh-tools"
 import z from "@deepseek-ai/schemastery"
@@ -27,11 +18,9 @@ import {
 
 export interface Config {
   botId: string
-  /** The preset revision's token (compose.ts); bot-core refuses calls of other revisions. */
   token: string
 }
 
-/** What each tool says and takes; the parameters are DSH's JSON Schema subset. */
 export const CONVERSATION_TOOLS: {
   readonly [Tool in ConversationToolName]: {
     readonly description: string

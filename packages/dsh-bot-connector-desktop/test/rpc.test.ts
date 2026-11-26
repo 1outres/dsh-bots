@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest"
 import { AgentCallError, AgentUnavailableError, createRpcClient } from "../src/host/agent/rpc"
 import { VAULT_KIT } from "./support"
 
-/** A byte stream the test writes the agent's side of. */
 function stream() {
   const written: string[] = []
   const lines: Uint8Array[] = []

@@ -23,7 +23,6 @@ import type {
   WorkspaceFilesVersion,
 } from "./domain"
 
-/** The slice of a storage-domain table the registry uses. */
 export interface BotTable<V = BotRecord> {
   get(key: string): V | undefined
   entries(): Iterable<[string, V]>
@@ -33,214 +32,106 @@ export interface BotTable<V = BotRecord> {
 
 export interface BotRegistryDeps {
   table: BotTable
-  /** Bot sessions keyed by session id: which bot each belongs to. */
   sessions: BotTable<BotSessionRecord>
-  /** Throws when no bot can be created now (no environment to run it); nothing is stored then. */
   admit(): void
-  /** The connectors of a new bot's creation options: selected before anything is stored, enabled before it is announced. */
   connectors: Pick<CreationConnectors, "select" | "enable">
-  /**
-   * A new bot's environment spec: made from the environment's capacity before
-   * anything is stored, stored right after its record, before its connectors
-   * are enabled (they are checked against it).
-   */
   specs: {
-    /** @throws when the environment cannot give the bot what `connectors` need. */
     initial(id: string, connectors: readonly CatalogConnector[]): Promise<BotEnvironmentSpec>
     create(id: string, spec: BotEnvironmentSpec): Promise<void>
     discard(id: string): Promise<void>
   }
-  /** A new bot's models: checked before anything is stored, stored right after its record. */
   models: {
     initial(change: unknown): Promise<BotModelSettings>
     store(id: string, models: BotModelSettings): Promise<void>
     discard(id: string): Promise<void>
   }
-  /**
-   * Start the bot's Main session under the bot's composed Agent preset
-   * (`Bot.createSession`, which records it with {@link BotRegistry.adopt}).
-   * The record is stored (and its subscribers told) before this runs.
-   * @returns the Main session id.
-   */
   startMain(bot: { id: string; name: string }): Promise<string>
-  /**
-   * The Main session is stored as the bot's: send its opening prompt, so the
-   * bot speaks first. Runs after the record names the Main, so the session is
-   * already the Main when its first turn assembles its prompt.
-   */
   openMain(bot: BotView): void
-  /** Set the Main session's title to the bot's new name. */
   renameMain(sessionId: string, name: string): Promise<void>
-  /** The canonical form of a bot's zone. @throws when `value` is not a usable IANA zone. */
   canonicalTimezone(value: unknown): string
   warn(message: string): void
   newId(): string
   now(): number
 }
 
-/** Why a creation stopped, as the record keeps it. */
 export interface CreationFailure extends BotFailure {
   readonly phase: CreationPhase
 }
 
-/** A stored bot without a Main session: being created, or its creation failed. */
 export interface CreatingBot {
   readonly id: string
   readonly name: string
   readonly avatar: BotAvatar
   readonly createdAt: number
-  /** Its recorded sessions (a Main that started but is not stored yet). */
   readonly sessionIds: readonly string[]
-  /** Its Main session is being started right now. */
   readonly startingMain: boolean
   readonly failure?: CreationFailure
 }
 
-/** What a removed record leaves to clean up. */
 export interface RemovedBot extends BotSessions {
   readonly id: string
   readonly avatar: BotAvatar
   readonly createdAt: number
 }
 
-/** Which kind of stored bot a removal expects. */
 export type RemovalTarget = "listed" | "creating"
 
 export interface BotRegistry {
   list(): BotView[]
-  /** Stored bots without a Main session, oldest first. */
   creating(): CreatingBot[]
   get(id: string): BotView | undefined
-  /**
-   * Store a new bot without a Main session, the connectors of its creation options enabled,
-   * then announce it; resolves to its id. Subscribers prepare its environment
-   * (with what those connectors need) and preset; {@link repairMains} starts its Main.
-   */
   create(input: BotCreateInput): Promise<string>
   update(id: string, input: BotUpdateInput): Promise<BotView>
-  /**
-   * Delete the record of a listed bot, or of one being created. The bot
-   * leaves the list (and the Main guard stops protecting its Main); its
-   * sessions stay recorded as its own for the rest of the process, so the
-   * caller archives them and then {@link forget}s them. `removed` runs once
-   * the record is gone, before subscribers are told, so they never see the
-   * bot neither stored nor taken over by the caller.
-   * @throws when the bot does not exist or is not of the `expected` kind.
-   */
   remove(id: string, expected: RemovalTarget, removed: (bot: RemovedBot) => void): Promise<void>
-  /**
-   * Delete the session records of a removed bot. Each is deleted on its own:
-   * one failing does not keep the others; the failures are thrown together.
-   */
   forget(sessionIds: readonly string[]): Promise<void>
-  /**
-   * Store why a creation stopped. Ignored for a bot that is not being
-   * created, or whose creation already failed. Resolves to whether it was stored.
-   */
   failCreation(id: string, failure: CreationFailure): Promise<boolean>
-  /**
-   * Clear a creation's failure, so the bot is prepared again.
-   * @throws when the bot is not a creation that failed.
-   */
   retryCreation(id: string): Promise<void>
-  /**
-   * Give every stored bot without a Main session and without a creation
-   * failure one, or only those of `ids`. A bot that fails keeps the failure
-   * (phase `starting-main`) and is reported; the others proceed. Safe to
-   * call again.
-   */
   repairMains(ids?: Iterable<string>): Promise<void>
-  /**
-   * Store the bot's template choice and/or overlay. In the write queue, the
-   * change is merged into the current record and `validate` sees the merged
-   * result; when it throws, nothing is stored. So two concurrent changes
-   * never store a combination nobody validated.
-   */
   setPreset(
     id: string,
     change: { readonly template?: string; readonly overlay?: BotOverlay },
     validate: (merged: BotRecord) => void,
   ): Promise<void>
-  /**
-   * Make `next` (a session recorded as the bot's) the bot's Main in place of
-   * `expected`: the former Main's record keeps when and why it was replaced (`retiredMain`).
-   * In the write queue; resolves to the bot's new view.
-   * @throws when the bot does not exist, its Main is no longer `expected`, or `next` is not the bot's.
-   */
   replaceMain(
     id: string,
     expected: string,
     next: string,
     reason: MainRotationReason,
   ): Promise<BotView>
-  /** The bot whose Main session `sessionId` is. */
   botOfMain(sessionId: string): BotView | undefined
-  /**
-   * The bot a session belongs to: its Main, or a session recorded as the
-   * bot's. A deleted bot's sessions stay its own for the rest of the process.
-   */
   botOfSession(sessionId: string): string | undefined
-  /** Every session recorded for a stored bot (its Main included), oldest first. */
   sessionsOf(botId: string): string[]
-  /**
-   * Record `sessionId` as a session of the stored bot `botId`. Idempotent;
-   * not in the write queue (a Main starts inside it). Resolves to whether it
-   * was recorded now; a session of another bot, or of a bot not stored, is not.
-   */
   adopt(botId: string, sessionId: string, membership?: SessionMembership): Promise<boolean>
-  /** Whether the session's record says the bot's Main session started it. */
   startedByMain(sessionId: string): boolean
-  /** Whether the session was the bot's Main and a new Main took its place. */
   pastMain(sessionId: string): boolean
-  /** The stored bot's Mains, oldest first: its former Mains, when each ended, then its Main. */
   mainsOf(botId: string): readonly BotMainRecord[] | undefined
-  /**
-   * Version 1 records: record the sessions of the bot's former Workspace and
-   * drop `path` / `workspaceId` from its record. `retire` drops the Workspace
-   * registration; a failure is reported and the record keeps its Workspace id,
-   * so the next start-up tries again.
-   */
   migrateLegacy(
     sessionsOf: (workspaceId: string) => readonly string[] | undefined,
     retire: (workspaceId: string) => Promise<unknown>,
   ): Promise<void>
-  /** Whether the bot's initial workspace files of this version were placed. */
   hasWorkspaceFiles(id: string, version: WorkspaceFilesVersion): boolean
-  /** Store that the bot's initial workspace files of this version were placed. */
   markWorkspaceFiles(id: string, version: WorkspaceFilesVersion): Promise<void>
-  /** Whether the bot's initial notes of this version were placed. */
   hasInitialNotes(id: string, version: InitialNotesVersion): boolean
-  /** Store that the bot's initial notes of this version were placed. */
   markInitialNotes(id: string, version: InitialNotesVersion): Promise<void>
-  /** The stored bot's time zone. @throws when the bot does not exist. */
   timezoneOf(id: string): string
-  /**
-   * Records written before bots had a time zone ran in the Host's: store it as
-   * theirs (`hostZone` is read only when one has none). Start-up, before
-   * anything reads bots.
-   */
   migrateTimezones(hostZone: () => string): Promise<void>
   subscribe(listener: () => void): () => void
 }
 
-/** The record's time zone; every record has one once {@link BotRegistry.migrateTimezones} ran. */
 function timezoneOf(id: string, record: BotRecord): string {
   if (record.timezone === undefined) throw new Error(`bot "${id}" has no time zone yet`)
   return record.timezone
 }
 
-/** One of a bot's Mains: `endedAt` once a new Main took its place. */
 export interface BotMainRecord {
   readonly sessionId: string
   readonly endedAt?: number
 }
 
-/** One recorded session of a bot, with its id. */
 export interface RecordedSession extends BotSessionRecord {
   readonly sessionId: string
 }
 
-/** A bot is listed once it has its Main session. */
 function viewOf(
   id: string,
   record: BotRecord,
@@ -269,7 +160,6 @@ function viewOf(
   }
 }
 
-/** A record without the legacy Host fields. */
 function withoutLegacy(record: BotRecord): BotRecord {
   const { path: _path, workspaceId: _workspaceId, ...rest } = record
   return rest
@@ -280,16 +170,13 @@ export function createBotRegistry(deps: BotRegistryDeps): BotRegistry {
   const publish = () => {
     for (const listener of [...listeners]) listener()
   }
-  // Serialize writes so creation, repair and updates never interleave.
   let chain: Promise<unknown> = Promise.resolve()
   const serial = <T>(work: () => Promise<T>): Promise<T> => {
     const next = chain.then(work, work)
     chain = next.catch(() => {})
     return next
   }
-  /** Sessions being recorded (their write not done yet), so lookups and repeats see them at once. */
   const adopting = new Map<string, BotSessionRecord>()
-  /** Sessions of bots deleted since start: still theirs, so their Agents stay classified. */
   const departed = new Map<string, string>()
 
   const requireRecord = (id: string): BotRecord => {
@@ -328,12 +215,10 @@ export function createBotRegistry(deps: BotRegistryDeps): BotRegistry {
     return found
   }
 
-  /** Bots whose Main is being started (in the write queue). */
   const starting = new Set<string>()
 
   const describe = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
-  /** In the write queue: give a stored bot its Main unless it has one, and store it. */
   const startMainOf = async (id: string): Promise<BotRecord> => {
     const record = requireRecord(id)
     if (record.mainSessionId !== undefined) return record
@@ -349,18 +234,15 @@ export function createBotRegistry(deps: BotRegistryDeps): BotRegistry {
       ...requireRecord(id),
       mainSessionId,
       mainOnBotPreset: true,
-      // Also the earlier field, so an older bot-core still reads this Main as on the bot preset.
       mainPreset: botPresetId(id),
       updatedAt: deps.now(),
     }
     await deps.table.put(id, complete)
-    // Its opening is on its way before the bot is listed, so the browser never offers the blank Main's composer first.
     deps.openMain(requireView(id, complete))
     publish()
     return complete
   }
 
-  /** Store a creation's failure, in the write queue. */
   const storeFailure = async (id: string, failure: CreationFailure): Promise<boolean> => {
     const record = deps.table.get(id)
     if (record === undefined || record.mainSessionId !== undefined) return false
@@ -448,7 +330,6 @@ export function createBotRegistry(deps: BotRegistryDeps): BotRegistry {
         }
         await deps.table.put(id, record)
         publish()
-        // Following the title is best effort: the rename itself already succeeded.
         if (name !== undefined && name !== current.name && record.mainSessionId !== undefined) {
           try {
             await deps.renameMain(record.mainSessionId, name)
@@ -474,8 +355,6 @@ export function createBotRegistry(deps: BotRegistryDeps): BotRegistry {
         const sessionIds = sessionsOf(id)
         for (const sessionId of sessionIds) departed.set(sessionId, id)
         if (record.mainSessionId !== undefined) departed.set(record.mainSessionId, id)
-        // The record goes first: the Main guard stops protecting the Main and
-        // subscribers release the bot's preset and environment.
         await deps.table.delete(id)
         removed({
           id,
@@ -638,7 +517,6 @@ export function createBotRegistry(deps: BotRegistryDeps): BotRegistry {
             ]
             for (const [index, sessionId] of legacy.entries()) {
               if (sessionRecord(sessionId) !== undefined) continue
-              // Workspace order is kept: Main first, then the Workspace's own order.
               await deps.sessions.put(sessionId, { botId: id, createdAt: record.createdAt + index })
             }
             try {

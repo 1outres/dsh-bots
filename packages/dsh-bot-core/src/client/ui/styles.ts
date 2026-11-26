@@ -1,4 +1,3 @@
-/** bot-core's shared components (client/ui/), in DSH's measures. */
 export const UI_CSS = `
 .dshb-ui-group { display: flex; flex-direction: column; min-width: 0; margin-top: 24px; }
 .dshb-ui-group:first-child { margin-top: 0; }

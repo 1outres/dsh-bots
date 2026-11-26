@@ -1,10 +1,3 @@
-/**
- * The browser connector's tools: Playwright MCP's, as the generator listed
- * them from the pinned version (src/generated/playwright-mcp.json), with
- * the connector's policy for each (which are not offered, which are
- * disallowed, which only read). The server in a bot's environment must list
- * exactly the same tools.
- */
 import generated from "../generated/playwright-mcp.json"
 import { type McpTool, parseTool } from "./mcp/protocol"
 
@@ -12,14 +5,11 @@ export interface GeneratedServer {
   readonly package: string
   readonly version: string
   readonly server: { readonly name: string; readonly version: string }
-  /** The server's arguments the tools were listed with; it runs with them. */
   readonly arguments: readonly string[]
   readonly tools: readonly McpTool[]
 }
 
-/** Closing the browser would close the person's Chrome; installing one is the desktop's part. */
 export const NOT_OFFERED = ["browser_close", "browser_install"] as const
-/** Runs any code in the server's process, beyond the tools' own checks. */
 export const DISALLOWED = ["browser_run_code_unsafe"] as const
 
 const UPSTREAM_PREFIX = "browser_"
@@ -49,10 +39,8 @@ export function parseGeneratedServer(value: unknown): GeneratedServer {
 
 export const GENERATED_SERVER = parseGeneratedServer(generated)
 
-/** One upstream tool as the connector offers it. */
 export interface OfferedTool {
   readonly upstream: McpTool
-  /** Its name in the connector (bot-core prefixes `browser_`). */
   readonly name: string
   readonly permission: "allow" | "disallow"
   readonly readOnly: boolean
@@ -84,7 +72,6 @@ const canonical = (value: unknown): unknown => {
   )
 }
 
-/** How the tools a server lists differ from the generated ones (empty when they are the same). */
 export function toolDifferences(
   expected: readonly McpTool[],
   listed: readonly McpTool[],

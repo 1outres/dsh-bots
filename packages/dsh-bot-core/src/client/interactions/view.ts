@@ -4,35 +4,24 @@ import type {
   BotInteractionsSnapshot,
 } from "../../shared/interactions"
 
-/** One card the composer seat shows for a bot session. */
 export type InteractionCard =
   | {
       readonly kind: "open"
       readonly interaction: BotInteraction
-      /** This page's clock: when a counting wait ends. */
       readonly deadline?: number
     }
   | {
       readonly kind: "closed"
       readonly interaction: BotInteraction
       readonly resolution: BotInteractionResolution
-      /** The answering channel's name, when a channel answered. */
       readonly channelName?: string
     }
 
-/** What this page remembers of a session's interactions. */
 export interface InteractionMemory {
-  /** Interactions this page showed open. */
   readonly seen: ReadonlySet<string>
-  /** Closures the person put away, and interactions answered from this page. */
   readonly dismissed: ReadonlySet<string>
 }
 
-/**
- * The cards of a session, open ones first: a closure shows (who answered,
- * or that it was withdrawn) only for an interaction this page showed open and
- * did not answer itself, until it is put away.
- */
 export function cardsOf(
   snapshot: BotInteractionsSnapshot,
   memory: InteractionMemory,

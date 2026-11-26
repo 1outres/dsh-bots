@@ -1,4 +1,3 @@
-// Verification only. RFC 6238 one-time codes (SHA-1, 6 digits, 30 s) from a base32 seed.
 import { createHmac } from "node:crypto"
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"

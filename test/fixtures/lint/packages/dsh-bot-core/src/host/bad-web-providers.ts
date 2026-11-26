@@ -6,6 +6,6 @@ declare const ctx: {
 }
 
 export function apply() {
-  ctx.web.registerSearchProvider({ id: "exa" }) // rule: 45
-  ctx.web?.registerFetchProvider({ id: "http" }) // rule: 45
+  ctx.web.registerSearchProvider({ id: "exa" })
+  ctx.web?.registerFetchProvider({ id: "http" })
 }

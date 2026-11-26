@@ -1,14 +1,12 @@
 import { createStore, type Observable } from "../observable"
 import { type NoteFailure, NoteRequestError } from "./client"
 
-/** One query's result; a reload of the same query keeps the value it replaces. */
 export type Load<T> =
   | { readonly status: "idle" }
   | { readonly status: "loading"; readonly previous?: T }
   | { readonly status: "ready"; readonly value: T }
   | { readonly status: "failed"; readonly failure: NoteFailure }
 
-/** The value a load shows: the result, or while reloading the one before. */
 export function shownValue<T>(load: Load<T>): T | undefined {
   if (load.status === "ready") return load.value
   if (load.status === "loading") return load.previous
@@ -16,12 +14,7 @@ export function shownValue<T>(load: Load<T>): T | undefined {
 }
 
 export interface Loader<T> extends Observable<Load<T>> {
-  /**
-   * Show the result of `key` as of `revision`: loaded again only for
-   * another key, a revision newer than the one last read, or `force`.
-   */
   request(key: string, revision: number, force?: boolean): void
-  /** Forget the result and stop the running load. */
   clear(): void
 }
 
@@ -30,7 +23,6 @@ const failureOf = (error: unknown): NoteFailure =>
     ? error.failure
     : { kind: "connection", message: error instanceof Error ? error.message : String(error) }
 
-/** A query the notes screen runs, each result read as of the notes' revision it reports. */
 export function createLoader<T extends { readonly revision: number }>(
   fetch: (key: string, signal: AbortSignal) => Promise<T>,
 ): Loader<T> {

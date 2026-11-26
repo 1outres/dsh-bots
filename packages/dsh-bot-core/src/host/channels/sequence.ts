@@ -4,14 +4,8 @@ type Step =
   | { readonly kind: "output"; readonly output: BotChannelOutput }
   | { readonly kind: "work"; readonly run: () => Promise<void> }
 
-/**
- * Keeps each bot's Main session outputs in order around asynchronous work:
- * an output published while earlier work of the bot is unfinished waits for
- * it. With nothing pending, an output is published at once.
- */
 export interface ChannelSequence {
   publish(botId: string, output: BotChannelOutput): void
-  /** Run `work` once everything before it is published; later outputs wait until it settles. */
   run(botId: string, work: () => Promise<void>): void
 }
 

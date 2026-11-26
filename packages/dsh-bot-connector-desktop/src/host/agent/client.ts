@@ -1,7 +1,3 @@
-/**
- * The desktop agent as the tools use it: every method's answer checked
- * against its shape (protocol.ts) before anyone reads it.
- */
 import type { SecretBytes } from "@1outres/dsh-bot-core"
 import {
   type AgentMethod,
@@ -20,7 +16,6 @@ export interface DesktopAgent {
     params: AgentParams[M],
     signal?: AbortSignal,
   ): Promise<AgentResult<M>>
-  /** Hand a secret to the agent with the call; it is wiped once sent (or when the call fails first). */
   callSecret<M extends SecretAgentMethod>(
     method: M,
     params: SecretAgentParams[M],

@@ -1,9 +1,3 @@
-/**
- * The work of conversation_search and conversation_read
- * (docs/specs/bot-session-search.md §3): the conversations bot-core's records
- * name (sources.ts), read from their logs without loading their Agents, less
- * what the caller's own log says it still has in its context.
- */
 import { z } from "zod"
 import type { ConversationToolName } from "../../internal"
 import { ConversationToolError } from "./errors"
@@ -20,16 +14,13 @@ import { searchConversations } from "./search"
 import type { ConversationSource, OwnerConversations } from "./sources"
 import { NOT_COMPACTED, NOTHING_COMPACTED, READ_AROUND, SEARCH_LIMIT, UNAVAILABLE } from "./texts"
 
-/** Reads one session's log; undefined when the session has none. */
 export type SessionLogReader = (
   sessionId: string,
   signal: AbortSignal,
 ) => Promise<SessionLog | undefined>
 
 export interface ConversationToolsDeps {
-  /** The bot's conversations with its owner, the caller's own apart. */
   sources(botId: string, callerId: string): OwnerConversations
-  /** The Host's session history, while it is there. */
   reader(): SessionLogReader | undefined
   timezone(botId: string): string
 }
@@ -49,7 +40,6 @@ type Loaded =
   | { readonly kind: "read"; readonly conversation: Conversation }
   | ({ readonly kind: "unread" } & UnreadConversation)
 
-/** Logs read at once by one search. */
 const READ_CONCURRENCY = 4
 
 const searchSchema = z.strictObject({
@@ -81,7 +71,6 @@ const problemOf = (error: unknown) => (error instanceof Error ? error.message : 
 
 const EMPTY_LOG: SessionLog = { inheritedEventCount: 0, events: [] }
 
-/** The caller's conversation and what it has in its context, from its own log. */
 interface Caller {
   readonly conversation: Conversation
   readonly inContext: InContext

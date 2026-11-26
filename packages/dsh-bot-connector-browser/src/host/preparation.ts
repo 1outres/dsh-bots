@@ -1,10 +1,3 @@
-/**
- * Making the bot's environment ready for the browser, one idempotent path
- * (the desktop, which runs the Chrome it drives, is ready before: the
- * connector requires it): Playwright MCP installed from the pinned
- * npm-shrinkwrap.json when the installed one differs, the login helpers when they differ, the
- * desktop's Chrome answering DevTools, and the server listing exactly the generated tools.
- */
 import type { BotConnectorContext, BotConnectorPreparation } from "@1outres/dsh-bot-core"
 import { type GeneratedServer, toolDifferences } from "./catalog"
 import type { McpClientDeps } from "./mcp/client"
@@ -20,15 +13,12 @@ import {
   type VmUser,
 } from "./vm/layout"
 
-/** The package's vm/ files the preparation installs from. */
 export interface McpInstallation {
   readonly packageJson: Uint8Array
   readonly shrinkwrap: Uint8Array
-  /** vm/install-mcp.sh, which the base image build runs too. */
   readonly script: Uint8Array
 }
 
-/** The login helpers (vm/helper/*.mjs) and vm/install-helper.sh. */
 export interface HelperInstallation {
   readonly files: readonly { readonly name: string; readonly data: Uint8Array }[]
   readonly script: Uint8Array
@@ -48,7 +38,6 @@ const HELPER_FILE = /^[a-z][a-z0-9-]*\.mjs$/
 
 const INSTALL_TIMEOUT_MS = 15 * 60_000
 
-/** What the desktop's Chrome says on DevTools' /json/version. @throws for anything but Chrome. */
 export function chromeVersion(answer: string): string {
   let parsed: unknown
   try {

@@ -24,19 +24,12 @@ import { CONNECTOR_PANEL_GLYPHS } from "./icons"
 
 export const CONNECTOR_PANEL_SLOT: ConnectorPanelSlot = "bot-core.connector.panel"
 
-/** `renderSlot` for the shell's declared child Slots. */
 export type RenderShellSlot = (
   key: ConnectorPanelSlot,
   owner: ConnectorPanelProps,
   options: { readonly entryKey: string; readonly fallback: ReactNode },
 ) => ReactNode
 
-/**
- * Where the panel is drawn: in the side panel frame, which shares the shell's
- * width, or a popover over the app, which `mount` puts in bot-core's
- * `shell.overlay` entry (a portal), hidden while a settings screen is
- * `covered` over it.
- */
 export type ConnectorPanelPlacement =
   | {
       readonly presentation: "side"
@@ -73,12 +66,6 @@ export interface ConnectorPanelViewProps {
   close(): void
 }
 
-/**
- * A connector's panel: the frame its presentation asks for (title, the
- * connector's note, close) around the connector's readiness, or, once it is
- * ready, the body its browser part registers. Escape closes it, except while
- * a person operates the connector (the keys are theirs).
- */
 export function ConnectorPanelView(props: ConnectorPanelViewProps) {
   const { t, text, connectorId, placement } = props
   const state = useObservable(props.feed)

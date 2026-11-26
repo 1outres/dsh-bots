@@ -10,12 +10,10 @@ import { memoryTable } from "./channels-support"
 import { manualClock } from "./connectors-support"
 
 export const MINUTE = 60_000
-/** 2026-11-24 12:00 in Tokyo. */
 export const NOON = Date.parse("2026-11-24T12:00:00+09:00")
 
 export class NotReady extends Error {}
 
-/** A Main controller of one bot "b" (Main "m1") over in-memory tables and a manual clock. */
 export async function mainControllerSetup() {
   const clock = manualClock(NOON)
   const store = await openMainStore({

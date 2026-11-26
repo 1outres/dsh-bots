@@ -5,22 +5,13 @@ import {
   writeSecrets,
 } from "../secret-record"
 
-/**
- * The vaults' secrets in DSH's credential store, read by bot-core alone and
- * never sent to the browser or a bot's environment: an account's setup
- * secrets (`bot-core/vault-<accountId>`) and the leak guard's keys
- * (`bot-core/vault-guard`). The store answers in JSON, so these are JS
- * strings for as long as they are read (docs/specs/bot-vaults.md §0).
- */
 export interface VaultRecords {
   setup(accountId: string): Promise<Readonly<Record<string, string>>>
   writeSetup(accountId: string, secrets: Readonly<Record<string, string>>): Promise<void>
   removeSetup(accountId: string): Promise<void>
-  /** The guard's key material, made on first use. */
   guardKeys(): Promise<GuardKeyMaterial>
 }
 
-/** Base64 of the per-installation random key and salt. */
 export interface GuardKeyMaterial {
   readonly key: string
   readonly salt: string
@@ -28,7 +19,6 @@ export interface GuardKeyMaterial {
 
 export interface VaultRecordsDeps {
   records(): CredentialRecords
-  /** Base64 of that many random bytes. */
   random(bytes: number): string
 }
 

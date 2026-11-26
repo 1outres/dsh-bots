@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react"
 
-/** An answer read from the Host while its key stays the same. */
 export type QueryState<T> =
   | { readonly status: "loading" }
   | { readonly status: "ready"; readonly value: T }
@@ -8,7 +7,6 @@ export type QueryState<T> =
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
-/** Read `load` again whenever `key` changes, cancelling the read before. */
 export function useQuery<T>(key: string, load: (signal: AbortSignal) => Promise<T>): QueryState<T> {
   const [state, setState] = useState<{ readonly key: string; readonly state: QueryState<T> }>({
     key,

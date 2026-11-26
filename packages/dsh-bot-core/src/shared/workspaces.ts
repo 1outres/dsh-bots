@@ -1,18 +1,9 @@
-/**
- * The DSH Workspaces a bot's Main session may orchestrate
- * (docs/specs/bot-managed-sessions.md §10): the owner's grant per bot and
- * Workspace, with the Agent preset, the permission and the model of the
- * sessions the Main starts there, and the `botWorkspaces` Remote.
- */
 import { type BotModelChoice, parseModelChoice } from "./models"
 import type { ApprovalPolicy, PermissionBundle, SandboxMode } from "./permission"
 
-/** How the sessions a bot's Main session starts in one Workspace run; the Main cannot change them. */
 export interface BotWorkspaceSettings {
-  /** A DSH Agent preset other than any bot's. */
   readonly agentPreset: string
   readonly permission: PermissionBundle
-  /** The model when session_start names none (`profile-default`: DSH's default). */
   readonly model: BotModelChoice
 }
 
@@ -22,18 +13,14 @@ export interface BotWorkspaceGrant extends BotWorkspaceSettings {
   readonly since: number
 }
 
-/** One DSH Workspace (`workspaceRegistry`). */
 export interface DshWorkspace {
   readonly workspaceId: string
   readonly title: string
   readonly path: string
 }
 
-/** What the `botWorkspaces` Remote's `watch` streams. */
 export interface BotWorkspacesSnapshot {
-  /** Every bot's grants, oldest first. */
   readonly grants: readonly BotWorkspaceGrant[]
-  /** DSH's Workspaces, in its order. */
   readonly workspaces: readonly DshWorkspace[]
 }
 
@@ -43,7 +30,6 @@ export interface BotAgentPresetOption {
   readonly isDefault: boolean
 }
 
-/** A permission mode: a configured DSH permission preset (or, without dsh-permission-presets, a pair of knobs). */
 export interface BotPermissionOption {
   readonly id: string
   readonly name?: string
@@ -51,9 +37,7 @@ export interface BotPermissionOption {
   readonly isDefault: boolean
 }
 
-/** What a grant can choose from now. */
 export interface BotWorkspaceOptions {
-  /** DSH's Agent presets except the bots'. */
   readonly agentPresets: readonly BotAgentPresetOption[]
   readonly permissions: readonly BotPermissionOption[]
 }
@@ -62,30 +46,25 @@ export type BotWorkspaceSettingsChange = {
   readonly [Field in keyof BotWorkspaceSettings]?: BotWorkspaceSettings[Field]
 }
 
-/** The `botWorkspaces` Remote: the owner grants Workspaces to bots. */
 export interface BotWorkspacesApi {
   watch(signal?: AbortSignal): AsyncIterable<BotWorkspacesSnapshot>
   options(): Promise<BotWorkspaceOptions>
-  /** @throws when the bot or the Workspace does not exist, it is granted already, or a setting is refused. */
   grant(
     botId: string,
     workspaceId: string,
     settings: BotWorkspaceSettings,
   ): Promise<BotWorkspaceGrant>
-  /** Change settings of a grant; sessions already started keep theirs. */
   configure(
     botId: string,
     workspaceId: string,
     change: BotWorkspaceSettingsChange,
   ): Promise<BotWorkspaceGrant>
-  /** Withdraw the grant: the bot's management of that Workspace's sessions ends. */
   revoke(botId: string, workspaceId: string): Promise<BotWorkspacesSnapshot>
 }
 
 const SANDBOX_MODES: readonly SandboxMode[] = ["read-only", "workspace-write", "danger-full-access"]
 const APPROVAL_POLICIES: readonly ApprovalPolicy[] = ["ask", "never"]
 
-/** Every pair of knobs, for a DSH without permission presets. */
 export const PERMISSION_BUNDLES: readonly PermissionBundle[] = SANDBOX_MODES.flatMap((sandbox) =>
   APPROVAL_POLICIES.map((approval) => ({ sandbox, approval })),
 )
@@ -100,7 +79,6 @@ function onlyKeys(fields: Record<string, unknown>, keys: readonly string[], at: 
   if (unknown.length > 0) throw new Error(`${at} has unknown fields: ${unknown.join(", ")}`)
 }
 
-/** A permission (untrusted input). */
 export function parsePermission(value: unknown): PermissionBundle {
   if (!isObject(value)) throw new Error("permission must be an object")
   onlyKeys(value, ["sandbox", "approval"], "permission")
@@ -125,7 +103,6 @@ function parseAgentPreset(value: unknown): string {
 
 const FIELDS = ["agentPreset", "permission", "model"] as const
 
-/** A change of a grant's settings (untrusted input). */
 export function parseWorkspaceSettingsChange(value: unknown): BotWorkspaceSettingsChange {
   if (!isObject(value)) throw new Error("the settings must be an object")
   onlyKeys(value, FIELDS, "the settings")
@@ -138,7 +115,6 @@ export function parseWorkspaceSettingsChange(value: unknown): BotWorkspaceSettin
   }
 }
 
-/** A grant's complete settings (untrusted input). */
 export function parseWorkspaceSettings(value: unknown): BotWorkspaceSettings {
   const change = parseWorkspaceSettingsChange(value)
   const missing = FIELDS.filter((field) => change[field] === undefined)
@@ -150,7 +126,6 @@ export function samePermission(left: PermissionBundle, right: PermissionBundle):
   return left.sandbox === right.sandbox && left.approval === right.approval
 }
 
-/** The bot's grant of a Workspace in a snapshot. */
 export function grantOf(
   snapshot: BotWorkspacesSnapshot,
   botId: string,
@@ -159,7 +134,6 @@ export function grantOf(
   return snapshot.grants.find((grant) => grant.botId === botId && grant.workspaceId === workspaceId)
 }
 
-/** The bot's grants in a snapshot, oldest first. */
 export function grantsOfBot(
   snapshot: BotWorkspacesSnapshot,
   botId: string,

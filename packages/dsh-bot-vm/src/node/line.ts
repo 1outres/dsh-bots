@@ -2,10 +2,6 @@ import type { Socket } from "node:net"
 
 const MAX_LINE = 4096
 
-/**
- * The first `\n`-terminated line on a socket, and what came after it (put
- * back with `unshift`, so a later reader sees it first).
- */
 export function readLine(socket: Socket, timeoutMs: number): Promise<string> {
   return new Promise((resolve, reject) => {
     let buffered = Buffer.alloc(0)

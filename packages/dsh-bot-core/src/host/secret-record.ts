@@ -1,9 +1,3 @@
-/**
- * bot-core's secrets in DSH's credential store: one `grant` record per owner
- * (a bot's channel, a web backend) whose payload only bot-core reads.
- */
-
-/** The slice of DSH's `credentials` service bot-core uses (dsh-credentials `CredentialProvider`). */
 export interface CredentialRecords {
   readRecord(
     key: string,
@@ -20,12 +14,10 @@ export interface SecretPayload {
   readonly secrets: Readonly<Record<string, string>>
 }
 
-/** The credential owner scope: bot-core's registered plugin name. */
 export const SECRET_SCOPE = "bot-core"
 
 const SEGMENT = /^[a-z][a-z0-9-]*$/
 
-/** `bot-core/<id>`. @throws when `id` cannot be one key segment. */
 export function secretRecordKey(id: string): string {
   if (!SEGMENT.test(id)) throw new Error(`no credential key can be named "${id}"`)
   return `${SECRET_SCOPE}/${id}`
@@ -49,7 +41,6 @@ function secretsOf(
   return secrets
 }
 
-/** The secrets stored under `key` ({} when none). @throws when the record is not bot-core's. */
 export async function readSecrets(
   records: CredentialRecords,
   key: string,
@@ -58,7 +49,6 @@ export async function readSecrets(
   return record === undefined ? {} : { ...secretsOf(key, record) }
 }
 
-/** Replace the secrets stored under `key`; an empty set removes the record. */
 export async function writeSecrets(
   records: CredentialRecords,
   key: string,

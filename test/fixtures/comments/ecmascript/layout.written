@@ -1,0 +1,15 @@
+import { join } from "node:path"
+
+export function joined(left: string, right: string): string {
+  return join(left, right)
+}
+
+const total = 1 + 2
+const tight = total+1
+const words = typeof total
+
+export function last(): number {
+  return total + tight
+}
+
+export const end = words

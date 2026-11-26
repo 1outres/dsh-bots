@@ -12,20 +12,14 @@ import type { EnvironmentSpecStore } from "./store"
 export interface EnvironmentPanelDeps {
   readonly store: EnvironmentSpecStore
   readonly environment: Pick<EnvironmentKeeper, "current" | "status" | "ensured" | "progress">
-  /** What the bot's enabled connectors need. */
   needs(botId: string): readonly BotEnvironmentNeed[]
-  /** Whether the bot is listed. */
   listed(botId: string): boolean
 }
 
-/** What the `botEnvironment` Remote serves: each bot's VM page. */
 export interface EnvironmentPanel {
-  /** @throws for a bot that is not listed. */
   view(botId: string): BotEnvironmentView
-  /** Read the environment's capacity for the bot again; its view shows it once read. */
   refresh(botId: string): Promise<void>
   configure(botId: string, spec: unknown): Promise<BotEnvironmentView>
-  /** Called after the capacity was read again. */
   subscribe(listener: () => void): () => void
 }
 
@@ -95,9 +89,7 @@ export function createEnvironmentPanel(deps: EnvironmentPanelDeps): EnvironmentP
     async refresh(botId) {
       try {
         await read(botId)
-      } catch {
-        // Shown in the views.
-      }
+      } catch {}
     },
     async configure(botId, input) {
       view(botId)

@@ -36,9 +36,7 @@ import type { SettingsSectionProps } from "./sections"
 export interface ConnectorsSectionDeps {
   readonly connectors: ConnectorsHub
   readonly connections: ConnectionsFeed
-  /** Open the dsh-bots settings where providers' OAuth clients are set up. */
   openConnectionSettings(): void
-  /** A connector's text in the active language. */
   text(text: ConnectorText): string
 }
 
@@ -50,7 +48,6 @@ export const READINESS_LABEL: Readonly<Record<ConnectorReadiness["state"], Messa
   failed: "connectors.state.failed",
 }
 
-/** The bot's connectors: a list (accounts, then the connectors on and off) and a page per connector and per provider. */
 export function ConnectorsSection(props: SettingsSectionProps & ConnectorsSectionDeps) {
   const { t, bot, page, connectors, connections } = props
   const feed = connectors.feed(bot.id)

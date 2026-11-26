@@ -1,18 +1,13 @@
 import type { DiscordActions } from "./discord"
 import type { DiscordHome } from "./home"
 
-/** The Discord channel of the home: the home channel, or the DM channel with the owner. */
 export interface HomeChannel {
   readonly channelId: string
-  /** `null` for a DM. */
   readonly guildId: string | null
 }
 
-/** Where everything the bot posts goes. */
 export interface HomeTarget {
-  /** The home's channel; a DM is opened once. Rejects when it cannot be opened. */
   channel(): Promise<HomeChannel>
-  /** The DM channel the owner wrote from. */
   learn(channelId: string): void
 }
 

@@ -1,19 +1,4 @@
 #!/usr/bin/env bash
-# For the author: export the built base image for a GitHub Release.
-#
-# Usage: ./export-image.sh <tag> [<out dir>]     (as a user that can talk to Incus)
-# Exports the image ALIAS (dsh-bot-base) of PROJECT (dsh-bots), as build-base-image.sh left it.
-# Writes into <out dir> (default ./dist/<tag>): the image split into parts below
-# GitHub's 2 GiB asset limit and manifest.txt, and sets IMAGE_TAG and
-# IMAGE_MANIFEST_SHA256 in infra/release.env and in the plugin that imports the
-# image (packages/dsh-bot-vm/src/host/image/release-env.ts). Upload them with
-# publish-image.sh (infra/RELEASING.md).
-#
-# manifest.txt, one record per line:
-#   format 1
-#   dsh <DSH_VERSION>
-#   image <file name> <bytes> <sha256 = Incus fingerprint>
-#   part <file name> <bytes> <sha256>        (in order)
 set -eEuo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 # shellcheck source=lib.sh

@@ -1,8 +1,3 @@
-/**
- * The time a search keeps to (docs/specs/bot-session-search.md §3): after and
- * before are a date or a date-time; without an offset they are read in the
- * bot's time zone, and a date is the start of that day.
- */
 import {
   parseLocalCalendar,
   parseOffsetInstant,
@@ -10,7 +5,6 @@ import {
 } from "@deepseek-ai/dsh-util-time"
 import { ConversationToolError } from "./errors"
 
-/** Messages at or after `from` and before `to` (epoch milliseconds). */
 export interface Period {
   readonly from?: number
   readonly to?: number
@@ -18,7 +12,6 @@ export interface Period {
 
 const MOMENT = /^(\d{4}-\d{2}-\d{2})(?:T(\d{2}:\d{2})(:\d{2}(?:\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})?)?$/
 
-/** The instant a bound names. */
 export function parseMoment(field: string, text: string, timezone: string): number {
   const match = MOMENT.exec(text.trim())
   if (match === null) {

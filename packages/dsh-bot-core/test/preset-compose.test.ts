@@ -20,7 +20,6 @@ import type {
 } from "../src/host/preset/types"
 import type { BotOverlay, BotTemplate, PluginRow } from "../src/shared/preset"
 
-/** Deep-freeze plain data so any mutation of the inputs throws. */
 function frozen<T>(value: T): T {
   if (typeof value === "object" && value !== null && !Object.isFrozen(value)) {
     Object.freeze(value)
@@ -129,7 +128,6 @@ describe("composeRows output", () => {
     const composed = ok(templateRows([], { template: base }))
     expect(composed.rows).toEqual(base.plugins)
     expect(composed.rows).not.toBe(base.plugins)
-    // Rows are shared, not copied.
     expect(composed.rows[0]).toBe(base.plugins[0])
   })
 
@@ -168,7 +166,6 @@ describe("composeRows output", () => {
   })
 
   it("never mutates its (frozen) inputs", () => {
-    // template() and templateRows() deep-freeze, so any write would throw.
     expect(() =>
       templateRows([
         { op: "add", row: row("a"), after: "persona" },
@@ -555,7 +552,6 @@ describe("digest", () => {
       ok(botPreset([{ op: "add", row: row("a", { disabled: { __jsExpr: src } }) }])).digest
     expect(withExpr("true")).toBe(withExpr("true"))
     expect(withExpr("true")).not.toBe(withExpr("false"))
-    // An expression is not the plain string it evaluates from.
     expect(withExpr("true")).not.toBe(
       ok(botPreset([{ op: "add", row: row("a", { disabled: "true" }) }])).digest,
     )
@@ -647,25 +643,21 @@ describe("composeBotPreset and the bot environment", () => {
         }),
         config: [
           ...environment.rows,
-          // bot-core's own row: hands the group's fs/subprocess to the botFiles Remote.
           {
             id: "env-bot-core-files",
             name: "@1outres/dsh-bot-core/files",
             config: { botId: "b1", token: result.revisionToken },
           },
-          // and its channel row: the stay_silent tool.
           {
             id: "env-bot-core-channel",
             name: "@1outres/dsh-bot-core/channel",
             config: { botId: "b1", token: result.revisionToken },
           },
-          // and its connectors row: the bot's connector tools.
           {
             id: "env-bot-core-connectors",
             name: "@1outres/dsh-bot-core/connectors",
             config: { botId: "b1", token: result.revisionToken },
           },
-          // and its vault rows: credentials_list and the leak guard.
           {
             id: "env-bot-core-vaults",
             name: "@1outres/dsh-bot-core/vaults",
@@ -676,44 +668,37 @@ describe("composeBotPreset and the bot environment", () => {
             name: "@1outres/dsh-bot-core/vault-guard",
             config: { botId: "b1", token: result.revisionToken },
           },
-          // and its schedule row: the schedule and schedule_result tools.
           {
             id: "env-bot-core-schedule",
             name: "@1outres/dsh-bot-core/schedule",
             config: { botId: "b1", token: result.revisionToken },
           },
-          // and its sessions row: the Main session's session tools.
           {
             id: "env-bot-core-sessions",
             name: "@1outres/dsh-bot-core/sessions",
             config: { botId: "b1", token: result.revisionToken },
           },
-          // and its prompt row: the prompt exclusions.
           {
             id: "env-bot-core-prompt",
             name: "@1outres/dsh-bot-core/prompt",
             config: { botId: "b1", token: result.revisionToken },
           },
-          // and its notes row: the note tools and the pinned notes.
           {
             id: "env-bot-core-notes",
             name: "@1outres/dsh-bot-core/notes",
             config: { botId: "b1", token: result.revisionToken },
           },
-          // then the group's own skill registry and its skills row: skills/, skill_manage.
           { id: "env-bot-core-skill", name: "@deepseek-ai/dsh-skill" },
           {
             id: "env-bot-core-skills",
             name: "@1outres/dsh-bot-core/skills",
             config: { botId: "b1", token: result.revisionToken },
           },
-          // then its conversations row: conversation_search and conversation_read.
           {
             id: "env-bot-core-conversations",
             name: "@1outres/dsh-bot-core/conversations",
             config: { botId: "b1", token: result.revisionToken },
           },
-          // then the group's own web seam and its bridge to the web backend.
           {
             id: "env-bot-core-web",
             name: "@deepseek-ai/dsh-web",
@@ -730,9 +715,7 @@ describe("composeBotPreset and the bot environment", () => {
               fetch: true,
             },
           },
-          // and bot-core's own present row, on the group's fs.
           { id: "env-bot-core-present", name: "@deepseek-ai/dsh-tool-present" },
-          // the compaction row: in the environment's group, as no template group isolates compaction.
           {
             id: "env-bot-core-compaction",
             name: "@1outres/dsh-bot-core/compaction",
@@ -742,7 +725,6 @@ describe("composeBotPreset and the bot environment", () => {
         ],
       },
     ])
-    // Overlays still address the template's top-level rows.
     expect(
       ok(botPreset([{ op: "remove", id: "persona" }], { environment })).preset.plugins,
     ).toHaveLength(1)
@@ -753,7 +735,6 @@ describe("composeBotPreset and the bot environment", () => {
     expect(plain.revisionToken).toMatch(/^[0-9a-f]{64}$/)
     const sealed = ok(botPreset([], { environment }))
     expect(sealed.revisionToken).toBe(`sealed:${plain.revisionToken}`)
-    // Another composition, another token.
     expect(
       ok(botPreset([{ op: "remove", id: "persona" }], { environment })).revisionToken,
     ).not.toBe(sealed.revisionToken)
@@ -771,9 +752,9 @@ describe("composeBotPreset and the bot environment", () => {
       allowedHostTools: ALLOWED_HOST_TOOLS,
       web: { backend: "exa", search: true, fetch: true },
     }
-    // @ts-expect-error a bot preset is never composed without its environment
+    // @ts-expect-error
     expect(() => composeBotPreset({ ...input, seal })).toThrow()
-    // @ts-expect-error nor without a seal
+    // @ts-expect-error
     expect(() => composeBotPreset({ ...input, environment })).toThrow()
   })
 
@@ -836,7 +817,6 @@ describe("composeBotPreset and the bot environment", () => {
     expect(ok(botPreset([], { environment, botName: "Other" })).digest).toBe(base)
     const rows = [{ id: "env-ssh", name: "@x/ssh", config: { host: "other" } }]
     expect(ok(botPreset([], { environment: { ...environment, rows } })).digest).not.toBe(base)
-    // Within the fixed set the declared list changes nothing; another name does.
     expect(ok(botPreset([], { environment: { ...environment, isolate: ["fs"] } })).digest).toBe(
       base,
     )
@@ -875,7 +855,6 @@ describe("composeBotPreset and the bot environment", () => {
         "runs on the Host",
       )
     }
-    // A template row an overlay removes no longer counts.
     const plugins = [...template().plugins, { id: "pwsh", name: "@deepseek-ai/dsh-tool-pwsh" }]
     ok(templateRows([{ op: "remove", id: "pwsh" }], { template: template({ plugins }) }))
     ok(templateRows([{ op: "add", row: { id: "x", name: "@deepseek-ai/dsh-tool-fs" } }]))
@@ -922,7 +901,6 @@ describe("composeBotPreset and the bot environment", () => {
       ),
     ).toContain('isolates "custom"')
     ok(botPreset([{ op: "add", row: group({ other: true }) }], { environment }))
-    // false would un-isolate a service, a label joins a realm shared across the Host.
     expect(problem(templateRows([{ op: "add", row: group({ other: false }) }]))).toContain(
       "only true is accepted",
     )
@@ -984,7 +962,6 @@ describe("composition: rows the Loader mounts whatever the group flag says", () 
         ]),
       ),
     ).toContain("own preset")
-    // Ids are unique across the whole tree, nested rows included.
     expect(problem(smuggle({ group: true }, [{ id: "persona", name: "@x/p" }]))).toContain(
       "repeats the id",
     )

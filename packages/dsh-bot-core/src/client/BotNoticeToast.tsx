@@ -24,7 +24,6 @@ const ICON: { readonly [Tone in NoticeTone]: ReactNode } = {
   error: <IconAlert size={16} />,
 }
 
-/** What the notice of an archived session offers, as Workspaces' archive notice. */
 export interface NoticeActions {
   undoArchive(botId: string, sessionId: string): void
   showArchived(botId: string): void
@@ -38,11 +37,6 @@ export interface NoticeToastProps {
 
 const paramsOf = (notice: BotNotice) => ("name" in notice ? { name: notice.name } : undefined)
 
-/**
- * The frame-wide notice in DSH's toast look (top centre, its toast colours,
- * inline actions): a bot created or not, a session archived, an archived
- * session that cannot open.
- */
 export function BotNoticeToast({ t, notices, actions }: NoticeToastProps) {
   const shown = useObservable(notices)
   const seq = shown?.seq

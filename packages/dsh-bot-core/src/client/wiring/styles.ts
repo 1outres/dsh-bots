@@ -19,7 +19,6 @@ function hidingCss(
     .join("\n")
 }
 
-/** A `<style>` element of bot-core's in the document head, kept in step with `css`. */
 function styleSheet(name: string, css: Observable<string>): () => void {
   const tag = document.createElement("style")
   tag.dataset.plugin = name
@@ -41,7 +40,6 @@ const constant = (text: string): Observable<string> => ({
   subscribe: () => () => {},
 })
 
-/** bot-core's stylesheets: its own look, and the bots' sessions and presets hidden from DSH's lists. */
 export function wireStyles(ctx: ClientContext, bots: Observable<BotsState>): void {
   ctx.effect(() => styleSheet(PLUGIN_ID, constant(BOTS_CSS)), "bot-core: stylesheet")
   ctx.effect(

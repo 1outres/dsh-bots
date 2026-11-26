@@ -1,19 +1,15 @@
 import type { BotsSnapshot, BotView, CreationPhase, PendingBotView } from "../shared/bots"
 import { CREATION_PHASES } from "../shared/bots"
 
-/** What happened to a pending bot between two bots lists. */
 export type LifecycleEvent =
   | { readonly kind: "created"; readonly bot: BotView }
   | { readonly kind: "create-failed"; readonly pending: PendingBotView }
   | { readonly kind: "remove-failed"; readonly pending: PendingBotView }
-  /** It left the list without becoming a bot: discarded, removed or dismissed. */
   | { readonly kind: "gone"; readonly id: string; readonly operation: "create" | "remove" }
 
-/** A failure is news when the bot had none: a retry that fails alike stays quiet. */
 const failedNow = (before: PendingBotView | undefined, after: PendingBotView) =>
   after.failure !== undefined && before?.failure === undefined
 
-/** The events that take one bots list to the next. */
 export function lifecycleEvents(previous: BotsSnapshot, next: BotsSnapshot): LifecycleEvent[] {
   const before = new Map(previous.pending.map((pending) => [pending.id, pending]))
   const after = new Set(next.pending.map((pending) => pending.id))
@@ -52,7 +48,6 @@ function stepState(index: number, at: number, failed: boolean): StepState {
   return failed ? "failed" : "current"
 }
 
-/** Every step of a creation, against the step it is at. */
 export function creationSteps(phase: CreationPhase, failed: boolean): CreationStep[] {
   const at = CREATION_PHASES.indexOf(phase)
   return CREATION_PHASES.map((step, index) => ({
@@ -61,7 +56,6 @@ export function creationSteps(phase: CreationPhase, failed: boolean): CreationSt
   }))
 }
 
-/** m:ss, or h:mm:ss from an hour on. */
 export function elapsedText(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000))
   const seconds = String(total % 60).padStart(2, "0")

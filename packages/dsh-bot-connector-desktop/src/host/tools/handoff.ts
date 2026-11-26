@@ -1,9 +1,3 @@
-/**
- * desktop_request_handoff: the bot asks a person to take over its desktop
- * (to log in, type a password, solve a check) and waits until they hand it
- * back, turn it down, the wait runs out, or the turn stops. The request shows
- * in the bot's shell (bot-core reads it from the connector's status).
- */
 import type { BotConnectorToolDefinition } from "@1outres/dsh-bot-core"
 import type { ControlChange, ControlReturn, DesktopControl } from "../control"
 import type { DesktopSession } from "../session"
@@ -21,12 +15,10 @@ export type HandoffOutcome =
 
 export interface HandoffDeps {
   readonly control: DesktopControl
-  /** A signal that aborts after `ms`. */
   deadline(ms: number): AbortSignal
   now(): number
 }
 
-/** Ask, then wait for the outcome; the request ends with the wait. @throws when `signal` aborts. */
 export async function awaitHandoff(
   deps: HandoffDeps,
   botId: string,

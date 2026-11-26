@@ -2,7 +2,6 @@ import { IconClose } from "./icons"
 import type { Translate } from "./types"
 import { Button } from "./ui/Button"
 
-/** A sidebar row's failure under it, dismissed with ×. */
 export function RowError(props: {
   readonly t: Translate
   readonly message: string

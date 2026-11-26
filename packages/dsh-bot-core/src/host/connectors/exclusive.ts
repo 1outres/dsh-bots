@@ -1,4 +1,3 @@
-/** Runs of one key one at a time, in arrival order; others wait (or give up on their signal). */
 export interface ExclusiveRuns {
   run<T>(key: string, signal: AbortSignal, work: () => Promise<T>): Promise<T>
 }

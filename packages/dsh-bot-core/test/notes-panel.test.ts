@@ -1,7 +1,3 @@
-/**
- * The notes screen's Host half (docs/specs/bot-notes.md §12): the botNotes
- * panel's queries, who may read, the status it streams and when it changes.
- */
 import { describe, expect, it } from "vitest"
 import { createBotNotes } from "../src/host/notes/bot-notes"
 import type { NotesPlace } from "../src/host/notes/notebook"
@@ -68,7 +64,6 @@ function setup() {
     deadline: () => signal,
   })
   const tools = createNoteTools({ newId: () => id(900) })
-  /** A note tool call of the bot's, as the notes row makes it. */
   const botCall = (botId: string, tool: NoteTool, args: unknown) =>
     botNotes.withNotes(botId, (state) =>
       tools.call(state, placeOf(botId) as NotesPlace, tool, args, signal),
@@ -129,7 +124,6 @@ describe("the botNotes panel", () => {
     expect(await codeOf(panel.list("", undefined))).toBe("gateway/bad-request")
     const ofB = await panel.list("main-b", undefined)
     expect(ofB.notes.map((hit) => hit.title)).toEqual(["Secret of b"])
-    // Another bot's note id is not found through this bot's session.
     expect(await codeOf(panel.read("main-a", id(7)))).toBe("bot-note/not-found")
     expect(await codeOf(panel.read("main-b", id(1)))).toBe("bot-note/not-found")
   })
@@ -164,7 +158,6 @@ describe("the botNotes panel", () => {
     const found = await panel.search("main-a", { query: "shibuya" })
     expect(found.notes.map((hit) => [hit.title, hit.lines])).toEqual([
       ["Shibuya", []],
-      // The link's target is matched by its title, as note_search reads it, and shown by its words.
       ["Owner", ["Works at the office."]],
       ["2026-11-02", ["Met the owner in Shibuya."]],
       ["2026-10-24", ["Shibuya again."]],
@@ -279,12 +272,10 @@ describe("the botNotes panel", () => {
     const afterWrite = revisionOf() as number
     expect(afterWrite).toBeGreaterThan(first.revision)
     expect((await panel.list("main-a", undefined)).notes[0]?.title).toBe("Tokyo")
-    // An edit with bash, seen by the next query (or the bot's next step).
     a.put(fileOf(id(4)), note({ title: "2026-10-24", type: "daily", body: "Rained." }))
     const read = await panel.read("main-a", id(4))
     expect(read.body).toBe("Rained.")
     expect(read.revision).toBeGreaterThan(afterWrite)
-    // Nothing changed: the revision stays.
     expect((await panel.list("main-a", undefined)).revision).toBe(read.revision)
     unfollow()
   })

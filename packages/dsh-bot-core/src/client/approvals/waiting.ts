@@ -3,14 +3,12 @@ import { createStore, type Observable } from "../observable"
 import type { RemoteMount } from "../remote"
 import { followStream } from "./follow"
 
-/** Pending connector actions per bot, as the bot rows mark them. */
 export interface WaitingStore extends Observable<Readonly<Record<string, number>>> {
   dispose(): void
 }
 
 const NONE: Readonly<Record<string, number>> = {}
 
-/** Follow `botConnectorActions.watchWaiting`; the last counts stay while it reconnects. */
 export function watchWaiting(
   mount: Promise<RemoteMount>,
   generation: Observable<object | undefined>,

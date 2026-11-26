@@ -1,7 +1,3 @@
-// The helper's side of its standard input and output: JSON lines from the Host, a secret's raw
-// bytes right after the line that announces their length, and JSON lines back. Every chunk read
-// is wiped once copied.
-
 const MAX_LINE_BYTES = 64 * 1024
 const MAX_SECRET_BYTES = 64 * 1024
 
@@ -59,7 +55,6 @@ export function openChannel(input = process.stdin, output = process.stdout) {
 
   return {
     ended: endedPromise,
-    /** The next JSON line as an object; undefined once the Host ended its side. */
     async line() {
       for (;;) {
         const index = pending.indexOf(0x0a)
@@ -81,7 +76,6 @@ export function openChannel(input = process.stdin, output = process.stdout) {
         await more()
       }
     },
-    /** Exactly `length` raw bytes; the caller wipes them. */
     async bytes(length) {
       if (!Number.isSafeInteger(length) || length < 0 || length > MAX_SECRET_BYTES) {
         throw new ChannelError("a secret of an unexpected length")

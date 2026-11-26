@@ -1,15 +1,9 @@
-/**
- * The state of a bot's Skills pages, apart from React: a skill's history
- * (read again whenever the bot's skills change) and one version with what it
- * changed against the version before it.
- */
 import type { BotSkillHistory, BotSkillsView, SkillVersion } from "../../shared/skills"
 import { createStore, type Observable } from "../observable"
 import { type FeedState, messageOf } from "../remote-feed"
 import type { SkillsClient } from "./client"
 import { type FileChange, fileChanges } from "./diff"
 
-/** A load that runs while subscribed and again whenever `trigger` changes. */
 function loaded<T>(
   load: () => Promise<T>,
   trigger: Observable<FeedState<BotSkillsView>>,
@@ -56,7 +50,6 @@ function loaded<T>(
   }
 }
 
-/** A skill's history, kept current while shown. */
 export function skillHistory(
   client: SkillsClient,
   botId: string,
@@ -65,12 +58,10 @@ export function skillHistory(
   return loaded(() => client.history(botId, name), client.bot(botId))
 }
 
-/** One version and its changes against the version before it (every file added for the first). */
 export interface VersionView {
   readonly version: SkillVersion
   readonly previous: string | undefined
   readonly changes: readonly FileChange[]
-  /** It is the newest version: putting it back would change nothing. */
   readonly newest: boolean
 }
 
@@ -98,7 +89,6 @@ export function skillVersion(
   }, client.bot(botId))
 }
 
-/** What the version page shows: what changed, or the whole content. */
 export type VersionTab = "changes" | "content"
 
 export function createVersionTab() {

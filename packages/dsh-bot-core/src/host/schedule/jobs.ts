@@ -1,4 +1,3 @@
-/** A job's fields as the agent gives them, checked, and the job as the agent reads it. Pure. */
 import { z } from "zod"
 import {
   type JobRecord,
@@ -24,7 +23,6 @@ export const MAX_INSTRUCTION_LENGTH = 8000
 export const MAX_COMMAND_LENGTH = 4000
 export const DEFAULT_CHECK_TIMEOUT_SECONDS = 60
 export const MAX_CHECK_TIMEOUT_SECONDS = 300
-/** Runs of a job the create and update results list. */
 export const UPCOMING_COUNT = 3
 
 const scheduleInputSchema = z.discriminatedUnion("kind", [
@@ -60,13 +58,11 @@ export const updateInputSchema = z.strictObject({
   schedule: fields.schedule.optional(),
   instruction: fields.instruction.optional(),
   timezone: fields.timezone.optional(),
-  /** null removes the check. */
   check: checkInputSchema.nullable().optional(),
   enabled: z.boolean().optional(),
 })
 export type UpdateInput = z.infer<typeof updateInputSchema>
 
-/** Parse the agent's fields; the message names the first problem. */
 export function parseInput<T>(schema: z.ZodType<T>, value: unknown): T {
   const parsed = schema.safeParse(value)
   if (parsed.success) return parsed.data
@@ -91,7 +87,6 @@ const requireFirstRun = (timing: Timing, now: number): number => {
   return first
 }
 
-/** A new job of `botId`, made by `sessionId`; its zone defaults to the bot's. */
 export function newJob(
   input: CreateInput,
   context: {
@@ -120,11 +115,6 @@ export function newJob(
   }
 }
 
-/**
- * The job with `change` applied. A new schedule (or a cron's new zone)
- * starts again from `now`; re-enabling a recurring job skips what passed
- * while it was disabled.
- */
 export function changedJob(job: JobRecord, change: UpdateInput, now: number): JobRecord {
   const timezone = change.timezone === undefined ? job.timezone : canonicalTimezone(change.timezone)
   const schedule =
@@ -156,14 +146,11 @@ export function changedJob(job: JobRecord, change: UpdateInput, now: number): Jo
   }
 }
 
-/** Whether the job waits for a run (enabled, with a next one). */
 export const isArmed = (job: JobRecord): job is JobRecord & { nextRunAt: number } =>
   job.enabled && job.nextRunAt !== undefined
 
-/** Whether the job recurs and is armed: runs follow the current one. */
 export const recursArmed = (job: JobRecord): boolean => isArmed(job) && job.schedule.kind !== "at"
 
-/** A job as the agent reads it. */
 export interface JobView {
   readonly id: string
   readonly name: string
@@ -173,7 +160,6 @@ export interface JobView {
   readonly instruction: string
   readonly check?: { readonly command: string; readonly timeout_seconds: number }
   readonly enabled: boolean
-  /** Next runs in the job's local time; empty once it runs no more or while disabled. */
   readonly next_runs: readonly string[]
   readonly last_run?: {
     readonly state: string
@@ -215,7 +201,6 @@ export function jobView(
   }
 }
 
-/** A job view as lines of text. */
 export function describeJob(view: JobView): string {
   const lines = [
     `"${view.name}" (${view.id}) — ${view.mode}, ${view.schedule}${view.enabled ? "" : ", disabled"}`,

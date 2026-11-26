@@ -7,18 +7,15 @@ import type { BotEnvironmentImageView } from "../../shared/environment-image"
 import type { FeedState } from "../remote-feed"
 import type { SettingsBadge } from "../settings-frame/sections"
 
-/** The project a bot environment uses unless told otherwise (docs/specs/incus-endpoint.md §3.4). */
 export const DEFAULT_PROJECT = "dsh-bots"
 
 const PROJECT = /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}$/
 
-/** Whether bot VMs may use the project (the Host checks it again). */
 export const projectAllowed = (text: string): boolean => {
   const name = text.trim()
   return PROJECT.test(name) && name !== "default"
 }
 
-/** An `https://host:port` URL with nothing else (the Host checks it again). */
 export function endpointUrlAllowed(text: string): boolean {
   try {
     const url = new URL(text.trim())
@@ -35,13 +32,10 @@ export function endpointUrlAllowed(text: string): boolean {
   }
 }
 
-/** A fingerprint in pairs, as `incus info` prints certificate fingerprints. */
 export const fingerprintText = (sha256: string) => sha256.match(/.{1,2}/g)?.join(":") ?? sha256
 
-/** The fingerprint's start, as `incus config trust list` names certificates. */
 export const shortFingerprint = (sha256: string) => sha256.slice(0, 12)
 
-/** Where the pairing form sends the token: one of its URLs, or one typed (behind NAT). */
 export type PairingAddress =
   | { readonly kind: "token"; readonly url: string }
   | { readonly kind: "other"; readonly url: string }
@@ -58,7 +52,6 @@ export const emptyPairing = (project: string): PairingForm => ({
   project,
 })
 
-/** The form once a token was read: its first URL is picked. */
 export function previewed(form: PairingForm, preview: TrustTokenPreview): PairingForm {
   const first = preview.urls[0]
   return {
@@ -68,7 +61,6 @@ export function previewed(form: PairingForm, preview: TrustTokenPreview): Pairin
   }
 }
 
-/** What the form sends, or null while something is missing. */
 export function pairingRequest(
   form: PairingForm,
   token: string,
@@ -81,7 +73,6 @@ export function pairingRequest(
   return { token: token.trim(), url: address.url.trim(), project: form.project.trim() }
 }
 
-/** The worst thing the section shows: the nav marks it meanwhile. */
 export function vmHostBadge(state: FeedState<BotEnvironmentHostState>): SettingsBadge | null {
   if (state.status !== "ready" || state.value.status !== "ready") return null
   const host = state.value.host
@@ -100,7 +91,6 @@ export const egressOpen = (host: EnvironmentHostSettingsView): boolean =>
 export const imageNeedsImport = (image: BotEnvironmentImageView): boolean =>
   image.status.kind === "missing" || image.status.kind === "failed"
 
-/** Whether the base image can be imported now. */
 export const imageImportable = (image: BotEnvironmentImageView): boolean =>
   image.managed &&
   image.release !== undefined &&
@@ -108,7 +98,6 @@ export const imageImportable = (image: BotEnvironmentImageView): boolean =>
 
 const GIB = 1024 ** 3
 
-/** Bytes as GiB to a tenth, and the share done. */
 export function progressOf(doneBytes: number, totalBytes: number) {
   const tenth = (bytes: number) => Math.round((bytes / GIB) * 10) / 10
   return {

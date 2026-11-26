@@ -7,10 +7,10 @@ declare const environment: {
 declare const stdin: { write(data: Uint8Array): Promise<void> }
 
 export async function leak() {
-  await secret.use((bytes) => environment.exec({ argv: ["type", bytes] })) // rule: 64
-  await secret.use((bytes) => environment.spawn({ argv: ["x"], stdin: bytes })) // rule: 64
-  await secret.use((bytes) => environment.writeFile("/tmp/x", bytes)) // rule: 64
-  await secret.use((bytes) => console.log(bytes)) // rule: 64
-  await secret.use(() => process.env) // rule: 64
+  await secret.use((bytes) => environment.exec({ argv: ["type", bytes] }))
+  await secret.use((bytes) => environment.spawn({ argv: ["x"], stdin: bytes }))
+  await secret.use((bytes) => environment.writeFile("/tmp/x", bytes))
+  await secret.use((bytes) => console.log(bytes))
+  await secret.use(() => process.env)
   await secret.use((bytes) => stdin.write(bytes))
 }

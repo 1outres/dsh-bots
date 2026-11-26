@@ -10,7 +10,6 @@ import { failureText } from "./parts"
 
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const
 
-/** The daily notes of a month, in the bot's time zone: a day with one is a button that opens it. */
 export function NoteCalendar({ t, model }: { readonly t: Translate; readonly model: NotesModel }) {
   const navigation = useObservable(model.navigation)
   const load = useObservable(model.month)

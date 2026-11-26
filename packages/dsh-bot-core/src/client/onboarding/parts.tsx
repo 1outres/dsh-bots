@@ -14,7 +14,6 @@ import type { WebLookupFeed } from "../web/feed"
 import type { ChannelDrafts } from "./channel-drafts"
 import type { OnboardingClient } from "./client"
 
-/** Where the guide reads and changes what it shows. */
 export interface WelcomeSources {
   readonly onboarding: Pick<OnboardingClient, "createBot" | "finishWelcome">
   readonly bots: Observable<BotsState>
@@ -22,19 +21,14 @@ export interface WelcomeSources {
   readonly creation: CreationSources
   readonly web: WebLookupFeed
   readonly connections: ConnectionsFeed
-  /** What the Host's channels answer about the drafts' settings. */
   readonly channelQueries: ChannelQueries
-  /** A plugin's text (a web backend's, a channel's) in the active language. */
   text(text: { readonly en: string; readonly ja?: string }): string
 }
 
-/** What every page of the guide is given. */
 export interface StepProps extends WelcomeSources {
   readonly t: Translate
   readonly titleId: string
-  /** The channels the guide can set up, as the Host offers them. */
   readonly channels: readonly BotChannelDescriptor[]
-  /** This page's channel settings typed before the bot exists. */
   readonly drafts: ChannelDrafts
   next(): void
   readonly back: (() => void) | undefined
@@ -76,7 +70,6 @@ export function BackButton(props: {
   )
 }
 
-/** Next once the page's setting is made, else Skip (which runs `skip` first). */
 export function SkipOrNext(props: {
   readonly t: Translate
   readonly done: boolean

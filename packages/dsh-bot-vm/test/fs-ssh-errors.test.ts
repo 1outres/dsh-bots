@@ -1,22 +1,12 @@
-/**
- * Contract with the real `@deepseek-ai/dsh-fs-ssh`: the shape of the errors
- * bot-core's `botFiles` receives from a bot's file system (see
- * dsh-bot-core/src/host/fs-failure.ts and its tests, which build these shapes).
- */
 import { Context } from "@deepseek-ai/cordis"
 import { RemoteOperationError } from "@deepseek-ai/dsh-ssh/protocol"
 import { describe, expect, it } from "vitest"
 
-/**
- * Loaded by a computed specifier: its declarations augment cordis' Context
- * with `fs` for the whole program, which bot-core's tests type differently.
- */
 const FS_SSH: string = "@deepseek-ai/dsh-fs-ssh"
 const { default: SshFileSystem } = (await import(FS_SSH)) as {
   default: new (ctx: Context) => { readText(target: { targetKey: string }): Promise<string> }
 }
 
-/** dsh-ssh's RemoteOperationError from another copy of the module (same class, other identity). */
 class ForeignRemoteOperationError extends Error {
   constructor(
     message: string,

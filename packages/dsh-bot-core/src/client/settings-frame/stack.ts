@@ -1,6 +1,5 @@
 import { createStore, type Observable } from "../observable"
 
-/** A settings screen as far as the stack needs it: whether it is open. */
 export interface StackedScreen<Id extends string> {
   readonly id: Id
   readonly target: Observable<unknown>
@@ -10,7 +9,6 @@ export interface ScreenStack<Id extends string> extends Observable<readonly Id[]
   dispose(): void
 }
 
-/** The open screens in the order they opened, bottom first: only the last one takes input. */
 export function createScreenStack<Id extends string>(
   screens: readonly StackedScreen<Id>[],
 ): ScreenStack<Id> {

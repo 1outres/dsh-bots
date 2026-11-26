@@ -27,22 +27,14 @@ export interface MainTimelineProps {
   readonly bot: BotView
   readonly feed: TimelineFeed
   readonly images: TimelineImages
-  /** Show a file of the bot's environment in the Files panel. */
   openFile(path: string): void
 }
 
-/** How close to the end of the scroll the reader counts as following it. */
 const FOLLOW_SLACK_PX = 96
-/** How close to the top an older page is read. */
 const EARLIER_SLACK_PX = 480
 
 const DAY_MS = 86_400_000
 
-/**
- * The Main as its channels see it: people's messages and the bot's replies,
- * older pages read as the reader scrolls up, the end followed while the
- * reader is there.
- */
 export function MainTimeline(props: MainTimelineProps) {
   const { t, feed } = props
   const state = useObservable(feed)
@@ -253,7 +245,6 @@ function PersonGroup(
   )
 }
 
-/** A lone image's box: its long edge 240px, never larger than the image itself. */
 function thumbnailSize(image: MainTimelineImage, single: boolean) {
   if (!single) return { width: 96, height: 96 }
   const scale = Math.min(1, 240 / Math.max(image.width, image.height))

@@ -6,7 +6,6 @@ import type { ClientContext } from "../types"
 import { overlay } from "./dialogs"
 import type { SettingsScreens } from "./screens"
 
-/** The dsh-bots settings screen in `shell.overlay`; its sections are registered by the features that own them. */
 export function wireGlobalSettings(ctx: ClientContext, screens: SettingsScreens): void {
   const { flow, sections } = screens.global
   overlay(

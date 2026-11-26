@@ -1,8 +1,3 @@
-/**
- * The Main view's browser half (docs/specs/bot-main-view.md §4, §5): the
- * timeline's state across frames and pages, its rows, its model's paging, its
- * drawing, and the Session log seat.
- */
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it, vi } from "vitest"

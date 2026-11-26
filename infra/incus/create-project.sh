@@ -1,9 +1,4 @@
 #!/usr/bin/env bash
-# For the administrator of an Incus server that also runs other things: create the
-# project dsh-bots runs its bot VMs in (docs/specs/incus-endpoint.md §3.3, §3.4) and
-# a trust token restricted to it. No root: it only talks to Incus with the incus
-# client, as a user with full access to the server (incus-admin, or a remote).
-# Safe to run again with the same options.
 set -eEuo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=../vm/lib.sh

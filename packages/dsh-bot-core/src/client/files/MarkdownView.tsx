@@ -1,7 +1,6 @@
 import { Fragment, type ReactNode, useMemo } from "react"
 import { type Block, type Inline, parseMarkdown } from "../markdown"
 
-/** How a note link is drawn: given, `[[…]]` is read as note links; otherwise as text. */
 export type NoteLinkRenderer = (link: Extract<Inline, { kind: "note" }>) => ReactNode
 
 export interface MarkdownViewProps {
@@ -9,7 +8,6 @@ export interface MarkdownViewProps {
   readonly noteLink?: NoteLinkRenderer
 }
 
-/** Markdown drawn from markdown.ts tokens, never as HTML; links open in a new browser tab. */
 export function MarkdownView({ source, noteLink }: MarkdownViewProps) {
   const blocks = useMemo(
     () => parseMarkdown(source, { noteLinks: noteLink !== undefined }),
@@ -18,7 +16,6 @@ export function MarkdownView({ source, noteLink }: MarkdownViewProps) {
   return <>{blocks.map((block, index) => renderBlock(block, index, noteLink))}</>
 }
 
-/** One line of inline Markdown (a backlink's line). */
 export function InlineMarkdown({
   content,
   noteLink,

@@ -1,7 +1,3 @@
-// Finding what the Host marked through Playwright MCP: one element (or a tab's document) carrying
-// a one-time attribute, searched in an isolated world of every frame of every tab (out-of-process
-// frames included), with the frame's origin as the browser reports it, not as the page says.
-
 const WORLD = "dsh-browser-vault"
 const MARK = /^[0-9a-f]{32}$/
 const ORIGIN = /^https?:\/\/[^/\s]+$/
@@ -37,7 +33,6 @@ function framesOf(tree, out = []) {
   return out
 }
 
-/** Attach to every target of the types (flat sessions). */
 export async function attachTargets(cdp, types) {
   const { targetInfos } = await cdp.call("Target.getTargets")
   const sessions = []
@@ -54,22 +49,16 @@ export async function attachTargets(cdp, types) {
   return sessions
 }
 
-/** The frame's origin now, as the browser reports it; undefined when the frame is gone. */
 export async function frameOrigin(cdp, sessionId, frameId) {
   const { frameTree } = await cdp.call("Page.getFrameTree", {}, sessionId)
   return framesOf(frameTree).find((frame) => frame.id === frameId)?.securityOrigin
 }
 
-/** A web origin (http or https with a host); an opaque or other one is refused. */
 export function webOrigin(origin) {
   if (typeof origin !== "string" || !ORIGIN.test(origin)) throw new PageError("opaque-origin")
   return origin
 }
 
-/**
- * The one marked node: its session, frame, the frame's origin and a handle in the isolated
- * world. `mainFrameOnly` searches the tabs' top documents only.
- */
 export async function findMarked(cdp, sessions, { attribute, mark, mainFrameOnly }) {
   const seen = new Set()
   const matches = []
@@ -120,7 +109,6 @@ export async function findMarked(cdp, sessions, { attribute, mark, mainFrameOnly
   return matches[0]
 }
 
-/** Run a function on the node in its isolated world and return its JSON value. */
 export async function onNode(cdp, node, functionDeclaration) {
   const { result, exceptionDetails } = await cdp.call(
     "Runtime.callFunctionOn",

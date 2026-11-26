@@ -2,7 +2,6 @@ import type { BotTable } from "../../src/host/registry"
 import type { SkillsFileSystem } from "../../src/host/skills/library"
 import { type MemoryNotesFs, memoryNotesFs } from "./notes-fs"
 
-/** A bot's environment file system in memory, as skills use it (writes, reads and removals by version). */
 export interface MemorySkillsFs
   extends SkillsFileSystem,
     Pick<MemoryNotesFs, "files" | "put" | "reads"> {}
@@ -20,7 +19,6 @@ export function memorySkillsFs(): MemorySkillsFs {
   }
 }
 
-/** A storage table in memory. */
 export function memoryTable<V>(): BotTable<V> & { readonly rows: Map<string, V> } {
   const rows = new Map<string, V>()
   return {

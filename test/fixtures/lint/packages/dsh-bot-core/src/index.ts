@@ -1,4 +1,3 @@
-// The composition root may wire every Host service, read the clock and cast the Context.
 import { randomUUID } from "node:crypto"
 import { mkdir } from "node:fs/promises"
 import { homedir } from "node:os"

@@ -1,9 +1,3 @@
-/**
- * One run of a login helper in the bot's VM, spoken to over its standard
- * input and output (vault/protocol.ts). A secret reaches it only as raw
- * bytes on its standard input, written from one array that is wiped right
- * after: never in its argv or environment, never as a JS string.
- */
 import type {
   BotConnectorEnvironment,
   BotEnvironmentProcess,
@@ -23,12 +17,9 @@ export class HelperEndedError extends Error {
 }
 
 export interface HelperRun {
-  /** The next answer. @throws when the helper ended or answered something malformed. */
   next(): Promise<HelperReply>
   send(message: object): Promise<void>
-  /** A line made by `header(secret.length)`, then the secret's bytes; the secret is spent. */
   sendSecret(header: (length: number) => object, secret: SecretBytes): Promise<void>
-  /** Close its input: a helper waiting for an order stops (nothing was filled). */
   end(): Promise<void>
   terminate(): void
   readonly done: Promise<unknown>
