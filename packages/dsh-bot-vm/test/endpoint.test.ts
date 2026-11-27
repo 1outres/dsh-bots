@@ -4,7 +4,7 @@ import { createIncusClient, type IncusClient } from "../src/host/backend/incus/c
 import { type IncusEndpoint, parseProjectName } from "../src/host/backend/incus/endpoint"
 import { pair, untrustCommand } from "../src/host/backend/incus/pairing"
 import { parseTrustToken, tokenUrls } from "../src/host/backend/incus/trust-token"
-import { clientKeyRecord, recordClientKeyStore } from "../src/host/placement/secrets"
+import { clientKeyRecord, recordSecretStore } from "../src/host/placement/secrets"
 import { certificateFingerprint, createSelfSignedIdentity } from "../src/node/client-identity"
 import { CertificatePinError, createIncusTransport } from "../src/node/incus-transport"
 import { type FakeIncus, startFakeIncus } from "./support/fake-incus-server"
@@ -196,7 +196,7 @@ describe("pairing with a trust token", () => {
 describe("the client key", () => {
   it("is kept in a secret record of its own", async () => {
     const records = new Map<string, unknown>()
-    const keys = recordClientKeyStore(
+    const keys = recordSecretStore(
       {
         readRecord: async (key) => records.get(key) as never,
         modifyRecord: async (key, mutate) => void records.set(key, await mutate()),

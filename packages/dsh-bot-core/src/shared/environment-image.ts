@@ -62,7 +62,7 @@ export type BotEnvironmentImageStatus =
 
 export interface BotEnvironmentImageView {
   readonly alias: string
-  readonly project?: string
+  readonly place?: string
   readonly managed: boolean
   readonly release?: BotEnvironmentImageRelease
   readonly image?: BotEnvironmentImageFile

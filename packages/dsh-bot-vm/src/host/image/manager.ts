@@ -25,7 +25,7 @@ export interface ImageManagerSettings {
 
 export interface ImageManagerDeps {
   readonly importer: Importer
-  readonly project: () => string | undefined
+  readonly place: () => string | undefined
   readonly now: () => number
   readonly log: (message: string) => void
 }
@@ -41,13 +41,13 @@ export function createImageManager(
   const { importer } = deps
   const { alias, managed } = settings
   const listeners = new Set<(view: BotEnvironmentImageView) => void>()
-  const projectField = () => {
-    const project = deps.project()
-    return project === undefined ? {} : { project }
+  const placeField = () => {
+    const place = deps.place()
+    return place === undefined ? {} : { place }
   }
   let view: BotEnvironmentImageView = {
     alias,
-    ...projectField(),
+    ...placeField(),
     managed,
     ...(managed && settings.release.ok ? { release: settings.release.release } : {}),
     status: { kind: "unchecked" },
@@ -58,24 +58,24 @@ export function createImageManager(
     change: Partial<Pick<BotEnvironmentImageView, "image">>,
     status: BotEnvironmentImageStatus,
   ) {
-    const { project: _, ...rest } = view
-    view = { ...rest, ...change, ...projectField(), status }
+    const { place: _, ...rest } = view
+    view = { ...rest, ...change, ...placeField(), status }
     for (const listener of [...listeners]) listener(view)
   }
 
   const failed = (step: ImageImportStep | "check", problem: ImageProblem) =>
     publish({}, { kind: "failed", step, problem, at: deps.now() })
 
-  function requireProject(): string {
-    const project = deps.project()
-    if (project === undefined) {
+  function requirePlace(): string {
+    const place = deps.place()
+    if (place === undefined) {
       throw new ImageStepError("check", {
         code: "host-unset",
         message: "no VM host is set up",
         fix: "choose the VM host in the dsh-bots settings",
       })
     }
-    return project
+    return place
   }
 
   function release() {
@@ -108,7 +108,7 @@ export function createImageManager(
   }
 
   async function check(signal?: AbortSignal): Promise<BotEnvironmentImageStatus> {
-    requireProject()
+    requirePlace()
     if (!managed) {
       const target = await importer.target(alias, signal)
       return target === undefined ? { kind: "missing" } : { kind: "ready", fingerprint: target }
@@ -125,14 +125,14 @@ export function createImageManager(
     const since = deps.now()
     publish({}, { kind: "importing", progress: { step, doneBytes: 0, totalBytes: 0 }, since })
     try {
-      const project = requireProject()
+      const place = requirePlace()
       const chosen = release()
       const manifest = await manifestOf(signal)
       const { fingerprint } = manifest.image
       if ((await importer.target(alias, signal)) === fingerprint) {
         await importer.clearDownloads()
       } else {
-        deps.log(`importing the base image ${chosen.tag} (${fingerprint}) into ${project}`)
+        deps.log(`importing the base image ${chosen.tag} (${fingerprint}) into ${place}`)
         await importer.run(
           chosen,
           manifest,
@@ -183,7 +183,7 @@ export function createImageManager(
 
   const notReady = (error: ImageStepError) =>
     new Error(
-      `the base image "${alias}" of the Incus project ${deps.project() ?? "(none)"} is not ready: ${error.message}`,
+      `the base image "${alias}" of ${deps.place() ?? "no VM host"} is not ready: ${error.message}`,
     )
 
   return {

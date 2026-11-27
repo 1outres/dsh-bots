@@ -442,8 +442,8 @@ export function createFakeVmHost(options: FakeVmHostOptions = {}): FakeVmHost {
     },
     setup,
     custom: {
-      preview(credential) {
-        if (credential.backend !== "incus") throw new Error("Proxmox comes in a later version")
+      async preview(credential) {
+        if (credential.backend !== "incus") throw new Error("the fake VM host speaks Incus only")
         return {
           backend: "incus",
           clientName: "dsh-bots",
@@ -452,7 +452,7 @@ export function createFakeVmHost(options: FakeVmHostOptions = {}): FakeVmHost {
         }
       },
       async connect(request) {
-        if (request.backend !== "incus") throw new Error("Proxmox comes in a later version")
+        if (request.backend !== "incus") throw new Error("the fake VM host speaks Incus only")
         placement = {
           kind: "placed",
           backend: {

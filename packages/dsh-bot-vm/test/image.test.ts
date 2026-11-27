@@ -496,7 +496,7 @@ describe("image manager", () => {
       },
       {
         importer,
-        project: () => ("project" in options ? options.project : "dsh-bots"),
+        place: () => ("project" in options ? options.project : "dsh-bots"),
         now: () => 7,
         log: () => {},
       },
@@ -533,7 +533,7 @@ describe("image manager", () => {
     await Promise.all([first, second])
     expect(reported).toEqual(["a", "b"])
     expect(h.manager.view()).toMatchObject({
-      project: "dsh-bots",
+      place: "dsh-bots",
       image: manifest.image,
       status: { kind: "ready", fingerprint: sha("2") },
     })
@@ -622,7 +622,7 @@ describe("image manager", () => {
     await expect(h.manager.refresh()).resolves.toMatchObject({
       status: { kind: "failed", step: "check", problem: { code: "host-unset" } },
     })
-    expect(h.manager.view().project).toBeUndefined()
+    expect(h.manager.view().place).toBeUndefined()
     h.manager.start()
     await tick()
     expect(h.runs).toHaveLength(0)

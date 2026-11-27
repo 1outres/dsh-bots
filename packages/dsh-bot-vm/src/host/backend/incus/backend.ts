@@ -142,6 +142,7 @@ export function createIncusBackend(options: IncusBackendOptions): VmBackend {
       if (found.status === "Running") return
       await incus.setState(name, found.status === "Frozen" ? "unfreeze" : "start", signal)
     },
+    settle: async () => {},
     stop: (name, signal) => incus.setState(name, "stop", signal),
     remove: (name, signal) => incus.destroy(name, signal),
     markOrphaned: (name, since, signal) => incus.patchConfig(name, orphanMark(since), signal),
@@ -250,6 +251,7 @@ export function createIncusBackend(options: IncusBackendOptions): VmBackend {
     workspaces,
     images,
     guest: {
+      sshd: "inetd",
       async open(instance, signal) {
         const session = await incus.exec(
           instance,

@@ -1,6 +1,9 @@
 import { posix } from "node:path"
 
+import type { GuestSshd } from "./backend/contract"
+
 export interface UserDataInput {
+  readonly sshd: GuestSshd
   readonly workspaceDevice: string
   readonly user: string
   readonly workspace: string
@@ -25,6 +28,18 @@ export function isCanonicalPath(path: string): boolean {
     posix.normalize(path) === path &&
     !path.endsWith("/")
   )
+}
+
+function sshdCommands(sshd: GuestSshd): readonly (readonly string[])[] {
+  switch (sshd) {
+    case "inetd":
+      return []
+    case "listening":
+      return [
+        ["systemctl", "unmask", "ssh.service"],
+        ["systemctl", "enable", "--now", "ssh.service"],
+      ]
+  }
 }
 
 function asciiJson(value: unknown): string {
@@ -56,7 +71,11 @@ export function userDataText(input: UserDataInput): string {
       ed25519_public: input.hostPublicKey.trim(),
     },
     mounts: [[input.workspaceDevice, input.workspace, "ext4", WORKSPACE_MOUNT_OPTIONS, "0", "2"]],
-    runcmd: [["sh", "-c", MOUNT_SCRIPT, "sh", input.workspace, input.user], ["sync"]],
+    runcmd: [
+      ...sshdCommands(input.sshd),
+      ["sh", "-c", MOUNT_SCRIPT, "sh", input.workspace, input.user],
+      ["sync"],
+    ],
   }
   return `#cloud-config\n${asciiJson(document)}\n`
 }

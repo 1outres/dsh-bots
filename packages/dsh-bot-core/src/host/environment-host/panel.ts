@@ -27,7 +27,7 @@ export interface EnvironmentHostPanel {
   state(): BotEnvironmentHostState
   subscribe(listener: () => void): () => void
   check(): Promise<BotEnvironmentHostState>
-  previewCustom(credential: unknown): CustomPreview
+  previewCustom(credential: unknown, signal?: AbortSignal): Promise<CustomPreview>
   connectCustom(request: unknown): Promise<BotEnvironmentHostState>
   setupIdentity(): Promise<SshIdentityView>
   removeSetupIdentity(scope: unknown): Promise<SshIdentityView>
@@ -95,7 +95,8 @@ export function createEnvironmentHostPanel(deps: EnvironmentHostPanelDeps): Envi
       }
     },
     check: async () => stateOf(await required().check()),
-    previewCustom: (credential) => required().custom.preview(parseCustomCredential(credential)),
+    previewCustom: async (credential, signal) =>
+      required().custom.preview(parseCustomCredential(credential), signal),
     connectCustom: async (request) =>
       stateOf(await required().custom.connect(parseCustomConnectRequest(request))),
     setupIdentity: async () => required().setup.identity(),

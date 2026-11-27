@@ -17,6 +17,7 @@ import type {
 export const MAX_TRUST_TOKEN_LENGTH = 8192
 const MAX_FIELD_LENGTH = 2048
 const MAX_PASSWORD_LENGTH = 1024
+const MAX_NAMESERVERS = 3
 const CONSENT_IDS: readonly ConsentNeed["id"][] = ["zabbly"]
 const IDENTITY_AFTER = ["keep", "remove"] as const
 
@@ -28,6 +29,13 @@ function text(value: unknown, what: string, limit = MAX_FIELD_LENGTH): string {
   if (trimmed === "") throw bad(`${what} is empty`)
   if (trimmed.length > limit) throw bad(`${what} is longer than ${limit}`)
   return trimmed
+}
+
+function texts(value: unknown, what: string, limit: number): readonly string[] {
+  if (!Array.isArray(value)) throw bad(`${what} must be a list`)
+  if (value.length === 0) throw bad(`${what} is empty`)
+  if (value.length > limit) throw bad(`${what} has more than ${limit} entries`)
+  return value.map((item, index) => text(item, `${what}[${index}]`))
 }
 
 function recordOf(value: unknown, what: string): Readonly<Record<string, unknown>> {
@@ -69,12 +77,7 @@ export function parseCustomCredential(value: unknown): CustomCredential {
         trustToken: text(record.trustToken, "trustToken", MAX_TRUST_TOKEN_LENGTH),
       }
     case "proxmox":
-      return {
-        backend: "proxmox",
-        url: text(record.url, "url"),
-        tokenId: text(record.tokenId, "tokenId"),
-        serverFingerprint: text(record.serverFingerprint, "serverFingerprint"),
-      }
+      return { backend: "proxmox", url: text(record.url, "url") }
     default:
       throw bad("credential.backend must be incus or proxmox")
   }
@@ -99,6 +102,10 @@ export function parseCustomConnectRequest(value: unknown): CustomConnectRequest 
         serverFingerprint: text(record.serverFingerprint, "serverFingerprint"),
         node: text(record.node, "node"),
         pool: text(record.pool, "pool"),
+        storage: text(record.storage, "storage"),
+        bridge: text(record.bridge, "bridge"),
+        sshSource: text(record.sshSource, "sshSource"),
+        nameservers: texts(record.nameservers, "nameservers", MAX_NAMESERVERS),
       }
     default:
       throw bad("request.backend must be incus or proxmox")

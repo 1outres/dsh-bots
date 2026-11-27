@@ -12,13 +12,20 @@ Bots for [DeepSeek Harness](https://www.npmjs.com/package/@deepseek-ai/dsh). Eac
 
 2. In DSH: **dsh-bots settings** → **VM host**, and choose where the bots' VMs run:
    - **Build on this machine** or **Build on another machine** (over SSH): x86_64 with KVM, Debian 13 or 12, Ubuntu 24.04 or Fedora 42+. The plugin installs and sets up Incus there itself; you enter the sudo password, or add its SSH key for another machine.
-   - **Use an existing server**: paste the trust token its administrator gives you.
+   - **Use an existing server**: an Incus server (paste the trust token its administrator gives you) or a Proxmox VE 9 node (enter the API token and the pool its administrator gives you).
 
 An Incus server that already runs other things: its administrator creates a project and a token for the bots instead (no root; see [the options](infra/incus/create-project.sh)):
 
 ```sh
 curl -fsSL https://codeload.github.com/1outres/dsh-bots/tar.gz/v0.4.2 | tar -xz --strip-components=1 dsh-bots-0.4.2/infra
 infra/incus/create-project.sh --help
+```
+
+A Proxmox VE node: its administrator runs, as root on the node, a script that makes a pool, a storage, a role, a user with an API token limited to them, and checks the datacenter firewall ([details](infra/proxmox/README.md)). The node's bridge must be routed to the DSH host, which connects to each bot VM's SSH directly:
+
+```sh
+curl -fsSL https://codeload.github.com/1outres/dsh-bots/tar.gz/v0.4.2 | tar -xz --strip-components=1 dsh-bots-0.4.2/infra
+infra/proxmox/create-pool.sh --help
 ```
 
 Or paste this to a coding agent (DeepSeek Harness, Claude Code, Codex, …):

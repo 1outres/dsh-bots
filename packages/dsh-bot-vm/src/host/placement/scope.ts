@@ -6,7 +6,7 @@ import type {
 } from "@1outres/dsh-bot-core"
 import type { VmBackend } from "../backend/contract"
 import type { StoredPlacement } from "./placement"
-import type { ClientKeyStore } from "./secrets"
+import type { SecretStore } from "./secrets"
 import type { PlacementReading, PlacementStore } from "./store"
 
 export class PlacementError extends Error {
@@ -43,8 +43,9 @@ export interface BackendConnection {
 
 export interface PlacementScopeDeps {
   readonly store: PlacementStore
-  secretOf(kind: VmBackendKind): ClientKeyStore
+  secretOf(kind: VmBackendKind): SecretStore
   connect(placement: StoredPlacement, secret: string): BackendConnection
+  placeOf(placement: StoredPlacement): string
 }
 
 export interface ActivePlacement {
@@ -56,7 +57,7 @@ export interface PlacementScope {
   reading(): Promise<PlacementReading>
   current(): Promise<ActivePlacement>
   backend(): Promise<VmBackend>
-  project(): string | undefined
+  place(): string | undefined
   secretUsable(kind: VmBackendKind): Promise<void>
   choose(placement: StoredPlacement, secret: string): Promise<void>
   rewrite(placement: StoredPlacement): Promise<void>
@@ -68,9 +69,6 @@ interface Connected {
   readonly active: ActivePlacement
   readonly connection: BackendConnection
 }
-
-const projectOf = (placement: StoredPlacement) =>
-  placement.backend.kind === "incus" ? placement.backend.project : undefined
 
 export function createPlacementScope(deps: PlacementScopeDeps): PlacementScope {
   let resolved: Promise<Connected> | undefined
@@ -106,7 +104,7 @@ export function createPlacementScope(deps: PlacementScopeDeps): PlacementScope {
       )
     }
     const connection = deps.connect(placement, secret)
-    latest = projectOf(placement)
+    latest = deps.placeOf(placement)
     return { connection, active: { placement, backend: connection.backend } }
   }
 
@@ -142,7 +140,7 @@ export function createPlacementScope(deps: PlacementScopeDeps): PlacementScope {
     reading: () => deps.store.read(),
     current,
     backend: async () => (await current()).backend,
-    project: () => latest,
+    place: () => latest,
     async secretUsable(kind) {
       await deps.secretOf(kind).read()
     },
@@ -154,7 +152,7 @@ export function createPlacementScope(deps: PlacementScopeDeps): PlacementScope {
       }
       await deps.store.write(placement)
       drop()
-      latest = projectOf(placement)
+      latest = deps.placeOf(placement)
     },
     async rewrite(placement) {
       await deps.store.write(placement)

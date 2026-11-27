@@ -181,6 +181,10 @@ interface StoredProxmox {
   readonly tokenId: string
   readonly node: string
   readonly pool: string
+  readonly storage: string
+  readonly bridge: string
+  readonly sshSource: string
+  readonly nameservers: readonly string[]
 }
 
 type StoredOrigin =
@@ -207,7 +211,7 @@ type StoredSite =
     }
 ```
 
-- `StoredProxmox` のフィールドは spike で増減する（§10）。
+- `StoredProxmox` のフィールドは段階 7 で決めた（§10.2）。`url` はポートを省くと `:8006` を補う。
 - 秘密は入れない。Incus の秘密鍵は今の credential store の `<scope>/incus-client`、Proxmox の token の secret は `<scope>/proxmox-token`（§6.5）。
 - `hostKey` は known_hosts の 1 行（`<type> <base64>`）。`bundleSha256` は構築に使った host-setup の束の sha256（§5.5）で、プラグインの束と違えば画面が「更新があります」を出す（自動で root の処理はしない）。
 - 読み書きは今の `EndpointStore` を `PlacementStore` に置き換える。version 2 の読み方は移行のモジュール（§8）だけが持つ。
@@ -250,8 +254,12 @@ type BackendPlacementView =
       readonly url: string
       readonly node: string
       readonly pool: string
+      readonly storage: string
+      readonly bridge: string
       readonly tokenId: string
       readonly serverFingerprint: string
+      readonly sshSource: string
+      readonly nameservers: readonly string[]
     }
 
 type LegacyPlacementView = {
@@ -293,7 +301,21 @@ const INCUS_PROBLEM_CODES = [
   "profile-foreign-device",
 ] as const
 
-const PROXMOX_PROBLEM_CODES = ["unreachable", "untrusted", "token-rejected"] as const
+const PROXMOX_PROBLEM_CODES = [
+  "unreachable",
+  "untrusted",
+  "token-rejected",
+  "version-too-old",
+  "node-missing",
+  "privilege-missing",
+  "pool-missing",
+  "pool-limits-undeclared",
+  "storage-missing",
+  "storage-unusable",
+  "bridge-missing",
+  "bridge-denied",
+  "guest-unreachable",
+] as const
 
 type ProblemFix =
   | { readonly kind: "command"; readonly text: string }
@@ -352,26 +374,21 @@ interface VmHostSetup {
 }
 
 interface VmHostCustom {
-  preview(credential: CustomCredential): CustomPreview
+  preview(credential: CustomCredential, signal?: AbortSignal): Promise<CustomPreview>
   connect(request: CustomConnectRequest, signal?: AbortSignal): Promise<EnvironmentHostView>
 }
 
 type CustomCredential =
   | { readonly backend: "incus"; readonly trustToken: string }
-  | {
-      readonly backend: "proxmox"
-      readonly url: string
-      readonly tokenId: string
-      readonly serverFingerprint: string
-    }
+  | { readonly backend: "proxmox"; readonly url: string }
 
 type CustomPreview =
   | ({ readonly backend: "incus" } & TrustTokenPreview)
   | {
       readonly backend: "proxmox"
       readonly url: string
-      readonly tokenId: string
       readonly serverFingerprint: string
+      readonly sourceAddress: string
     }
 
 type CustomConnectRequest =
@@ -389,6 +406,10 @@ type CustomConnectRequest =
       readonly serverFingerprint: string
       readonly node: string
       readonly pool: string
+      readonly storage: string
+      readonly bridge: string
+      readonly sshSource: string
+      readonly nameservers: readonly string[]
     }
 ```
 
@@ -398,7 +419,8 @@ type CustomConnectRequest =
 - Remote（`botEnvironmentHost`）は上のメソッドをそのまま並べ、加えて `investigateSetup(jobId): { sessionId }`（§7）を持つ。`BotEnvironmentHostState` は `EnvironmentHostSettingsView` に `setup` が増えるだけ。段階 2 の Remote は `custom` の 2 つを `previewCustom(credential)` と `connectCustom(request)` として並べ、今の `previewToken` / `pair` / `useLocal` / `setProject` を消した。段階 4 で `setup` を `setupIdentity()`、`removeSetupIdentity(scope)`、`scanHostKey(target)`、`inspectSetup(request)`、`startSetup(request)`、`cancelSetup(jobId)`、`dismissSetup(jobId)` として足した（`brief` は Remote に出さず、段階 5 の `investigateSetup` だけが使う。`start` / `cancel` / `dismiss` は他の変更と同じく `BotEnvironmentHostState` を返す）。引数は `host/environment-host/input.ts` が Host に渡す前に形を確かめる（sudo のパスワードは trim せず、1 行で 1024 文字まで）。`BotEnvironmentHostState` の ready には `pluginVersion` も足した（判断: §4.1 の create-project.sh のコマンドの版。bot-core の版は `DSH_BOTS_VERSION` と同じ）。画面の判断: SSH の修復・再実行は固定済みの `hostKey` でそのまま始める（scan し直さない）。再実行の HTTPS のポートは placement の URL のポート、placement が無ければ既定の 8443（`SetupJobView` はポートを持たない）。SSH 鍵の「消す…」はまず `remote-and-local`、それが失敗したら同じ行に「ここだけ消す…」（`local`）を出す。
 - 段階 2 では `setup` の Host 側（`VmHostSetup`）は型だけで、どのメソッドも「この版では使えない」で失敗した。段階 3b で `brief` 以外を実装した（`brief` は段階 5）。段階 3b で契約を 2 つ改めた: `inspect` は `SetupInspectRequest`（site と HTTPS のポート。preflight の `port` の検査に要る。画面でポートを変えたら検査し直す）を受け、`HostSiteView` の ssh は指紋の文字列の代わりに固定した鍵 `hostKey: PinnedHostKey` を持つ。`custom` の proxmox の枝も同じ（段階 7）。setup 系の型は `shared/vm-host-setup.ts` に置いた（§5.6 の型と `SetupBrief`）。
 - 段階 5 で `brief` を実装し、`Promise<SetupBrief>` に改めた（判断: 資料のファイル（§7.2）を書いてから返すため）。`brief` は状態が `failed` か `interrupted` で failure のあるジョブだけを受け、それ以外は `SetupRequestError`（`job-not-failed`）。Remote の `investigateSetup(jobId)` は `SetupInvestigation`（`{ sessionId }`、`shared/vm-host-setup.ts`）を返す。セッションを作る処理は `index.ts` が `createEnvironmentHostPanel` の `investigate(brief)` として渡す（design rule 1）。
-- 段階 2 の `EnvironmentHostDeclaration` の proxmox の枝は仮に `{ kind: "proxmox", node, pool }`。
+- 段階 2 の `EnvironmentHostDeclaration` の proxmox の枝は仮に `{ kind: "proxmox", node, pool }`。段階 7 で `{ kind: "proxmox", node, pool, storage, bridge, limits: { cpus, memoryMiB } }`（`ProxmoxPoolLimits`、プールの comment の申告、§10.8）にした。
+- 段階 7 で `custom.preview` を `Promise` にした（判断: Proxmox は証明書を取りにつなぐので同期では返せない。Remote の `previewCustom` はもとから `Promise`）。proxmox の `CustomCredential` は URL だけで、`CustomPreview` はサーバ証明書の sha256 と、DSH ホストがその API につないだときの送り元のアドレス（`sourceAddress`、画面の「このインストールのアドレス」の既定値、§10.6）を返す。token はまだ受けない（証明書を確かめてから secret を渡すため）。`BotEnvironmentImageView` の `project` は `place`（Incus は project、Proxmox は `<pool>@<node>`）に改めた。
 - 画面の問題の見出しの鍵は `problem.<scope>.<code>`（`unreachable` などが Incus と Proxmox で重なるため）。
 
 ### 5.3 VmBackend（dsh-bot-vm の中の境界）
@@ -425,6 +447,7 @@ interface InstanceBackend {
   change(shape: InstanceShape, signal?: AbortSignal): Promise<InstanceChange>
   conform(shape: InstanceShape, signal?: AbortSignal): Promise<void>
   start(name: string, signal?: AbortSignal): Promise<void>
+  settle(name: string, signal?: AbortSignal): Promise<void>
   stop(name: string, signal?: AbortSignal): Promise<void>
   remove(name: string, signal?: AbortSignal): Promise<void>
   markOrphaned(name: string, since: string | undefined, signal?: AbortSignal): Promise<void>
@@ -472,7 +495,14 @@ interface ImageBackend {
   point(alias: string, fingerprint: string, signal?: AbortSignal): Promise<string | undefined>
 }
 
+interface ImageSource {
+  readonly fingerprint: string
+  readonly bytes: number
+  readonly body: AsyncIterable<Uint8Array>
+}
+
 interface GuestRoute {
+  readonly sshd: "inetd" | "listening"
   open(instance: string, signal?: AbortSignal): Promise<GuestChannel>
 }
 
@@ -488,7 +518,9 @@ type BackendCheck =
 - `userData` は cloud-init の user-data。Incus は `cloud-init.user-data`。`workspaceDevice` はゲストから見たワークスペースのディスクのパス（Incus は `/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_incus_workspace`）。Proxmox での渡し方は spike（§10）。
 - 外向きの実測（`egress-probe.ts`）は今もゲストの SSH で短いコマンドを 1 つ実行するだけで、backend に依らない。最初の案の `EgressBackend` は置かない（判断: SSH の経路は `GuestRoute` の上にすでにあり、backend ごとの実装が要らない）。
 - `where` は利用者向けの文の中で VM ホストを指す語（Incus は `the Incus project "<project>"`）。
-- Incus の実装は `src/host/backend/incus/`（`backend.ts` と、今の `IncusClient`、check、layout、reconfigure、capacity、pairing、trust token）。check はこの宣言（pool / network / egressAcl）を覚え、ボリュームと VM の操作はそれを使う。環境は ensure・remove・capacity・reconcile のたびに `check` を呼び直す。最初の実装は Incus だけ。Proxmox の placement は読めるが、つなぐと「この版では使えない」で失敗する。
+- 段階 7 で足したもの: `settle` は環境が SSH の準備（`boot-finished`）を確かめた直後に呼ぶ「初回の起動にだけ要ったものを捨てる」口（Incus は何もしない。Proxmox は cloud-init の ISO を秘密の無いものに上書きして外す、§10.4）。`GuestRoute.sshd` はゲストの sshd を exec の `sshd -i` で起こすか、TCP で listen させるか（`listening` のとき `cloud-init.ts` が runcmd の先頭に §10.1 の 2 行を足す）。`ImageSource.fingerprint` は manifest の値で、Proxmox はアップロードの前にファイル名を決めるのに使う（返す fingerprint は実際に流したものの sha256 のまま、取り込みの段が照合する）。
+- Proxmox の実装は `src/host/backend/proxmox/`（§10.2〜）。
+- Incus の実装は `src/host/backend/incus/`（`backend.ts` と、今の `IncusClient`、check、layout、reconfigure、capacity、pairing、trust token）。check はこの宣言（pool / network / egressAcl）を覚え、ボリュームと VM の操作はそれを使う。環境は ensure・remove・capacity・reconcile のたびに `check` を呼び直す。段階 2〜6 は Incus だけで、Proxmox の placement は読めるがつなぐと「この版では使えない」で失敗した。段階 7 で Proxmox を実装した。
 
 ### 5.4 HostShell（VM ホストでコマンドを実行する）
 
@@ -963,21 +995,21 @@ cwd（`<stateDir>/setup/jobs/<id>/`）には `log.txt` と、メッセージと�
 | `packages/dsh-bot-vm/src/host/endpoint-check.ts` | 直し方の文（install.sh、incus-admin）を `ProblemFix`（§5.2）に（段階 2）                                                                                                                                                                                                                                                                                                                                                                                           |
 | `test/installer.test.ts`                         | `install.sh` を `bash -n` の一覧から外す。README の版の検査は残し、§9.2 のコマンドの版の一致を足す。束の写し（§5.5）の検査を足す（段階 6: install.sh が無くなったので `test/release-env.test.ts`（release.env と package.json・README の版）、`test/shell-syntax.test.ts`（`bash -n`）、`packages/dsh-bot-core/test/create-project-command.test.ts`（§9.2 のコマンド）に分けた。束の検査は段階 3b の `packages/dsh-bot-vm/test/host-setup-bundle.test.ts` にある） |
 
-## 10. Proxmox（custom のみ、spike 待ち）
+## 10. Proxmox（custom のみ）
 
 - custom だけ。managed は Incus だけ（Proxmox のノードを構築する手順は持たない）。
 - API だけで動くのが望ましい。無理なら、ノードへの SSH（プラグインの鍵、ホスト鍵の固定は §6.2、§6.3 と同じ作り）も許す。
-- `dev/proxmox-spike/`（別の担当が調査中）の結果で、次を決める。決まるまで `StoredProxmox`、`PROXMOX_PROBLEM_CODES`、`CustomConnectRequest` の proxmox の枝は仮のもの。
+- `dev/proxmox-spike/` の結果で次を決めた（段階 7）。API だけで動き、ノードへの SSH は使わない。
 
-| 決めること               | 問い                                                                                                                                                                                                                                                                                                                                                           |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ゲストへの経路           | Proxmox にはストリーミングの exec が無い（QEMU guest agent の `guest-exec` は起動と結果の取得だけ、推測）。`sshd -i` へのバイト列をどう作るか: API の serial の termproxy / websocket に `sshd -i` を載せる、ゲストの NIC にノード経由の SSH（`-W`）で入る、など。8 bit を通すか、1 本で足りるか（incus-endpoint.md §5.2 の「SshConnection 1 つにつき 1 本」） |
-| 権限の閉じ込め           | API token（privilege separation）と role を pool・ストレージ・ブリッジ（SDN の vnet）に限れるか。VM の NIC やファイアウォールの設定を token が変えられないようにできるか                                                                                                                                                                                       |
-| イメージ                 | 今の Incus のイメージ（統合 tarball）から何を作るか（qcow2 / raw）。API で取り込めるか（ストレージの `import` の content、推測）。テンプレートにして複製するか                                                                                                                                                                                                 |
-| 初期設定                 | cloud-init の user-data の渡し方。Proxmox の `cicustom` は snippets のストレージにファイルを置く必要があり、API だけでは置けない可能性がある（推測）                                                                                                                                                                                                           |
-| ワークスペースのディスク | VM を消しても残る別のディスクをどう持つか（VM を消すとディスクも消える。外して残す、別の持ち主に付け替える、など）。拡張、by-id の名前                                                                                                                                                                                                                         |
-| ファイアウォール         | VM の egress を ACL と同じに絞る方法（Proxmox の VM のファイアウォール、データセンターの設定が要るか）。宣言と実測（実測はゲストの SSH で行うので `GuestRoute` があれば足りる、§5.3）                                                                                                                                                                          |
-| 容量                     | `capacity` に使う値（pool の上限、ノードの空き）                                                                                                                                                                                                                                                                                                               |
+| 決めたこと               | 決定                                                                                                                                                                                | 節         |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| ゲストへの経路           | VM の IP（guest agent の `network-get-interfaces`）へ DSH ホストから直接 TCP 22。sshd は Proxmox の VM でだけ cloud-init で listen させる。シリアルは遅すぎて使わない（spike §3.1） | 10.1、10.6 |
+| 権限の閉じ込め           | privsep の API token と、プールに付けたロール `DshBots`、ブリッジの `PVESDNUser`。token は自分の VM のファイアウォールを変えられる（外側での遮断は管理者の判断）                    | 10.7、10.9 |
+| イメージ                 | 統合 tarball から `rootfs.img`（qcow2）だけを `import` に上げ、`import-from` でテンプレートにし、linked clone で作る                                                                | 10.4       |
+| 初期設定                 | NoCloud の ISO を DSH ホストで作って `iso` に上げ `ide3` に付ける（snippets は上げられない）。初回の起動の後に秘密の無い ISO で上書きして外す                                       | 10.4       |
+| ワークスペースのディスク | 起動しない保管用の VM が持ち主の volume を `virtio1` に付ける（`/dev/disk/by-id/virtio-dsh-workspace`）                                                                             | 10.5       |
+| ファイアウォール         | VM ごとの options・rules・ipset（Incus の ACL と同じ範囲を拒否、in は DSH ホストの 22 だけ）。データセンターの有効は読めないので egress の実測で確かめる                            | 10.6       |
+| 容量                     | プールの comment の管理者の申告と、ストレージの空き                                                                                                                                 | 10.8       |
 
 ### 10.1 ベースイメージ（Incus と Proxmox で共通）
 
@@ -1003,7 +1035,78 @@ runcmd:
 - イメージに TCP 用の unit を別に足さない（判断: Debian の unit で足り、Incus の VM との違いを cloud-init の 2 行に閉じられる）。`write_files` の印と unit の `Condition…` で切り替える形もとらない（初回の起動では印が `ssh.service` の起動に間に合う保証が無い）。
 - `ssh.service` はホスト鍵を作らない。ホスト鍵は cloud-init の `ssh_keys`（init の段）が `runcmd`（final の段）より前に書くので、sshd は初めから固定したホスト鍵で答える。
 - 準備の完了は今と同じく SSH で `/var/lib/cloud/instance/boot-finished` を見る（`BOOT_FINISHED`）。
-- 確認済み（2026-11-27、Incus の Debian 13 の VM で同じ mask から）: ed25519 のホスト鍵 1 つで `sshd -t` が通り、`0.0.0.0:22` と `[::]:22` で listen し、`bot` の鍵で入れ、`root` は拒否された。未検証: 実際の PVE での `agent: enabled=1` と `network-get-interfaces`、`runcmd` での listen（入れ子の PVE で Proxmox の backend の担当が確かめる）。
+- 確認済み（2026-11-27、Incus の Debian 13 の VM で同じ mask から）: ed25519 のホスト鍵 1 つで `sshd -t` が通り、`0.0.0.0:22` と `[::]:22` で listen し、`bot` の鍵で入れ、`root` は拒否された。確認済み（2026-11-27、入れ子の PVE 9.3.1、image-20261127、段階 7）: `agent: enabled=1` で guest agent が起動し `network-get-interfaces` が `net0` の MAC と IPv4 を返した。`runcmd` の 2 行で `0.0.0.0:22` / `[::]:22` に listen し、作り直した VM でも同じ。`sshd-vsock.socket` は vsock の device が無い PVE の VM でも active で、failed にならなかった。初回の起動だけ `cloud-init-main` / `cloud-init-network` が failed になる（`cc_mounts` の `mount -a` が、まだ `x-systemd.makefs` で ext4 が作られていないワークスペースで失敗する。2 回目の起動からは無い。Incus でも同じ user-data なので同じはず、未検証）。
+
+### 10.2 接続と保存
+
+- 画面（「既存のサーバを使う → Proxmox」）: API のアドレスを入れると `previewCustom` がつないで証明書の sha256 と送り元のアドレスを返し、画面が指紋を出す（管理者は `pvenode cert info` と比べる）。続けて token の id と secret、node、pool、storage、bridge、「このインストールのアドレス」（既定は送り元のアドレス）、DNS サーバ（既定 `1.1.1.1 9.9.9.9`、3 つまで）を受ける。`connectCustom` は `GET /version` で token が通ることを確かめてから placement を書き（失敗なら何も書かない）、検査（§10.7）に進む。
+- TLS はノードの証明書の sha256 だけで検証する（CA・ホスト名を見ない。Incus と同じ）。`Authorization: PVEAPIToken=<tokenId>=<secret>`。
+- 保存: `StoredProxmox`（§5.1）。secret は credential store の `<scope>/proxmox-token`（payload `{ version: 1, tokenSecret }`。Incus の `<scope>/incus-client` は `{ version: 1, clientKey }` のまま）。backend を替えると前の backend の秘密を消す。
+- 「この VM ホストの利用をやめる」は手元の placement と secret を消すだけ（token を消すのは管理者、infra/proxmox/README.md）。
+- 実装: `backend/proxmox/endpoint.ts`（入力の形）、`client.ts`（型付きの API と task の UPID 待ち。`exitstatus` が `OK` か `WARNINGS` で成功、それ以外は task の log の末尾を添えて失敗）、`node/proxmox-transport.ts`（HTTPS、証明書の固定、JSON、multipart のアップロード、`probeProxmox`）。設定の `incusTimeoutMs` / `operationTimeoutMs` / `imageUploadTimeoutMs` を API の要求 / task / アップロードの期限に使う。
+
+### 10.3 プールの中のもの
+
+PVE の VM と volume は利用者向けの札を持たないので、VM の説明（`description`）の最後の `dsh-bots-meta: {json}` の行に札を書く（`meta.ts`、`v: 1`）。
+
+| VM                                                          | 札                                                                           | 中身                                          |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------- |
+| ボットの VM（`<instancePrefix><bot id>`）                   | `{ kind: "bot", owner, botId, orphanedSince? }`                              | テンプレートの linked clone（`clone full=0`） |
+| テンプレート（`dsh-bots-image-<fingerprint 12 桁>`）        | `{ kind: "image", owner, fingerprint, aliases }`                             | 別名（`dsh-bot-base`）は `aliases` で持つ     |
+| 保管用の VM（`dsh-bots-volumes-<owner 12 桁>`、起動しない） | `{ kind: "volumes", owner, volumes: { <name>: { botId, orphanedSince? } } }` | ワークスペースの持ち主（§10.5）               |
+
+- 一覧は `GET /pools/<pool>` の VM と、それぞれの `GET …/config`。名前・テンプレートかどうかは config から読む（判断: プールの一覧の `name` / `template` / `status` は pvestatd の集計で、作った直後やテンプレート化の直後に数秒〜十数秒古い。確認済み、入れ子の PVE で `template` が 0 のまま返り別名を付けられなかった）。状態は `status/current`（`qmpstatus` の `paused` は frozen）。
+- 他の owner の札の VM には触れない（Incus の `user.dsh-bot.owner` と同じ）。保管用 VM への書き込み（札の変更、空きの virtio への付け外し）はプロセスの中で 1 つずつにする。
+- VM id は `GET /cluster/nextid` で取り、作成が「already exists」で失敗したら取り直す（5 回まで。他の作成と競ったとき）。
+
+### 10.4 イメージと cloud-init
+
+- 取り込みの段（`image/importer.ts`）は Incus と同じ。`ImageBackend.upload` は統合 tarball（zstd）を流しながら sha256 を取り、tar の `rootfs.img`（qcow2）だけを `POST …/storage/<s>/upload`（`content=import`、ファイル名 `dsh-bots-<manifest の fingerprint>.qcow2`、Content-Length は tar の見出しの大きさ）に流す（`node/image-unpack.ts`。DSH ホストに qcow2 を書かない）。流し終えた tarball の sha256 が manifest と同じときだけテンプレートを作る: `POST /nodes/<n>/qemu`（`scsi0: <s>:0,import-from=<s>:import/<file>`、`bios: ovmf`、`efidisk0 … pre-enrolled-keys=0`、`machine: q35`、`scsihw: virtio-scsi-single`、`serial0: socket`、`agent: enabled=1`、`net0` の bridge）→ `POST …/template`。
+- `point` は札の `aliases` を付け替える。古いテンプレートは別名が無く linked clone も無いときに消す（`discard`、またはボットの VM を消したときにその元のテンプレートについて調べる）。linked clone があるうちは消さない（PVE が base を消させない）。
+- 消せないもの: import のファイルと ISO は token では消せない（`Datastore.Allocate` が無い、spike §2）。同じ名前の上書きはできるので、ISO はボットごと、import はイメージの版ごとに 1 つ。片付けは管理者（infra/proxmox/README.md）。
+- cloud-init: NoCloud の ISO（`seed.ts` の最小の ISO 9660、ボリューム名 `cidata`）を `content=iso` で `dsh-bots-seed-<VM 名>.iso` に上げ、`ide3`（cdrom）に付ける。user-data は `cloud-init.ts` のまま（`sshd: listening` で §10.1 の 2 行が付く）。network-config は clone の後に読んだ `net0` の MAC で NIC を選び（名前の glob は使わない、spike §5）、placement の DNS サーバを足す。DHCP の DNS も残る（確認済み: Debian 13 の cloud-init 25.1.4 は networkd の設定を書き、v2 の `dhcp4-overrides.use-dns: false` を写さなかった）。私設の DHCP の DNS は egress の REJECT ですぐ失敗し、resolved が次のサーバに移る（確認済み、名前の解決 32 ms）。placement に私設の DNS を書いたときだけ 53 番を通す。
+- 初回の起動の後（`settle`）に、同じ名前の ISO を秘密の無いもの（user-data `{}`）で上書きしてから `delete: ide3`（動いている VM では次の起動で効く）。VM を消すときも、まだ付いていれば上書きしてから消す。
+
+### 10.5 ワークスペース
+
+- 持ち主は保管用の VM（§10.3）。`POST …/storage/<s>/content { vmid: <保管用>, filename: vm-<保管用>-<名前>.raw, size, format: raw }` で作り、ボットの VM の `virtio1: <volid>,serial=dsh-workspace,discard=on,iothread=1` に付ける。ゲストでは `/dev/disk/by-id/virtio-dsh-workspace`（`workspaceDevice`）。札は保管用 VM の説明に書く（作る前に書く。札だけ残っても一覧は volume から作るので害が無い）。
+- VM を消すときは先に `delete: virtio1` で参照を外してから `DELETE …?purge=1&destroy-unreferenced-disks=0`。
+- 拡張: 付いている VM の `PUT …/resize`（動いたままでも通る、spike §6）。どの VM にも付いていないとき（VM を消した後に大きくして作り直す）は、保管用 VM の空いた `virtioN` に付けて広げ、外す（持ち主から外すと `unusedN` になって残る）。
+- 削除: 保管用 VM の `virtioN` か `unusedN` に置き、`unusedN` を `delete` すると消える。ほかの VM が参照していれば消さずに失敗する。
+- `attached` は保管用以外の VM の disk の設定に volid があるか。
+
+### 10.6 ネットワークとゲストへの経路
+
+- 経路は VM の IP へ DSH ホストから直接 TCP 22（`GuestRoute.open`）。IP は `GET …/agent/network-get-interfaces` の、`net0` の MAC の IPv4（169.254 を除く）。guest agent が答えないうち（起動の途中）は open が失敗し、環境の `waitForSsh` が待ち直す。DSH の中の中継と ProxyCommand、ホスト鍵の固定は Incus と同じ。
+- ファイアウォール（VM を作るたびに書き直す、`firewall.ts` / `network.ts`）: options `enable=1 policy_in=DROP policy_out=ACCEPT dhcp=1 macfilter=1 ipfilter=1 ndp=0 radv=0`、`net0` に `firewall=1`。規則は上から、in ACCEPT tcp 22 source <sshSource>、私設の DNS サーバがあれば out ACCEPT udp/tcp 53、out REJECT `0.0.0.0/8,10.0.0.0/8,100.64.0.0/10,127.0.0.0/8,169.254.0.0/16,172.16.0.0/12,192.0.0.0/24,192.168.0.0/16,198.18.0.0/15,224.0.0.0/3`（`infra/incus/objects.sh` の ACL と同じ範囲）、out REJECT `::/0`。
+- `ipfilter` の ipset `ipfilter-net0` は空で作り、`open` のたびに guest agent が答えた IP だけにする（判断: IP は DHCP で決まるので作るときには書けない。spike §7 で空の ipset は送信がすべて落ちた。DHCP は `dhcp=1` で通る）。
+- `sshSource` は VM から見た DSH ホストのアドレス。既定は API への接続の送り元で、VM のネットワークとの間に NAT があるときは利用者が直す。
+- データセンターのファイアウォールが無効だと VM の規則は効かず、token からはそれを読めない（`Sys.Audit`）。Incus と同じく、ensure の最後の egress の実測（`egress-probe.ts`、ゲストの SSH の上）で確かめ、「ネットワークの隔離」に出す。
+
+### 10.7 検査と問題
+
+`check` は次を順に見て、問題（scope `proxmox`）を返す。直し方は管理者向けのコマンドか文（custom なので `repair` は出さない）。
+
+| code                                           | 見るもの                                                                                                                                                                                                 | 直し方                                                                |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `unreachable` / `untrusted` / `token-rejected` | `GET /version` が答える / 証明書が固定のもの / 401 でない                                                                                                                                                | ノードと 8006 / `pvenode cert info` と比べてつなぎ直す / 新しい token |
+| `version-too-old`                              | 9.0 以上（判断: 確かめたのは 9.3 だけ）                                                                                                                                                                  | 上げる                                                                |
+| `node-missing`                                 | `GET /nodes` に online である                                                                                                                                                                            | ノード名を直してつなぎ直す                                            |
+| `privilege-missing`                            | `GET /access/permissions?path=/pool/<pool>` に VM 系と `Pool.Audit`、`path=/storage/<s>` に `Datastore.Audit / AllocateSpace / AllocateTemplate`（応答の値は伝播の印で、鍵があれば持っている。確認済み） | `create-pool.sh`                                                      |
+| `pool-missing` / `pool-limits-undeclared`      | プールがある / comment に `dsh-bots: cpus=<n> memory=<n>GiB`                                                                                                                                             | `create-pool.sh` / `pvesh set /pools/<p> --comment …`                 |
+| `storage-missing` / `storage-unusable`         | ノードにある / 有効で、content に `images,import,iso`、プールの member                                                                                                                                   | `pvesm set … --content …` など                                        |
+| `bridge-missing` / `bridge-denied`             | `GET /nodes/<n>/network` にある / `/sdn/zones/localnetwork/<bridge>` に `SDN.Use`                                                                                                                        | つなぎ直す / `create-pool.sh`                                         |
+| `guest-unreachable`                            | ほかに問題が無いとき、動いているこの owner のボットの VM（3 台まで）の IP の 22 に DSH ホストから届く                                                                                                    | ブリッジのネットワークへの経路、`sshSource`                           |
+
+権限は spike §2 のロールから、使わないもの（`VM.Config.Cloudinit`、`VM.Console`、`SDN.Use` はブリッジの ACL で別に）を外した。
+
+### 10.8 容量
+
+管理者の申告（プールの comment の `cpus` / `memory`）が上限。CPU はその値、メモリは上限からプールの他の VM（テンプレートと保管用を除く、他の owner も含む）の `maxmem` を引いた値、ワークスペースはストレージの `avail` から `rootDiskGiB` を引いた値（Incus と同じ刻み、`capacity-steps.ts`）。ノードの CPU・メモリは token から読めないので見ない（spike §8）。
+
+### 10.9 管理者の準備
+
+`infra/proxmox/create-pool.sh`（ノードの root、冪等）がストレージ（無ければ dir）、プールと上限の comment、ロール `DshBots`、ユーザと privsep の token、ACL（ユーザと token の両方）を作り、データセンターのファイアウォールを確かめ（`--enable-firewall` で有効にする）、画面に入れる値を出す。画面の「サーバの管理者向け」は Incus と同じ codeload のコマンドで `infra/proxmox/create-pool.sh --help` を出す（README と同じ文字列をテストで保つ）。詳しくは infra/proxmox/README.md。
 
 ## 11. 実装の段階（worktree）
 
@@ -1031,4 +1134,4 @@ runcmd:
 - 未決: remote の managed で ufw の HTTPS のポートを DSH ホストのアドレス（`$SSH_CLIENT`）だけに開けるか。今は全体に開ける（今の `phase_remote` と同じ）。証明書の認証で守られる。
 - 未決: create-project.sh の配布物の sha256 での固定（§9.2）。
 - 未決: 1 台の VM ホストだけ。ボットごとに置き場所を選ぶのは今と同じく後回し（placement をボットごとに持てる形にはしていない）。
-- Proxmox の §10 の表。
+- Proxmox（§10）の未検証: クラスタ（複数ノード）、dir 以外のストレージ（LVM-thin・ZFS・Ceph。content に import と iso が要るので今はファイルのストレージだけ）、token の期限の切れと作り直し、2 台の VM の間の遮断と IPv6、DHCP の更新で IP が変わったときに `open` の前に通信が止まる間。

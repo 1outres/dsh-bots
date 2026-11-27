@@ -130,6 +130,7 @@ A VM host (docs/specs/vm-host-modes.md §2), either built by this plugin from th
 
 - Incus 6.0.4 or later with VM support, its HTTPS API reachable from the DSH host (`127.0.0.1:8443` when it is this machine) and a trust token restricted to the project (a build issues and uses it itself). The plugin never talks to Incus' Unix socket.
 - The project (`incusProject`, or the one chosen when pairing) with `user.dsh-bots.pool` and `user.dsh-bots.network` naming a pool and a network it may use (and `user.dsh-bots.egress-acl` the ACL on that network).
+- Or a Proxmox VE 9 node whose administrator ran `infra/proxmox/create-pool.sh` (infra/proxmox/README.md, docs/specs/vm-host-modes.md §10): an API token limited to a pool, a file storage with the content `images,import,iso`, a bridge whose network the DSH host reaches (it connects to each VM's port 22 at the address the QEMU guest agent reports), and the datacenter firewall on. The token's secret is in DSH's credential store (`bot-vm/proxmox-token`).
 - The `dsh-bot-base` image, which the plugin imports itself (The base image): user `bot` with `/home/bot/workspace`, Node 24, `/usr/sbin/sshd` (run as `sshd -i` through Incus' exec), the cloud-init seed made root-only on every boot (it carries the host's private key), `/opt/dsh-ssh-helper` (dsh-ssh 0.2.2-rc.5), ripgrep at `/usr/bin/rg`, passwordless sudo for `bot` (the ripgrep link).
 
 ## Deployment

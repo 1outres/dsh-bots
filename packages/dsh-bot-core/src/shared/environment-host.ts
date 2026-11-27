@@ -35,7 +35,21 @@ export const INCUS_PROBLEM_CODES = [
   "profile-foreign-device",
 ] as const
 
-export const PROXMOX_PROBLEM_CODES = ["unreachable", "untrusted", "token-rejected"] as const
+export const PROXMOX_PROBLEM_CODES = [
+  "unreachable",
+  "untrusted",
+  "token-rejected",
+  "version-too-old",
+  "node-missing",
+  "privilege-missing",
+  "pool-missing",
+  "pool-limits-undeclared",
+  "storage-missing",
+  "storage-unusable",
+  "bridge-missing",
+  "bridge-denied",
+  "guest-unreachable",
+] as const
 
 export type PlacementProblemCode = (typeof PLACEMENT_PROBLEM_CODES)[number]
 export type IncusProblemCode = (typeof INCUS_PROBLEM_CODES)[number]
@@ -89,8 +103,12 @@ export type BackendPlacementView =
       readonly url: string
       readonly node: string
       readonly pool: string
+      readonly storage: string
+      readonly bridge: string
       readonly tokenId: string
       readonly serverFingerprint: string
+      readonly sshSource: string
+      readonly nameservers: readonly string[]
     }
 
 export interface LegacyPlacementView {
@@ -117,7 +135,19 @@ export type EnvironmentHostDeclaration =
       readonly network: string
       readonly egressAcl?: string
     }
-  | { readonly kind: "proxmox"; readonly node: string; readonly pool: string }
+  | {
+      readonly kind: "proxmox"
+      readonly node: string
+      readonly pool: string
+      readonly storage: string
+      readonly bridge: string
+      readonly limits: ProxmoxPoolLimits
+    }
+
+export interface ProxmoxPoolLimits {
+  readonly cpus: number
+  readonly memoryMiB: number
+}
 
 export type EnvironmentHostCheck =
   | { readonly state: "unchecked" }
@@ -183,20 +213,15 @@ export interface TrustTokenPreview {
 
 export type CustomCredential =
   | { readonly backend: "incus"; readonly trustToken: string }
-  | {
-      readonly backend: "proxmox"
-      readonly url: string
-      readonly tokenId: string
-      readonly serverFingerprint: string
-    }
+  | { readonly backend: "proxmox"; readonly url: string }
 
 export type CustomPreview =
   | ({ readonly backend: "incus" } & TrustTokenPreview)
   | {
       readonly backend: "proxmox"
       readonly url: string
-      readonly tokenId: string
       readonly serverFingerprint: string
+      readonly sourceAddress: string
     }
 
 export type CustomConnectRequest =
@@ -214,6 +239,10 @@ export type CustomConnectRequest =
       readonly serverFingerprint: string
       readonly node: string
       readonly pool: string
+      readonly storage: string
+      readonly bridge: string
+      readonly sshSource: string
+      readonly nameservers: readonly string[]
     }
 
 export const IDENTITY_REMOVALS = ["remote-and-local", "local"] as const

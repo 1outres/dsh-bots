@@ -28,7 +28,7 @@ function hostWith(calls: string[]): BotEnvironmentHost {
       },
     }),
     custom: {
-      preview(credential) {
+      async preview(credential) {
         if (credential.backend !== "incus") throw new Error("incus only")
         return {
           backend: "incus",
@@ -108,12 +108,29 @@ describe("environment host panel", () => {
     await expect(
       panel.connectCustom({ backend: "incus", token: "t", url: "https://h", project: 3 }),
     ).rejects.toThrow("project must be text")
-    expect(() => panel.previewCustom({ backend: "incus", trustToken: "x".repeat(9000) })).toThrow(
-      "longer than",
-    )
-    expect(panel.previewCustom({ backend: "incus", trustToken: " t " })).toMatchObject({
+    await expect(
+      panel.previewCustom({ backend: "incus", trustToken: "x".repeat(9000) }),
+    ).rejects.toThrow("longer than")
+    await expect(
+      panel.previewCustom({ backend: "incus", trustToken: " t " }),
+    ).resolves.toMatchObject({
       clientName: "t",
     })
+    await expect(
+      panel.connectCustom({
+        backend: "proxmox",
+        url: "https://pve:8006",
+        tokenId: "u@pve!t",
+        tokenSecret: "s",
+        serverFingerprint: "f",
+        node: "n1",
+        pool: "bots",
+        storage: "dshbots",
+        bridge: "vmbr0",
+        sshSource: "10.0.0.2",
+        nameservers: [],
+      }),
+    ).rejects.toThrow("nameservers is empty")
     await panel.connectCustom({
       backend: "incus",
       token: " t ",
@@ -128,6 +145,10 @@ describe("environment host panel", () => {
       serverFingerprint: "f",
       node: "n1",
       pool: "bots",
+      storage: " dshbots ",
+      bridge: "vmbr0",
+      sshSource: "10.0.0.2",
+      nameservers: [" 1.1.1.1 "],
     })
     expect(calls).toEqual(["incus https://h:8443 p", "proxmox https://pve:8006 n1 bots"])
     await expect(panel.startImage()).rejects.toThrow("does not import its base image")

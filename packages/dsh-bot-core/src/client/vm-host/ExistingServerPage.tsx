@@ -1,9 +1,13 @@
+import { useState } from "react"
+import type { VmBackendKind } from "../../shared/environment-host"
 import type { FrameConfirmation } from "../settings-frame/flow"
 import type { Translate } from "../types"
 import { BlockRow, Group, PageTitle, Row, Segmented } from "../ui"
 import { Command } from "./Command"
 import type { VmHostClient } from "./client"
 import { PairingGroup } from "./PairingGroup"
+import { ProxmoxGroup } from "./ProxmoxGroup"
+import { createPoolCommand } from "./proxmox-model"
 import { createProjectCommand } from "./setup-model"
 
 export function ExistingServerPage(props: {
@@ -15,6 +19,11 @@ export function ExistingServerPage(props: {
   onDone(): void
 }) {
   const { t } = props
+  const [backend, setBackend] = useState<VmBackendKind>("incus")
+  const admin =
+    backend === "incus"
+      ? createProjectCommand(props.pluginVersion)
+      : createPoolCommand(props.pluginVersion)
   return (
     <div className="dshb-settings-groups" data-dshb-existing-page="">
       <PageTitle>{t("setup.choice.existing")}</PageTitle>
@@ -22,31 +31,35 @@ export function ExistingServerPage(props: {
         <Row
           label={t("existing.backend")}
           trailing={
-            <Segmented
+            <Segmented<VmBackendKind>
               label={t("existing.backend")}
-              value="incus"
+              value={backend}
               choices={[
                 { value: "incus", label: t("vmHost.backend.incus") },
-                { value: "proxmox", label: t("existing.proxmox"), disabled: true },
+                { value: "proxmox", label: t("vmHost.backend.proxmox") },
               ]}
-              onChange={() => {}}
+              onChange={setBackend}
               marks={{ "data-dshb-existing-backend": "" }}
             />
           }
         />
       </Group>
       <Group>
-        <BlockRow label={t("existing.admin")} marks={{ "data-dshb-existing-admin": "" }}>
-          <Command t={t} text={createProjectCommand(props.pluginVersion)} />
+        <BlockRow label={t("existing.admin")} marks={{ "data-dshb-existing-admin": backend }}>
+          <Command t={t} text={admin} />
         </BlockRow>
       </Group>
-      <PairingGroup
-        t={t}
-        host={props.host}
-        confirm={props.confirm}
-        project={props.project}
-        onDone={props.onDone}
-      />
+      {backend === "incus" ? (
+        <PairingGroup
+          t={t}
+          host={props.host}
+          confirm={props.confirm}
+          project={props.project}
+          onDone={props.onDone}
+        />
+      ) : (
+        <ProxmoxGroup t={t} host={props.host} confirm={props.confirm} onDone={props.onDone} />
+      )}
     </div>
   )
 }

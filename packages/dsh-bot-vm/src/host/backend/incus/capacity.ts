@@ -1,9 +1,8 @@
 import type { BotEnvironmentCapacity } from "@1outres/dsh-bot-core"
+import { MEMORY_STEP_MIB, MIN_DISK_GIB, MIN_MEMORY_MIB } from "../capacity-steps"
 import { GIB, MIB, sizeBytesOf } from "./sizes"
 
-export const MIN_MEMORY_MIB = 1024
-export const MEMORY_STEP_MIB = 512
-export const MIN_DISK_GIB = 1
+export { MEMORY_STEP_MIB, MIN_DISK_GIB, MIN_MEMORY_MIB }
 export const HOST_MEMORY_SHARE = 3 / 4
 
 export interface CapacityInputs {

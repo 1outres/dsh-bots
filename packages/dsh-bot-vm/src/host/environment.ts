@@ -489,6 +489,7 @@ export function createVmEnvironment(
           description: `dsh bot ${target.id}`,
           image: settings.image,
           userData: userDataText({
+            sshd: backend.guest.sshd,
             workspaceDevice: backend.workspaceDevice,
             user: settings.guestUser,
             workspace: settings.workspace,
@@ -536,6 +537,7 @@ export function createVmEnvironment(
       0o600,
     )
     await waitForSsh(alias, signal)
+    await backend.instances.settle(name, signal)
     await linkHostRipgrep(alias, signal)
     await measureEgress(botId, alias, signal)
   }

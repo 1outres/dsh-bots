@@ -365,7 +365,10 @@ export function createImporter(deps: ImporterDeps): Importer {
       }
     }
     return incusStep("upload", "import the image", signal, async () =>
-      (await deps.images()).upload({ bytes: total, body: body() }, signal),
+      (await deps.images()).upload(
+        { fingerprint: manifestValue.image.fingerprint, bytes: total, body: body() },
+        signal,
+      ),
     )
   }
 

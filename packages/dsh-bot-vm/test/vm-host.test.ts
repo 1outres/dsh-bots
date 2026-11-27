@@ -1,10 +1,11 @@
 import type { BotEnvironmentImageHost, BotEnvironmentImageView } from "@1outres/dsh-bot-core"
 import { describe, expect, it } from "vitest"
+import type { VmBackend } from "../src/host/backend/contract"
 import { createIncusBackend } from "../src/host/backend/incus/backend"
 import type { IncusClient } from "../src/host/backend/incus/client"
 import type { StoredPlacement } from "../src/host/placement/placement"
 import { createPlacementScope } from "../src/host/placement/scope"
-import type { ClientKeyStore } from "../src/host/placement/secrets"
+import type { SecretStore } from "../src/host/placement/secrets"
 import type { PlacementReading, PlacementStore } from "../src/host/placement/store"
 import type { ManagedSetup, SetupHost } from "../src/host/setup/setup"
 import { createVmHost } from "../src/host/vm-host"
@@ -82,6 +83,32 @@ function fakeImage(): BotEnvironmentImageHost & { readonly calls: string[] } {
   }
 }
 
+function proxmoxStub(layout: {
+  readonly node: string
+  readonly pool: string
+  readonly storage: string
+  readonly bridge: string
+}): VmBackend {
+  const unused = () => {
+    throw new Error("unused")
+  }
+  const none = new Proxy({}, { get: () => unused })
+  return {
+    kind: "proxmox",
+    where: `the Proxmox pool "${layout.pool}"`,
+    workspaceDevice: "/dev/disk/by-id/virtio-dsh-workspace",
+    check: async () => ({
+      ok: true,
+      declaration: { kind: "proxmox", ...layout, limits: { cpus: 4, memoryMiB: 8192 } },
+    }),
+    capacity: unused,
+    instances: none as VmBackend["instances"],
+    workspaces: none as VmBackend["workspaces"],
+    images: none as VmBackend["images"],
+    guest: { sshd: "listening", open: unused },
+  }
+}
+
 function idleSetup(): ManagedSetup {
   const unused = () => {
     throw new Error("unused")
@@ -104,6 +131,7 @@ function idleSetup(): ManagedSetup {
 function setup(options: { reading?: PlacementReading; unreadable?: boolean } = {}) {
   let reading: PlacementReading = options.reading ?? { kind: "none" }
   let key: string | undefined
+  let tokenSecret: string | undefined
   const calls: string[] = []
   const store: PlacementStore = {
     async read() {
@@ -117,7 +145,16 @@ function setup(options: { reading?: PlacementReading; unreadable?: boolean } = {
       reading = { kind: "none" }
     },
   }
-  const keys: ClientKeyStore = {
+  const tokens: SecretStore = {
+    read: async () => tokenSecret,
+    async write(next) {
+      tokenSecret = next
+    },
+    async clear() {
+      tokenSecret = undefined
+    },
+  }
+  const keys: SecretStore = {
     read: async () => key,
     async write(next) {
       key = next
@@ -129,12 +166,17 @@ function setup(options: { reading?: PlacementReading; unreadable?: boolean } = {
   }
   const scope = createPlacementScope({
     store,
-    secretOf: (kind) => {
-      if (kind !== "incus") throw new Error("incus only")
-      return keys
-    },
+    secretOf: (kind) => (kind === "incus" ? keys : tokens),
+    placeOf: ({ backend }) => (backend.kind === "incus" ? backend.project : backend.pool),
     connect: (placement: StoredPlacement) => {
-      if (placement.backend.kind !== "incus") throw new Error("incus only")
+      if (placement.backend.kind === "proxmox") {
+        const { url, node, pool, storage, bridge } = placement.backend
+        calls.push(`connect ${url} ${pool}`)
+        return {
+          backend: proxmoxStub({ node, pool, storage, bridge }),
+          close: () => calls.push(`close ${pool}`),
+        }
+      }
       const { project } = placement.backend
       calls.push(`connect ${placement.backend.url} ${project}`)
       return {
@@ -153,6 +195,16 @@ function setup(options: { reading?: PlacementReading; unreadable?: boolean } = {
   let rehomed = 0
   const host = createVmHost({
     scope,
+    proxmox: {
+      probe: async (url) => {
+        calls.push(`probe ${url}`)
+        return { serverCertificateSha256: SERVER, sourceAddress: "10.0.0.2" }
+      },
+      verify: async (backend, secret) => {
+        calls.push(`verify ${backend.tokenId} ${secret}`)
+        if (secret === "rejected-secret") throw new Error("401 authentication failure")
+      },
+    },
     image,
     rehome: () => {
       rehomed++
@@ -184,6 +236,7 @@ function setup(options: { reading?: PlacementReading; unreadable?: boolean } = {
     calls,
     reading: () => reading,
     key: () => key,
+    tokenSecret: () => tokenSecret,
     setKey,
     rehomed: () => rehomed,
     setupHost: () => hosts[0] as SetupHost,
@@ -229,7 +282,7 @@ describe("VM host", () => {
 
   it("connects to an existing Incus server, and on leaving it tells what to run there", async () => {
     const t = setup()
-    const preview = t.host.custom.preview({ backend: "incus", trustToken: tokenText() })
+    const preview = await t.host.custom.preview({ backend: "incus", trustToken: tokenText() })
     expect(preview).toEqual({
       backend: "incus",
       clientName: "dsh-bots-test",
@@ -289,16 +342,60 @@ describe("VM host", () => {
     expect(t.reading()).toEqual({ kind: "none" })
   })
 
-  it("does not connect to Proxmox yet", async () => {
+  it("connects to Proxmox VE with an API token kept as a secret, after the token answers", async () => {
     const t = setup()
-    expect(() =>
-      t.host.custom.preview({
-        backend: "proxmox",
+    await expect(
+      t.host.custom.preview({ backend: "proxmox", url: "https://pve" }),
+    ).resolves.toEqual({
+      backend: "proxmox",
+      url: "https://pve:8006",
+      serverFingerprint: SERVER,
+      sourceAddress: "10.0.0.2",
+    })
+    const request = {
+      backend: "proxmox" as const,
+      url: "https://pve:8006",
+      tokenId: "dsh-bots@pve!plugin",
+      tokenSecret: "rejected-secret",
+      serverFingerprint: SERVER.toUpperCase().match(/../g)?.join(":") ?? "",
+      node: "pve1",
+      pool: "dsh-bots",
+      storage: "dshbots",
+      bridge: "vmbr0",
+      sshSource: "10.0.0.2",
+      nameservers: ["1.1.1.1"],
+    }
+    await expect(t.host.custom.connect(request)).rejects.toThrow("401")
+    expect(t.reading()).toEqual({ kind: "none" })
+    await expect(t.host.custom.connect({ ...request, nameservers: ["dns"] })).rejects.toThrow(
+      "IPv4",
+    )
+    const placed = await t.host.custom.connect({ ...request, tokenSecret: "0123-abcd-secret" })
+    expect(t.tokenSecret()).toBe("0123-abcd-secret")
+    expect(placed.placement).toEqual({
+      kind: "placed",
+      backend: {
+        kind: "proxmox",
         url: "https://pve:8006",
-        tokenId: "u@pve!t",
+        node: "pve1",
+        pool: "dsh-bots",
+        storage: "dshbots",
+        bridge: "vmbr0",
+        tokenId: "dsh-bots@pve!plugin",
         serverFingerprint: SERVER,
-      }),
-    ).toThrow("not available")
+        sshSource: "10.0.0.2",
+        nameservers: ["1.1.1.1"],
+      },
+      origin: { kind: "custom" },
+    })
+    expect(placed.check).toMatchObject({
+      state: "ready",
+      declaration: { kind: "proxmox", pool: "dsh-bots" },
+    })
+    expect(JSON.stringify(t.reading())).not.toContain("0123-abcd-secret")
+    await t.host.forget()
+    expect(t.tokenSecret()).toBeUndefined()
+    expect(t.calls).toContain("close dsh-bots")
   })
 
   it("shows a VM host dsh-bots built with its site, and whether its setup is current", async () => {

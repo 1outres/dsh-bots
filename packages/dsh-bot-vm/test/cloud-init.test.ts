@@ -4,6 +4,7 @@ import { sshConfigText } from "../src/host/ssh-config"
 
 const DEVICE = "/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_incus_workspace"
 const input = {
+  sshd: "inetd" as const,
   workspaceDevice: DEVICE,
   user: "bot",
   workspace: "/home/bot/workspace",

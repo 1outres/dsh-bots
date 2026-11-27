@@ -403,7 +403,8 @@ describe("VM host section", () => {
     expect(render(ready(host), "another-machine")).toContain('data-dshb-ssh=""')
     const existing = render(ready(host), "existing")
     expect(existing).toContain("dsh-bots-1.2.3/infra")
-    expect(existing).toContain("existing.proxmox")
+    expect(existing).toContain("vmHost.backend.proxmox")
+    expect(existing).toContain('data-dshb-existing-admin="incus"')
   })
 
   it("shows a failed job with its steps, the fix and the actions", async () => {

@@ -114,7 +114,7 @@ export interface VmHostSetup {
 }
 
 export interface VmHostCustom {
-  preview(credential: CustomCredential): CustomPreview
+  preview(credential: CustomCredential, signal?: AbortSignal): Promise<CustomPreview>
   connect(request: CustomConnectRequest, signal?: AbortSignal): Promise<EnvironmentHostView>
 }
 

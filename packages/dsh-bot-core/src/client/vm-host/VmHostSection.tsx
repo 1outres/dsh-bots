@@ -494,7 +494,14 @@ function BackendRows(props: { readonly t: Translate; readonly backend: BackendPl
           {server}
           <Row label={t("vmHost.node")} trailing={<Code>{backend.node}</Code>} />
           <Row label={t("vmHost.pool")} trailing={<Code>{backend.pool}</Code>} />
+          <Row label={t("vmHost.storage")} trailing={<Code>{backend.storage}</Code>} />
+          <Row label={t("vmHost.bridge")} trailing={<Code>{backend.bridge}</Code>} />
           <Row label={t("vmHost.tokenId")} trailing={<Code>{backend.tokenId}</Code>} />
+          <Row label={t("vmHost.sshSource")} trailing={<Code>{backend.sshSource}</Code>} />
+          <Row
+            label={t("vmHost.nameservers")}
+            trailing={<Code>{backend.nameservers.join(", ")}</Code>}
+          />
         </>
       )
   }
@@ -579,6 +586,19 @@ function DeclarationRows(props: {
         <>
           <Row label={t("vmHost.node")} trailing={<Code>{declaration.node}</Code>} />
           <Row label={t("vmHost.pool")} trailing={<Code>{declaration.pool}</Code>} />
+          <Row label={t("vmHost.storage")} trailing={<Code>{declaration.storage}</Code>} />
+          <Row label={t("vmHost.bridge")} trailing={<Code>{declaration.bridge}</Code>} />
+          <Row
+            label={t("check.limits")}
+            trailing={
+              <Code>
+                {t("check.limits.value", {
+                  cpus: declaration.limits.cpus,
+                  memory: declaration.limits.memoryMiB / 1024,
+                })}
+              </Code>
+            }
+          />
         </>
       )
   }

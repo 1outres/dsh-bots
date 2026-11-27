@@ -11,19 +11,42 @@ import type {
   HostSiteView,
   VmHostCustom,
 } from "@1outres/dsh-bot-core"
-import { parseProjectName } from "./backend/incus/endpoint"
+import { normalizeSha256, parseProjectName } from "./backend/incus/endpoint"
 import { type PairingDeps, pair, untrustCommand } from "./backend/incus/pairing"
 import { parseTrustToken, tokenUrls } from "./backend/incus/trust-token"
+import {
+  parseLayout,
+  parseProxmoxUrl,
+  parseTokenId,
+  parseTokenSecret,
+} from "./backend/proxmox/endpoint"
 import type { EgressReport } from "./egress-probe"
-import type { StoredOrigin, StoredPlacement, StoredSetup, StoredSite } from "./placement/placement"
+import type {
+  StoredOrigin,
+  StoredPlacement,
+  StoredProxmox,
+  StoredSetup,
+  StoredSite,
+} from "./placement/placement"
 import { type PlacementScope, problemOf } from "./placement/scope"
 import type { PlacementReading } from "./placement/store"
 import type { ManagedSetup, SetupHost } from "./setup/setup"
 import { type PinHostKey, sameSite, type TargetSite } from "./setup/site"
 import type { SshSite } from "./setup/ssh"
 
+export interface ProxmoxProbe {
+  readonly serverCertificateSha256: string
+  readonly sourceAddress: string
+}
+
+export interface ProxmoxConnecting {
+  probe(url: string, signal?: AbortSignal): Promise<ProxmoxProbe>
+  verify(backend: StoredProxmox, tokenSecret: string, signal?: AbortSignal): Promise<void>
+}
+
 export interface VmHostDeps {
   readonly scope: PlacementScope
+  readonly proxmox: ProxmoxConnecting
   readonly image?: BotEnvironmentImageHost
   readonly rehome: () => void
   readonly pairing: PairingDeps
@@ -52,10 +75,6 @@ function measureOf(report: EgressReport): EnvironmentEgressMeasure {
     case "unmeasured":
       return { state: "unmeasured", at: report.at, reason: report.reason }
   }
-}
-
-const notYet = (what: string) => () => {
-  throw new Error(`${what} is not available in this version of @1outres/dsh-bot-vm`)
 }
 
 export function createVmHost(deps: VmHostDeps): VmHost {
@@ -118,8 +137,12 @@ export function createVmHost(deps: VmHostDeps): VmHost {
           url: backend.url,
           node: backend.node,
           pool: backend.pool,
+          storage: backend.storage,
+          bridge: backend.bridge,
           tokenId: backend.tokenId,
           serverFingerprint: backend.serverCertificateSha256,
+          sshSource: backend.sshSource,
+          nameservers: backend.nameservers,
         }
     }
   }
@@ -198,9 +221,39 @@ export function createVmHost(deps: VmHostDeps): VmHost {
     return runCheck()
   }
 
+  async function connectProxmox(
+    request: Extract<Parameters<VmHostCustom["connect"]>[0], { readonly backend: "proxmox" }>,
+    signal?: AbortSignal,
+  ): Promise<EnvironmentHostView> {
+    const backend: StoredProxmox = {
+      kind: "proxmox",
+      url: parseProxmoxUrl(request.url),
+      serverCertificateSha256: normalizeSha256(request.serverFingerprint),
+      tokenId: parseTokenId(request.tokenId),
+      ...parseLayout(request),
+    }
+    const secret = parseTokenSecret(request.tokenSecret)
+    await scope.secretUsable("proxmox")
+    await deps.proxmox.verify(backend, secret, signal)
+    await leaving()
+    await scope.choose({ version: 3, backend, origin: { kind: "custom" } }, secret)
+    return switched(
+      `connected to Proxmox VE ${backend.url} (pool ${backend.pool} on node ${backend.node})`,
+    )
+  }
+
   const custom: VmHostCustom = {
-    preview(credential) {
-      if (credential.backend !== "incus") return notYet("a Proxmox VM host")()
+    async preview(credential, signal) {
+      if (credential.backend === "proxmox") {
+        const url = parseProxmoxUrl(credential.url)
+        const probe = await deps.proxmox.probe(url, signal)
+        return {
+          backend: "proxmox",
+          url,
+          serverFingerprint: probe.serverCertificateSha256,
+          sourceAddress: probe.sourceAddress,
+        }
+      }
       const token = parseTrustToken(credential.trustToken)
       return {
         backend: "incus",
@@ -211,7 +264,7 @@ export function createVmHost(deps: VmHostDeps): VmHost {
       }
     },
     async connect(request, signal) {
-      if (request.backend !== "incus") return notYet("a Proxmox VM host")()
+      if (request.backend === "proxmox") return connectProxmox(request, signal)
       const token = parseTrustToken(request.token)
       const project = parseProjectName(request.project)
       await scope.secretUsable("incus")

@@ -4,6 +4,12 @@ import {
   parseEndpointUrl,
   parseProjectName,
 } from "../backend/incus/endpoint"
+import {
+  type ProxmoxLayout,
+  parseLayout,
+  parseProxmoxUrl,
+  parseTokenId,
+} from "../backend/proxmox/endpoint"
 
 export interface StoredIncus {
   readonly kind: "incus"
@@ -13,13 +19,11 @@ export interface StoredIncus {
   readonly project: string
 }
 
-export interface StoredProxmox {
+export interface StoredProxmox extends ProxmoxLayout {
   readonly kind: "proxmox"
   readonly url: string
   readonly serverCertificateSha256: string
   readonly tokenId: string
-  readonly node: string
-  readonly pool: string
 }
 
 export type StoredSite =
@@ -89,14 +93,28 @@ export function incusOf(record: Fields, what: string): StoredIncus {
   }
 }
 
+function textsOf(record: Fields, key: string, what: string): readonly string[] {
+  const value = record[key]
+  if (!Array.isArray(value) || !value.every((item) => typeof item === "string")) {
+    throw new Error(`${what}: "${key}" is not a list of text`)
+  }
+  return value
+}
+
 function proxmoxOf(record: Fields, what: string): StoredProxmox {
   return {
     kind: "proxmox",
-    url: parseEndpointUrl(textOf(record, "url", what)).origin,
+    url: parseProxmoxUrl(textOf(record, "url", what)),
     serverCertificateSha256: normalizeSha256(textOf(record, "serverCertificateSha256", what)),
-    tokenId: textOf(record, "tokenId", what),
-    node: textOf(record, "node", what),
-    pool: textOf(record, "pool", what),
+    tokenId: parseTokenId(textOf(record, "tokenId", what)),
+    ...parseLayout({
+      node: textOf(record, "node", what),
+      pool: textOf(record, "pool", what),
+      storage: textOf(record, "storage", what),
+      bridge: textOf(record, "bridge", what),
+      sshSource: textOf(record, "sshSource", what),
+      nameservers: textsOf(record, "nameservers", what),
+    }),
   }
 }
 

@@ -74,6 +74,7 @@ export interface InstanceBackend {
   change(shape: InstanceShape, signal?: AbortSignal): Promise<InstanceChange>
   conform(shape: InstanceShape, signal?: AbortSignal): Promise<void>
   start(name: string, signal?: AbortSignal): Promise<void>
+  settle(name: string, signal?: AbortSignal): Promise<void>
   stop(name: string, signal?: AbortSignal): Promise<void>
   remove(name: string, signal?: AbortSignal): Promise<void>
   markOrphaned(name: string, since: string | undefined, signal?: AbortSignal): Promise<void>
@@ -104,6 +105,7 @@ export interface WorkspaceBackend {
 }
 
 export interface ImageSource {
+  readonly fingerprint: string
   readonly bytes: number
   readonly body: AsyncIterable<Uint8Array>
 }
@@ -128,6 +130,9 @@ export interface GuestChannel {
   close(): void
 }
 
+export type GuestSshd = "inetd" | "listening"
+
 export interface GuestRoute {
+  readonly sshd: GuestSshd
   open(instance: string, signal?: AbortSignal): Promise<GuestChannel>
 }

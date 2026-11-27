@@ -13,6 +13,9 @@ import { createIncusBackend } from "./host/backend/incus/backend"
 import { createIncusClient } from "./host/backend/incus/client"
 import { type IncusEndpoint, parseProjectName } from "./host/backend/incus/endpoint"
 import { type PairingDeps, pair } from "./host/backend/incus/pairing"
+import { createProxmoxBackend, proxmoxPlace } from "./host/backend/proxmox/backend"
+import { createProxmoxClient } from "./host/backend/proxmox/client"
+import type { ProxmoxEndpoint } from "./host/backend/proxmox/endpoint"
 import {
   type CommandResult,
   createVmEnvironment,
@@ -25,13 +28,14 @@ import { createImageManager, type ImageManager } from "./host/image/manager"
 import { releaseOf } from "./host/image/release"
 import { DSH_VERSION } from "./host/image/release-env"
 import { decideOwner, OWNER_FILE } from "./host/owner"
-import type { StoredPlacement, StoredSetup } from "./host/placement/placement"
+import type { StoredPlacement, StoredProxmox, StoredSetup } from "./host/placement/placement"
 import { type BackendConnection, createPlacementScope } from "./host/placement/scope"
 import {
-  type ClientKeyStore,
   clientKeyRecord,
-  recordClientKeyStore,
+  proxmoxTokenRecord,
+  recordSecretStore,
   type SecretRecords,
+  type SecretStore,
 } from "./host/placement/secrets"
 import { filePlacementStore, type StoreFiles } from "./host/placement/store"
 import { readHostSetupBundle } from "./host/setup/bundle"
@@ -44,12 +48,15 @@ import { createVmHost, type VmHost } from "./host/vm-host"
 import { certificateFingerprint, createSelfSignedIdentity } from "./node/client-identity"
 import { startGuestRelay } from "./node/guest-relay"
 import { nodeImageFiles, nodeImageHttp, sha256 } from "./node/image-io"
+import { unpackImage } from "./node/image-unpack"
 import { createIncusTransport } from "./node/incus-transport"
+import { createProxmoxTransport, probeProxmox } from "./node/proxmox-transport"
 import { tcpReachable } from "./node/reachable"
 import { nodeSetupFiles } from "./node/setup-files"
 import { localShell, sshShell } from "./node/setup-shell"
 import { SSH_CONNECTION_DEFAULTS } from "./node/ssh/connection"
 import { generateSetupKey, pinnedHostKey, scanHostKeys } from "./node/ssh-tools"
+import { tcpGuest, tcpReach } from "./node/tcp-guest"
 
 export const name = "bot-vm"
 const BOT = "bot"
@@ -130,7 +137,7 @@ export const Config: z<Config> = z.object({
   imageUploadTimeoutMs: z
     .number()
     .default(3_600_000)
-    .description("Deadline of sending the base image to Incus."),
+    .description("Deadline of sending the base image to the VM host."),
   rootDiskGiB: z
     .number()
     .default(16)
@@ -174,11 +181,13 @@ export const Config: z<Config> = z.object({
   operationTimeoutMs: z
     .number()
     .default(900_000)
-    .description("Deadline of one Incus operation (create, start, delete)."),
+    .description("Deadline of one Incus operation or Proxmox task (create, start, delete)."),
   incusTimeoutMs: z
     .number()
     .default(30_000)
-    .description("Deadline of one request to the Incus API (an operation wait adds its own time)."),
+    .description(
+      "Deadline of one request to the Incus or Proxmox API (an operation wait adds its own time).",
+    ),
   maxConcurrentProvisions: z
     .number()
     .default(2)
@@ -359,7 +368,7 @@ export function imageManagerOf(
   config: Config,
   stateDir: string,
   images: () => Promise<ImageBackend>,
-  project: () => string | undefined,
+  place: () => string | undefined,
   log: (message: string) => void,
 ): ImageManager {
   return createImageManager(
@@ -381,7 +390,7 @@ export function imageManagerOf(
         dshVersion: DSH_VERSION,
         log,
       }),
-      project,
+      place,
       now: Date.now,
       log,
     },
@@ -417,40 +426,84 @@ export function apply(ctx: Context, config: Config): void {
       close: () => transport.close(),
     }
   }
-  const incusKey = recordClientKeyStore(
-    credentialRecords(() => records),
-    clientKeyRecord(name),
-  )
+  const secrets: Readonly<Record<VmBackendKind, SecretStore>> = {
+    incus: recordSecretStore(
+      credentialRecords(() => records),
+      clientKeyRecord(name),
+    ),
+    proxmox: recordSecretStore(
+      credentialRecords(() => records),
+      proxmoxTokenRecord(name),
+    ),
+  }
+  const proxmoxClientOf = (endpoint: ProxmoxEndpoint, node: string) => {
+    const transport = createProxmoxTransport(endpoint)
+    return {
+      client: createProxmoxClient({
+        transport,
+        node,
+        requestTimeoutMs: config.incusTimeoutMs,
+        taskTimeoutMs: config.operationTimeoutMs,
+        sleep,
+      }),
+      close: () => transport.close(),
+    }
+  }
+  const proxmoxEndpointOf = (backend: StoredProxmox, tokenSecret: string): ProxmoxEndpoint => ({
+    url: backend.url,
+    serverCertificateSha256: backend.serverCertificateSha256,
+    tokenId: backend.tokenId,
+    tokenSecret,
+  })
+  const connect = (placement: StoredPlacement, secret: string): BackendConnection => {
+    const { backend } = placement
+    switch (backend.kind) {
+      case "incus": {
+        const { kind: _, project, ...endpoint } = backend
+        const connection = clientOf({ ...endpoint, clientKey: secret }, project)
+        return {
+          backend: createIncusBackend({
+            incus: connection.incus,
+            project,
+            origin: placement.origin.kind,
+            uploadTimeoutMs: config.imageUploadTimeoutMs,
+          }),
+          close: connection.close,
+        }
+      }
+      case "proxmox": {
+        const { kind: _, url, serverCertificateSha256: __, tokenId, ...layout } = backend
+        const connection = proxmoxClientOf(proxmoxEndpointOf(backend, secret), layout.node)
+        return {
+          backend: createProxmoxBackend({
+            client: connection.client,
+            url,
+            tokenId,
+            layout,
+            owner: settings.owner,
+            uploadTimeoutMs: config.imageUploadTimeoutMs,
+            unpack: unpackImage,
+            connect: tcpGuest,
+            reach: tcpReach,
+            now: () => new Date(),
+          }),
+          close: connection.close,
+        }
+      }
+    }
+  }
   const scope = createPlacementScope({
     store: filePlacementStore(stateDir, nodeFiles, log),
-    secretOf: (kind: VmBackendKind): ClientKeyStore => {
-      if (kind === "incus") return incusKey
-      throw new Error("Proxmox VM hosts are not supported in this version of @1outres/dsh-bot-vm")
-    },
-    connect: (placement: StoredPlacement, secret: string): BackendConnection => {
-      const { backend } = placement
-      if (backend.kind !== "incus") {
-        throw new Error("Proxmox VM hosts are not supported in this version of @1outres/dsh-bot-vm")
-      }
-      const { kind: _, project, ...endpoint } = backend
-      const connection = clientOf({ ...endpoint, clientKey: secret }, project)
-      return {
-        backend: createIncusBackend({
-          incus: connection.incus,
-          project,
-          origin: placement.origin.kind,
-          uploadTimeoutMs: config.imageUploadTimeoutMs,
-        }),
-        close: connection.close,
-      }
-    },
+    secretOf: (kind) => secrets[kind],
+    connect,
+    placeOf: ({ backend }) => (backend.kind === "incus" ? backend.project : proxmoxPlace(backend)),
   })
   ctx.effect(() => () => scope.close(), "bot-vm: VM host connections")
   const images = imageManagerOf(
     config,
     stateDir,
     async () => (await scope.backend()).images,
-    () => scope.project(),
+    () => scope.place(),
     log,
   )
   ctx.effect(() => () => images.close(), "bot-vm: base image")
@@ -476,6 +529,17 @@ export function apply(ctx: Context, config: Config): void {
   const hostSetup = hostSetupOf(fileURLToPath(new URL("./host-setup", import.meta.url)), log)
   host = createVmHost({
     scope,
+    proxmox: {
+      probe: probeProxmox,
+      async verify(backend, tokenSecret, signal) {
+        const connection = proxmoxClientOf(proxmoxEndpointOf(backend, tokenSecret), backend.node)
+        try {
+          await connection.client.version(signal)
+        } finally {
+          connection.close()
+        }
+      },
+    },
     image: images,
     rehome: () => environment.rehome(),
     pairing: pairingDeps,

@@ -55,7 +55,7 @@ export function ImageGroup(props: {
     >
       <Row
         label={t("image.alias")}
-        meta={image.project === undefined ? image.alias : `${image.alias} · ${image.project}`}
+        meta={image.place === undefined ? image.alias : `${image.alias} · ${image.place}`}
         trailing={
           <>
             <StatusPill tone={pill.tone} label={pill.label} />

@@ -1,6 +1,6 @@
-export interface ClientKeyStore {
+export interface SecretStore {
   read(): Promise<string | undefined>
-  write(key: string): Promise<void>
+  write(secret: string): Promise<void>
   clear(): Promise<void>
 }
 
@@ -10,37 +10,47 @@ export interface SecretRecords {
   ): Promise<{ readonly kind: string; readonly payload?: unknown } | undefined>
   modifyRecord(
     key: string,
-    mutate: () => Promise<{ kind: "grant"; payload: ClientKeyPayload } | undefined>,
+    mutate: () => Promise<{ kind: "grant"; payload: SecretPayload } | undefined>,
   ): Promise<unknown>
   deleteRecord(key: string): Promise<unknown>
 }
 
-export interface ClientKeyPayload {
-  readonly version: 1
-  readonly clientKey: string
+export type SecretField = "clientKey" | "tokenSecret"
+
+export type SecretPayload = { readonly version: 1 } & { readonly [Field in SecretField]?: string }
+
+export interface SecretRecord {
+  readonly key: string
+  readonly field: SecretField
 }
 
-export const clientKeyRecord = (plugin: string) => `${plugin}/incus-client`
+export const clientKeyRecord = (plugin: string): SecretRecord => ({
+  key: `${plugin}/incus-client`,
+  field: "clientKey",
+})
 
-export function recordClientKeyStore(records: SecretRecords, key: string): ClientKeyStore {
+export const proxmoxTokenRecord = (plugin: string): SecretRecord => ({
+  key: `${plugin}/proxmox-token`,
+  field: "tokenSecret",
+})
+
+export function recordSecretStore(records: SecretRecords, record: SecretRecord): SecretStore {
+  const { key, field } = record
   return {
     async read() {
-      const record = await records.readRecord(key)
-      if (record === undefined) return undefined
-      const payload = record.payload as Partial<ClientKeyPayload> | undefined
-      if (
-        record.kind !== "grant" ||
-        payload?.version !== 1 ||
-        typeof payload.clientKey !== "string"
-      ) {
+      const found = await records.readRecord(key)
+      if (found === undefined) return undefined
+      const payload = found.payload as Partial<Record<string, unknown>> | undefined
+      const value = payload?.[field]
+      if (found.kind !== "grant" || payload?.version !== 1 || typeof value !== "string") {
         throw new Error(`the secret record "${key}" is not one @1outres/dsh-bot-vm wrote`)
       }
-      return payload.clientKey
+      return value
     },
-    async write(clientKey) {
+    async write(secret) {
       await records.modifyRecord(key, async () => ({
         kind: "grant",
-        payload: { version: 1, clientKey },
+        payload: { version: 1, [field]: secret },
       }))
     },
     async clear() {
