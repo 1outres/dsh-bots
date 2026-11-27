@@ -205,6 +205,9 @@ function CreationOptions({
       {environment?.status === "unavailable" && (
         <ErrorText>{t("form.vmUnavailable", { message: environment.reason })}</ErrorText>
       )}
+      {environment?.status === "full" && (
+        <ErrorText>{t("form.vmFull", { message: environment.reason })}</ErrorText>
+      )}
       {environment?.status === "planned" &&
         !environment.ok &&
         environment.shortfalls.map((shortfall) => (

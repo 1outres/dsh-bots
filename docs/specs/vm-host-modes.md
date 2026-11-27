@@ -433,7 +433,7 @@ interface VmBackend {
   readonly where: string
   readonly workspaceDevice: string
   check(signal?: AbortSignal): Promise<BackendCheck>
-  capacity(request: CapacityRequest, signal?: AbortSignal): Promise<BotEnvironmentCapacity>
+  capacity(request: CapacityRequest, signal?: AbortSignal): Promise<BotEnvironmentAllowance>
   readonly instances: InstanceBackend
   readonly workspaces: WorkspaceBackend
   readonly images: ImageBackend
@@ -1102,7 +1102,7 @@ PVE の VM と volume は利用者向けの札を持たないので、VM の説�
 
 ### 10.8 容量
 
-管理者の申告（プールの comment の `cpus` / `memory`）が上限。CPU はその値、メモリは上限からプールの他の VM（テンプレートと保管用を除く、他の owner も含む）の `maxmem` を引いた値、ワークスペースはストレージの `avail` に、ボットの今のワークスペースの大きさ（`avail` にはもう入っていない）を足し、ボットの VM がまだ無ければ `rootDiskGiB` を引いた値。下限は今のワークスペースの大きさ（Incus と同じ、`capacity-steps.ts` の `workspaceRange`。Incus はプールの大きさと project の `limits.disk*` が上限なので今の大きさを足さず、上限が今の大きさを下回らないようにだけする。bot-vm-spec.md §4。thin なストレージでは `avail` が実際に使った分しか引かないので甘めになる、未検証）。刻みは Incus と同じ（`capacity-steps.ts`）。ノードの CPU・メモリは token から読めないので見ない（spike §8）。
+管理者の申告（プールの comment の `cpus` / `memory`）が上限。CPU は上限からプールの他の VM（テンプレートと保管用を除く、他の owner も含む）の `maxcpu` を、メモリは同じ VM の `maxmem` を引いた値（ボット自身の VM は引かないので、変更の時は自分の分が足し戻される。読めない VM があれば容量は読めない）、ワークスペースはストレージの `avail` に、ボットの今のワークスペースの大きさ（`avail` にはもう入っていない）を足し、ボットの VM がまだ無ければ `rootDiskGiB` を引いた値。下限は今のワークスペースの大きさ（Incus と同じ、`capacity-steps.ts` の `workspaceRange`。Incus はプールの大きさと project の `limits.disk*` が上限なので今の大きさを足さず、上限が今の大きさを下回らないようにだけする。bot-vm-spec.md §4。thin なストレージでは `avail` が実際に使った分しか引かないので甘めになる、未検証）。刻みは Incus と同じ（`capacity-steps.ts`）。ノードの CPU・メモリは token から読めないので見ない（spike §8）。
 
 ### 10.9 管理者の準備
 

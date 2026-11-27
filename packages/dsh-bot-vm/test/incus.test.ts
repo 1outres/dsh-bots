@@ -172,6 +172,32 @@ describe("createIncusClient", () => {
     await expect(client.poolSpace("dsh")).resolves.toBe(2 ** 37)
   })
 
+  it("reads the limits and usage of the project's state, and refuses a state it cannot read", async () => {
+    const state = (memory: unknown) =>
+      sync({
+        resources: {
+          cpu: { Limit: 6, Usage: 2 },
+          memory,
+          "virtual-machines": { Limit: -1, Usage: 1 },
+        },
+      })
+    const clientOf = (memory: unknown) =>
+      createIncusClient({
+        transport: transport({ "GET /1.0/projects/bots/state?project=bots": state(memory) }).send,
+        project: "bots",
+        operationTimeoutMs: 5_000,
+        requestTimeoutMs: 5_000,
+      })
+    await expect(clientOf({ Limit: 2 ** 33, Usage: 2 ** 30 }).projectState()).resolves.toEqual({
+      cpu: { limit: 6, usage: 2 },
+      memory: { limit: 2 ** 33, usage: 2 ** 30 },
+      "virtual-machines": { limit: undefined, usage: 1 },
+    })
+    await expect(clientOf({ Limit: 2 ** 33 }).projectState()).rejects.toThrow(
+      "did not report the limit and usage of memory",
+    )
+  })
+
   it("creates a VM from an image alias and waits for the operation", async () => {
     const { calls, send } = transport({
       "POST /1.0/instances?project=bots": operation("op1"),

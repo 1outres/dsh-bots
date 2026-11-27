@@ -44,14 +44,16 @@ export function createEnvironmentPanel(deps: EnvironmentPanelDeps): EnvironmentP
       setCapacity(botId, NO_ENVIRONMENT)
       throw new Error(NO_ENVIRONMENT.reason)
     }
+    let allowance: Awaited<ReturnType<typeof env.capacity>>
     try {
-      const read = await env.capacity(botId)
-      setCapacity(botId, { status: "ready", capacity: read })
-      return read
+      allowance = await env.capacity(botId)
     } catch (error) {
       setCapacity(botId, { status: "unavailable", reason: messageOf(error) })
       throw error
     }
+    setCapacity(botId, allowance)
+    if (allowance.status === "full") throw new Error(allowance.reason)
+    return allowance.capacity
   }
 
   const application = (botId: string): BotEnvironmentApplication => {

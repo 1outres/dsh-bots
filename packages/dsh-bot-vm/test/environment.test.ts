@@ -65,6 +65,19 @@ const LAYOUT = layoutOf(
 )
 
 type FakeInstance = IncusInstance & { config: Record<string, string> }
+type FakeQuota = { limit: number | undefined; usage: number }
+
+const MIB = 1024 ** 2
+const GIB = 1024 ** 3
+const STATE_BYTES = 500 * MIB
+const QUOTA_KEYS = {
+  cpu: "limits.cpu",
+  memory: "limits.memory",
+  disk: "limits.disk",
+  "disk.dsh": "limits.disk.pool.dsh",
+  "virtual-machines": "limits.virtual-machines",
+  instances: "limits.instances",
+} as const
 type FakeVolume = IncusVolume & { config: Record<string, string> }
 
 const PROJECT = {
@@ -84,6 +97,43 @@ function fakeIncus() {
     project: { ...PROJECT } as Record<string, string>,
     poolBytes: 80 * 1024 ** 3,
   }
+  const bytesOf = (text: string | undefined) => (text === undefined ? 0 : must(sizeBytesOf(text)))
+  const projectState = () => {
+    const all = [...instances.values()]
+    const disk =
+      all.reduce((sum, instance) => {
+        const root = instance.devices.root
+        return root === undefined ? sum : sum + bytesOf(root.size) + STATE_BYTES
+      }, 0) + [...volumes.values()].reduce((sum, volume) => sum + bytesOf(volume.config.size), 0)
+    const usage = {
+      cpu: all.reduce((sum, instance) => sum + Number(instance.config["limits.cpu"] ?? 1), 0),
+      memory: all.reduce((sum, i) => sum + bytesOf(i.config["limits.memory"] ?? "1GiB"), 0),
+      disk,
+      "disk.dsh": disk,
+      "virtual-machines": all.length,
+      instances: all.length,
+    }
+    return Object.fromEntries(
+      Object.entries(QUOTA_KEYS).map(([resource, key]) => {
+        const text = host.project[key]
+        const limit = text === undefined ? undefined : must(sizeBytesOf(text))
+        return [resource, { limit, usage: usage[resource as keyof typeof usage] }]
+      }),
+    ) as Record<keyof typeof QUOTA_KEYS, FakeQuota>
+  }
+  const enforced = (what: string, mutate: () => void) => {
+    const before = { instances: new Map(instances), volumes: new Map(volumes) }
+    mutate()
+    const over = Object.entries(projectState()).find(
+      ([, quota]) => quota.limit !== undefined && quota.usage > quota.limit,
+    )
+    if (over === undefined) return
+    instances.clear()
+    for (const [name, instance] of before.instances) instances.set(name, instance)
+    volumes.clear()
+    for (const [name, volume] of before.volumes) volumes.set(name, volume)
+    throw new Error(`${what}: Reached maximum aggregate value "${over[1].limit}" for "${over[0]}"`)
+  }
   const usedBy = (name: string) =>
     [...instances.values()]
       .filter((instance) =>
@@ -98,6 +148,7 @@ function fakeIncus() {
       drivers: ["qemu"],
     }),
     projectConfig: async () => host.project,
+    projectState: async () => projectState(),
     poolSpace: async () => host.poolBytes,
     hasNetwork: async (name) => name === "dshbr0",
     profiles: async () => [{ name: "default", devices: {} }],
@@ -110,24 +161,28 @@ function fakeIncus() {
       return [...instances.values()].map((instance) => structuredClone(instance))
     },
     async create(spec) {
+      enforced(`create ${spec.name}`, () =>
+        instances.set(spec.name, {
+          name: spec.name,
+          status: spec.start ? "Running" : "Stopped",
+          config: { ...spec.config },
+          devices: structuredClone(spec.devices) as FakeInstance["devices"],
+        }),
+      )
       log.push(`create ${spec.name}`)
       created.push(spec)
-      instances.set(spec.name, {
-        name: spec.name,
-        status: spec.start ? "Running" : "Stopped",
-        config: { ...spec.config },
-        devices: structuredClone(spec.devices) as FakeInstance["devices"],
-      })
     },
     async update(name, change) {
       log.push(`update ${name} ${JSON.stringify(change)}`)
       const found = instances.get(name)
       if (found === undefined) throw new Error("missing")
-      instances.set(name, {
-        ...found,
-        config: { ...found.config, ...change.config },
-        devices: { ...found.devices, ...change.devices },
-      })
+      enforced(`update ${name}`, () =>
+        instances.set(name, {
+          ...found,
+          config: { ...found.config, ...change.config },
+          devices: { ...found.devices, ...change.devices },
+        }),
+      )
     },
     async patchConfig(name, config) {
       log.push(`patch ${name} ${JSON.stringify(config)}`)
@@ -156,12 +211,14 @@ function fakeIncus() {
     },
     async createVolume(spec) {
       log.push(`volume create ${spec.name} ${spec.config.size}`)
-      volumes.set(`${spec.pool}/${spec.name}`, {
-        name: spec.name,
-        contentType: spec.contentType,
-        config: { ...spec.config },
-        usedBy: [],
-      })
+      enforced(`create volume ${spec.name}`, () =>
+        volumes.set(`${spec.pool}/${spec.name}`, {
+          name: spec.name,
+          contentType: spec.contentType,
+          config: { ...spec.config },
+          usedBy: [],
+        }),
+      )
     },
     async patchVolume(pool, name, config) {
       log.push(`volume patch ${name} ${JSON.stringify(config)}`)
@@ -173,15 +230,20 @@ function fakeIncus() {
       ) {
         throw new Error("In use")
       }
-      found.config = { ...found.config, ...config }
+      enforced(`configure volume ${name}`, () =>
+        volumes.set(`${pool}/${name}`, { ...found, config: { ...found.config, ...config } }),
+      )
     },
     async deleteVolume(pool, name) {
       log.push(`volume delete ${name}`)
       volumes.delete(`${pool}/${name}`)
     },
   })
-  const foreign = (name: string, config: Record<string, string> = {}) =>
-    instances.set(name, { name, status: "Running", config, devices: {} })
+  const foreign = (
+    name: string,
+    config: Record<string, string> = {},
+    devices: FakeInstance["devices"] = {},
+  ) => instances.set(name, { name, status: "Running", config, devices })
   const foreignVolume = (name: string, config: Record<string, string>) =>
     volumes.set(`dsh/${name}`, { name, contentType: "block", config, usedBy: [] })
   return { client, instances, volumes, log, created, foreign, foreignVolume, host }
@@ -897,14 +959,80 @@ describe("incus-vm environment: the bot's spec", () => {
     expect(await environment.inspect(target.id)).toEqual(SPEC)
   })
 
-  it("reads its capacity from the server and the project's limits, the workspace beside the root disk", async () => {
-    const { h, environment } = setup()
-    h.incus.host.project = { ...PROJECT, "limits.cpu": "6", "limits.disk.pool.dsh": "60GiB" }
-    await environment.ensure({ id: "cafe0001", name: "Other", spec: { ...SPEC, memoryMiB: 8192 } })
+  const LIMITED = {
+    ...PROJECT,
+    "limits.cpu": "6",
+    "limits.memory": "16GiB",
+    "limits.disk": "60GiB",
+    "limits.disk.pool.dsh": "60GiB",
+    "limits.virtual-machines": "3",
+  }
+  const OTHER = { id: "cafe0001", name: "Other", spec: { cpus: 2, memoryMiB: 4096, diskGiB: 10 } }
+  const ranges = (cpus: number, memoryMiB: number, diskGiB: [number, number]) => ({
+    status: "ready",
+    capacity: {
+      cpus: { min: 1, max: cpus, step: 1 },
+      memoryMiB: { min: 1024, max: memoryMiB, step: 512 },
+      diskGiB: { min: diskGiB[0], max: diskGiB[1], step: 1, growOnly: true },
+    },
+  })
+
+  function crowded() {
+    const harness = setup()
+    harness.h.incus.host.project = { ...LIMITED }
+    harness.h.incus.foreign(
+      "someone-else",
+      { "limits.cpu": "1", "limits.memory": "2GiB" },
+      { root: { type: "disk", path: "/", pool: "dsh", size: "8GiB" } },
+    )
+    harness.h.incus.foreignVolume("their-data", { size: "5GiB" })
+    return harness
+  }
+
+  it("gives a new bot what the project's limits leave after every instance and volume in it", async () => {
+    const { h, environment } = crowded()
+    await environment.ensure(OTHER)
+    const used = (16 + 10 + 8 + 5) * GIB + 2 * STATE_BYTES
+    const disk = Math.floor((60 * GIB - used - STATE_BYTES) / GIB) - 16
+    expect(disk).toBe(3)
+    expect(await environment.capacity(target.id)).toEqual(ranges(6 - 2 - 1, 10240, [1, disk]))
+    h.incus.host.resources = { cpus: 2, memoryBytes: 8 * GIB }
+    expect(await environment.capacity(target.id)).toEqual(ranges(2, 6144, [1, disk]))
+  })
+
+  it("creates a bot at the very top of its range, and Incus refuses one above it", async () => {
+    const { h, environment } = crowded()
+    await environment.ensure(OTHER)
+    await expect(
+      environment.ensure({ ...target, spec: { cpus: 3, memoryMiB: 10240, diskGiB: 4 } }),
+    ).rejects.toThrow("Reached maximum aggregate value")
+    h.incus.volumes.delete(`dsh/${volumeName}`)
+    await environment.ensure({ ...target, spec: { cpus: 3, memoryMiB: 10240, diskGiB: 3 } })
+    expect(await environment.inspect(target.id)).toEqual({ cpus: 3, memoryMiB: 10240, diskGiB: 3 })
+  })
+
+  it("adds a bot's own VM and workspace back to what it may change to", async () => {
+    const { environment } = crowded()
+    await environment.ensure(OTHER)
+    await environment.ensure({ ...target, spec: { cpus: 2, memoryMiB: 4096, diskGiB: 2 } })
+    expect(await environment.capacity(target.id)).toEqual(ranges(3, 10240, [2, 3]))
+    expect(await environment.capacity(OTHER.id)).toEqual(ranges(3, 10240, [10, 11]))
+  })
+
+  it("refuses a new bot's VM once the project holds as many VMs as it allows", async () => {
+    const { h, environment } = crowded()
+    h.incus.host.project = { ...LIMITED, "limits.cpu": "8", "limits.virtual-machines": "2" }
+    await environment.ensure(OTHER)
     expect(await environment.capacity(target.id)).toEqual({
-      cpus: { min: 1, max: 6, step: 1 },
-      memoryMiB: { min: 1024, max: 48 * 1024, step: 512 },
-      diskGiB: { min: 1, max: 60 - 16, step: 1, growOnly: true },
+      status: "full",
+      reason:
+        'the Incus project "dsh-bots" already has 2 VMs, as many as its limits.virtual-machines allows',
+    })
+    expect(await environment.capacity(OTHER.id)).toMatchObject({ status: "ready" })
+    h.incus.host.project = { ...LIMITED, "limits.virtual-machines": "3", "limits.instances": "2" }
+    expect(await environment.capacity(target.id)).toMatchObject({
+      status: "full",
+      reason: expect.stringContaining("2 instances, as many as its limits.instances allows"),
     })
   })
 
@@ -913,9 +1041,14 @@ describe("incus-vm environment: the bot's spec", () => {
     h.incus.host.project = { ...PROJECT, "limits.disk.pool.dsh": "60GiB" }
     await environment.ensure({ ...target, spec: { ...SPEC, diskGiB: 30 } })
     const range = (min: number, max: number) => ({ min, max, step: 1, growOnly: true })
-    expect((await environment.capacity(target.id)).diskGiB).toEqual(range(30, 60 - 16))
+    const diskOf = async () => {
+      const allowance = await environment.capacity(target.id)
+      if (allowance.status !== "ready") throw new Error(allowance.reason)
+      return allowance.capacity.diskGiB
+    }
+    expect(await diskOf()).toEqual(range(30, 60 - 16 - 1))
     must(h.incus.volumes.get(`dsh/${volumeName}`)).config.size = "50GiB"
-    expect((await environment.capacity(target.id)).diskGiB).toEqual(range(50, 50))
+    expect(await diskOf()).toEqual(range(50, 50))
     await environment.ensure({ ...target, spec: { ...SPEC, diskGiB: 30 } })
     expect(await environment.inspect(target.id)).toEqual({ ...SPEC, diskGiB: 50 })
   })

@@ -119,6 +119,9 @@ function EnvironmentForm({ t, bot, environment, confirm, view, spec }: FormProps
       {view.capacity.status === "unavailable" && (
         <ErrorText>{t("environment.capacityFailed", { message: view.capacity.reason })}</ErrorText>
       )}
+      {view.capacity.status === "full" && (
+        <ErrorText>{t("environment.capacityFull", { message: view.capacity.reason })}</ErrorText>
+      )}
       {failure !== null && <ErrorText>{failure}</ErrorText>}
       <div className="dshb-environment-actions">
         <Button

@@ -18,7 +18,7 @@ import BotTemplateDeclaration from "../src/plugins/template"
 import { type BotBackend, BotService } from "../src/service"
 import { DEFAULT_BOT_ENVIRONMENT_SPEC } from "../src/shared/environment"
 import { DEFAULT_BOT_MODELS } from "../src/shared/models"
-import { TEST_CAPACITY } from "./support/environment"
+import { TEST_ALLOWANCE } from "./support/environment"
 
 interface FakeBackend extends BotBackend {
   readonly calls: string[]
@@ -256,7 +256,7 @@ const environment: BotEnvironment = {
   ensure: async () => {},
   remove: async () => {},
   rows: () => [],
-  capacity: async () => TEST_CAPACITY,
+  capacity: async () => TEST_ALLOWANCE,
   inspect: async () => undefined,
 }
 

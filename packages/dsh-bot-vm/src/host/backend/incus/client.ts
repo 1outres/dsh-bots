@@ -65,6 +65,13 @@ export interface IncusHostResources {
   readonly memoryBytes: number
 }
 
+export interface IncusQuota {
+  readonly limit: number | undefined
+  readonly usage: number
+}
+
+export type IncusProjectState = Readonly<Record<string, IncusQuota>>
+
 export interface IncusProfile {
   readonly name: string
   readonly devices: Readonly<Record<string, IncusDevice>>
@@ -136,6 +143,7 @@ export interface IncusClient {
   exec(name: string, request: ExecRequest, signal?: AbortSignal): Promise<ExecSession>
   hostResources(signal?: AbortSignal): Promise<IncusHostResources>
   projectConfig(signal?: AbortSignal): Promise<Readonly<Record<string, string>>>
+  projectState(signal?: AbortSignal): Promise<IncusProjectState>
   profile(name: string, signal?: AbortSignal): Promise<IncusProfile | undefined>
   profiles(signal?: AbortSignal): Promise<readonly IncusProfile[]>
   hasNetwork(name: string, signal?: AbortSignal): Promise<boolean>
@@ -518,6 +526,26 @@ export function createIncusClient(options: IncusClientOptions): IncusClient {
     async projectConfig(signal) {
       return stringsOf(
         recordOf(await get(`/1.0/projects/${encodeURIComponent(project)}`, signal)).config,
+      )
+    },
+    async projectState(signal) {
+      const path = `/1.0/projects/${encodeURIComponent(project)}/state`
+      const resources = recordOf(recordOf(await get(path, signal)).resources)
+      return Object.fromEntries(
+        Object.entries(resources).map(([resource, value]) => {
+          const { Limit: limit, Usage: usage } = recordOf(value)
+          if (
+            typeof limit !== "number" ||
+            !Number.isSafeInteger(limit) ||
+            limit < -1 ||
+            typeof usage !== "number" ||
+            !Number.isSafeInteger(usage) ||
+            usage < 0
+          ) {
+            throw new Error(`Incus GET ${path} did not report the limit and usage of ${resource}`)
+          }
+          return [resource, { limit: limit === -1 ? undefined : limit, usage }]
+        }),
       )
     },
     async profile(name, signal) {

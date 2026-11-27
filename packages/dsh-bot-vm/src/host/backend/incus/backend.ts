@@ -10,7 +10,7 @@ import type {
   WorkspaceRecord,
 } from "../contract"
 import { CONFIG_BOT_ID, CONFIG_ORPHANED, CONFIG_OWNER } from "../tags"
-import { capacityOf } from "./capacity"
+import { allocationOf, capacityOf } from "./capacity"
 import { backendCheckOf, checkIncus, type IncusDeclaration, type IncusOrigin } from "./check"
 import type { IncusClient, IncusInstance, IncusVolume } from "./client"
 import { layoutOf, WORKSPACE_BY_ID } from "./layout"
@@ -212,33 +212,21 @@ export function createIncusBackend(options: IncusBackendOptions): VmBackend {
 
   async function capacity(request: CapacityRequest, signal?: AbortSignal) {
     const { pool } = await declaration(signal)
-    const [host, config, poolBytes, all] = await Promise.all([
+    const [host, state, poolBytes, own] = await Promise.all([
       incus.hostResources(signal),
-      incus.projectConfig(signal),
+      incus.projectState(signal),
       incus.poolSpace(pool, signal),
-      incus.instances(signal),
+      incus.instance(request.instance, signal),
     ])
-    const othersMemoryBytes =
-      config[MEMORY_KEY] === undefined
-        ? 0
-        : all
-            .filter((instance) => instance.name !== request.instance)
-            .reduce((sum, instance) => {
-              const bytes = instanceSizesOf(instance).memoryBytes
-              if (bytes === undefined) {
-                throw new Error(`cannot read the memory of Incus instance "${instance.name}"`)
-              }
-              return sum + bytes
-            }, 0)
     return capacityOf({
-      hostCpus: host.cpus,
-      hostMemoryBytes: host.memoryBytes,
-      project: config,
-      othersMemoryBytes,
+      project,
+      host,
       pool,
       poolBytes,
+      state,
+      instance: own === undefined ? undefined : allocationOf(own),
+      workspaceBytes: request.workspaceBytes,
       rootDiskGiB: request.rootDiskGiB,
-      workspaceGiB: request.workspaceGiB,
     })
   }
 

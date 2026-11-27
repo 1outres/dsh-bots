@@ -1,5 +1,5 @@
 import type {
-  BotEnvironmentCapacity,
+  BotEnvironmentAllowance,
   EnvironmentHostDeclaration,
   EnvironmentHostProblem,
   VmBackendKind,
@@ -12,7 +12,7 @@ export type BackendCheck =
 export interface CapacityRequest {
   readonly instance: string
   readonly rootDiskGiB: number
-  readonly workspaceGiB: number | undefined
+  readonly workspaceBytes: number | undefined
 }
 
 export interface VmBackend {
@@ -20,7 +20,7 @@ export interface VmBackend {
   readonly where: string
   readonly workspaceDevice: string
   check(signal?: AbortSignal): Promise<BackendCheck>
-  capacity(request: CapacityRequest, signal?: AbortSignal): Promise<BotEnvironmentCapacity>
+  capacity(request: CapacityRequest, signal?: AbortSignal): Promise<BotEnvironmentAllowance>
   readonly instances: InstanceBackend
   readonly workspaces: WorkspaceBackend
   readonly images: ImageBackend

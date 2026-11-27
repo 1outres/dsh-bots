@@ -32,12 +32,13 @@ import {
   type SessionToolsAvailable,
 } from "../src/internal"
 import {
+  type BotEnvironmentAllowance,
   type BotEnvironmentCapacity,
   type BotEnvironmentSpec,
   DEFAULT_BOT_ENVIRONMENT_SPEC,
 } from "../src/shared/environment"
 import type { BotFilesApi } from "../src/shared/files-api"
-import { TEST_CAPACITY } from "./support/environment"
+import { TEST_ALLOWANCE, TEST_CAPACITY } from "./support/environment"
 import { memoryNotesFs } from "./support/notes-fs"
 
 const remotes = vi.hoisted(() => [] as BotsBackend[])
@@ -513,11 +514,11 @@ function environmentFake() {
   const state: {
     hold: boolean
     inspected: Map<string, BotEnvironmentSpec>
-    capacity: BotEnvironmentCapacity
+    allowance: BotEnvironmentAllowance
   } = {
     hold: false,
     inspected: new Map(),
-    capacity: TEST_CAPACITY,
+    allowance: TEST_ALLOWANCE,
   }
   const inspections: string[] = []
   const environment: BotEnvironment = {
@@ -538,7 +539,7 @@ function environmentFake() {
       removed.push(botId)
     },
     rows: (target) => [{ id: "env-fs", name: "@x/fs", config: { bot: target.id } }],
-    capacity: async () => state.capacity,
+    capacity: async () => state.allowance,
     inspect: async (botId) => {
       inspections.push(botId)
       return state.inspected.get(botId)
@@ -1938,11 +1939,12 @@ describe("bot-core apply", () => {
     it("makes a new bot's spec within the Host's capacity, and refuses one the Host cannot give", async () => {
       const rows = new Map<string, BotRecord>()
       const h = await start(rows, [], {})
-      h.env.state.capacity = {
+      const small: BotEnvironmentCapacity = {
         cpus: { min: 1, max: 2, step: 1 },
         memoryMiB: { min: 1024, max: 3072, step: 512 },
         diskGiB: { min: 10, max: 15, step: 1, growOnly: true },
       }
+      h.env.state.allowance = { status: "ready", capacity: small }
       botOf(h.ctx).registerConnector({
         id: "desk",
         name: "Desk",
@@ -1975,12 +1977,19 @@ describe("bot-core apply", () => {
           diskGiB: 15,
         }),
       )
-      h.env.state.capacity = {
-        ...h.env.state.capacity,
-        memoryMiB: { min: 1024, max: 512, step: 512 },
+      h.env.state.allowance = {
+        status: "ready",
+        capacity: { ...small, memoryMiB: { min: 1024, max: 512, step: 512 } },
       }
       await expect(h.backend().lifecycle.create({ ...input, workstation: false })).rejects.toThrow(
         "this Host cannot give a bot's VM the 1 GiB of memory it needs at least (at most 512 MiB)",
+      )
+      expect(rows.size).toBe(1)
+      const full =
+        'the Incus project "bots" already has 3 VMs, as many as its limits.virtual-machines allows'
+      h.env.state.allowance = { status: "full", reason: full }
+      await expect(h.backend().lifecycle.create({ ...input, workstation: false })).rejects.toThrow(
+        full,
       )
       expect(rows.size).toBe(1)
     })
@@ -2043,6 +2052,13 @@ describe("bot-core apply", () => {
       await expect(panel.configure(view.id, { ...larger, extra: 1 })).rejects.toThrow(
         "unknown keys",
       )
+      expect(h.env.targets.at(-1)?.spec).toEqual(larger)
+      const full =
+        'the Incus project "bots" already has 3 VMs, as many as its limits.virtual-machines allows'
+      h.env.state.allowance = { status: "full", reason: full }
+      await panel.refresh(view.id)
+      expect(panel.view(view.id).capacity).toEqual({ status: "full", reason: full })
+      await expect(panel.configure(view.id, { ...larger, cpus: 2 })).rejects.toThrow(full)
       expect(h.env.targets.at(-1)?.spec).toEqual(larger)
     })
 

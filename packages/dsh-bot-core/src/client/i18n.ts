@@ -272,6 +272,8 @@ const EN = {
   "environment.unread": "The VM's spec is read once it is ready",
   "environment.capacityFailed":
     "What this Host allows could not be read ({message}); nothing can be saved until it is.",
+  "environment.capacityFull":
+    "This Host has no room for the bot's VM ({message}); nothing can be saved until it has.",
   "environment.cpus": "CPUs",
   "environment.memory": "Memory",
   "environment.disk": "Workspace disk (the bot's files)",
@@ -413,6 +415,7 @@ const EN = {
   "form.vmLater": "Changed later on its VM page.",
   "form.vmUnavailable":
     "What this Host can give a bot's VM could not be read ({message}); no bot can be created until it is.",
+  "form.vmFull": "This Host has no room for another bot's VM ({message}).",
   "form.vmShortfall":
     "This Host cannot give a bot's VM the {need} of {resource} it needs at least (at most {available}).",
   "form.vmShortfallConnectors":
@@ -1046,6 +1049,8 @@ const JA: { readonly [Key in MessageKey]: string } = {
   "environment.unread": "VM のスペックは VM の準備ができてから読み込みます",
   "environment.capacityFailed":
     "この Host で使える範囲を読み込めませんでした（{message}）。読み込めるまで保存できません。",
+  "environment.capacityFull":
+    "この Host にはボットの VM を置く余地がありません（{message}）。置けるようになるまで保存できません。",
   "environment.cpus": "CPU",
   "environment.memory": "メモリ",
   "environment.disk": "ワークスペースのディスク（ボットのファイル）",
@@ -1187,6 +1192,7 @@ const JA: { readonly [Key in MessageKey]: string } = {
   "form.vmLater": "あとで VM ページで変更できます",
   "form.vmUnavailable":
     "この Host がボットの VM に割り当てられる量を読み込めませんでした（{message}）。読み込めるまでボットは作成できません。",
+  "form.vmFull": "この Host にはこれ以上ボットの VM を置けません（{message}）。",
   "form.vmShortfall":
     "この Host ではボットの VM に最低限必要な{resource} {need} を用意できません（最大 {available}）。",
   "form.vmShortfallConnectors":

@@ -13,7 +13,7 @@
 
 - `BotEnvironmentSpec = { cpus, memoryMiB, diskGiB }`（正の整数）。`BotEnvironmentMinimum` はその一部のキー。
 - `BotEnvironmentTarget = { id, name, spec }`（`resources` は消した）。`rows(bot)` は `{ id, name }` を取る（スペックは行に関係しない）。
-- `BotEnvironment.capacity(botId)` → `BotEnvironmentCapacity`（キーごとの `{ min, max, step, growOnly? }`）。Host の実機と、同じ Host の他の環境がすでに取っている分から、ボットごとに環境が決める。bot-core は変える値をこれで検査し、環境は `ensure` で出せないスペックを断る。ディスクは縮めず、スペックより大きいボリュームはそのまま使う（§4）。
+- `BotEnvironment.capacity(botId)` → `BotEnvironmentAllowance`: `{ status: "ready", capacity: BotEnvironmentCapacity }`（キーごとの `{ min, max, step, growOnly? }`）か、ボットの VM を新しく置けないとき（VM 数の上限など）の `{ status: "full", reason }`。範囲は、Host の実機と、上限（Incus の project の `limits.*`、Proxmox のプールの申告）からそのボット以外がすでに割り当てている分を引いた残りの小さい方で、ボットごとに環境が決める（ボット自身の今の分は足し戻す）。画面の `BotEnvironmentCapacityState` はこれに、読めないときの `unavailable` を足したもの。bot-core は変える値をこれで検査し、環境は `ensure` で出せないスペックを断る。ディスクは縮めず、スペックより大きいボリュームはそのまま使う（§4）。
 - `BotEnvironment.inspect(botId)` → 既存の環境が今動いているスペック（ディスクはボリュームの今の大きさ）、無ければ `undefined`。
 - `BotConnector.minimumSpec?`（登録時に検査: スペックのキーだけ、正の整数）。`ConnectorDescriptor.minimumSpec`（無ければ `{}`）。
 - `ConnectorSwitchBlock` に `spec`（`{ key, need }`）と `spec-unread` を足した。`BotConnectorsSnapshot.spec` で画面も同じ規則を使う。
@@ -43,7 +43,7 @@
   - ワークスペースのボリュームがスペックの `diskGiB` より大きければ、縮めずにそのまま使い、ログに残す（ensure は失敗にしない。ディスクは縮められず、中のファイルを残すため）。`inspect` はボリュームの今の大きさ（GiB の切り捨て）を返し、`capacity` の `diskGiB` は今の大きさを下限（`min`）にし、上限（`max`）も今の大きさを下回らせない。だから画面はそれより小さい値も、今の大きさより小さい上限も見せない。保存されたスペックは書き換えない（bot-core の `adopt` はスペックの無いボットにだけ書く）ので、スペックの値が今の大きさより小さいまま残ることがある。変えなければその値で保存でき（§3 の規則）、ディスクを変えるときは今の大きさ以上を選ぶ。
   - 共有（`raw.idmap`、workspace デバイス）の付け直しによる再起動は今までどおり。
 - 設定の書き込みはインスタンスを読み直して全体を PUT（PATCH は使わない。書ける項目が欠けていたら断る）。
-- 容量（`host/capacity.ts`）: CPU 1〜Host の論理 CPU 数、メモリ 1 GiB〜Host のメモリの 3/4、ただしプロジェクトの `limits.memory`（インスタンスの合計の上限）があれば、そこから他のインスタンスの `limits.memory` を引いた残り以下、を 512 MiB 単位、ディスク 10 GiB〜root のプールの大きさ（増やすだけ。ボットのボリュームがあれば下限は今の大きさ、上限は今の大きさ以上。§4 の上の項）。Incus の `/1.0/resources`、`/1.0/projects/<p>`、`/1.0/profiles/<p>`、`/1.0/storage-pools/<pool>/resources`、`/1.0/instances` から読む。
+- 容量（`backend/incus/capacity.ts`、`backend/proxmox/capacity.ts`、刻みは `backend/capacity-steps.ts`）: CPU 1〜、メモリ 1 GiB〜（512 MiB 単位）、ワークスペース 1 GiB〜（増やすだけ。ボットのボリュームがあれば下限は今の大きさ、上限は今の大きさ以上。§4 の上の項）。上限は「上限 − 全体の割り当て + ボット自身の割り当て」と Host の実機（Incus はホストの論理 CPU 数・メモリの 3/4・プールの大きさ）の小さい方。Incus の規則は incus-endpoint.md §5.6（project の state を読む）、Proxmox は vm-host-modes.md §10.8。VM が無いボットで project の VM 数が上限に達していれば `full`。Incus は `/1.0/resources`、`/1.0/projects/<p>/state`、`/1.0/storage-pools/<pool>/resources`、`/1.0/instances/<ボットの VM>` から読む。
 - Incus が変更を断ったとき（プロジェクトの上限など）は、停止した VM を起動し直してから ensure を失敗にする（止まったままにしない）。失敗したボットでスペックを保存し直すと、backoff を待たずにすぐ ensure し直す。
 
 ### 実測（Incus 6.0.4、Debian 13 cloud イメージ由来の dsh-bot-base、btrfs プール）
@@ -77,7 +77,7 @@
 作者の Host 以外（CPU やメモリの少ない Host）でも、確かめずに 4 vCPU / 6 GiB / 20 GiB を保存して最初の ensure で失敗する、ということがないようにした。
 
 - `initialEnvironmentSpec(capacity, needs)`（`shared/environment.ts`、画面と Host で同じ関数）: キーごとに `DEFAULT_BOT_ENVIRONMENT_SPEC` を `capacity` の範囲（`step` の倍数、`max` 以下）に収め、`min` と作成オプションのコネクターの `minimumSpec` を下回らない値にする。それができないキーは `shortfalls`（`need`、`available`、足りないコネクター）として返す。
-- Host（`host/environment-spec/initial.ts`）: `registry.create` が何も保存する前に、新しいボットの id で `capacity` を読み、上の関数でスペックを作る。読めない、または足りなければ作成を断る（「Desktop needs 4 GiB of memory, but this Host can give a bot's VM at most 3 GiB」、オプション無しでも足りなければ「this Host cannot give a bot's VM the 1 GiB of memory it needs at least (at most 512 MiB)」）。スペックの無い既存ボットで VM も無いもの（§5 の `default`）も同じ関数で作る。
+- Host（`host/environment-spec/initial.ts`）: `registry.create` が何も保存する前に、新しいボットの id で `capacity` を読み、上の関数でスペックを作る。読めない、`full`（その理由で）、または足りなければ作成を断る（「Desktop needs 4 GiB of memory, but this Host can give a bot's VM at most 3 GiB」、オプション無しでも足りなければ「this Host cannot give a bot's VM the 1 GiB of memory it needs at least (at most 512 MiB)」）。スペックの無い既存ボットで VM も無いもの（§5 の `default`）も同じ関数で作る。
 - `bots.creationOptions()` は `{ options: [{ option, needs }], capacity }` を返す（`capacity` はまだどのボットも持たない id で読む。新しいボットの id と同じ扱い）。
 - 作成ダイアログではスペックを選ばせない（VM ページが変更の検査・再起動の確認をすでに持つので、同じ編集 UI を二重に持たない）。代わりに、選んだオプションで作られるスペックを読み取り専用の「VM」行に出し、Host が出せないオプションはオフで押せなくし、VM が作れないときはエラーを出して作成ボタンを押せなくする。
 - 作成時のスペックの `origin` は `default` のまま（保存ドメインは変えていない）。

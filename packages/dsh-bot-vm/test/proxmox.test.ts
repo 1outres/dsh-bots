@@ -11,7 +11,7 @@ import { isoOf } from "../src/host/backend/proxmox/seed"
 import { unpackImage } from "../src/node/image-unpack"
 import { createProxmoxTransport, probeProxmox } from "../src/node/proxmox-transport"
 import { tarOf } from "../src/node/tar"
-import { type FakeProxmox, startFakeProxmox } from "./support/fake-proxmox-server"
+import { type FakeProxmox, type FakeVm, startFakeProxmox } from "./support/fake-proxmox-server"
 
 const OWNER = "0123456789abcdef0123456789abcdef"
 const GIB = 1024 ** 3
@@ -387,7 +387,7 @@ describe("the Proxmox backend", () => {
     await expect(backend.images.has(next.fingerprint)).resolves.toBe(true)
   })
 
-  it("sizes bots within the pool's declared limits and the storage's free space", async () => {
+  it("sizes bots within what the pool's declared limits leave after every other VM in it", async () => {
     const backend = backendOf()
     await importImage(backend)
     await backend.workspaces.create({
@@ -398,20 +398,40 @@ describe("the Proxmox backend", () => {
       sizeGiB: 4,
     })
     await backend.instances.create(spec("a"))
+    pve.state.vms.set(900, {
+      name: "someone-else",
+      config: { name: "someone-else", cores: "3", memory: "4096" },
+      status: "running",
+      template: false,
+      firewall: { options: {}, rules: [], ipsets: {} },
+      interfaces: undefined,
+    })
+    const ranges = (cpus: number, memoryMiB: number, diskGiB: [number, number]) => ({
+      status: "ready",
+      capacity: {
+        cpus: { min: 1, max: cpus, step: 1 },
+        memoryMiB: { min: 1024, max: memoryMiB, step: 512 },
+        diskGiB: { min: diskGiB[0], max: diskGiB[1], step: 1, growOnly: true },
+      },
+    })
+    const ownWorkspace = 4 * GIB
     await expect(
-      backend.capacity({ instance: "dsh-bot-b", rootDiskGiB: 16, workspaceGiB: undefined }),
-    ).resolves.toEqual({
-      cpus: { min: 1, max: 8, step: 1 },
-      memoryMiB: { min: 1024, max: 14336, step: 512 },
-      diskGiB: { min: 1, max: 44, step: 1, growOnly: true },
+      backend.capacity({ instance: "dsh-bot-b", rootDiskGiB: 16, workspaceBytes: undefined }),
+    ).resolves.toEqual(ranges(8 - 2 - 3, 16384 - 2048 - 4096, [1, 60 - 16]))
+    await expect(
+      backend.capacity({ instance: "dsh-bot-a", rootDiskGiB: 16, workspaceBytes: ownWorkspace }),
+    ).resolves.toEqual(ranges(8 - 3, 16384 - 4096, [4, 60 + 4]))
+    pve.state.vms.set(900, {
+      ...(pve.state.vms.get(900) as FakeVm),
+      config: { cores: "6", memory: "14336" },
     })
     await expect(
-      backend.capacity({ instance: "dsh-bot-a", rootDiskGiB: 16, workspaceGiB: 4 }),
-    ).resolves.toMatchObject({ diskGiB: { min: 4, max: 60 + 4, step: 1, growOnly: true } })
+      backend.capacity({ instance: "dsh-bot-a", rootDiskGiB: 16, workspaceBytes: ownWorkspace }),
+    ).resolves.toEqual(ranges(2, 2048, [4, 60 + 4]))
     await backend.instances.remove("dsh-bot-a")
     await expect(
-      backend.capacity({ instance: "dsh-bot-a", rootDiskGiB: 16, workspaceGiB: 4 }),
-    ).resolves.toMatchObject({ diskGiB: { min: 4, max: 60 + 4 - 16, step: 1, growOnly: true } })
+      backend.capacity({ instance: "dsh-bot-a", rootDiskGiB: 16, workspaceBytes: ownWorkspace }),
+    ).resolves.toEqual(ranges(2, 2048, [4, 60 + 4 - 16]))
   })
 
   it("reports a running bot VM this installation cannot reach", async () => {

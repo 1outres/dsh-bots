@@ -138,7 +138,7 @@ export function useBotCreationForm(t: Translate, sources: CreationSources): BotC
   const environment =
     offer.status === "ready" ? creationEnvironment(offer.offer, choices) : undefined
   const environmentBlocked =
-    environment !== undefined && (environment.status === "unavailable" || !environment.ok)
+    environment !== undefined && (environment.status !== "planned" || !environment.ok)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
   const avatar = avatarOfChoice(avatarChoice, name)

@@ -1,5 +1,5 @@
 import type { CapacityRequest, GuestChannel, VmBackend } from "../contract"
-import { proxmoxCapacityOf } from "./capacity"
+import { allocationOf, proxmoxCapacityOf, totalOf } from "./capacity"
 import { checkProxmox, type GuestReach } from "./check"
 import type { ProxmoxClient } from "./client"
 import type { ProxmoxLayout } from "./endpoint"
@@ -73,17 +73,14 @@ export function createProxmoxBackend(options: ProxmoxBackendOptions): VmBackend 
     if (limits === undefined)
       throw new Error(`the pool "${layout.pool}" declares no limits for the bots`)
     if (storage === undefined) throw new Error(`the storage "${layout.storage}" cannot be read`)
-    const bots = vms.filter((vm) => !vm.template && vm.meta?.kind !== "volumes")
-    const othersMemoryBytes = bots
-      .filter((vm) => vm.name !== request.instance)
-      .reduce((sum, vm) => sum + (vm.maxmem ?? 0), 0)
+    const guests = vms.filter((vm) => !vm.template && vm.meta?.kind !== "volumes")
     return proxmoxCapacityOf({
       limits,
-      othersMemoryBytes,
+      others: totalOf(guests.filter((vm) => vm.name !== request.instance).map(allocationOf)),
       storageAvailBytes: storage.availBytes,
       rootDiskGiB: request.rootDiskGiB,
-      workspaceGiB: request.workspaceGiB,
-      instanceExists: bots.some((vm) => vm.name === request.instance),
+      workspaceBytes: request.workspaceBytes,
+      instanceExists: guests.some((vm) => vm.name === request.instance),
     })
   }
 

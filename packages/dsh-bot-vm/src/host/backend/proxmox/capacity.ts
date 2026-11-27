@@ -1,32 +1,50 @@
-import type { BotEnvironmentCapacity, ProxmoxPoolLimits } from "@1outres/dsh-bot-core"
-import { MEMORY_STEP_MIB, MIN_MEMORY_MIB, workspaceRange } from "../capacity-steps"
+import type { BotEnvironmentAllowance, ProxmoxPoolLimits } from "@1outres/dsh-bot-core"
+import { cpuRange, memoryRange, workspaceRange } from "../capacity-steps"
+import type { PoolVm } from "./inventory"
 
 const MIB = 1024 ** 2
 const GIB = 1024 ** 3
 
+export interface ProxmoxAllocation {
+  readonly cpus: number
+  readonly memoryBytes: number
+}
+
 export interface ProxmoxCapacityInputs {
   readonly limits: ProxmoxPoolLimits
-  readonly othersMemoryBytes: number
+  readonly others: ProxmoxAllocation
   readonly storageAvailBytes: number
   readonly rootDiskGiB: number
-  readonly workspaceGiB: number | undefined
+  readonly workspaceBytes: number | undefined
   readonly instanceExists: boolean
 }
 
-export function proxmoxCapacityOf(inputs: ProxmoxCapacityInputs): BotEnvironmentCapacity {
-  const memoryBytes = inputs.limits.memoryMiB * MIB - inputs.othersMemoryBytes
+export function allocationOf(vm: PoolVm): ProxmoxAllocation {
+  if (vm.maxcpu === undefined || vm.maxmem === undefined) {
+    throw new Error(`cannot read the CPUs and memory of the Proxmox VM ${vm.vmid} ("${vm.name}")`)
+  }
+  return { cpus: vm.maxcpu, memoryBytes: vm.maxmem }
+}
+
+export const totalOf = (allocations: readonly ProxmoxAllocation[]): ProxmoxAllocation => ({
+  cpus: allocations.reduce((sum, allocation) => sum + allocation.cpus, 0),
+  memoryBytes: allocations.reduce((sum, allocation) => sum + allocation.memoryBytes, 0),
+})
+
+export function proxmoxCapacityOf(inputs: ProxmoxCapacityInputs): BotEnvironmentAllowance {
+  const { limits, others, workspaceBytes } = inputs
+  const currentGiB = workspaceBytes === undefined ? undefined : Math.floor(workspaceBytes / GIB)
   return {
-    cpus: { min: 1, max: inputs.limits.cpus, step: 1 },
-    memoryMiB: {
-      min: MIN_MEMORY_MIB,
-      max: Math.floor(memoryBytes / MIB / MEMORY_STEP_MIB) * MEMORY_STEP_MIB,
-      step: MEMORY_STEP_MIB,
+    status: "ready",
+    capacity: {
+      cpus: cpuRange(limits.cpus - others.cpus),
+      memoryMiB: memoryRange(limits.memoryMiB * MIB - others.memoryBytes),
+      diskGiB: workspaceRange(
+        Math.floor(inputs.storageAvailBytes / GIB) +
+          (currentGiB ?? 0) -
+          (inputs.instanceExists ? 0 : inputs.rootDiskGiB),
+        currentGiB,
+      ),
     },
-    diskGiB: workspaceRange(
-      Math.floor(inputs.storageAvailBytes / GIB) +
-        (inputs.workspaceGiB ?? 0) -
-        (inputs.instanceExists ? 0 : inputs.rootDiskGiB),
-      inputs.workspaceGiB,
-    ),
   }
 }

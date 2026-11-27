@@ -27,19 +27,20 @@ export function createInitialSpecs(deps: InitialSpecsDeps): InitialSpecs {
   return {
     async capacity(botId) {
       try {
-        return { status: "ready", capacity: await read(botId) }
+        return await read(botId)
       } catch (error) {
         return { status: "unavailable", reason: messageOf(error) }
       }
     },
     async spec(botId, needs) {
-      let capacity: Awaited<ReturnType<typeof read>>
+      let allowance: Awaited<ReturnType<typeof read>>
       try {
-        capacity = await read(botId)
+        allowance = await read(botId)
       } catch (error) {
         throw new Error(`the capacity of the bot's VM could not be read: ${messageOf(error)}`)
       }
-      const initial = initialEnvironmentSpec(capacity, needs)
+      if (allowance.status === "full") throw new Error(allowance.reason)
+      const initial = initialEnvironmentSpec(allowance.capacity, needs)
       if (!initial.ok)
         throw new Error(initial.shortfalls.map(environmentCapacityShortfallText).join("; "))
       return initial.spec

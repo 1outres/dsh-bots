@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import type { BotEnvironment, BotEnvironmentTarget, EnsureOptions } from "../src/contract"
 import { createEnvironmentKeeper, workspaceProblem } from "../src/host/environment"
 import { DEFAULT_BOT_ENVIRONMENT_SPEC } from "../src/shared/environment"
-import { TEST_CAPACITY } from "./support/environment"
+import { TEST_ALLOWANCE } from "./support/environment"
 
 function manualClock() {
   let tasks: { work: () => void; at: number; cancelled: boolean }[] = []
@@ -56,7 +56,7 @@ function fakeEnvironment(id = "vm") {
       removed.push(botId)
     },
     rows: (target) => [{ id: "env-fs", name: "@x/fs", config: { bot: target.id } }],
-    capacity: async () => TEST_CAPACITY,
+    capacity: async () => TEST_ALLOWANCE,
     inspect: async () => undefined,
     onChange: (listener) => {
       listeners.add(listener)

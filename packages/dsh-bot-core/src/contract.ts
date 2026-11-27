@@ -13,7 +13,7 @@ import type {
   ConnectorPermissionChange,
   ConnectorToolPermission,
 } from "./shared/connectors"
-import type { BotEnvironmentCapacity, BotEnvironmentSpec } from "./shared/environment"
+import type { BotEnvironmentAllowance, BotEnvironmentSpec } from "./shared/environment"
 import type {
   CustomConnectRequest,
   CustomCredential,
@@ -84,7 +84,7 @@ export interface BotEnvironment {
   readonly isolate: readonly string[]
   readonly workspace: string
   ensure(target: BotEnvironmentTarget, options?: EnsureOptions): Promise<void>
-  capacity(botId: string, signal?: AbortSignal): Promise<BotEnvironmentCapacity>
+  capacity(botId: string, signal?: AbortSignal): Promise<BotEnvironmentAllowance>
   inspect(botId: string, signal?: AbortSignal): Promise<BotEnvironmentSpec | undefined>
   remove(botId: string): Promise<void>
   rows(bot: BotEnvironmentBot): readonly PluginRow[]

@@ -11,6 +11,8 @@ export const INCUS_VM_DEFAULT_MEMORY = "1GiB"
 export const MIB = 1024 ** 2
 export const GIB = 1024 ** 3
 
+export const INCUS_VM_DEFAULT_STATE_BYTES = 500 * MIB
+
 const UNITS: Readonly<Record<string, number>> = {
   B: 1,
   kB: 1000,

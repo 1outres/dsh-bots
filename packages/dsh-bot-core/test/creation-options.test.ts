@@ -70,4 +70,16 @@ describe("the New bot dialog's creation options", () => {
       reason: "Incus is down",
     })
   })
+
+  it("plans no VM, and fits no option, while the Host has no room for another VM", () => {
+    const reason =
+      'the Incus project "bots" already has 3 VMs, as many as its limits.virtual-machines allows'
+    const offer: BotCreationOffer = {
+      ...workstation(12288),
+      capacity: { status: "full", reason },
+    }
+    expect(optionFits(offer, "workstation")).toBe(false)
+    expect(initialChoices(offer)).toEqual({ workstation: false })
+    expect(creationEnvironment(offer, noChoices())).toEqual({ status: "full", reason })
+  })
 })

@@ -1,6 +1,6 @@
 import type {
   BotEnvironment,
-  BotEnvironmentCapacity,
+  BotEnvironmentAllowance,
   BotEnvironmentSpec,
   BotEnvironmentTarget,
   EnsureOptions,
@@ -99,7 +99,7 @@ const EGRESS_PROBE_TIMEOUT_MS = 30_000
 const SSH_FAILURE = 255
 
 export interface VmEnvironment extends BotEnvironment {
-  capacity(botId: string, signal?: AbortSignal): Promise<BotEnvironmentCapacity>
+  capacity(botId: string, signal?: AbortSignal): Promise<BotEnvironmentAllowance>
   onChange(listener: (botId: string) => void): () => void
   poll(signal?: AbortSignal): Promise<void>
   reconcile(keep: Iterable<string>, signal?: AbortSignal): Promise<ReconcileResult>
@@ -708,15 +708,24 @@ export function createVmEnvironment(
     async capacity(botId, signal) {
       checkId(botId)
       const backend = await placement(signal)
-      const volume = await backend.workspaces.get(volumeOf(botId), signal)
+      const name = instanceOf(botId)
+      const [instance, volume] = await Promise.all([
+        backend.instances.get(name, signal),
+        backend.workspaces.get(volumeOf(botId), signal),
+      ])
+      if (instance !== undefined && !ours(instance, botId)) {
+        throw new Error(
+          `the VM "${name}" exists in ${backend.where} but was not created by this installation for bot ${botId}`,
+        )
+      }
       return backend.capacity(
         {
-          instance: instanceOf(botId),
+          instance: name,
           rootDiskGiB: settings.rootDiskGiB,
-          workspaceGiB:
+          workspaceBytes:
             volume === undefined
               ? undefined
-              : wholeGiBOf(ownedVolume(volume, (found) => oursVolume(found, botId))),
+              : ownedVolume(volume, (found) => oursVolume(found, botId)).sizeBytes,
         },
         signal,
       )

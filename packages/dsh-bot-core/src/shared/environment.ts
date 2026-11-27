@@ -210,8 +210,12 @@ export type BotEnvironmentApplication =
   | { readonly state: "applied" }
   | { readonly state: "failed"; readonly reason: string }
 
-export type BotEnvironmentCapacityState =
+export type BotEnvironmentAllowance =
   | { readonly status: "ready"; readonly capacity: BotEnvironmentCapacity }
+  | { readonly status: "full"; readonly reason: string }
+
+export type BotEnvironmentCapacityState =
+  | BotEnvironmentAllowance
   | { readonly status: "unavailable"; readonly reason: string }
 
 export interface BotEnvironmentView {

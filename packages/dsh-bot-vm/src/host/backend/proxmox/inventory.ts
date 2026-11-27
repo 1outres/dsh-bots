@@ -7,6 +7,7 @@ export interface PoolVm {
   readonly name: string
   readonly status: string
   readonly template: boolean
+  readonly maxcpu: number | undefined
   readonly maxmem: number | undefined
   readonly config: VmConfig
   readonly meta: VmMeta | undefined
@@ -51,6 +52,7 @@ export function createInventory(options: InventoryOptions): Inventory {
       name: config.name ?? member.name,
       status: member.status,
       template: config.template === "1",
+      maxcpu: member.maxcpu,
       maxmem: member.maxmem,
       config,
       meta: metaOf(config.description),

@@ -12,7 +12,7 @@ export type CreationOfferState =
   | { readonly status: "failed"; readonly message: string }
 
 export type CreationEnvironment =
-  | { readonly status: "unavailable"; readonly reason: string }
+  | { readonly status: "unavailable" | "full"; readonly reason: string }
   | ({ readonly status: "planned" } & InitialEnvironmentSpec)
 
 const STARTS_ON: { readonly [Option in BotCreationOption]: boolean } = { workstation: true }
@@ -31,9 +31,7 @@ export function creationEnvironment(
   offer: BotCreationOffer,
   choices: BotCreationChoices,
 ): CreationEnvironment {
-  if (offer.capacity.status === "unavailable") {
-    return { status: "unavailable", reason: offer.capacity.reason }
-  }
+  if (offer.capacity.status !== "ready") return offer.capacity
   return {
     status: "planned",
     ...initialEnvironmentSpec(
@@ -44,7 +42,7 @@ export function creationEnvironment(
 }
 
 export function optionFits(offer: BotCreationOffer, option: BotCreationOption): boolean {
-  if (offer.capacity.status === "unavailable") return false
+  if (offer.capacity.status !== "ready") return false
   return initialEnvironmentSpec(
     offer.capacity.capacity,
     needsOf(offer, (offered) => offered === option),

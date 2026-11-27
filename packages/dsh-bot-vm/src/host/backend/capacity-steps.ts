@@ -4,6 +4,20 @@ export const MIN_MEMORY_MIB = 1024
 export const MEMORY_STEP_MIB = 512
 export const MIN_DISK_GIB = 1
 
+const MIB = 1024 ** 2
+
+export const cpuRange = (most: number): BotEnvironmentRange => ({
+  min: 1,
+  max: Math.floor(most),
+  step: 1,
+})
+
+export const memoryRange = (mostBytes: number): BotEnvironmentRange => ({
+  min: MIN_MEMORY_MIB,
+  max: Math.floor(mostBytes / MIB / MEMORY_STEP_MIB) * MEMORY_STEP_MIB,
+  step: MEMORY_STEP_MIB,
+})
+
 export function workspaceRange(
   ceilingGiB: number,
   currentGiB: number | undefined,
