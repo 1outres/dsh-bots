@@ -12,6 +12,7 @@ export type BackendCheck =
 export interface CapacityRequest {
   readonly instance: string
   readonly rootDiskGiB: number
+  readonly workspaceGiB: number | undefined
 }
 
 export interface VmBackend {

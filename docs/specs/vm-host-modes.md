@@ -1035,7 +1035,7 @@ runcmd:
 - イメージに TCP 用の unit を別に足さない（判断: Debian の unit で足り、Incus の VM との違いを cloud-init の 2 行に閉じられる）。`write_files` の印と unit の `Condition…` で切り替える形もとらない（初回の起動では印が `ssh.service` の起動に間に合う保証が無い）。
 - `ssh.service` はホスト鍵を作らない。ホスト鍵は cloud-init の `ssh_keys`（init の段）が `runcmd`（final の段）より前に書くので、sshd は初めから固定したホスト鍵で答える。
 - 準備の完了は今と同じく SSH で `/var/lib/cloud/instance/boot-finished` を見る（`BOOT_FINISHED`）。
-- 確認済み（2026-11-27、Incus の Debian 13 の VM で同じ mask から）: ed25519 のホスト鍵 1 つで `sshd -t` が通り、`0.0.0.0:22` と `[::]:22` で listen し、`bot` の鍵で入れ、`root` は拒否された。確認済み（2026-11-27、入れ子の PVE 9.3.1、image-20261127、段階 7）: `agent: enabled=1` で guest agent が起動し `network-get-interfaces` が `net0` の MAC と IPv4 を返した。`runcmd` の 2 行で `0.0.0.0:22` / `[::]:22` に listen し、作り直した VM でも同じ。`sshd-vsock.socket` は vsock の device が無い PVE の VM でも active で、failed にならなかった。初回の起動だけ `cloud-init-main` / `cloud-init-network` が failed になる（`cc_mounts` の `mount -a` が、まだ `x-systemd.makefs` で ext4 が作られていないワークスペースで失敗する。2 回目の起動からは無い。Incus でも同じ user-data なので同じはず、未検証）。
+- 確認済み（2026-11-27、Incus の Debian 13 の VM で同じ mask から）: ed25519 のホスト鍵 1 つで `sshd -t` が通り、`0.0.0.0:22` と `[::]:22` で listen し、`bot` の鍵で入れ、`root` は拒否された。確認済み（2026-11-27、入れ子の PVE 9.3.1、image-20261127、段階 7）: `agent: enabled=1` で guest agent が起動し `network-get-interfaces` が `net0` の MAC と IPv4 を返した。`runcmd` の 2 行で `0.0.0.0:22` / `[::]:22` に listen し、作り直した VM でも同じ。`sshd-vsock.socket` は vsock の device が無い PVE の VM でも active で、failed にならなかった。初回の起動だけ `cloud-init-main` / `cloud-init-network` が failed になる（`cc_mounts` の `mount -a` が、まだ `x-systemd.makefs` で ext4 が作られていないワークスペースで失敗する。2 回目の起動からは無い。Incus でも同じだった。fstab の行に `noauto` と `x-systemd.required-by=local-fs.target` を足して直した、incus-endpoint.md §5.4。Proxmox での確認は未検証）。
 
 ### 10.2 接続と保存
 
@@ -1102,7 +1102,7 @@ PVE の VM と volume は利用者向けの札を持たないので、VM の説�
 
 ### 10.8 容量
 
-管理者の申告（プールの comment の `cpus` / `memory`）が上限。CPU はその値、メモリは上限からプールの他の VM（テンプレートと保管用を除く、他の owner も含む）の `maxmem` を引いた値、ワークスペースはストレージの `avail` から `rootDiskGiB` を引いた値（Incus と同じ刻み、`capacity-steps.ts`）。ノードの CPU・メモリは token から読めないので見ない（spike §8）。
+管理者の申告（プールの comment の `cpus` / `memory`）が上限。CPU はその値、メモリは上限からプールの他の VM（テンプレートと保管用を除く、他の owner も含む）の `maxmem` を引いた値、ワークスペースはストレージの `avail` に、ボットの今のワークスペースの大きさ（`avail` にはもう入っていない）を足し、ボットの VM がまだ無ければ `rootDiskGiB` を引いた値。下限は今のワークスペースの大きさ（Incus と同じ、`capacity-steps.ts` の `workspaceRange`。Incus はプールの大きさと project の `limits.disk*` が上限なので今の大きさを足さず、上限が今の大きさを下回らないようにだけする。bot-vm-spec.md §4。thin なストレージでは `avail` が実際に使った分しか引かないので甘めになる、未検証）。刻みは Incus と同じ（`capacity-steps.ts`）。ノードの CPU・メモリは token から読めないので見ない（spike §8）。
 
 ### 10.9 管理者の準備
 

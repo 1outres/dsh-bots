@@ -6,12 +6,13 @@ mkdir -p "$DIR"
 pvesm add dir "$STORE" --path "$DIR" --content images,import,snippets --prune-backups keep-all=1
 pveum pool add "$POOL" --comment "dsh-bots bot VMs"
 pveum pool modify "$POOL" --storage "$STORE"
-pveum role add "$ROLE" --privs "$(echo $PRIVS | tr ' ' ',')"
+pveum role add "$ROLE" --privs "${PRIVS// /,}"
 pveum user add "$USERID" --comment "dsh-bots plugin"
 pveum user token add "$USERID" "$TOKEN" --privsep 1 --output-format json >/root/dsh-bots-token.json
 for who in "$USERID" "$USERID!$TOKEN"; do
-  pveum acl modify "/pool/$POOL" --roles "$ROLE" $( [[ $who == *"!"* ]] && echo --tokens || echo --users ) "$who"
-  pveum acl modify "/sdn/zones/localnetwork/$BRIDGE" --roles PVESDNUser $( [[ $who == *"!"* ]] && echo --tokens || echo --users ) "$who"
+  if [[ $who == *"!"* ]]; then kind=--tokens; else kind=--users; fi
+  pveum acl modify "/pool/$POOL" --roles "$ROLE" "$kind" "$who"
+  pveum acl modify "/sdn/zones/localnetwork/$BRIDGE" --roles PVESDNUser "$kind" "$who"
 done
 cat /root/dsh-bots-token.json
 openssl x509 -in /etc/pve/local/pve-ssl.pem -noout -fingerprint -sha256

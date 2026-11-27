@@ -32,7 +32,7 @@ describe("userDataText", () => {
         DEVICE,
         "/home/bot/workspace",
         "ext4",
-        "defaults,x-systemd.makefs,x-systemd.growfs,x-systemd.device-timeout=60s",
+        "defaults,noauto,x-systemd.required-by=local-fs.target,x-systemd.makefs,x-systemd.growfs,x-systemd.device-timeout=60s",
         "0",
         "2",
       ],

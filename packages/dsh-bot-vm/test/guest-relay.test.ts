@@ -156,7 +156,7 @@ describe("proxy command", () => {
       ),
     ).toBe("/usr/bin/node '/opt/my lib/guest-proxy.js' '/s/50%%/guest.sock' dsh-bot-1")
     expect(() => proxyCommandOf({ node: "/n", script: "/s", socket: "/k" }, "a b")).toThrow(
-      "not an Incus instance name",
+      "not a bot VM name",
     )
   })
 })

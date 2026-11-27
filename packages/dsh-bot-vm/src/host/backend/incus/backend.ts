@@ -238,6 +238,7 @@ export function createIncusBackend(options: IncusBackendOptions): VmBackend {
       pool,
       poolBytes,
       rootDiskGiB: request.rootDiskGiB,
+      workspaceGiB: request.workspaceGiB,
     })
   }
 

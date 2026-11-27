@@ -158,12 +158,13 @@ interface WorkspaceVolume {
 - **block の custom volume**（`content_type: block`）をインスタンスの disk デバイス `workspace`（`{type: disk, pool, source: <volume>}`、path なし） として付ける。ゲストには `/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_incus_workspace` で見える（確認済み。`/dev/sda`/`sdb` の順番は起動ごとに変わるので by-id を使う）。
   - filesystem の custom volume を `path` 付きで付けることも制限付きで許される（確認済み）が、VM には virtiofs で渡る（virtiofsd が要り、今の共有と同じ遅さ）。block はゲストの普通の ext4 で、VM ホストはその中身を mount しない。
 - ゲストでの mount: cloud-init の `mounts` で fstab に次の 1 行を書き、`runcmd` で最初の mount の後に最上位を `bot`（1001:1001）に chown する。
-  `/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_incus_workspace /home/bot/workspace ext4 defaults,x-systemd.makefs,x-systemd.growfs,x-systemd.device-timeout=60s 0 2`
+  `/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_incus_workspace /home/bot/workspace ext4 defaults,noauto,x-systemd.required-by=local-fs.target,x-systemd.makefs,x-systemd.growfs,x-systemd.device-timeout=60s 0 2`
   - `x-systemd.makefs`: ファイルシステムが無いときだけ作る。VM を 2 回作り直してもファイルが残った（確認済み）。
+  - `noauto` と `x-systemd.required-by=local-fs.target`: cloud-init の `cc_mounts` は fstab を書いた直後に `mount -a` を走らせる。新しいボリュームにはまだ ext4 が無い（`x-systemd.makefs` は mount の unit の起動で作る）ので失敗し、初回の起動だけ `cloud-init-network` と `cloud-init-main` が failed になった（確認済み、2026-11-27、Incus 6.0.4・image-20261127・cloud-init 25.1.4。"wrong fs type … on /dev/sdb"）。`noauto` で `mount -a` から外し、初回は `runcmd` の `systemctl start <mount unit>` が、2 回目からは `local-fs.target` の `RequiredBy` が mount する（`noauto` の無い行と同じ依存。mount できなければ起動が止まるのも同じ）。初回・再起動・同じボリュームでの作り直しのどれでも failed の unit が無く、作り直しでファイルが残り、makefs は "contains file system of type ext4" で何もしなかった（確認済み、同じ日・同じ版）。Proxmox も user-data は同じ `cloud-init.ts` で、違うのはデバイスのパスだけなので、同じ理由で直る（Proxmox では未確認）。
   - **cloud-init の `fs_setup` は使わない**: `partition: none, overwrite: false` でも既存の ext4 に `mkfs.ext4 -F` を走らせ、作り直した VM でワークスペースが空になった（確認済み。cloud-init.log に "Creating file system … -F /dev/sda"）。
   - `x-systemd.growfs`: ボリュームを大きくした後の起動で ext4 が広がる（3 GiB → 4 GiB で `df` 2.9G → 3.9G、確認済み）。
   - 所有者: ゲストの uid のまま（1001）。raw.idmap は要らない。guest root も普通に書ける（共有のときの "EIO" は無くなる）。
-- 拡張: 動いている VM の block ボリュームは大きくできない（"In use"、確認済み）。止めてから `PATCH size`、起動で growfs。spec の変更（今も止めて変えて起動する）に入れる。縮小は拒否する（今の root と同じ）。
+- 拡張: 動いている VM の block ボリュームは大きくできない（"In use"、確認済み）。止めてから `PATCH size`、起動で growfs。spec の変更（今も止めて変えて起動する）に入れる。縮小はしない: spec より大きいボリュームはそのまま使う（bot-vm-spec.md §4）。
 - 大きさ（段階 3 で決定）: BotEnvironmentSpec の `diskGiB` はワークスペースのボリュームの大きさ。root は dsh-bot-vm の設定 `rootDiskGiB`（既定 16 GiB、イメージは新しい VM で root を 3.1 GiB 使う（確認済み）。デスクトップのパッケージ込みで約 4.2 GiB）。bot-core の画面の文言と契約のコメントは「ワークスペースのディスク（ボットのファイル）」に直した。今あるコネクターの `minimumSpec` は `memoryMiB` だけで `diskGiB` を求めていない（コードで確認）。
 - 寿命: VM を消してもボリュームは残る（確認済み）。`remove(botId)` は VM・鍵・ssh 設定をすぐ消し、ボリュームには `user.dsh-bot.orphaned` を付け、orphan の猶予（7 日）の後に片付けで消す（§10 の 4。どのインスタンスも使っていないときだけ）。`user.dsh-bot.id` / `user.dsh-bot.owner` をボリュームにも付ける（`PATCH` で付けられる、確認済み）。他の owner のボリュームには触れない。
 - 速さ（確認済み、2 vCPU / 2 GiB、btrfs のプール）: 小さいファイル 2000 個の作成 154 ms（VM の root では 129 ms、今の virtiofs の README の値 1.7 s）、512 MiB の fdatasync 書き込みは初回 95–101 MB/s（btrfs の疎なファイルへの割り当て）、上書き 490 MB/s（root は 232–484 MB/s）。

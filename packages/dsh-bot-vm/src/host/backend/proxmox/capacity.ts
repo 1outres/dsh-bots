@@ -1,5 +1,5 @@
 import type { BotEnvironmentCapacity, ProxmoxPoolLimits } from "@1outres/dsh-bot-core"
-import { MEMORY_STEP_MIB, MIN_DISK_GIB, MIN_MEMORY_MIB } from "../capacity-steps"
+import { MEMORY_STEP_MIB, MIN_MEMORY_MIB, workspaceRange } from "../capacity-steps"
 
 const MIB = 1024 ** 2
 const GIB = 1024 ** 3
@@ -9,6 +9,8 @@ export interface ProxmoxCapacityInputs {
   readonly othersMemoryBytes: number
   readonly storageAvailBytes: number
   readonly rootDiskGiB: number
+  readonly workspaceGiB: number | undefined
+  readonly instanceExists: boolean
 }
 
 export function proxmoxCapacityOf(inputs: ProxmoxCapacityInputs): BotEnvironmentCapacity {
@@ -20,11 +22,11 @@ export function proxmoxCapacityOf(inputs: ProxmoxCapacityInputs): BotEnvironment
       max: Math.floor(memoryBytes / MIB / MEMORY_STEP_MIB) * MEMORY_STEP_MIB,
       step: MEMORY_STEP_MIB,
     },
-    diskGiB: {
-      min: MIN_DISK_GIB,
-      max: Math.floor(inputs.storageAvailBytes / GIB) - inputs.rootDiskGiB,
-      step: 1,
-      growOnly: true,
-    },
+    diskGiB: workspaceRange(
+      Math.floor(inputs.storageAvailBytes / GIB) +
+        (inputs.workspaceGiB ?? 0) -
+        (inputs.instanceExists ? 0 : inputs.rootDiskGiB),
+      inputs.workspaceGiB,
+    ),
   }
 }

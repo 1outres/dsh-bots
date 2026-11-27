@@ -17,7 +17,7 @@ function word(value: string): string {
 }
 
 export function checkInstanceName(instance: string): string {
-  if (!INSTANCE.test(instance)) throw new Error(`"${instance}" is not an Incus instance name`)
+  if (!INSTANCE.test(instance)) throw new Error(`"${instance}" is not a bot VM name`)
   return instance
 }
 

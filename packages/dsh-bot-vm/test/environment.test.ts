@@ -716,7 +716,7 @@ describe("incus-vm environment", () => {
       "not a bot VM of this installation",
     )
     await expect(environment.openGuest("other-vm")).rejects.toThrow("not a bot VM")
-    await expect(environment.openGuest("x; rm")).rejects.toThrow("not an Incus instance name")
+    await expect(environment.openGuest("x; rm")).rejects.toThrow("not a bot VM name")
     await h.incus.client.setState(alias, "stop")
     await expect(environment.openGuest(alias)).rejects.toThrow("is Stopped")
   })
@@ -834,8 +834,9 @@ describe("incus-vm environment: the bot's spec", () => {
     ])
   })
 
-  it("grows the workspace volume only while the VM is stopped, and never shrinks it", async () => {
-    const { h, environment } = setup()
+  it("grows the workspace volume only while the VM is stopped, and keeps one larger than the spec", async () => {
+    const logs: string[] = []
+    const { h, environment } = setup({}, { log: (line) => logs.push(line) })
     await environment.ensure(target)
     h.incus.log.length = 0
     await environment.ensure({ ...target, spec: { ...SPEC, diskGiB: 30 } })
@@ -845,10 +846,12 @@ describe("incus-vm environment: the bot's spec", () => {
       `start ${alias}`,
     ])
     h.incus.log.length = 0
-    await expect(environment.ensure({ ...target, spec: { ...SPEC, diskGiB: 20 } })).rejects.toThrow(
-      `the workspace volume "${volumeName}" is 30GiB; it cannot shrink to 20GiB`,
-    )
+    await environment.ensure({ ...target, spec: { ...SPEC, diskGiB: 20 } })
     expect(h.incus.log).toEqual([])
+    expect(logs).toContain(
+      `${volumeName} is 30GiB, larger than the spec's 20GiB; keeping it (a disk does not shrink)`,
+    )
+    expect(await environment.inspect(target.id)).toEqual({ ...SPEC, diskGiB: 30 })
   })
 
   it("rewrites memory written another way without a restart", async () => {
@@ -904,6 +907,18 @@ describe("incus-vm environment: the bot's spec", () => {
       diskGiB: { min: 1, max: 60 - 16, step: 1, growOnly: true },
     })
   })
+
+  it("never offers a workspace disk below the bot's volume, nor a ceiling below it", async () => {
+    const { h, environment } = setup()
+    h.incus.host.project = { ...PROJECT, "limits.disk.pool.dsh": "60GiB" }
+    await environment.ensure({ ...target, spec: { ...SPEC, diskGiB: 30 } })
+    const range = (min: number, max: number) => ({ min, max, step: 1, growOnly: true })
+    expect((await environment.capacity(target.id)).diskGiB).toEqual(range(30, 60 - 16))
+    must(h.incus.volumes.get(`dsh/${volumeName}`)).config.size = "50GiB"
+    expect((await environment.capacity(target.id)).diskGiB).toEqual(range(50, 50))
+    await environment.ensure({ ...target, spec: { ...SPEC, diskGiB: 30 } })
+    expect(await environment.inspect(target.id)).toEqual({ ...SPEC, diskGiB: 50 })
+  })
 })
 
 describe("reconfigure", () => {
@@ -955,7 +970,10 @@ describe("workspace volume plan", () => {
     expect(volumePlan(undefined, 20, () => true)).toEqual({ kind: "create" })
     expect(volumePlan(volume("20GiB"), 20, () => true)).toEqual({ kind: "keep" })
     expect(volumePlan(volume("20GiB"), 25, () => true)).toEqual({ kind: "grow", sizeGiB: 25 })
-    expect(() => volumePlan(volume("20GiB"), 10, () => true)).toThrow("cannot shrink")
+    expect(volumePlan(volume("20GiB"), 10, () => true)).toEqual({
+      kind: "larger",
+      sizeText: "20GiB",
+    })
     expect(() => volumePlan(volume("20GiB"), 20, () => false)).toThrow(
       "not created by this installation",
     )

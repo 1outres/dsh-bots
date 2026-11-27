@@ -28,7 +28,7 @@ export const ONBOARDING_EN = {
   "welcome.bot.loading": "Checking what this Host can give a bot…",
   "welcome.noEnvironment.title": "No place to run bots yet",
   "welcome.noEnvironment.lead":
-    "Bots run only in an environment such as bot-vm (Incus VMs). Set it up, then check again.",
+    "Bots run only in an environment such as bot-vm (one VM per bot). Set it up, then check again.",
   "welcome.noEnvironment.recheck": "Check again",
   "welcome.creating.opening": "Getting the bot ready…",
   "welcome.creating.background": "Continue in the background",
@@ -73,7 +73,7 @@ export const ONBOARDING_JA: { readonly [Key in keyof typeof ONBOARDING_EN]: stri
   "welcome.bot.loading": "この Host がボットに出せるものを確認しています…",
   "welcome.noEnvironment.title": "ボットを動かす場所がまだありません",
   "welcome.noEnvironment.lead":
-    "ボットは bot-vm（Incus の VM）などの実行環境の中でだけ動きます。用意してから、もう一度確認してください。",
+    "ボットは bot-vm（ボットごとの VM）などの実行環境の中でだけ動きます。用意してから、もう一度確認してください。",
   "welcome.noEnvironment.recheck": "もう一度確認",
   "welcome.creating.opening": "ボットを準備しています…",
   "welcome.creating.background": "バックグラウンドで続ける",

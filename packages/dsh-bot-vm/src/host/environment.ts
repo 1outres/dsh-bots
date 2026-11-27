@@ -25,7 +25,13 @@ import { createLimiter } from "./limit"
 import { environmentRows, hostAliasOf, ISOLATED_SERVICES, type RowSettings } from "./rows"
 import { createSerializer } from "./serial"
 import { knownHostsText, MANAGED_HEADER, shellQuote, sshConfigText } from "./ssh-config"
-import { type VolumePlan, volumeNameOf, volumePlan } from "./workspace-volume"
+import {
+  ownedVolume,
+  type VolumePlan,
+  volumeNameOf,
+  volumePlan,
+  wholeGiBOf,
+} from "./workspace-volume"
 
 export { CONFIG_BOT_ID, CONFIG_ORPHANED, CONFIG_OWNER }
 
@@ -111,7 +117,7 @@ export function createVmEnvironment(
   deps: EnvironmentDeps,
 ): VmEnvironment {
   if (!INSTANCE_PREFIX.test(settings.instancePrefix)) {
-    throw new Error(`instancePrefix "${settings.instancePrefix}" cannot start an Incus name`)
+    throw new Error(`instancePrefix "${settings.instancePrefix}" cannot start a VM name`)
   }
   if (!ALIAS_PREFIX.test(settings.hostAliasPrefix)) {
     throw new Error(`hostAliasPrefix "${settings.hostAliasPrefix}" cannot start an SSH host alias`)
@@ -167,7 +173,7 @@ export function createVmEnvironment(
 
   function checkId(botId: string): void {
     if (!BOT_ID.test(botId) || instanceOf(botId).length > MAX_INSTANCE_NAME) {
-      throw new Error(`bot id "${botId}" cannot name an Incus instance`)
+      throw new Error(`bot id "${botId}" cannot name a VM`)
     }
   }
 
@@ -350,6 +356,11 @@ export function createVmEnvironment(
     const volumeChange = volumePlan(volume, target.spec.diskGiB, (found) =>
       oursVolume(found, botId),
     )
+    if (volumeChange.kind === "larger") {
+      deps.log(
+        `${volumeOf(botId)} is ${volumeChange.sizeText}, larger than the spec's ${target.spec.diskGiB}GiB; keeping it (a disk does not shrink)`,
+      )
+    }
     if (volume?.orphanedSince !== undefined) {
       deps.log(`${volume.name} belongs to an existing bot again; clearing its orphan mark`)
       await backend.workspaces.markOrphaned(volume.name, undefined, signal)
@@ -697,8 +708,16 @@ export function createVmEnvironment(
     async capacity(botId, signal) {
       checkId(botId)
       const backend = await placement(signal)
+      const volume = await backend.workspaces.get(volumeOf(botId), signal)
       return backend.capacity(
-        { instance: instanceOf(botId), rootDiskGiB: settings.rootDiskGiB },
+        {
+          instance: instanceOf(botId),
+          rootDiskGiB: settings.rootDiskGiB,
+          workspaceGiB:
+            volume === undefined
+              ? undefined
+              : wholeGiBOf(ownedVolume(volume, (found) => oursVolume(found, botId))),
+        },
         signal,
       )
     },
@@ -716,7 +735,10 @@ export function createVmEnvironment(
       if (volume === undefined || !oursVolume(volume, botId)) {
         throw new Error(`the workspace volume of the VM "${instance.name}" is missing`)
       }
-      return specOf(instance, volume)
+      return specOf(
+        instance,
+        ownedVolume(volume, (found) => oursVolume(found, botId)),
+      )
     },
     rehome() {
       healthy.clear()
@@ -798,19 +820,19 @@ function fixText(fix: ProblemFix): string {
   }
 }
 
-const GIB = 1024 ** 3
-
-function specOf(instance: InstanceRecord, volume: WorkspaceRecord): BotEnvironmentSpec {
+function specOf(
+  instance: InstanceRecord,
+  volume: { readonly sizeBytes: number },
+): BotEnvironmentSpec {
   const whole = (value: number | undefined, what: string) => {
     if (value === undefined || !Number.isSafeInteger(value) || value < 1) {
       throw new Error(`cannot read the ${what} of the VM "${instance.name}"`)
     }
     return value
   }
-  const diskGiB = volume.sizeBytes === undefined ? undefined : volume.sizeBytes / GIB
   return {
     cpus: whole(instance.cpus, "CPU count"),
     memoryMiB: whole(instance.memoryMiB, "memory in MiB"),
-    diskGiB: whole(diskGiB, "workspace volume size in GiB"),
+    diskGiB: whole(wholeGiBOf(volume), "workspace volume size in GiB"),
   }
 }

@@ -7,7 +7,27 @@ const GIB = 1024 ** 3
 export type VolumePlan =
   | { readonly kind: "create" }
   | { readonly kind: "keep" }
+  | { readonly kind: "larger"; readonly sizeText: string }
   | { readonly kind: "grow"; readonly sizeGiB: number }
+
+export function ownedVolume(
+  volume: WorkspaceRecord,
+  owned: (volume: WorkspaceRecord) => boolean,
+): WorkspaceRecord & { readonly sizeBytes: number } {
+  if (!owned(volume)) {
+    throw new Error(
+      `the workspace volume "${volume.name}" exists but was not created by this installation for this bot; rename or delete it`,
+    )
+  }
+  if (!volume.block) throw new Error(`the workspace volume "${volume.name}" is not a block volume`)
+  const { sizeBytes } = volume
+  if (sizeBytes === undefined)
+    throw new Error(`cannot read the size of the workspace volume "${volume.name}"`)
+  return { ...volume, sizeBytes }
+}
+
+export const wholeGiBOf = (volume: { readonly sizeBytes: number }) =>
+  Math.floor(volume.sizeBytes / GIB)
 
 export function volumePlan(
   volume: WorkspaceRecord | undefined,
@@ -15,19 +35,8 @@ export function volumePlan(
   owned: (volume: WorkspaceRecord) => boolean,
 ): VolumePlan {
   if (volume === undefined) return { kind: "create" }
-  if (!owned(volume)) {
-    throw new Error(
-      `the workspace volume "${volume.name}" exists but was not created by this installation for this bot; rename or delete it`,
-    )
-  }
-  if (!volume.block) throw new Error(`the workspace volume "${volume.name}" is not a block volume`)
-  if (volume.sizeBytes === undefined)
-    throw new Error(`cannot read the size of the workspace volume "${volume.name}"`)
+  const { sizeBytes, sizeText } = ownedVolume(volume, owned)
   const wanted = wantedGiB * GIB
-  if (wanted < volume.sizeBytes) {
-    throw new Error(
-      `the workspace volume "${volume.name}" is ${volume.sizeText}; it cannot shrink to ${wantedGiB}GiB`,
-    )
-  }
-  return wanted === volume.sizeBytes ? { kind: "keep" } : { kind: "grow", sizeGiB: wantedGiB }
+  if (wanted < sizeBytes) return { kind: "larger", sizeText }
+  return wanted === sizeBytes ? { kind: "keep" } : { kind: "grow", sizeGiB: wantedGiB }
 }

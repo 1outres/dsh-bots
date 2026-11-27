@@ -1,5 +1,5 @@
 import type { BotEnvironmentCapacity } from "@1outres/dsh-bot-core"
-import { MEMORY_STEP_MIB, MIN_DISK_GIB, MIN_MEMORY_MIB } from "../capacity-steps"
+import { MEMORY_STEP_MIB, MIN_DISK_GIB, MIN_MEMORY_MIB, workspaceRange } from "../capacity-steps"
 import { GIB, MIB, sizeBytesOf } from "./sizes"
 
 export { MEMORY_STEP_MIB, MIN_DISK_GIB, MIN_MEMORY_MIB }
@@ -13,6 +13,7 @@ export interface CapacityInputs {
   readonly pool: string
   readonly poolBytes: number
   readonly rootDiskGiB: number
+  readonly workspaceGiB: number | undefined
 }
 
 export function capacityOf(inputs: CapacityInputs): BotEnvironmentCapacity {
@@ -39,11 +40,6 @@ export function capacityOf(inputs: CapacityInputs): BotEnvironmentCapacity {
       max: Math.floor(memoryBytes / MIB / MEMORY_STEP_MIB) * MEMORY_STEP_MIB,
       step: MEMORY_STEP_MIB,
     },
-    diskGiB: {
-      min: MIN_DISK_GIB,
-      max: Math.floor(diskBytes / GIB) - inputs.rootDiskGiB,
-      step: 1,
-      growOnly: true,
-    },
+    diskGiB: workspaceRange(Math.floor(diskBytes / GIB) - inputs.rootDiskGiB, inputs.workspaceGiB),
   }
 }

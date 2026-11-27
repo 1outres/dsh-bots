@@ -31,7 +31,7 @@ export type ImageProblemCode =
   | "part-unreachable"
   | "part-mismatch"
   | "image-mismatch"
-  | "incus"
+  | "vm-host"
   | "fingerprint-mismatch"
   | "alias-missing"
   | "files"

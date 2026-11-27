@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Bot VMs",
-    "description": "Gives every bot its own Incus VM, on this machine or a paired VM host chosen in the dsh-bots settings. Bot Agents run commands and edit files inside that VM over SSH, never on the Host. Its workspace is a volume of the VM host."
+    "description": "Gives every bot its own VM (Incus or Proxmox VE), on this machine or a paired VM host chosen in the dsh-bots settings. Bot Agents run commands and edit files inside that VM over SSH, never on the Host. Its workspace is a volume of the VM host."
   }
 }

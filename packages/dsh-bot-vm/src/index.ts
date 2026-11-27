@@ -117,12 +117,17 @@ export const Config: z<Config> = z.object({
     .number()
     .default(8443)
     .description("The HTTPS port a VM host built by dsh-bots gets unless another is chosen."),
-  image: z.string().default("dsh-bot-base").description("Incus image alias bot VMs start from."),
+  image: z
+    .string()
+    .default("dsh-bot-base")
+    .description(
+      "Name of the base image bot VMs start from (an image alias in Incus, a template's name in Proxmox VE).",
+    ),
   manageImage: z
     .boolean()
     .default(true)
     .description(
-      "Import the base image this version names (infra/release.env) into the project and point the alias at it. Off: the alias is used as it is (an image you built).",
+      "Import the base image this version names (infra/release.env) to the VM host and give it the name image. Off: the image of that name is used as it is (one you built).",
     ),
   imageBaseUrl: z
     .string()
@@ -220,7 +225,7 @@ export const Config: z<Config> = z.object({
     .string()
     .default("")
     .description(
-      "Marks the Incus instances this installation creates; others are never touched. Empty: the id stored in <stateDir>/owner, created once.",
+      "Marks the VMs and workspace volumes this installation creates; others are never touched. Empty: the id stored in <stateDir>/owner, created once.",
     ),
 }) as z<Config>
 

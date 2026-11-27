@@ -398,11 +398,20 @@ describe("the Proxmox backend", () => {
       sizeGiB: 4,
     })
     await backend.instances.create(spec("a"))
-    await expect(backend.capacity({ instance: "dsh-bot-b", rootDiskGiB: 16 })).resolves.toEqual({
+    await expect(
+      backend.capacity({ instance: "dsh-bot-b", rootDiskGiB: 16, workspaceGiB: undefined }),
+    ).resolves.toEqual({
       cpus: { min: 1, max: 8, step: 1 },
       memoryMiB: { min: 1024, max: 14336, step: 512 },
       diskGiB: { min: 1, max: 44, step: 1, growOnly: true },
     })
+    await expect(
+      backend.capacity({ instance: "dsh-bot-a", rootDiskGiB: 16, workspaceGiB: 4 }),
+    ).resolves.toMatchObject({ diskGiB: { min: 4, max: 60 + 4, step: 1, growOnly: true } })
+    await backend.instances.remove("dsh-bot-a")
+    await expect(
+      backend.capacity({ instance: "dsh-bot-a", rootDiskGiB: 16, workspaceGiB: 4 }),
+    ).resolves.toMatchObject({ diskGiB: { min: 4, max: 60 + 4 - 16, step: 1, growOnly: true } })
   })
 
   it("reports a running bot VM this installation cannot reach", async () => {

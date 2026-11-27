@@ -873,11 +873,11 @@ export function composeBotPreset(input: BotPresetInput): BotPresetResult {
     environmentGroup(environment, [...environment.rows, ...composed.rows]),
   ])
   if (wrapped !== undefined) {
-    return { ok: false, problem: `the environment "${environment.id}" with the preset: ${wrapped}` }
+    return { ok: false, problem: `the bot's environment with the preset: ${wrapped}` }
   }
   const foreign = foreignPresetProblem(environment.rows, composed.head.id)
   if (foreign !== undefined) {
-    return { ok: false, problem: `the environment "${environment.id}": ${foreign}` }
+    return { ok: false, problem: `the bot's environment: ${foreign}` }
   }
   const revisionToken = seal(revisionOf(composed, environment))
   const preset = withBotCoreRows(composed, environment, botId, revisionToken, input.web)

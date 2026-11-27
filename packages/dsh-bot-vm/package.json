@@ -1,7 +1,7 @@
 {
   "name": "@1outres/dsh-bot-vm",
   "version": "0.4.2",
-  "description": "Runs every bot of DeepSeek Harness in its own Incus VM: bot Agents read, write and execute there over SSH instead of on the Host.",
+  "description": "Runs every bot of DeepSeek Harness in its own VM (Incus or Proxmox VE): bot Agents read, write and execute there over SSH instead of on the Host.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/1outres/dsh-bots.git",

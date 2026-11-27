@@ -73,14 +73,17 @@ export function createProxmoxBackend(options: ProxmoxBackendOptions): VmBackend 
     if (limits === undefined)
       throw new Error(`the pool "${layout.pool}" declares no limits for the bots`)
     if (storage === undefined) throw new Error(`the storage "${layout.storage}" cannot be read`)
-    const othersMemoryBytes = vms
-      .filter((vm) => !vm.template && vm.meta?.kind !== "volumes" && vm.name !== request.instance)
+    const bots = vms.filter((vm) => !vm.template && vm.meta?.kind !== "volumes")
+    const othersMemoryBytes = bots
+      .filter((vm) => vm.name !== request.instance)
       .reduce((sum, vm) => sum + (vm.maxmem ?? 0), 0)
     return proxmoxCapacityOf({
       limits,
       othersMemoryBytes,
       storageAvailBytes: storage.availBytes,
       rootDiskGiB: request.rootDiskGiB,
+      workspaceGiB: request.workspaceGiB,
+      instanceExists: bots.some((vm) => vm.name === request.instance),
     })
   }
 

@@ -13,8 +13,8 @@
 
 - `BotEnvironmentSpec = { cpus, memoryMiB, diskGiB }`（正の整数）。`BotEnvironmentMinimum` はその一部のキー。
 - `BotEnvironmentTarget = { id, name, spec }`（`resources` は消した）。`rows(bot)` は `{ id, name }` を取る（スペックは行に関係しない）。
-- `BotEnvironment.capacity(botId)` → `BotEnvironmentCapacity`（キーごとの `{ min, max, step, growOnly? }`）。Host の実機と、同じ Host の他の環境がすでに取っている分から、ボットごとに環境が決める。bot-core は変える値をこれで検査し、環境は `ensure` で出せないスペック（縮むディスクなど）を断る。
-- `BotEnvironment.inspect(botId)` → 既存の環境が今動いているスペック、無ければ `undefined`。
+- `BotEnvironment.capacity(botId)` → `BotEnvironmentCapacity`（キーごとの `{ min, max, step, growOnly? }`）。Host の実機と、同じ Host の他の環境がすでに取っている分から、ボットごとに環境が決める。bot-core は変える値をこれで検査し、環境は `ensure` で出せないスペックを断る。ディスクは縮めず、スペックより大きいボリュームはそのまま使う（§4）。
+- `BotEnvironment.inspect(botId)` → 既存の環境が今動いているスペック（ディスクはボリュームの今の大きさ）、無ければ `undefined`。
 - `BotConnector.minimumSpec?`（登録時に検査: スペックのキーだけ、正の整数）。`ConnectorDescriptor.minimumSpec`（無ければ `{}`）。
 - `ConnectorSwitchBlock` に `spec`（`{ key, need }`）と `spec-unread` を足した。`BotConnectorsSnapshot.spec` で画面も同じ規則を使う。
 - Remote `botEnvironment`: `watch(botId)` → `BotEnvironmentView`（`spec?`、`capacity`（読めなければ理由）、`needs`（有効なコネクターの最低値）、`application`: `unread` / `applying`（段階）/ `applied` / `failed`）、`configure(botId, spec)`。
@@ -40,10 +40,10 @@
 - 既存の VM（`host/reconfigure.ts`）: 動いている値（`expanded_config` / `expanded_devices`、プロファイル込み。値が無ければ Incus の既定 1 vCPU / 1 GiB）とスペックを比べる。
   - 違えば、動いている VM を停止 → 書く → 起動。
   - 同じで書き方だけ違えば（プロファイルの値で動いている、`4GiB` と `4096MiB`）、停止せずに書く。
-  - ディスクがスペックより大きければ断る（縮められない）。
+  - ワークスペースのボリュームがスペックの `diskGiB` より大きければ、縮めずにそのまま使い、ログに残す（ensure は失敗にしない。ディスクは縮められず、中のファイルを残すため）。`inspect` はボリュームの今の大きさ（GiB の切り捨て）を返し、`capacity` の `diskGiB` は今の大きさを下限（`min`）にし、上限（`max`）も今の大きさを下回らせない。だから画面はそれより小さい値も、今の大きさより小さい上限も見せない。保存されたスペックは書き換えない（bot-core の `adopt` はスペックの無いボットにだけ書く）ので、スペックの値が今の大きさより小さいまま残ることがある。変えなければその値で保存でき（§3 の規則）、ディスクを変えるときは今の大きさ以上を選ぶ。
   - 共有（`raw.idmap`、workspace デバイス）の付け直しによる再起動は今までどおり。
 - 設定の書き込みはインスタンスを読み直して全体を PUT（PATCH は使わない。書ける項目が欠けていたら断る）。
-- 容量（`host/capacity.ts`）: CPU 1〜Host の論理 CPU 数、メモリ 1 GiB〜Host のメモリの 3/4、ただしプロジェクトの `limits.memory`（インスタンスの合計の上限）があれば、そこから他のインスタンスの `limits.memory` を引いた残り以下、を 512 MiB 単位、ディスク 10 GiB〜root のプールの大きさ（増やすだけ）。Incus の `/1.0/resources`、`/1.0/projects/<p>`、`/1.0/profiles/<p>`、`/1.0/storage-pools/<pool>/resources`、`/1.0/instances` から読む。
+- 容量（`host/capacity.ts`）: CPU 1〜Host の論理 CPU 数、メモリ 1 GiB〜Host のメモリの 3/4、ただしプロジェクトの `limits.memory`（インスタンスの合計の上限）があれば、そこから他のインスタンスの `limits.memory` を引いた残り以下、を 512 MiB 単位、ディスク 10 GiB〜root のプールの大きさ（増やすだけ。ボットのボリュームがあれば下限は今の大きさ、上限は今の大きさ以上。§4 の上の項）。Incus の `/1.0/resources`、`/1.0/projects/<p>`、`/1.0/profiles/<p>`、`/1.0/storage-pools/<pool>/resources`、`/1.0/instances` から読む。
 - Incus が変更を断ったとき（プロジェクトの上限など）は、停止した VM を起動し直してから ensure を失敗にする（止まったままにしない）。失敗したボットでスペックを保存し直すと、backoff を待たずにすぐ ensure し直す。
 
 ### 実測（Incus 6.0.4、Debian 13 cloud イメージ由来の dsh-bot-base、btrfs プール）

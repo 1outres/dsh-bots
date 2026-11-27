@@ -62,7 +62,7 @@ export function createImporter(deps: ImporterDeps): Importer {
     fix: string,
   ) => new ImageStepError(step, { code, message, fix })
 
-  async function incusStep<T>(
+  async function hostStep<T>(
     step: ImageImportStep | "check",
     what: string,
     signal: AbortSignal | undefined,
@@ -74,9 +74,9 @@ export function createImporter(deps: ImporterDeps): Importer {
       if (signal?.aborted || error instanceof ImageStepError) throw error
       throw problem(
         step,
-        "incus",
+        "vm-host",
         `the VM host could not ${what}: ${messageOf(error)}`,
-        "check the VM host's connection and the project's settings",
+        "check the VM host's connection and what it lets this installation do",
       )
     }
   }
@@ -364,7 +364,7 @@ export function createImporter(deps: ImporterDeps): Importer {
         }
       }
     }
-    return incusStep("upload", "import the image", signal, async () =>
+    return hostStep("upload", "import the image", signal, async () =>
       (await deps.images()).upload(
         { fingerprint: manifestValue.image.fingerprint, bytes: total, body: body() },
         signal,
@@ -389,14 +389,14 @@ export function createImporter(deps: ImporterDeps): Importer {
   return {
     manifest,
     target: (alias, signal) =>
-      incusStep("check", `read the image alias ${alias}`, signal, async () =>
+      hostStep("check", `read the image alias ${alias}`, signal, async () =>
         (await deps.images()).target(alias, signal),
       ),
     async run(release, manifestValue, alias, progress, signal) {
       const { fingerprint, bytes } = manifestValue.image
       const dir = `${downloadsDir}/${release.manifestSha256}`
       await clearOthers(release.manifestSha256)
-      const present = await incusStep("download", "read the project's images", signal, async () =>
+      const present = await hostStep("download", "read the VM host's images", signal, async () =>
         (await deps.images()).has(fingerprint, signal),
       )
       if (!present) {
@@ -414,7 +414,7 @@ export function createImporter(deps: ImporterDeps): Importer {
         deps.log(`uploading ${manifestValue.image.name} (${gib(bytes)}) to the VM host`)
         const imported = await upload(manifestValue, dir, progress, signal)
         if (imported !== fingerprint) {
-          await incusStep("upload", "delete the unexpected image", undefined, async () =>
+          await hostStep("upload", "delete the unexpected image", undefined, async () =>
             (await deps.images()).discard(imported),
           )
           throw problem(
@@ -424,9 +424,9 @@ export function createImporter(deps: ImporterDeps): Importer {
             "import again; if it persists, report it",
           )
         }
-      } else deps.log(`the project already has the image ${fingerprint}`)
+      } else deps.log(`the VM host already has the image ${fingerprint}`)
       progress("alias", 0, 0)
-      await incusStep("alias", `point the alias ${alias} at ${fingerprint}`, signal, () =>
+      await hostStep("alias", `point the alias ${alias} at ${fingerprint}`, signal, () =>
         pointAlias(alias, fingerprint, signal),
       )
       await files.remove(dir)

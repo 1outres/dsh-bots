@@ -15,7 +15,7 @@ export interface UserDataInput {
 export const BOOT_FINISHED = "/var/lib/cloud/instance/boot-finished"
 
 export const WORKSPACE_MOUNT_OPTIONS =
-  "defaults,x-systemd.makefs,x-systemd.growfs,x-systemd.device-timeout=60s"
+  "defaults,noauto,x-systemd.required-by=local-fs.target,x-systemd.makefs,x-systemd.growfs,x-systemd.device-timeout=60s"
 
 const MOUNT_SCRIPT =
   'systemctl daemon-reload && systemctl start "$(systemd-escape --path --suffix=mount "$1")" && mountpoint -q "$1" && chown "$2:$2" "$1"'

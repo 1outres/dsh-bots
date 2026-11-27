@@ -164,7 +164,7 @@ export function createEnvironmentKeeper(deps: EnvironmentKeeperDeps): Environmen
 
   const preparing = (env: BotEnvironment): EnvironmentStatus => ({
     ready: false,
-    problem: `the bot's environment ("${env.id}") is being prepared`,
+    problem: "the bot's environment is being prepared",
     pending: true,
   })
 
@@ -216,7 +216,7 @@ export function createEnvironmentKeeper(deps: EnvironmentKeeperDeps): Environmen
           entry.controller = undefined
           entry.failures += 1
           const delay = backoff(entry.failures)
-          const problem = `the bot's environment ("${env.id}") could not be prepared: ${describe(error)}`
+          const problem = `the bot's environment could not be prepared: ${describe(error)}`
           if (entry.warned !== problem) {
             entry.warned = problem
             deps.warn(
@@ -273,7 +273,7 @@ export function createEnvironmentKeeper(deps: EnvironmentKeeperDeps): Environmen
           const delay = backoff(failures + 1)
           if (failures === 0) {
             deps.warn(
-              `bot-core: could not remove the environment ("${env.id}") of deleted bot "${botId}"; retrying with backoff: ${describe(error)}`,
+              `bot-core: could not remove the environment of deleted bot "${botId}"; retrying with backoff: ${describe(error)}`,
             )
           }
           removalFailures.set(botId, failures + 1)
@@ -282,7 +282,7 @@ export function createEnvironmentKeeper(deps: EnvironmentKeeperDeps): Environmen
             void remove(botId, failures + 1, true)
           }, delay)
           removals.set(botId, cancel)
-          const problem = `the bot's environment ("${env.id}") could not be removed: ${describe(error)}`
+          const problem = `the bot's environment could not be removed: ${describe(error)}`
           const shown = removalStates.get(botId)
           if (shown?.state !== "failed" || shown.problem !== problem) {
             setRemoval(botId, { state: "failed", problem, at: deps.now() })
