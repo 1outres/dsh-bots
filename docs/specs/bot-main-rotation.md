@@ -33,8 +33,8 @@
 - **アイドル**: Main の Agent が `idle`、inbox（nextTurn / nextStep）が空、Main の interaction（質問・承認・プランレビュー）が
   開いていない、bot-core の入力（チャネルのメッセージ、notice の受け渡し）が途中でない、メンテナンスが走っていない。
   Agent がまだ読み込まれていなければ再開して確かめる。
-- **入力**: bot-core が Main に届けるもの。チャネルのメッセージと notice（connector / schedule / event / heartbeat）。
-  Web UI で Main に直接書いたものは DSH の composer から届くので bot-core は事前に止められない（下の制約）。
+- **入力**: bot-core が Main に届けるもの。チャネルのメッセージ、Web UI の Main の入力欄から書いたもの（docs/specs/bot-main-composer.md）、
+  notice（connector / schedule / event / heartbeat）。どれも入力ゲート（`MainController.admit`）を通る。
 
 ## 2. 設定
 
@@ -126,7 +126,7 @@ type MainRotationOverride = {
 3. 旧 Main を `archiveSession(旧, { stopActivity: true })` でアーカイブする。失敗しても切り替えは済んでいる（警告）。
 4. 活動の記録を新 Main に合わせて空にする。notice の配信を新 Main に対して一度回す。
 5. 新 Main はあいさつせず、ターンも走らせない（深夜に勝手に投稿しないため。新 Main ではモデルも呼ばない。旧 Main の記憶の書き出し（§9）は切り替えの前）。最初の入力までターンの無い
-   未使用の Main のままで、Web UI からはすぐ書ける（「実装で確定したこと」）。
+   未使用の Main のままで、Web UI からはすぐ書ける（「実装で確定したこと」。Main の入力欄は bot-core のもの、docs/specs/bot-main-composer.md）。
    AGENTS.md / SOUL.md はシステムプロンプトに従来どおり入り、notes/ などは必要に応じて自分で読む。旧 Main の要約やメモは渡さない。
 
 ### 切り替えで向き先が変わるもの（`mainSessionOf` などの洗い出し）
@@ -207,8 +207,9 @@ type MainRotationOutcome =
 
 ## 8. 制約
 
-- Web UI で Main に直接書いた入力は「長い無操作のあと」の切り替えの対象にならない（DSH の composer は bot-core を通らず、
-  `agent/inbox/inserted` は止められない通知なので）。その場合は旧 Main で会話が続き、次の判断の機会に他のきっかけで切り替わる。
+- Web UI の Main の入力欄は bot-core の入力欄で、チャネルと同じ入力ゲートを通る（docs/specs/bot-main-composer.md）ので、
+  「長い無操作のあと」の切り替えはチャネルと同じく Web の入力の前にも行われる。DSH の composer で Main に書く道は無い
+  （Main を表示している間は bot-core が `conversation.composer.bar` を持つ）。ただし DSH の QueueDock で待っているメッセージを編集・steer するのは DSH の inbox の操作で、ゲートを通らない。
 - ターン途中に圧迫で走る DSH の自動 compaction（保険）には準備（記憶の書き出し）を挟めない。
 - 待っているコネクターの承認（connector action）は切り替えを止めない（何日も待つことがあるため）。
   決まった結果は notice として新しい Main に届く（notice の本文はそれだけで読める）。
@@ -330,7 +331,8 @@ interface Bot {
 - **既定値**: `quietMinutes` 10、アイドル compaction 50%、毎日 04:00、長い無操作 360 分、compaction 3 回。
 - **heartbeat**（docs/specs/bot-heartbeat.md §9）: heartbeat の notice は入力ゲートを通る普通のターンで、`lastTurnAt` を進める。
   モデルを呼ばずに見送った回は Main に何も送らないので活動に数えず、手入れを妨げない。メンテナンス中の Main は idle でないので、heartbeat は終わるまで待つ。
-- **確認で分かった制約**: Web UI で Main に直接書いた入力は「長い無操作」の対象外（§8）。
+- **確認で分かった制約**: 当初は Web UI で Main に直接書いた入力が DSH の composer から届き「長い無操作」の対象外だった。
+  `feat/main-composer` で Main の入力欄を bot-core のものにし、ゲートを通るようにした（§8、docs/specs/bot-main-composer.md）。
 - **記憶の書き出し**（§9、`feat/main-memory-flush`）:
   - 参加者は bot-core の `host/notes/flush.ts`（`createMemoryFlush`、id `bot-core/memory-flush`、order 0）。ノートの仕組みと同じく
     bot-core の責務なので、別パッケージにしない。`index.ts` が `registerMainPreparation` と同じ登録先に effect で登録する。

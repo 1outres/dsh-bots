@@ -18,6 +18,7 @@ import { createChannelCatalog } from "./host/channels/catalog"
 import { createCommandRunner } from "./host/channels/commands"
 import { busyModeOf, type SettingsForm } from "./host/channels/composer"
 import type { ConversationDeps } from "./host/channels/conversation"
+import type { MainDeliveryDeps } from "./host/channels/delivery"
 import {
   CHANNELS_DOMAIN,
   type ChannelRecord,
@@ -30,7 +31,12 @@ import {
 } from "./host/channels/feed"
 import { createHeldReplies } from "./host/channels/held-replies"
 import { createChannelHub } from "./host/channels/hub"
-import { composePrompt, type ImageLimits, type PromptPart } from "./host/channels/inbound"
+import {
+  composePrompt,
+  type ImageLimits,
+  type PromptPart,
+  planAttachments,
+} from "./host/channels/inbound"
 import { INBOX_DIRECTORY } from "./host/channels/inbox"
 import {
   createShellInboxWriter,
@@ -155,6 +161,8 @@ import { createOwnerApprovals } from "./host/interactions/owner-approval"
 import { createInteractionPanel } from "./host/interactions/panel"
 import { createBotLifecycle } from "./host/lifecycle"
 import { createMainGuard, greetingText, waitForEnvironment } from "./host/main"
+import { createMainInputPanel, webAttachmentCapability } from "./host/main-input/panel"
+import { createInputStaging } from "./host/main-input/staging"
 import { createMainView, type MainImageRef } from "./host/main-view/panel"
 import { createCompactorKeeper } from "./host/mains/compactors"
 import { createMainController } from "./host/mains/controller"
@@ -253,6 +261,7 @@ import {
   BotGroupsRemoteService,
   BotHeartbeatRemoteService,
   BotInteractionsRemoteService,
+  BotMainInputRemoteService,
   BotMainsRemoteService,
   BotMainViewRemoteService,
   BotManagedSessionsRemoteService,
@@ -388,6 +397,7 @@ import { CONNECTION_CALLBACK_PATH, connectionName } from "./shared/connections"
 import type { ConnectorAction } from "./shared/connectors"
 import { sameEnvironmentSpec } from "./shared/environment"
 import type { BotInteraction } from "./shared/interactions"
+import type { MainInputLimits } from "./shared/main-input"
 import { effectiveMainRotation } from "./shared/mains"
 import type { BotManagedSession } from "./shared/managed-sessions"
 import type { BotModelSelection } from "./shared/models"
@@ -528,6 +538,8 @@ const MAX_DELEGATION_DEPTH = 32
 const MAX_SSH_PAYLOAD_BYTES = 32 * 1024 * 1024
 const MAX_CHANNEL_FILE_BYTES = 512 * 1024 * 1024
 const PRESENTED_READ_MS = 60_000
+const MAIN_INPUT_CHUNK_BYTES = 512 * 1024
+const MAIN_INPUT_STAGING_TTL_MS = 60 * 60_000
 const CHANNEL_QUERY_MS = 15_000
 const RELEASES_READ_LIMIT_MS = 20_000
 const RELEASES_RETRY = { firstMs: 60_000, maxMs: 60 * 60_000 } as const
@@ -4341,6 +4353,167 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
     "bot-core: the welcome guide's bot",
   )
 
+  let forms: () => readonly SettingsForm[] = () => []
+  ctx.inject(["settings"], (settingsCtx) => {
+    const service = (settingsCtx as unknown as SettingsServices).settings
+    settingsCtx.effect(() => {
+      forms = () => service.describe()
+      return () => {
+        forms = () => []
+      }
+    }, "bot-core: composer preference")
+  })
+
+  let imageLimits: () => ImageLimits | undefined = () => undefined
+  ctx.inject(["attachments"], (attachmentsCtx) => {
+    const service = (attachmentsCtx as unknown as AttachmentServices).attachments
+    attachmentsCtx.effect(() => {
+      imageLimits = () => service.imageLimits
+      return () => {
+        imageLimits = () => undefined
+      }
+    }, "bot-core: image limits")
+  })
+
+  const mainSessionOf = (botId: string) => table.get(botId)?.mainSessionId
+  const activityOf = (sessionId: string) => host.agents.get(sessionId)?.status ?? "idle"
+  const commands = createCommandRunner({
+    mainSessionOf,
+    agentOf(sessionId) {
+      const agent = host.agents.get(sessionId)
+      if (agent === undefined) return undefined
+      const model = agent.model.current()
+      const queued = [...agent.inbox.nextTurn, ...agent.inbox.nextStep].filter(
+        (message) => message.source.kind === "user",
+      ).length
+      return { activity: agent.status, ...(model === undefined ? {} : { model }), queued }
+    },
+    async cancel(sessionId) {
+      services.sessionController.cancel({ sessionId })
+    },
+    startNew: (botId) => mains.startNew(botId),
+  })
+  const inboundLimits = {
+    imageLimits: () => imageLimits(),
+    limits: config.channels.attachments,
+  }
+  const mainDelivery: MainDeliveryDeps = {
+    shield: async (botId, sessionId, content) => ({
+      ...content,
+      text: await vaultGuard.shield({ botId, sessionId }, "inbound-message", content.text),
+    }),
+    activityOf,
+    busyMode: () => busyModeOf(forms()),
+    compose: (request, signal) =>
+      composePrompt(
+        {
+          ...inboundLimits,
+          inboxOf(botId) {
+            const subprocess = environmentOf(botId)?.subprocess
+            const workspace = environments.current()?.workspace
+            if (subprocess === undefined || workspace === undefined) return undefined
+            return {
+              root: `${workspace}/${INBOX_DIRECTORY}`,
+              writer: createShellInboxWriter(subprocess as EnvironmentWriteSubprocess, workspace),
+            }
+          },
+          encodeBase64: (data) =>
+            Buffer.from(data.buffer, data.byteOffset, data.byteLength).toString("base64"),
+        },
+        {
+          botId: request.botId,
+          source: request.source.id,
+          capability: request.source.attachments,
+          message: request.content,
+          header: request.header,
+        },
+        signal,
+      ),
+    async prompt({ botId, sessionId, content, mode }, signal) {
+      await services.sessionController.prompt(
+        {
+          requestId: randomUUID(),
+          sessionId,
+          mode,
+          content,
+          clientTimeZone: registry.timezoneOf(botId),
+        },
+        signal,
+      )
+    },
+    admit: (botId, work) => mains.admit(botId, work),
+  }
+
+  const mainInputLimits = (): MainInputLimits => {
+    const images = imageLimits()
+    return {
+      maxCount: config.channels.attachments.maxCount,
+      maxFileBytes: config.channels.attachments.maxFileBytes,
+      maxMessageBytes: config.channels.attachments.maxMessageBytes,
+      chunkBytes: MAIN_INPUT_CHUNK_BYTES,
+      ...(images === undefined
+        ? {}
+        : {
+            images: {
+              mediaTypes: [...images.mediaTypes],
+              maxImageBytes: images.maxImageBytes,
+              maxImagesPerMessage: images.maxImagesPerMessage,
+              maxMessageImageBytes: images.maxMessageImageBytes,
+            },
+          }),
+    }
+  }
+  const mainInputStaging = createInputStaging({
+    rules: () => ({
+      ttlMs: MAIN_INPUT_STAGING_TTL_MS,
+      chunkBytes: MAIN_INPUT_CHUNK_BYTES,
+      check(attachments) {
+        const plan = planAttachments(
+          inboundLimits,
+          webAttachmentCapability(mainInputLimits()),
+          attachments,
+        )
+        return plan.ok ? undefined : plan.failure
+      },
+    }),
+    now: Date.now,
+    newId: () => `stage-${randomUUID()}`,
+  })
+  const mainInputChanges = new Set<() => void>()
+  const publishMainInput = () => {
+    for (const listener of [...mainInputChanges]) listener()
+  }
+  events.on("agent/status", ({ agent }: { agent: { id: string } }) => {
+    for (const [, record] of table.entries()) {
+      if (record.mainSessionId === agent.id) {
+        publishMainInput()
+        return
+      }
+    }
+  })
+  ctx.effect(() => registry.subscribe(publishMainInput), "bot-core: Main input of every bot")
+  new BotMainInputRemoteService(
+    ctx,
+    createMainInputPanel({
+      delivery: mainDelivery,
+      staging: mainInputStaging,
+      known: (botId) => registry.get(botId) !== undefined,
+      mainSessionOf,
+      activityOf,
+      limits: mainInputLimits,
+      stop: (botId) => commands.run(botId, "stop"),
+      decodeBase64: (data) => new Uint8Array(Buffer.from(data, "base64")),
+      now: Date.now,
+      signal: unload.signal,
+    }),
+    (listener) => {
+      mainInputChanges.add(listener)
+      return () => {
+        mainInputChanges.delete(listener)
+      }
+    },
+  )
+
   let channelStatus: (botId: string) => readonly BotStatusChannel[] = () => []
   let channelAudiences: (botId: string) => readonly BotChannelAudience[] = () => []
 
@@ -4361,94 +4534,11 @@ export async function apply(ctx: Context, config: BotCoreConfig): Promise<void> 
       warn,
     })
 
-    let forms: () => readonly SettingsForm[] = () => []
-    channelsCtx.inject(["settings"], (settingsCtx) => {
-      const service = (settingsCtx as unknown as SettingsServices).settings
-      settingsCtx.effect(() => {
-        forms = () => service.describe()
-        return () => {
-          forms = () => []
-        }
-      }, "bot-core: composer preference")
-    })
-
-    let imageLimits: () => ImageLimits | undefined = () => undefined
-    channelsCtx.inject(["attachments"], (attachmentsCtx) => {
-      const service = (attachmentsCtx as unknown as AttachmentServices).attachments
-      attachmentsCtx.effect(() => {
-        imageLimits = () => service.imageLimits
-        return () => {
-          imageLimits = () => undefined
-        }
-      }, "bot-core: image limits")
-    })
-
-    const mainSessionOf = (botId: string) => table.get(botId)?.mainSessionId
-    const commands = createCommandRunner({
-      mainSessionOf,
-      agentOf(sessionId) {
-        const agent = host.agents.get(sessionId)
-        if (agent === undefined) return undefined
-        const model = agent.model.current()
-        const queued = [...agent.inbox.nextTurn, ...agent.inbox.nextStep].filter(
-          (message) => message.source.kind === "user",
-        ).length
-        return { activity: agent.status, ...(model === undefined ? {} : { model }), queued }
-      },
-      async cancel(sessionId) {
-        services.sessionController.cancel({ sessionId })
-      },
-      startNew: (botId) => mains.startNew(botId),
-    })
     const conversation: ConversationDeps = {
+      ...mainDelivery,
       mainSessionOf,
-      shield: async (botId, sessionId, message) => ({
-        ...message,
-        text: await vaultGuard.shield({ botId, sessionId }, "inbound-message", message.text),
-      }),
-      activityOf: (sessionId) => host.agents.get(sessionId)?.status ?? "idle",
-      busyMode: () => busyModeOf(forms()),
-      compose: (request, signal) =>
-        composePrompt(
-          {
-            imageLimits: () => imageLimits(),
-            limits: config.channels.attachments,
-            inboxOf(botId) {
-              const subprocess = environmentOf(botId)?.subprocess
-              const workspace = environments.current()?.workspace
-              if (subprocess === undefined || workspace === undefined) return undefined
-              return {
-                root: `${workspace}/${INBOX_DIRECTORY}`,
-                writer: createShellInboxWriter(subprocess as EnvironmentWriteSubprocess, workspace),
-              }
-            },
-            encodeBase64: (data) =>
-              Buffer.from(data.buffer, data.byteOffset, data.byteLength).toString("base64"),
-          },
-          {
-            botId: request.botId,
-            channelId: request.channelId,
-            capability: request.capabilities.attachments,
-            message: request.message,
-            header: request.header,
-          },
-          signal,
-        ),
-      async prompt({ botId, sessionId, content, mode }, signal) {
-        await services.sessionController.prompt(
-          {
-            requestId: randomUUID(),
-            sessionId,
-            mode,
-            content,
-            clientTimeZone: registry.timezoneOf(botId),
-          },
-          signal,
-        )
-      },
       run: (botId, command) => commands.run(botId, command),
       interactions,
-      admit: (botId, work) => mains.admit(botId, work),
     }
     const presentedReads = new AbortController()
     channelsCtx.effect(() => () => presentedReads.abort(), "bot-core: reads of presented files")

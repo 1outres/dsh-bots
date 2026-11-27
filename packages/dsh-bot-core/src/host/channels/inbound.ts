@@ -28,6 +28,8 @@ export type PromptPart =
       readonly name?: string
     }
 
+export type InboundContent = Pick<BotInboundMessage, "text" | "sentAt" | "attachments">
+
 export interface InboundDeps {
   imageLimits(): ImageLimits | undefined
   readonly limits: AttachmentLimits
@@ -44,14 +46,16 @@ export type ComposedPrompt =
     }
   | { readonly ok: false; readonly failure: BotDeliveryFailure }
 
-interface Planned {
-  readonly attachment: BotInboundAttachment
+export type AttachmentFacts = Pick<BotInboundAttachment, "name" | "mediaType" | "bytes">
+
+interface Planned<A extends AttachmentFacts = BotInboundAttachment> {
+  readonly attachment: A
   readonly image: string | undefined
   readonly limit: number
 }
 
-type Plan =
-  | { readonly ok: true; readonly planned: readonly Planned[] }
+export type AttachmentPlan<A extends AttachmentFacts> =
+  | { readonly ok: true; readonly planned: readonly Planned<A>[] }
   | { readonly ok: false; readonly failure: BotDeliveryFailure }
 
 const refuse = (code: BotDeliveryFailure["code"], message: string) =>
@@ -77,11 +81,11 @@ export function formatBytes(bytes: number): string {
   return `${value.toFixed(value < 10 ? 1 : 0)} ${units[unit]}`
 }
 
-function plan(
-  deps: InboundDeps,
+export function planAttachments<A extends AttachmentFacts>(
+  deps: Pick<InboundDeps, "imageLimits" | "limits">,
   capability: BotAttachmentCapability | undefined,
-  attachments: readonly BotInboundAttachment[],
-): Plan {
+  attachments: readonly A[],
+): AttachmentPlan<A> {
   if (attachments.length === 0) return { ok: true, planned: [] }
   if (capability === undefined)
     return refuse("too-many-attachments", "This channel passes no attachments.")
@@ -91,7 +95,7 @@ function plan(
   }
   const images = deps.imageLimits()
   const imageTypes = new Set(images?.mediaTypes ?? [])
-  const planned = attachments.map((attachment): Planned => {
+  const planned = attachments.map((attachment): Planned<A> => {
     const type = essenceOf(attachment.mediaType)
     const image = type !== undefined && imageTypes.has(type) ? type : undefined
     const limit =
@@ -146,10 +150,10 @@ export async function composePrompt(
   deps: InboundDeps,
   request: {
     readonly botId: string
-    readonly channelId: string
+    readonly source: string
     readonly capability: BotAttachmentCapability | undefined
-    readonly message: BotInboundMessage
-    readonly header: string
+    readonly message: InboundContent
+    readonly header: string | undefined
   },
   signal: AbortSignal,
 ): Promise<ComposedPrompt> {
@@ -158,7 +162,7 @@ export async function composePrompt(
   if (text.length === 0 && message.attachments.length === 0) {
     return refuse("empty", "The message has no text and no attachment.")
   }
-  const outcome = plan(deps, request.capability, message.attachments)
+  const outcome = planAttachments(deps, request.capability, message.attachments)
   if (!outcome.ok) return outcome
   const { planned } = outcome
   const files = planned.filter((entry) => entry.image === undefined)
@@ -182,7 +186,7 @@ export async function composePrompt(
       )
     }
   }
-  const actual = plan(
+  const actual = planAttachments(
     deps,
     request.capability,
     planned.map((entry) => ({
@@ -198,7 +202,7 @@ export async function composePrompt(
     try {
       const folder = await inbox.writer.createFolder(
         inbox.root,
-        inboxFolderName(message.sentAt, request.channelId),
+        inboxFolderName(message.sentAt, request.source),
         signal,
       )
       for (const [index, entry] of files.entries()) {
@@ -232,11 +236,14 @@ export async function composePrompt(
           },
         ],
   )
+  const lines = [request.header, body].filter(
+    (part): part is string => part !== undefined && part.length > 0,
+  )
   return {
     ok: true,
     content: [
       ...images,
-      { type: "text", text: body.length === 0 ? request.header : `${request.header}\n${body}` },
+      ...(lines.length === 0 ? [] : [{ type: "text", text: lines.join("\n") } as const]),
     ],
     images: images.length,
     saved: saved.map((file) => file.path),

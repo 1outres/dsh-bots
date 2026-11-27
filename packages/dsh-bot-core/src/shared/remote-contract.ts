@@ -7,6 +7,7 @@ import type { BotEnvironmentHostApi } from "./environment-host"
 import type { BotFilesApi } from "./files-api"
 import type { BotHeartbeatApi } from "./heartbeat"
 import type { BotInteractionsApi } from "./interactions"
+import type { BotMainInputApi } from "./main-input"
 import type { BotMainViewApi } from "./main-view"
 import type { BotMainsApi } from "./mains"
 import type { BotManagedSessionsApi } from "./managed-sessions"
@@ -40,6 +41,7 @@ export interface BotCoreApi {
   readonly botMains: BotMainsApi
   readonly botHeartbeat: BotHeartbeatApi
   readonly botMainView: BotMainViewApi
+  readonly botMainInput: BotMainInputApi
   readonly botSkills: BotSkillsApi
   readonly botSettings: BotSettingsApi
   readonly botNotes: BotNotesApi
@@ -69,6 +71,7 @@ export const REMOTE_NAMESPACES = [
   "botMains",
   "botHeartbeat",
   "botMainView",
+  "botMainInput",
   "botSkills",
   "botSettings",
   "botNotes",
@@ -222,6 +225,21 @@ export const REMOTE_METHODS: {
       parameters: [{ name: "botId" }, { name: "sessionId" }, { name: "attachmentId" }],
       cancellable: true,
     },
+  },
+  botMainInput: {
+    watch: { parameters: [{ name: "botId" }], stream: true, cancellable: true },
+    stage: { parameters: [{ name: "botId" }, { name: "request" }] },
+    append: {
+      parameters: [
+        { name: "botId" },
+        { name: "attachmentId" },
+        { name: "offset" },
+        { name: "data" },
+      ],
+    },
+    discard: { parameters: [{ name: "botId" }, { name: "attachmentId" }] },
+    send: { parameters: [{ name: "botId" }, { name: "submission" }] },
+    stop: { parameters: [{ name: "botId" }] },
   },
   botSkills: {
     watch: { parameters: [{ name: "botId" }], stream: true, cancellable: true },

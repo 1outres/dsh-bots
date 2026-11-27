@@ -32,12 +32,12 @@ function setup(capabilities: BotChannelCapabilities = CAPABILITIES) {
     mainSessionOf: (botId) => mains[botId],
     activityOf: (sessionId) => activity[sessionId] ?? "idle",
     busyMode: () => busy,
-    async compose({ message, header }) {
-      headers.push(header)
+    async compose({ content, header }) {
+      headers.push(header ?? "")
       return (
         composed ?? {
           ok: true,
-          content: [{ type: "text", text: message.text }],
+          content: [{ type: "text", text: content.text }],
           images: 0,
           saved: [],
         }

@@ -49,6 +49,7 @@ import { wireGroups } from "./wiring/groups"
 import { wireHeartbeat } from "./wiring/heartbeat"
 import { wireInteractions } from "./wiring/interactions"
 import { createProgressView, wireLifecycle } from "./wiring/lifecycle"
+import { wireMainComposer } from "./wiring/main-composer"
 import { wireMainView } from "./wiring/main-view"
 import { wireMains } from "./wiring/mains"
 import { wireNotes } from "./wiring/notes"
@@ -178,7 +179,12 @@ export function apply(ctx: ClientContext): void {
   const spaces = wireSpaces(ctx, { remote, bots, screens })
   const face = createBotsFace(ctx, {
     bots,
-    registrations: { shell, rightbar, ...wireComposerSeats(ctx, classification.occupies) },
+    registrations: {
+      shell,
+      rightbar,
+      mainComposer: wireMainComposer(ctx, { remote, bots, binding: classification.binding }),
+      ...wireComposerSeats(ctx, classification.occupies),
+    },
     actions,
     dialogs,
     screens,

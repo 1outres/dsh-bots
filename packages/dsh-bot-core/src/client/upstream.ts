@@ -42,8 +42,8 @@ export const UPSTREAM_FILES: readonly UpstreamFile[] = [
     path: "src/client/skeleton/ConversationContent.tsx",
     sha256: "7186bfddd4247173db76f407526f63bd206e383a8b257ab9e3347be2de57e93e",
     reason:
-      "content Factory markup (data-conversation-scroll, data-composer-seat, hero composer) and its views/widthControls positions",
-    reliedOnBy: "styles-shell.ts, shell/BotSessionShell.tsx",
+      "content Factory markup (data-conversation-scroll, data-composer-seat, hero composer) and its views/widthControls positions; conversation.composer.bar rendered under conversation.input.dock with its owner props (disabled, blocked, placeholder), hidden under an elected conversation.composer entry",
+    reliedOnBy: "styles-shell.ts, shell/BotSessionShell.tsx, wiring/main-composer.ts",
   },
   {
     package: "@deepseek-ai/dsh-client-ui-conversation",
@@ -57,24 +57,32 @@ export const UPSTREAM_FILES: readonly UpstreamFile[] = [
     path: "src/client/apply.ts",
     sha256: "e7e605c7b5a1ea5383236397ac39d3d2cf4f5214028b7bde35a711cdf50f6540",
     reason:
-      "ConversationRoot registered in main.conversation at the default priority, declaring conversation.header; the conversation.content Factory",
-    reliedOnBy: "wiring/shell.ts, slot-priority.ts",
+      "ConversationRoot registered in main.conversation at the default priority, declaring conversation.header; the conversation.content Factory; InputBar registered in the single session-maybe conversation.composer.bar at the default priority",
+    reliedOnBy: "wiring/shell.ts, slot-priority.ts, wiring/main-composer.ts",
   },
   {
     package: "@deepseek-ai/dsh-client-ui-conversation",
     path: "src/client/contract/slots.ts",
     sha256: "6f193dc25809173d1047ac2ca7c4abff7a49f355c17467234addf2bd1ea55da4",
     reason:
-      "main.conversation and conversation.content props; conversation.input.model and conversation.input.permission, the composer's single session-scoped model and permission seats",
-    reliedOnBy: "dsh/conversation.ts, shell/BotSessionShell.tsx, wiring/composer-seats.ts",
+      "main.conversation and conversation.content props; conversation.input.model and conversation.input.permission, the composer's single session-scoped model and permission seats; ComposerBarOwnerProps",
+    reliedOnBy:
+      "dsh/conversation.ts, shell/BotSessionShell.tsx, wiring/composer-seats.ts, main-input/MainComposer.tsx",
   },
   {
     package: "@deepseek-ai/dsh-client-ui-conversation",
     path: "src/client/skeleton/InputBar.tsx",
     sha256: "6832d81a8c45e515a41a0ef481b70441f433f26d1e858ac2647ab5dd8adb52a7",
     reason:
-      "the composer tool row renders the conversation.input.model and conversation.input.permission seats (and nothing in their place when they are empty)",
-    reliedOnBy: "wiring/composer-seats.ts",
+      "the composer tool row renders the conversation.input.model and conversation.input.permission seats (and nothing in their place when they are empty); the stats dock, ContextMeter and conversation.input.overlay (/ and @ menus) live inside this bar, so replacing the bar removes them; its card markup is what main-input/MainComposer.tsx draws again",
+    reliedOnBy: "wiring/composer-seats.ts, main-input/MainComposer.tsx, styles-main-composer.ts",
+  },
+  {
+    package: "@deepseek-ai/dsh-client-ui-conversation",
+    path: "src/client/skeleton/InputBar.module.css",
+    sha256: "31528d1dfe9d4dc7b214f9b2bfcff82cb1b51f77dd1516f58fe4cce247ebe360",
+    reason: "the composer card's measures and tokens (card, input, row, add and primary buttons)",
+    reliedOnBy: "styles-main-composer.ts",
   },
   {
     package: "@deepseek-ai/dsh-client-ui-model-selection",

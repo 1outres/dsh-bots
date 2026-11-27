@@ -6,6 +6,7 @@ export const SLOT = {
   mainConversation: "main.conversation",
   conversationSession: "conversation.session",
   conversationComposer: "conversation.composer",
+  composerBar: "conversation.composer.bar",
   inputModel: "conversation.input.model",
   inputPermission: "conversation.input.permission",
   sessionHeaderCorner: "conversation.session.header.corner",

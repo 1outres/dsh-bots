@@ -9,6 +9,7 @@ import { FILES_CSS } from "./styles-files"
 import { GROUPS_CSS } from "./styles-groups"
 import { INTERACTIONS_CSS } from "./styles-interactions"
 import { LIFECYCLE_CSS } from "./styles-lifecycle"
+import { MAIN_COMPOSER_CSS } from "./styles-main-composer"
 import { MAIN_VIEW_CSS } from "./styles-main-view"
 import { NOTES_CSS } from "./styles-notes"
 import { ONBOARDING_CSS } from "./styles-onboarding"
@@ -29,6 +30,7 @@ export const BOTS_CSS =
   ACTIONS_CSS +
   SHELL_CSS +
   MAIN_VIEW_CSS +
+  MAIN_COMPOSER_CSS +
   FILES_CSS +
   NOTES_CSS +
   CONNECTOR_PANELS_CSS +

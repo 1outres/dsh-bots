@@ -29,6 +29,7 @@ function props(state: BotsState, shell = IDLE, rightbar = IDLE, scene: Scene = {
     registrations: {
       shell: value(shell),
       rightbar: value(rightbar),
+      mainComposer: value(IDLE),
       modelSeat: value(IDLE),
       permissionSeat: value(IDLE),
     },

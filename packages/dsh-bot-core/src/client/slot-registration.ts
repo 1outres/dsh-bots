@@ -6,7 +6,12 @@ export const COMPOSER_SEATS = ["modelSeat", "permissionSeat"] as const
 
 export type ComposerSeat = (typeof COMPOSER_SEATS)[number]
 
-export const REGISTRATION_TARGETS = ["shell", "rightbar", ...COMPOSER_SEATS] as const
+export const REGISTRATION_TARGETS = [
+  "shell",
+  "rightbar",
+  "mainComposer",
+  ...COMPOSER_SEATS,
+] as const
 
 export type RegistrationTarget = (typeof REGISTRATION_TARGETS)[number]
 

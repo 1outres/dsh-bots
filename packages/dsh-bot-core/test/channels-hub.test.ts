@@ -92,10 +92,10 @@ function setup() {
     mainSessionOf: (botId) => (botId === "a" ? "main-a" : undefined),
     activityOf: () => "idle",
     busyMode: () => "queue",
-    async compose({ message, header }) {
+    async compose({ content, header }) {
       return {
         ok: true,
-        content: [{ type: "text", text: `${header}\n${message.text}` }],
+        content: [{ type: "text", text: `${header}\n${content.text}` }],
         images: 0,
         saved: [],
       }

@@ -162,6 +162,7 @@ function BotsStatus({ t, state }: { t: Translate; state: BotsState }) {
 const REFUSED_KEYS: { readonly [Target in RegistrationTarget]: MessageKey } = {
   shell: "registration.refused.shell",
   rightbar: "registration.refused.rightbar",
+  mainComposer: "registration.refused.mainComposer",
   modelSeat: "registration.refused.modelSeat",
   permissionSeat: "registration.refused.permissionSeat",
 }

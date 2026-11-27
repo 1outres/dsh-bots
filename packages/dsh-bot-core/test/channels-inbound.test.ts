@@ -65,7 +65,7 @@ function setup(
       deps,
       {
         botId: "a",
-        channelId: "chat",
+        source: "chat",
         capability: channel.capability,
         message: inboundMessage(text, { sentAt: Date.UTC(2026, 10, 23, 4, 45, 9), attachments }),
         header: HEADER,

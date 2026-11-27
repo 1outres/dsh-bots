@@ -18,6 +18,7 @@ import type { BotEnvironmentHostApi, BotEnvironmentHostState } from "../shared/e
 import type { BotFilesApi } from "../shared/files-api"
 import type { BotHeartbeatApi, BotHeartbeatView } from "../shared/heartbeat"
 import type { BotInteractionsApi, BotInteractionsSnapshot } from "../shared/interactions"
+import type { BotMainInputApi, MainInputState } from "../shared/main-input"
 import type { BotMainViewApi, MainTimelineFrame } from "../shared/main-view"
 import type { BotMainsApi, BotMainsView, MainRotationSettings } from "../shared/mains"
 import type { BotManagedSessionsApi, BotManagedSessionsSnapshot } from "../shared/managed-sessions"
@@ -123,6 +124,10 @@ export interface BotMainViewRemote extends Remoted<Omit<BotMainViewApi, "watch">
   watch(botId: string): StreamHandle<MainTimelineFrame>
 }
 
+export interface BotMainInputRemote extends Remoted<Omit<BotMainInputApi, "watch">> {
+  watch(botId: string): StreamHandle<MainInputState>
+}
+
 export interface BotSkillsRemote extends Remoted<Omit<BotSkillsApi, "watch">> {
   watch(botId: string): StreamHandle<BotSkillsView>
 }
@@ -182,6 +187,7 @@ export interface BotCoreRemote {
   readonly botMains: BotMainsRemote
   readonly botHeartbeat: BotHeartbeatRemote
   readonly botMainView: BotMainViewRemote
+  readonly botMainInput: BotMainInputRemote
   readonly botSkills: BotSkillsRemote
   readonly botSettings: BotSettingsRemote
   readonly botNotes: BotNotesRemote

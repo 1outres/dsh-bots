@@ -51,7 +51,10 @@ export function personTextOf(text: string): PersonText {
   const newline = text.indexOf("\n")
   const first = newline === -1 ? text : text.slice(0, newline)
   const author = authorOf(first)
-  if (author === undefined) return { author: WEB, text: text.trim(), saved: [] }
-  const body = savedFiles(newline === -1 ? "" : text.slice(newline + 1))
+  const body =
+    author === undefined
+      ? savedFiles(text)
+      : savedFiles(newline === -1 ? "" : text.slice(newline + 1))
+  if (author === undefined) return { author: WEB, text: body.text.trim(), saved: body.saved }
   return { author, text: body.text.trim(), saved: body.saved }
 }

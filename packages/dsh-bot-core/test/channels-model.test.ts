@@ -39,6 +39,7 @@ function mounted(botChannels: Partial<BotChannelsRemote>): Promise<RemoteMount> 
       botMains: {} as never,
       botHeartbeat: {} as never,
       botMainView: {} as never,
+      botMainInput: {} as never,
       botSkills: {} as never,
       botSettings: {} as never,
       botNotes: {} as never,

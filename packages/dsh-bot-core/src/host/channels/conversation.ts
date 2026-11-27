@@ -4,43 +4,19 @@ import type {
   BotChannelCapabilities,
   BotCommandId,
   BotCommandOutcome,
-  BotDeliveryMode,
   BotDeliveryResult,
   BotInboundMessage,
   BotInteractionAnswer,
 } from "../../channel-contract"
 import type { InteractionBoard } from "../interactions/board"
 import { BOT_COMMANDS } from "./capabilities"
+import { deliverToMain, type MainDeliveryDeps } from "./delivery"
 import { messageHeader } from "./header"
-import type { ComposedPrompt, PromptPart } from "./inbound"
 
-export interface ConversationDeps {
+export interface ConversationDeps extends MainDeliveryDeps {
   mainSessionOf(botId: string): string | undefined
-  activityOf(sessionId: string): BotActivity
-  busyMode(): BotDeliveryMode
-  compose(
-    request: {
-      readonly botId: string
-      readonly channelId: string
-      readonly capabilities: BotChannelCapabilities
-      readonly message: BotInboundMessage
-      readonly header: string
-    },
-    signal: AbortSignal,
-  ): Promise<ComposedPrompt>
-  prompt(
-    request: {
-      botId: string
-      sessionId: string
-      content: readonly PromptPart[]
-      mode: BotDeliveryMode
-    },
-    signal: AbortSignal,
-  ): Promise<void>
   run(botId: string, command: BotCommandId): Promise<BotCommandOutcome>
   interactions: Pick<InteractionBoard, "answer" | "hold">
-  admit<T>(botId: string, work: (sessionId: string | undefined) => Promise<T>): Promise<T>
-  shield(botId: string, sessionId: string, message: BotInboundMessage): Promise<BotInboundMessage>
 }
 
 export interface MainConversation {
@@ -51,7 +27,6 @@ export interface MainConversation {
   activity(): BotActivity
 }
 
-const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
 const CLOSED = "The connection is closing."
 
 export function openMainConversation(
@@ -66,52 +41,16 @@ export function openMainConversation(
 ): MainConversation {
   const { botId, capabilities, owners } = target
   const channelId = target.channel.id
-  const deliverTo = async (
-    sessionId: string | undefined,
-    message: BotInboundMessage,
-  ): Promise<BotDeliveryResult> => {
-    if (signal.aborted) return { delivered: false, failure: { code: "closed", message: CLOSED } }
-    if (sessionId === undefined) {
-      return {
-        delivered: false,
-        failure: { code: "no-main-session", message: "The bot has no Main session yet." },
-      }
-    }
-    const shielded = await deps.shield(botId, sessionId, message)
-    let composed: ComposedPrompt
-    try {
+  const source = { id: channelId, attachments: capabilities.attachments }
+  return {
+    deliver(message) {
       const header = messageHeader({
         channel: target.channel.name,
         place: message.place,
         sender: message.sender,
         owner: owners.has(message.sender.id),
       })
-      composed = await deps.compose(
-        { botId, channelId, capabilities, message: shielded, header },
-        signal,
-      )
-    } catch (error) {
-      if (signal.aborted) return { delivered: false, failure: { code: "closed", message: CLOSED } }
-      throw error
-    }
-    if (!composed.ok) return { delivered: false, failure: composed.failure }
-    const mode: BotDeliveryMode =
-      deps.activityOf(sessionId) === "running" ? deps.busyMode() : "queue"
-    try {
-      await deps.prompt({ botId, sessionId, content: composed.content, mode }, signal)
-    } catch (error) {
-      if (signal.aborted) return { delivered: false, failure: { code: "closed", message: CLOSED } }
-      return { delivered: false, failure: { code: "rejected", message: messageOf(error) } }
-    }
-    return {
-      delivered: true,
-      receipt: { sessionId, mode, images: composed.images, saved: composed.saved },
-    }
-  }
-  return {
-    async deliver(message) {
-      if (signal.aborted) return { delivered: false, failure: { code: "closed", message: CLOSED } }
-      return deps.admit(botId, (sessionId) => deliverTo(sessionId, message))
+      return deliverToMain(deps, { botId, source, header, content: message }, signal)
     },
     async run(command, person) {
       if (signal.aborted) return { ok: false, message: CLOSED }

@@ -79,6 +79,16 @@ import type {
   BotInteractionsSnapshot,
 } from "../shared/interactions"
 import type {
+  BotMainInputApi,
+  MainAppendResult,
+  MainInputState,
+  MainInputSubmission,
+  MainSendResult,
+  MainStageRequest,
+  MainStageResult,
+  MainStopResult,
+} from "../shared/main-input"
+import type {
   BotMainViewApi,
   MainTimelineCursor,
   MainTimelineFrame,
@@ -201,6 +211,7 @@ import type { BotFiles } from "./files"
 import type { HeartbeatPanel } from "./heartbeat/panel"
 import type { InteractionPanel } from "./interactions/panel"
 import type { BotLifecycle } from "./lifecycle"
+import type { MainInputPanel } from "./main-input/panel"
 import type { MainView } from "./main-view/panel"
 import type { MainPanel } from "./mains/panel"
 import type { ManagedPanel } from "./managed/panel"
@@ -943,6 +954,72 @@ export class BotMainViewRemoteService extends TypertRemoteService implements Bot
   }
 }
 
+export const BOT_MAIN_INPUT_REMOTE = "botMainInput" satisfies RemoteNamespace
+
+const MAIN_INPUT = Symbol("botMainInput")
+const MAIN_INPUT_CHANGES = Symbol("botMainInputChanges")
+
+export class BotMainInputRemoteService extends TypertRemoteService implements BotMainInputApi {
+  [MAIN_INPUT]: MainInputPanel;
+  [MAIN_INPUT_CHANGES]: (listener: () => void) => () => void
+
+  constructor(
+    ctx: Context,
+    panel: MainInputPanel,
+    subscribe: (listener: () => void) => () => void,
+  ) {
+    super(ctx, BOT_MAIN_INPUT_REMOTE)
+    this[MAIN_INPUT] = panel
+    this[MAIN_INPUT_CHANGES] = subscribe
+  }
+
+  @Remote({ mode: "stream" })
+  async *watch(botId: string, signal?: AbortSignal): AsyncIterable<MainInputState> {
+    const panel = this[MAIN_INPUT]
+    const caller = this.ctx.invocation?.peer.principal
+    panel.state(caller, botId)
+    yield* watchStream(() => panel.state(caller, botId), this[MAIN_INPUT_CHANGES], signal)
+  }
+
+  @Remote
+  async stage(botId: string, request: MainStageRequest): Promise<MainStageResult> {
+    return this[MAIN_INPUT].stage(this.ctx.invocation?.peer.principal, botId, request)
+  }
+
+  @Remote
+  async append(
+    botId: string,
+    attachmentId: string,
+    offset: number,
+    data: string,
+  ): Promise<MainAppendResult> {
+    return this[MAIN_INPUT].append(
+      this.ctx.invocation?.peer.principal,
+      botId,
+      attachmentId,
+      offset,
+      data,
+    )
+  }
+
+  @Remote
+  async discard(botId: string, attachmentId: string): Promise<{ readonly discarded: boolean }> {
+    return {
+      discarded: this[MAIN_INPUT].discard(this.ctx.invocation?.peer.principal, botId, attachmentId),
+    }
+  }
+
+  @Remote
+  send(botId: string, submission: MainInputSubmission): Promise<MainSendResult> {
+    return this[MAIN_INPUT].send(this.ctx.invocation?.peer.principal, botId, submission)
+  }
+
+  @Remote
+  stop(botId: string): Promise<MainStopResult> {
+    return this[MAIN_INPUT].stop(this.ctx.invocation?.peer.principal, botId)
+  }
+}
+
 export const BOT_SKILLS_REMOTE = "botSkills" satisfies RemoteNamespace
 
 const SKILLS = Symbol("botSkillPanel")
@@ -1599,6 +1676,7 @@ export const REMOTE_SERVICES = {
   botMains: BotMainsRemoteService,
   botHeartbeat: BotHeartbeatRemoteService,
   botMainView: BotMainViewRemoteService,
+  botMainInput: BotMainInputRemoteService,
   botSkills: BotSkillsRemoteService,
   botSettings: BotSettingsRemoteService,
   botNotes: BotNotesRemoteService,

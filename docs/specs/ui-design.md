@@ -88,6 +88,7 @@ Sections: **Web lookup**, **VM host**, **Accounts** (and the others features reg
 - **Panels** (Files, Notes, Actions, Session log, connector panels): when the conversation column would get narrower than 640px, the panel overlays the conversation from the right instead of pushing it. ≤ 640px: full-screen sheet; the menu bar folds into a header menu button.
 - **Interaction composer** (questions, approvals, plan reviews): keeps the composer seat but uses the composer's own width formula and DSH's QuestionComposer look (no border, radius-xl, input-major fill, panel elevation, eyebrow 11px → title 16px / 500, max-height `min(60vh, 520px)`) and gains a minimise button.
 - **Composer:** DSH's model seat (`conversation.input.model`) and permission seat (`conversation.input.permission`) are empty on a bot session; a bot's models are its settings and its permission is fixed.
+- **Main composer** (docs/specs/bot-main-composer.md): on the current Main the whole composer bar is bot-core's. It draws DSH's composer card again (`InputBar.module.css` measures: card max width, input-major fill, panel radius, soft elevation, 14/24 text, the 28px add circle at the left, the 34px info-fill send circle at the right that turns into Stop while the bot runs with an empty draft). No stats row, no context meter, no `/` or `@` menu, no model or permission seat. Attachments sit above the text: images as 56px thumbnails, files as name chips, with progress, a red outline when failed and ×. An error is one line above the card with ×.
 
 ## Dialogs and sidebar
 
