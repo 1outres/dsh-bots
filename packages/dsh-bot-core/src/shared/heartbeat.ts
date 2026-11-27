@@ -14,7 +14,7 @@ export interface HeartbeatSettings {
 export const MIN_HEARTBEAT_MINUTES = 5
 export const MAX_HEARTBEAT_MINUTES = 1440
 
-export const DEFAULT_HEARTBEAT: HeartbeatSettings = { enabled: true, intervalMinutes: 30 }
+export const DEFAULT_HEARTBEAT: HeartbeatSettings = { enabled: true, intervalMinutes: 180 }
 
 export const HEARTBEAT_OUTCOMES = ["sent", "nothing", "outside-hours"] as const
 

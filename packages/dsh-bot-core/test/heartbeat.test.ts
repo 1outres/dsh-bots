@@ -117,7 +117,7 @@ describe("nextBeatAt", () => {
 
 describe("heartbeat settings", () => {
   it("parses and refuses settings", () => {
-    expect(parseHeartbeatSettings({ enabled: true, intervalMinutes: 30 })).toEqual(
+    expect(parseHeartbeatSettings({ enabled: true, intervalMinutes: 180 })).toEqual(
       DEFAULT_HEARTBEAT,
     )
     expect(
@@ -182,7 +182,7 @@ describe("heartbeat settings", () => {
     const entries = await area.entries("a", new AbortController().signal)
     expect(entries.map((entry) => [entry.key, entry.value.raw, entry.change])).toEqual([
       ["enabled", true, "free"],
-      ["intervalMinutes", 30, "free"],
+      ["intervalMinutes", 180, "free"],
       ["activeHours", "", "free"],
     ])
     expect(await area.apply("a", [{ key: "activeHours", value: "08:00-20:00" }])).toEqual({
@@ -190,14 +190,14 @@ describe("heartbeat settings", () => {
     })
     expect(store.get("a")).toEqual({
       enabled: true,
-      intervalMinutes: 30,
+      intervalMinutes: 180,
       activeHours: { start: "08:00", end: "20:00" },
     })
     expect(await area.apply("a", [{ key: "intervalMinutes", value: 2 }])).toMatchObject({
       applied: false,
     })
     expect(await area.apply("a", [{ key: "activeHours", value: "" }])).toEqual({ applied: true })
-    expect(store.get("a")).toEqual({ enabled: true, intervalMinutes: 30 })
+    expect(store.get("a")).toEqual({ enabled: true, intervalMinutes: 180 })
     expect(await area.apply("a", [{ key: "colour", value: "red" }])).toMatchObject({
       applied: false,
     })
@@ -359,7 +359,7 @@ function rig(options: { readonly start?: number } = {}) {
   const time = clock(options.start ?? at("2026-11-26T09:10:00+09:00"))
   const state = {
     idle: true,
-    settings: DEFAULT_HEARTBEAT as HeartbeatSettings,
+    settings: { enabled: true, intervalMinutes: 30 } as HeartbeatSettings,
     waiting: [] as HeartbeatWaiting[],
     file: { kind: "absent" } as HeartbeatFileRead,
     reads: 0,

@@ -45,7 +45,7 @@ interface HeartbeatActiveHours {
 
 interface HeartbeatSettings {
   readonly enabled: boolean // 既定 true
-  readonly intervalMinutes: number // 既定 30、5–1440（最短は schedule の every と同じ 5 分）
+  readonly intervalMinutes: number // 既定 180（3 時間）、5–1440（最短は schedule の every と同じ 5 分）
   readonly activeHours?: HeartbeatActiveHours // 無い = 一日中
 }
 ```
