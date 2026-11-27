@@ -979,6 +979,32 @@ cwd（`<stateDir>/setup/jobs/<id>/`）には `log.txt` と、メッセージと�
 | ファイアウォール         | VM の egress を ACL と同じに絞る方法（Proxmox の VM のファイアウォール、データセンターの設定が要るか）。宣言と実測（実測はゲストの SSH で行うので `GuestRoute` があれば足りる、§5.3）                                                                                                                                                                          |
 | 容量                     | `capacity` に使う値（pool の上限、ノードの空き）                                                                                                                                                                                                                                                                                                               |
 
+### 10.1 ベースイメージ（Incus と Proxmox で共通）
+
+ゲストへの経路は VM の IP へ直接 SSH（決定、`dev/proxmox-spike/README.md` §3.2）。VM の IP は qemu-guest-agent の `agent/network-get-interfaces` で読む。イメージは 1 つで、Incus と Proxmox で違うのは cloud-init と VM の設定だけ（`infra/vm/provision-base.sh`、image-20261127 から）。
+
+| もの                                                   | イメージの中                                                                                                                                                                                          | Incus の VM                                                                                                                     | Proxmox の VM                                                                                                                  |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `qemu-guest-agent`                                     | 入っている。Debian の unit は static（`systemctl enable` は効かない）で、udev が virtio-serial の port `org.qemu.guest_agent.0` を見つけたときだけ起動する（`60-qemu-guest-agent.rules`、`BindsTo=`） | Incus はその port を作らないので起動しない（inactive、failed にならない。`check-vm.sh` が failed の unit が無いことを確かめる） | VM の設定に `agent: enabled=1`（PVE が port を作る）                                                                           |
+| `ssh.service` / `ssh.socket`（Debian の sshd、TCP 22） | どちらも mask                                                                                                                                                                                         | mask のまま。TCP で listen しない（`check-vm.sh` が 22 の listen が無いことを確かめる）                                         | cloud-init の `runcmd` で `ssh.service` だけ unmask して有効にする（下）。`ssh.socket` は mask のまま（22 の取り合いを避ける） |
+| `sshd-vsock.socket`（`vsock::22`、enabled）            | 今のまま                                                                                                                                                                                              | 使わない（exec の `sshd -i`、incus-endpoint.md §5.2）                                                                           | 使わない。vsock の device が無い VM での状態は未検証                                                                           |
+
+Proxmox の backend が `cloud-init.ts` の user-data に足すもの（`runcmd` の先頭。ワークスペースの mount が失敗しても SSH で調べられるように）:
+
+```yaml
+runcmd:
+  - [systemctl, unmask, ssh.service]
+  - [systemctl, enable, --now, ssh.service]
+  - [sh, -c, "<MOUNT_SCRIPT>", sh, <workspace>, <user>]
+  - [sync]
+```
+
+- `ssh.service` は Debian の `sshd -D`（`ExecStartPre=sshd -t`）。`sshd_config.d/10-dsh-bot.conf`（鍵だけ、`AllowUsers bot`、`AllowStreamLocalForwarding yes`）がそのまま効く。`enable` は次の起動からも効く。
+- イメージに TCP 用の unit を別に足さない（判断: Debian の unit で足り、Incus の VM との違いを cloud-init の 2 行に閉じられる）。`write_files` の印と unit の `Condition…` で切り替える形もとらない（初回の起動では印が `ssh.service` の起動に間に合う保証が無い）。
+- `ssh.service` はホスト鍵を作らない。ホスト鍵は cloud-init の `ssh_keys`（init の段）が `runcmd`（final の段）より前に書くので、sshd は初めから固定したホスト鍵で答える。
+- 準備の完了は今と同じく SSH で `/var/lib/cloud/instance/boot-finished` を見る（`BOOT_FINISHED`）。
+- 確認済み（2026-11-27、Incus の Debian 13 の VM で同じ mask から）: ed25519 のホスト鍵 1 つで `sshd -t` が通り、`0.0.0.0:22` と `[::]:22` で listen し、`bot` の鍵で入れ、`root` は拒否された。未検証: 実際の PVE での `agent: enabled=1` と `network-get-interfaces`、`runcmd` での listen（入れ子の PVE で Proxmox の backend の担当が確かめる）。
+
 ## 11. 実装の段階（worktree）
 
 | #   | worktree / ブランチ        | 範囲                                                                                                                                                                                                                                                                | 並行                                                                      |

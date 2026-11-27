@@ -1,3 +1,3 @@
-export const IMAGE_TAG = "image-20261124"
-export const MANIFEST_SHA256 = "5fdbfd7a3df5b0f7965973264e4f6907b946eb28940d24e28adb63037a03077d"
+export const IMAGE_TAG = "image-20261127"
+export const MANIFEST_SHA256 = "800fe40ad81aeafc378e3784d13848995e7483b94138353a1a10b4421669dd5e"
 export const DSH_VERSION = "0.2.2-rc.5"

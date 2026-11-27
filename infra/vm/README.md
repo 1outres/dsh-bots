@@ -6,7 +6,7 @@ on a **VM host**: this machine or another one. Either way DSH talks to Incus' HT
 client certificate restricted to one project.
 DSH reaches a VM with SSH carried through Incus' exec API (`sshd -i` in the VM,
 docs/specs/incus-endpoint.md §5.2): there is no network path from the host into
-a VM, and nothing in the VM listens. VMs, not containers: the bot gets its own kernel.
+a VM, and sshd in the VM does not listen on TCP (Proxmox VMs below). VMs, not containers: the bot gets its own kernel.
 
 Users build a VM host from the plugin's settings (dsh-bots settings → VM host → **Build on this
 machine** or **Build on another machine**, [README](../../README.md)): the plugin runs the
@@ -20,7 +20,7 @@ from a checkout (Usage).
 | `host-setup.sh`          | root, idempotent VM host setup in phases: `packages`, `incus` (pool, bridge, ACL, project), `firewall`, `all`, `https`, `token`; `preflight` without root; `--events` for JSON lines (docs/specs/vm-host-modes.md §5.5) |
 | `lib.sh`                 | OS detection, failure report, alias helpers; sources `../release.env`                                                                                                                                                   |
 | `../incus/objects.sh`    | the ACL, bridge, project and trust token, shared with `../incus/create-project.sh`                                                                                                                                      |
-| `check-vm.sh`            | a throw-away VM in the project from its base image: Incus' exec, HTTPS out, the gateway refused                                                                                                                         |
+| `check-vm.sh`            | a throw-away VM in the project from its base image: Incus' exec, HTTPS out, the gateway refused, no TCP sshd, no failed unit                                                                                            |
 | `build-base-image.sh`    | author: builds the base VM image in the project and (re)points its `dsh-bot-base` alias at it                                                                                                                           |
 | `provision-base.sh`      | runs inside the builder VM (called by `build-base-image.sh`)                                                                                                                                                            |
 | `export-image.sh`        | author: splits the image for a GitHub Release, writes `manifest.txt`, sets `IMAGE_TAG` / `IMAGE_MANIFEST_SHA256` in `../release.env` and the plugin                                                                     |
@@ -162,6 +162,30 @@ connector's `vm/mcp/package.json`, `npm-shrinkwrap.json` and `vm/install-mcp.sh`
 and `provision-base.sh` runs that script (`npm ci`) into
 `/opt/dsh-browser/mcp`, as the browser connector's preparation does when the
 installed shrinkwrap differs.
+
+### Proxmox VMs: guest agent and TCP sshd
+
+One image serves Incus and Proxmox VE (docs/specs/vm-host-modes.md §10.1). On Proxmox DSH
+reaches a VM by SSH to its IP, which it reads with the guest agent's `network-get-interfaces`:
+
+- `qemu-guest-agent` is installed. Its unit is static (`systemctl enable` does nothing): udev
+  starts it when the virtio-serial port `org.qemu.guest_agent.0` appears. Incus does not create
+  that port, so on Incus the agent stays inactive (not failed). On Proxmox the VM gets
+  `agent: enabled=1`.
+- Debian's `ssh.service` and `ssh.socket` stay masked in the image, so an Incus VM's sshd does
+  not listen on TCP. A Proxmox VM's cloud-init starts with
+
+  ```yaml
+  runcmd:
+    - [systemctl, unmask, ssh.service]
+    - [systemctl, enable, --now, ssh.service]
+  ```
+
+  (`ssh.socket` stays masked). The same sshd config applies (keys only, `AllowUsers bot`).
+  cloud-init writes the pinned host key (`ssh_keys`) before `runcmd`, so sshd answers with it
+  from the start. The VM's firewall accepts only the DSH host's IP on port 22.
+
+`check-vm.sh` fails if sshd listens on TCP port 22 or a unit failed in an Incus VM.
 
 ### Rebuilding
 

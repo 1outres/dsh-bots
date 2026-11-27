@@ -33,8 +33,7 @@ desktop_packages=$(tr '\n' ' ' <"$DESKTOP_PACKAGES_FILE")
 cleanup
 log "Launching builder VM from $SOURCE"
 incus init -q "${p[@]}" "$SOURCE" "$BUILDER" --vm --no-profiles --storage "$pool" --network "$network" \
-  -c limits.cpu=4 -c limits.memory=4GiB -c security.secureboot=false
-incus config device set "${p[@]}" "$BUILDER" root size=16GiB
+  -d root,size=16GiB -c limits.cpu=4 -c limits.memory=4GiB -c security.secureboot=false
 incus start "${p[@]}" "$BUILDER"
 
 log "Waiting for the incus agent"

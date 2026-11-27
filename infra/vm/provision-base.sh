@@ -17,7 +17,7 @@ apt-get full-upgrade -y -q
 apt-get install -y -q --no-install-recommends \
   openssh-server ca-certificates curl git ripgrep python3 python3-venv \
   build-essential pkg-config make jq less unzip xz-utils zstd file procps \
-  iproute2 netbase locales tzdata sudo
+  iproute2 netbase locales tzdata sudo qemu-guest-agent
 
 apt-get install -y -q --no-install-recommends "${desktop_packages[@]}"
 

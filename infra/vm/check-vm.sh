@@ -22,9 +22,8 @@ trap cleanup EXIT
 cleanup
 
 log "Creating $NAME"
-incus init -q "${p[@]}" "$IMAGE" "$NAME" --vm --no-profiles --storage "$pool" --network "$network" \
+incus init -q "${p[@]}" "$IMAGE" "$NAME" --vm --no-profiles --storage "$pool" --network "$network" -d root,size=16GiB \
   -c limits.cpu=2 -c limits.memory=2GiB -c security.guestapi=false -c security.secureboot=false -c boot.autostart=false
-incus config device set "${p[@]}" "$NAME" root size=16GiB
 incus config device set "${p[@]}" "$NAME" eth0 \
   security.port_isolation=true security.mac_filtering=true security.ipv4_filtering=true
 incus start "${p[@]}" "$NAME" || fail vm-check-failed "The test VM did not start." "See the log; incus info --show-log $NAME --project $PROJECT shows QEMU's output."
@@ -50,4 +49,12 @@ gateway=$(incus exec "${p[@]}" "$NAME" -- sh -c "ip -4 route show default | awk 
 if incus exec "${p[@]}" "$NAME" -- timeout 5 bash -c "exec 3<>/dev/tcp/$gateway/22" >/dev/null 2>&1; then
   fail vm-check-failed "The test VM reached its gateway $gateway on port 22." "Put the egress ACL on $network (host-setup.sh incus does)."
 fi
-note "exec, internet, gateway closed"
+
+log "Checking the guest"
+listening=$(incus exec "${p[@]}" "$NAME" -- ss -Hltn 'sport = :22')
+[[ -z $listening ]] || fail vm-check-failed "sshd listens on TCP port 22 in the test VM: $listening." \
+  "Rebuild the image with provision-base.sh: on Incus sshd is reached only through exec (ssh.service and ssh.socket stay masked)."
+failed=$(incus exec "${p[@]}" "$NAME" -- systemctl list-units --failed --plain --no-legend)
+[[ -z $failed ]] || fail vm-check-failed "Units failed in the test VM: $failed." \
+  "Look at those units in a bot VM (systemctl status <unit>) and fix the image (provision-base.sh)."
+note "exec, internet, gateway closed, no TCP sshd, no failed unit"
