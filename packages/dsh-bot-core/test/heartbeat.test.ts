@@ -262,7 +262,7 @@ describe("decideBeat and the notice", () => {
         "- Then acknowledge every event you looked at with the matching _events_ack tool, the ones you chose to leave alone too: events you do not acknowledge bring the heartbeat back every time.",
         "- Follow HEARTBEAT.md.",
         "- Do not bring back tasks from earlier conversations, and do not invent work.",
-        "- If there is nothing to tell your owner, call stay_silent before you write anything.",
+        "- If there is nothing to tell your owner, end the turn with stay_silent instead of writing anything.",
       ].join("\n"),
     )
     const tasksOnly = heartbeatNotice({

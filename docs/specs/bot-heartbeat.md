@@ -142,7 +142,7 @@ HEARTBEAT.md:
 - Then acknowledge every event you looked at with the matching _events_ack tool, the ones you chose to leave alone too: events you do not acknowledge bring the heartbeat back every time.
 - Follow HEARTBEAT.md above.
 - Do not bring back tasks from earlier conversations, and do not invent work.
-- If there is nothing to tell your owner, call stay_silent before you write anything.
+- If there is nothing to tell your owner, end the turn with stay_silent instead of writing anything.
 ```
 
 - イベントが無い回はイベントの行を、`HEARTBEAT.md` が空の回はファイルの行を出さない。summary（Web UI の 1 行）は `Heartbeat: 4 events waiting` / `Heartbeat: HEARTBEAT.md` / `Heartbeat: 4 events waiting, HEARTBEAT.md`。
@@ -187,4 +187,4 @@ HEARTBEAT.md:
 - **プロンプト**: §11 の Main の文に加え、`## Your environment` の設定の一覧に `heartbeat` を足した。
 - **確かめたこと**（動作確認用の DSH、偽の Google、実際のモデル）: 新しいボットに雛形の `HEARTBEAT.md` が置かれ（`workspaceFiles: 2`）、Gmail をオンにすると届け方は `queue` で保存された。何も無い回はモデルを呼ばずに「やることはありませんでした」になった。メールが 1 通溜まった回は notice（件数だけ）が届き、ボットが `gmail_events_list` で読み、`gmail_events_ack` で ack し、オーナーに伝えた。`HEARTBEAT.md` に確認を書いた回はボットが確かめて `stay_silent` を呼んだ。ファイルを空に戻した後の回はモデルを呼ばなかった。
 - **送信元ポリシーとの確認**（rebase の後、新しいビルドで）: 未登録の送信元が「許可」のうちに届いたメールが送信元つきで `new` として溜まり、その後に「隠す」へ変えると、次の回は数えずにモデルを呼ばなかった（「やることはありませんでした」）。
-- **確かめて分かったこと**: `stay_silent` を呼んだ後のステップでモデルが空の応答を返し、DSH がターンを `EMPTY_RESPONSE` で失敗にすることがあった（claude-subscription のプロバイダ）。heartbeat に限らず `stay_silent` の後の応答の扱いの問題で、チャネルには何も出ない。この作業では直していない。
+- **確かめて分かったこと**: `stay_silent` を呼んだ後のステップでモデルが空の応答を返し、DSH がターンを `EMPTY_RESPONSE` で失敗にすることがあった（claude-subscription のプロバイダ）。heartbeat に限らない `stay_silent` の問題だったので、`stay_silent` の成功がそのターンを終えるようにして直した（docs/specs/bot-schedule.md §1）。§7 の notice の行も「書く代わりに stay_silent でターンを終える」に変えた。

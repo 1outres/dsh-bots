@@ -39,7 +39,7 @@ function instructions(input: HeartbeatNoticeInput): string[] {
         ]),
     ...(input.tasks === undefined ? [] : [`- Follow ${HEARTBEAT_FILE}.`]),
     "- Do not bring back tasks from earlier conversations, and do not invent work.",
-    "- If there is nothing to tell your owner, call stay_silent before you write anything.",
+    "- If there is nothing to tell your owner, end the turn with stay_silent instead of writing anything.",
   ]
 }
 

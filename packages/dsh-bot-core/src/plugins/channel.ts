@@ -10,8 +10,9 @@ export interface Config {
 }
 
 const STAY_SILENT_DESCRIPTION =
-  "Keep the rest of this turn off the chat channels connected to you (such as Discord): " +
-  "text in the same message as this call, and what you write or present after it, stays in your session and is not sent to the user. " +
+  "End this turn without telling the user anything more. " +
+  "Text in the same message as this call stays in your session and is not sent to the chat channels connected to you (such as Discord). " +
+  "The call ends the turn: make it last, once everything else the turn needs is done; other calls in the same message still run. " +
   "Works only in your Main session. " +
   "Text from your earlier messages of the turn has already been delivered and cannot be taken back. " +
   "The next turn is sent as usual."
@@ -61,7 +62,7 @@ export default class BotChannelTools {
               render: () => [
                 {
                   type: "text",
-                  text: "The rest of this turn stays off your chat channels; nothing more of it reaches the user.",
+                  text: "This turn ended here; nothing more of it reached the user.",
                 },
               ],
             },
@@ -69,7 +70,9 @@ export default class BotChannelTools {
               if (exec.agent === undefined) {
                 throw new ToolContextUnavailableError("stay_silent requires the calling Agent")
               }
-              return staySilent(config.botId, config.token, { agentId: exec.agent.id })
+              const silenced = staySilent(config.botId, config.token, { agentId: exec.agent.id })
+              exec.concludeTurn()
+              return silenced
             },
           }),
         ),
