@@ -178,6 +178,7 @@ label の無いセッションは `"<label>" ` を省く。summary（UI の 1 �
 
 ```text
 ## Sessions you manage
+Keep your Main session for the conversation itself. Hand any task that is large or may need trial and error (writing or changing code, debugging, installing or configuring software, research across many sources, anything likely to take more than a few tool calls) to a session of your own with session_start instead of doing it here: a long turn here keeps new messages and notices waiting, and everything you write along the way reaches your chat channels. Do quick things here directly, such as answering from what you know, a single lookup, or reading or editing one file.
 You can run work in sessions of your own with the session_* tools: session_start opens one (target "bot": your own machine and setup) with an instruction that must stand on its own, and you follow it with session_read, session_send and session_answer. Your owner may also hand you one of their sessions to manage. Each ended turn and each question there reaches you as a [session] notice; read the session before you report, and tell your owner only what matters. Your owner sees these sessions in the Web UI and may write or answer in them too. Release a session when its work is done.
 ```
 
@@ -370,3 +371,4 @@ Main はチャネル経由で owners 以外（Discord の allowed users）から
 - **Remote の名前空間**: `botManagedSessions`（`bots` に足さず、専用の面にした。ブラウザは 1 本の `watch` で全ボット分を受け、行の印とメニューに使う）。
 - **source の名前**: Main からのメッセージの source は `bot-main-relay`（main-rotation が Main のメンテナンスのターンに `bot-main` を使うため）。
 - **過去の Main**: 管理の対象にしない（§4）。メニューにも管理の項目を出さない。
+- **Main に任せない作業（2026-11-27）**: 大きい作業や試行錯誤が要る作業は Main でせず session_start で任せる、という段落を `## Sessions you manage` の冒頭に足した。
